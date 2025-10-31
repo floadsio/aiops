@@ -34,6 +34,10 @@ from ..forms.admin import (
     ProjectGitRefreshForm,
     ProjectDeleteForm,
     UpdateApplicationForm,
+    CreateUserForm,
+    UserToggleAdminForm,
+    UserResetPasswordForm,
+    UserDeleteForm,
     SSHKeyForm,
     SSHKeyDeleteForm,
     TenantForm,
@@ -58,6 +62,7 @@ from ..services.tmux_service import (
 )
 from ..services.key_service import compute_fingerprint
 from ..services.update_service import run_update_script, UpdateError
+from ..security import hash_password
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -189,6 +194,7 @@ def _coerce_timestamp(value: Any) -> datetime | None:
 def dashboard():
     tenants = Tenant.query.order_by(Tenant.name).all()
     update_form = UpdateApplicationForm()
+    update_form.next.data = url_for("admin.dashboard")
     projects = (
         Project.query.options(
             selectinload(Project.tenant),
@@ -416,6 +422,52 @@ def dashboard():
     )
 
 
+@admin_bp.route("/settings", methods=["GET", "POST"])
+@admin_required
+def manage_settings():
+    update_form = UpdateApplicationForm()
+    update_form.next.data = url_for("admin.manage_settings")
+
+    create_user_form = CreateUserForm()
+    if create_user_form.submit.data and create_user_form.validate_on_submit():
+        email = create_user_form.email.data.lower()
+        user = User(
+            email=email,
+            name=create_user_form.name.data,
+            password_hash=hash_password(create_user_form.password.data),
+            is_admin=create_user_form.is_admin.data,
+        )
+        db.session.add(user)
+        db.session.commit()
+        status = "Administrator" if user.is_admin else "Standard user"
+        flash(f"Created {status.lower()} account for {user.email}.", "success")
+        return redirect(url_for("admin.manage_settings"))
+    elif create_user_form.submit.data:
+        flash("Unable to create user. Please correct the errors below.", "danger")
+
+    users = User.query.order_by(User.email).all()
+    user_toggle_forms = {
+        user.id: UserToggleAdminForm(user_id=str(user.id)) for user in users
+    }
+    user_reset_forms = {
+        user.id: UserResetPasswordForm(user_id=str(user.id)) for user in users
+    }
+    user_delete_forms = {
+        user.id: UserDeleteForm(user_id=str(user.id)) for user in users
+    }
+
+    return render_template(
+        "admin/settings.html",
+        update_form=update_form,
+        create_user_form=create_user_form,
+        users=users,
+        user_toggle_forms=user_toggle_forms,
+        user_reset_forms=user_reset_forms,
+        user_delete_forms=user_delete_forms,
+        restart_command=current_app.config.get("UPDATE_RESTART_COMMAND"),
+    )
+
+
 @admin_bp.route("/system/update", methods=["POST"])
 @admin_required
 def run_system_update():
@@ -463,7 +515,65 @@ def run_system_update():
             restart_category = "info" if restart_success else "danger"
             flash(restart_message, restart_category)
 
-    return redirect(url_for("admin.dashboard"))
+    redirect_target = form.next.data or url_for("admin.dashboard")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/users/<int:user_id>/toggle-admin", methods=["POST"])
+@admin_required
+def toggle_user_admin(user_id: int):
+    form = UserToggleAdminForm()
+    if not form.validate_on_submit() or int(form.user_id.data) != user_id:
+        flash("Invalid admin update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user = User.query.get_or_404(user_id)
+    admin_count = User.query.filter_by(is_admin=True).count()
+
+    if user.is_admin and admin_count <= 1:
+        flash("At least one administrator must remain.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    role = "administrator" if user.is_admin else "standard user"
+    flash(f"{user.email} is now a {role}.", "success")
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/users/<int:user_id>/reset-password", methods=["POST"])
+@admin_required
+def reset_user_password(user_id: int):
+    form = UserResetPasswordForm()
+    if not form.validate_on_submit() or int(form.user_id.data) != user_id:
+        flash("Invalid password reset request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user = User.query.get_or_404(user_id)
+    user.password_hash = hash_password(form.password.data)
+    db.session.commit()
+    flash(f"Password reset for {user.email}.", "success")
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def delete_user(user_id: int):
+    form = UserDeleteForm()
+    if not form.validate_on_submit() or int(form.user_id.data) != user_id:
+        flash("Invalid delete request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user = User.query.get_or_404(user_id)
+    admin_count = User.query.filter_by(is_admin=True).count()
+    if user.is_admin and admin_count <= 1:
+        flash("Cannot delete the last administrator.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    db.session.delete(user)
+    db.session.commit()
+    flash(f"Deleted user {user.email}.", "success")
+    return redirect(url_for("admin.manage_settings"))
 
 
 @admin_bp.route("/projects/<int:project_id>/refresh-issues", methods=["POST"])

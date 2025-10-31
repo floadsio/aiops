@@ -166,4 +166,40 @@ class ProjectGitRefreshForm(FlaskForm):
 
 class UpdateApplicationForm(FlaskForm):
     restart = BooleanField("Restart application after update")
+    next = HiddenField()
     submit = SubmitField("Run Update")
+
+
+class CreateUserForm(FlaskForm):
+    name = StringField("Full Name", validators=[DataRequired(), Length(max=255)])
+    email = StringField("Email", validators=[DataRequired(), Length(max=255)])
+    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=255)])
+    is_admin = BooleanField("Grant administrator access", default=False)
+    submit = SubmitField("Create User")
+
+    def validate_email(self, field):
+        from ..models import User
+
+        raw = (field.data or "").strip()
+        email = raw.lower()
+        if "@" not in email:
+            raise ValidationError("Enter a valid email address.")
+        if User.query.filter_by(email=email).first():
+            raise ValidationError("A user with this email already exists.")
+        field.data = raw
+
+
+class UserToggleAdminForm(FlaskForm):
+    user_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Toggle Admin")
+
+
+class UserResetPasswordForm(FlaskForm):
+    user_id = HiddenField(validators=[DataRequired()])
+    password = PasswordField("New Password", validators=[DataRequired(), Length(min=8, max=255)])
+    submit = SubmitField("Reset Password")
+
+
+class UserDeleteForm(FlaskForm):
+    user_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Delete User")

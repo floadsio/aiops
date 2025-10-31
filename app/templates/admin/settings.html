@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}Admin Settings | aiops Control Panel{% endblock %}
+{% block extra_head %}
+<style>
+  .settings-grid {
+    display: grid;
+    gap: 1.5rem;
+  }
+  .settings-card {
+    padding: 1.5rem;
+    border-radius: 1.2rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(255, 255, 255, 0.92);
+  }
+  [data-theme="dark"] .settings-card {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(148, 163, 184, 0.25);
+  }
+  .settings-card h2 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+  }
+  .settings-card p {
+    margin-top: 0;
+    margin-bottom: 0.9rem;
+  }
+  .settings-card form {
+    margin: 0;
+  }
+  .settings-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .settings-actions .checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .settings-actions .form-helper {
+    font-size: 0.85rem;
+  }
+  .user-table {
+    width: 100%;
+  }
+  .user-table td,
+  .user-table th {
+    vertical-align: top;
+  }
+  .user-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .user-actions form {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .user-actions input[type="password"] {
+    max-width: 220px;
+  }
+  .user-meta {
+    font-size: 0.9rem;
+    color: #475569;
+  }
+  [data-theme="dark"] .user-meta {
+    color: rgba(226, 232, 240, 0.75);
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>Admin Settings</h1>
+
+<div class="settings-grid">
+  <article class="settings-card">
+    <h2>System Update</h2>
+    <p>Run <code>scripts/update.sh</code> without shell access. Optionally request a restart once the update completes.</p>
+    {% if restart_command %}
+      <p class="text-muted">Configured restart command: <code>{{ restart_command }}</code></p>
+    {% else %}
+      <p class="text-muted">No restart command configured. Set <code>UPDATE_RESTART_COMMAND</code> in your environment to automatically restart the service.</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin.run_system_update') }}">
+      {{ update_form.hidden_tag() }}
+      <div class="settings-actions">
+        <label class="checkbox-inline">
+          {{ update_form.restart() }}
+          <span>Restart application after update</span>
+        </label>
+        <button type="submit" class="secondary">Run update script</button>
+        <span class="text-muted form-helper">Output appears as a flash message below.</span>
+      </div>
+    </form>
+  </article>
+
+  <article class="settings-card">
+    <h2>User Accounts</h2>
+    <p>Create and manage application users. Promote additional administrators so critical tasks are not blocked on a single account.</p>
+    <details>
+      <summary><strong>Create user</strong></summary>
+      <form method="post">
+        {{ create_user_form.hidden_tag() }}
+        <label>
+          {{ create_user_form.name.label }}
+          {{ create_user_form.name() }}
+          {% for error in create_user_form.name.errors %}
+            <span class="error">{{ error }}</span>
+          {% endfor %}
+        </label>
+        <label>
+          {{ create_user_form.email.label }}
+          {{ create_user_form.email(type="email") }}
+          {% for error in create_user_form.email.errors %}
+            <span class="error">{{ error }}</span>
+          {% endfor %}
+        </label>
+        <label>
+          {{ create_user_form.password.label }}
+          {{ create_user_form.password(type="password", autocomplete="new-password") }}
+          {% for error in create_user_form.password.errors %}
+            <span class="error">{{ error }}</span>
+          {% endfor %}
+        </label>
+        <label class="checkbox">
+          {{ create_user_form.is_admin() }}
+          {{ create_user_form.is_admin.label }}
+        </label>
+        <button type="submit" class="secondary">{{ create_user_form.submit.label.text }}</button>
+      </form>
+    </details>
+
+    <h3>Existing users</h3>
+    {% if users %}
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Role</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for user in users %}
+            {% set toggle_form = user_toggle_forms[user.id] %}
+            {% set reset_form = user_reset_forms[user.id] %}
+            {% set delete_form = user_delete_forms[user.id] %}
+            <tr>
+              <th scope="row">
+                {{ user.name or "Unnamed user" }}
+                <div class="user-meta">#{{ user.id }}</div>
+              </th>
+              <td><code>{{ user.email }}</code></td>
+              <td>
+                {% if user.is_admin %}
+                  <span class="badge success">Administrator</span>
+                {% else %}
+                  <span class="badge">Standard</span>
+                {% endif %}
+                {% if current_user.id == user.id %}
+                  <div class="user-meta">(You)</div>
+                {% endif %}
+              </td>
+              <td>
+                <div class="user-actions">
+                  <form method="post" action="{{ url_for('admin.toggle_user_admin', user_id=user.id) }}">
+                    {{ toggle_form.hidden_tag() }}
+                    <button type="submit" class="secondary">
+                      {% if user.is_admin %}Revoke admin{% else %}Promote to admin{% endif %}
+                    </button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin.reset_user_password', user_id=user.id) }}">
+                    {{ reset_form.hidden_tag() }}
+                    {{ reset_form.password(type="password", placeholder="New password", autocomplete="new-password") }}
+                    <button type="submit" class="secondary outline">Reset password</button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}">
+                    {{ delete_form.hidden_tag() }}
+                    <button type="submit" class="secondary outline">Delete user</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="text-muted">No users found.</p>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

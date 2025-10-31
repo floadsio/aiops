@@ -39,7 +39,7 @@ AIOPS_UPDATE_REMOTE=github AIOPS_UPDATE_BRANCH=stable ./scripts/update.sh
 ```
 
 The script automatically stashes and reapplies local changes (including untracked files) before rebasing.
-You can also trigger the same workflow from **Admin → Dashboard → System Maintenance**. Set
+You can now trigger the same workflow from **Admin → Settings → System Update**. Set
 `UPDATE_RESTART_COMMAND` (for example `systemctl restart aiops`) if you want the web UI
 to restart the service automatically after a successful update.
 

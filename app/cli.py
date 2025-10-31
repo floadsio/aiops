@@ -16,7 +16,7 @@ from .services.issues import (
     create_issue_for_project_integration,
     sync_tenant_integrations,
 )
-from .services.key_service import compute_fingerprint
+from .services.key_service import compute_fingerprint, format_private_key_path
 
 
 @click.command("db_init")
@@ -208,7 +208,7 @@ def seed_identities_command(owner_email: str, source_dir: Optional[Path]) -> Non
         dest_path = dest_dir / priv_file.name
         shutil.copy(priv_file, dest_path)
         os.chmod(dest_path, 0o600)
-        ssh_key.private_key_path = str(dest_path)
+        ssh_key.private_key_path = format_private_key_path(dest_path)
         processed += 1
 
     db.session.commit()

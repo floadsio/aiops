@@ -15,6 +15,7 @@ from app.models import (
 )
 from app.security import hash_password
 from app.services.ansible_runner import run_ansible_playbook
+from app.services.key_service import resolve_private_key_path
 
 
 def test_app_factory():
@@ -115,8 +116,10 @@ def test_seed_identities_command(tmp_path):
         assert tenant is not None
         assert ssh_key.tenant_id == tenant.id
         assert ssh_key.private_key_path
-        assert Path(ssh_key.private_key_path).exists()
-        assert Path(ssh_key.private_key_path).read_text() == private_key_path.read_text()
+        stored_path = resolve_private_key_path(ssh_key.private_key_path)
+        assert stored_path is not None
+        assert stored_path.exists()
+        assert stored_path.read_text() == private_key_path.read_text()
 
 
 def test_project_consoles(tmp_path):

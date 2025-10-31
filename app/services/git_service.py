@@ -15,6 +15,7 @@ from git.remote import Remote
 
 from ..extensions import db
 from ..models import Project
+from ..services.key_service import resolve_private_key_path
 
 log = logging.getLogger(__name__)
 
@@ -70,11 +71,10 @@ def _relocate_project_path(project: Project) -> Path:
 
 
 def _normalize_private_key_path(path: Optional[str]) -> Optional[Path]:
-    if not path:
+    resolved = resolve_private_key_path(path)
+    if resolved is None:
         return None
-    expanded = os.path.expandvars(path)
-    normalized = Path(expanded).expanduser()
-    return _sanitize_private_key(normalized)
+    return _sanitize_private_key(resolved)
 
 
 def _sanitize_private_key(path: Path) -> Path:

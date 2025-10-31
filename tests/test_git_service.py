@@ -267,3 +267,37 @@ def test_ensure_repo_checkout_relocates_inaccessible_path(app, owner, tenant, mo
         new_path = Path(project.local_path).resolve()
         assert new_path == storage_root or storage_root in new_path.parents
         assert repo.path == Path(project.local_path)
+
+
+def test_resolve_project_key_rebases_legacy_path(app, owner, tenant, tmp_path):
+    with app.app_context():
+        legacy_dir = Path(app.instance_path) / "keys"
+        legacy_dir.mkdir(parents=True, exist_ok=True)
+        legacy_file = legacy_dir / "legacy-key.pem"
+        legacy_file.write_text(
+            """-----BEGIN OPENSSH PRIVATE KEY-----\nLEGACY\n-----END OPENSSH PRIVATE KEY-----\n""",
+            encoding="utf-8",
+        )
+
+        project_key = SSHKey(
+            name="legacy-key",
+            public_key="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQClegacy",
+            fingerprint="legacy-fingerprint",
+            user=owner,
+            tenant=tenant,
+            private_key_path="/previous/env/instance/keys/legacy-key.pem",
+        )
+        project = Project(
+            name="legacy-project",
+            repo_url="git@example.com/legacy.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "legacy"),
+            tenant=tenant,
+            owner=owner,
+            ssh_key=project_key,
+        )
+        db.session.add_all([project_key, project])
+        db.session.commit()
+
+        resolved = _resolve_project_ssh_key_path(project)
+        assert resolved == str(legacy_file)

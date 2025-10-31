@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from datetime import datetime, timezone
 
 import pytest
@@ -9,6 +8,7 @@ from app import create_app, db
 from app.config import Config
 from app.models import Project, ProjectIntegration, SSHKey, Tenant, TenantIntegration, User
 from app.security import hash_password
+from app.services.key_service import resolve_private_key_path
 from app.services.update_service import UpdateError
 
 
@@ -376,7 +376,8 @@ def test_can_add_ssh_key_with_private_material(app, client, login_admin):
         ssh_key = SSHKey.query.filter_by(name="deploy").first()
         assert ssh_key is not None
         assert ssh_key.private_key_path is not None
-        stored_path = Path(ssh_key.private_key_path)
+        stored_path = resolve_private_key_path(ssh_key.private_key_path)
+        assert stored_path is not None
         assert stored_path.exists()
         assert stored_path.read_text().strip() == private_key.strip()
         assert (stored_path.stat().st_mode & 0o777) == 0o600
@@ -417,7 +418,8 @@ def test_can_update_and_remove_private_key(app, client, login_admin):
         ssh_key = SSHKey.query.get(key_id)
         assert ssh_key is not None
         assert ssh_key.private_key_path is not None
-        stored_path = Path(ssh_key.private_key_path)
+        stored_path = resolve_private_key_path(ssh_key.private_key_path)
+        assert stored_path is not None
         assert stored_path.exists()
         assert stored_path.read_text().strip() == new_private_key.strip()
 

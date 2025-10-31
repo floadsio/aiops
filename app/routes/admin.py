@@ -62,7 +62,7 @@ from ..services.tmux_service import (
     TmuxServiceError,
     list_windows_for_aliases,
 )
-from ..services.key_service import compute_fingerprint
+from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
 from ..services.update_service import run_update_script, UpdateError
 from ..services.log_service import read_log_tail, LogReadError
 from ..security import hash_password
@@ -131,11 +131,13 @@ def _remove_private_key_file(ssh_key: SSHKey) -> None:
     if not ssh_key.private_key_path:
         return
     try:
-        path_obj = Path(ssh_key.private_key_path)
-        if path_obj.exists():
+        path_obj = resolve_private_key_path(ssh_key.private_key_path)
+        if path_obj and path_obj.exists():
             path_obj.unlink()
-    except OSError:
-        current_app.logger.warning("Failed to remove private key file %s", ssh_key.private_key_path)
+    except OSError as exc:
+        current_app.logger.warning(
+            "Failed to remove private key file %s: %s", ssh_key.private_key_path, exc
+        )
     ssh_key.private_key_path = None
 
 
@@ -147,7 +149,9 @@ def _store_private_key_file(ssh_key: SSHKey, private_key: str) -> None:
     filename = f"sshkey-{ssh_key.id}.pem"
     destination = destination_dir / filename
 
-    existing_path = Path(ssh_key.private_key_path) if ssh_key.private_key_path else None
+    existing_path = (
+        resolve_private_key_path(ssh_key.private_key_path) if ssh_key.private_key_path else None
+    )
     if existing_path and existing_path.exists() and existing_path != destination:
         try:
             existing_path.unlink()
@@ -170,7 +174,7 @@ def _store_private_key_file(ssh_key: SSHKey, private_key: str) -> None:
         current_app.logger.error("Failed to store private key for %s: %s", ssh_key.name, exc)
         raise
 
-    ssh_key.private_key_path = str(destination)
+    ssh_key.private_key_path = format_private_key_path(destination)
 
 
 def _coerce_timestamp(value: Any) -> datetime | None:
@@ -1219,7 +1223,9 @@ def edit_ssh_key(key_id: int):
     private_key_contents = None
     if ssh_key.private_key_path:
         try:
-            private_key_contents = Path(ssh_key.private_key_path).read_text().strip()
+            resolved_path = resolve_private_key_path(ssh_key.private_key_path)
+            if resolved_path:
+                private_key_contents = resolved_path.read_text().strip()
         except (OSError, UnicodeDecodeError):
             private_key_contents = "(unable to read private key file)"
 

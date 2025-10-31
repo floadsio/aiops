@@ -1,0 +1,340 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} | Projects{% endblock %}
+{% block content %}
+<h1>{{ project.name }}</h1>
+<p><strong>Tenant:</strong> {{ project.tenant.name }}</p>
+<p><strong>Repository:</strong> <code>{{ project.repo_url }}</code></p>
+<p><strong>Local Path:</strong> <code>{{ project.local_path }}</code></p>
+
+<section>
+  <h2>SSH Access</h2>
+  <form method="post">
+    {{ ssh_key_form.hidden_tag() }}
+    <label>
+      {{ ssh_key_form.ssh_key_id.label }}
+      {{ ssh_key_form.ssh_key_id() }}
+    </label>
+    {% for error in ssh_key_form.ssh_key_id.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+    {{ ssh_key_form.submit(class="secondary") }}
+  </form>
+  {% if project.ssh_key %}
+    <p class="text-muted">
+      Using project-specific key <strong>{{ project.ssh_key.name }}</strong>
+      {% if project.ssh_key.fingerprint %}
+        ({{ project.ssh_key.fingerprint }})
+      {% endif %}
+    </p>
+  {% elif tenant_default_key %}
+    <p class="text-muted">
+      Using tenant default key <strong>{{ tenant_default_key.name }}</strong>
+      {% if tenant_default_key.fingerprint %}
+        ({{ tenant_default_key.fingerprint }})
+      {% endif %}
+    </p>
+  {% else %}
+    <p class="warning-note">This tenant has no SSH key with private material configured. Git operations may fail.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Repository Status</h2>
+  <p>Branch: {{ status.branch }} | Dirty: {{ status.dirty }}</p>
+  {% if status.untracked_files %}
+    <details>
+      <summary>Untracked Files</summary>
+      <ul>
+        {% for file in status.untracked_files %}
+          <li>{{ file }}</li>
+        {% endfor %}
+      </ul>
+    </details>
+  {% endif %}
+</section>
+
+<section>
+  <h2>External Issues</h2>
+  <form method="get" class="issue-filter-form">
+    <label for="issue-status-filter">Issue status</label>
+    <select id="issue-status-filter" name="issue_status" onchange="this.form.submit()">
+      {% for option in issue_status_options %}
+        <option
+          value="{{ option.value }}"
+          {% if option.value == issue_status_filter %}selected{% endif %}
+        >
+          {{ option.label }} ({{ option.count }})
+        </option>
+      {% endfor %}
+    </select>
+    {% for key, value in request.args.items() if key != 'issue_status' %}
+      <input type="hidden" name="{{ key }}" value="{{ value }}">
+    {% endfor %}
+  </form>
+  {% if issue_groups %}
+    <p class="text-muted">
+      Showing {{ total_issue_count }} of {{ total_issue_full_count }}
+      issue{{ '' if total_issue_full_count == 1 else 's' }}
+      across {{ issue_groups|length }}
+      integration{{ '' if issue_groups|length == 1 else 's' }}
+      {% if issue_status_filter != 'all' %}
+        (status: {{ issue_status_filter_label }})
+      {% endif %}.
+    </p>
+    {% for group in issue_groups %}
+      <article class="contrast">
+        <header>
+          <h3>{{ group.integration_name }}</h3>
+          <p>
+            Provider: {{ group.provider_display }}
+            {% if group.project_identifier %}
+              • Target: <code>{{ group.project_identifier }}</code>
+            {% endif %}
+            {% if not group.enabled %}
+              <span class="badge">Disabled</span>
+            {% endif %}
+          </p>
+          {% if group.last_synced %}
+            <p class="text-muted">Last synced {{ group.last_synced }}</p>
+          {% endif %}
+        </header>
+        {% if group.can_create_issue %}
+          <details class="issue-create-form">
+            <summary>Create new issue</summary>
+            <form method="post" class="grid">
+              {{ group.create_form.hidden_tag() }}
+              {{ group.create_form.integration_id() }}
+              <label>
+                {{ group.create_form.summary.label }}
+                {{ group.create_form.summary() }}
+                {% for error in group.create_form.summary.errors %}
+                  <span class="error">{{ error }}</span>
+                {% endfor %}
+              </label>
+              <label>
+                {{ group.create_form.description.label }}
+                {{ group.create_form.description() }}
+                {% for error in group.create_form.description.errors %}
+                  <span class="error">{{ error }}</span>
+                {% endfor %}
+              </label>
+              <label>
+                {{ group.create_form.issue_type.label }}
+                {{ group.create_form.issue_type() }}
+                {% if group.create_form.issue_type.description %}
+                  <small class="text-muted">{{ group.create_form.issue_type.description }}</small>
+                {% endif %}
+                {% for error in group.create_form.issue_type.errors %}
+                  <span class="error">{{ error }}</span>
+                {% endfor %}
+              </label>
+              <label>
+                {{ group.create_form.labels.label }}
+                {{ group.create_form.labels() }}
+                {% if group.create_form.labels.description %}
+                  <small class="text-muted">{{ group.create_form.labels.description }}</small>
+                {% endif %}
+                {% for error in group.create_form.labels.errors %}
+                  <span class="error">{{ error }}</span>
+                {% endfor %}
+              </label>
+              <div>
+                {{ group.create_form.submit(class="secondary") }}
+              </div>
+            </form>
+          </details>
+        {% endif %}
+        {% if group.issues %}
+          <ul>
+            {% for issue in group.issues %}
+              <li>
+                <strong>{{ issue.title }}</strong>
+                {% if issue.status %}
+                  <span class="badge secondary">{{ issue.status }}</span>
+                {% endif %}
+                {% if issue.assignee %}
+                  <span class="badge">{{ issue.assignee }}</span>
+                {% endif %}
+                <br />
+                <small>
+                  External ID {{ issue.external_id }}
+                  {% if issue.updated_display %}
+                    • Updated {{ issue.updated_display }}
+                  {% endif %}
+                </small>
+                {% if issue.labels %}
+                  <br />
+                  <small>Labels: {{ issue.labels|join(', ') }}</small>
+                {% endif %}
+                {% if issue.url %}
+                  <br />
+                  <a
+                    href="{{ issue.url }}"
+                    target="_blank"
+                    rel="noopener"
+                  >Open in {{ group.provider_display }}</a>
+                {% endif %}
+                <br />
+                <button
+                  type="button"
+                  class="secondary start-codex-session"
+                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id) }}"
+                  data-prepare="{{ url_for(
+                    'projects.prepare_issue_context',
+                    project_id=project.id,
+                    issue_id=issue.id
+                  ) }}"
+                  data-context='{{ issue.codex_payload|tojson }}'
+                >
+                  Start Codex Session
+                </button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          {% if group.total_issues %}
+            <p class="text-muted">No issues match the current filter.</p>
+          {% else %}
+            <p class="text-muted">No issues cached for this integration yet.</p>
+          {% endif %}
+        {% endif %}
+      </article>
+    {% endfor %}
+  {% else %}
+    <p class="text-muted">No external issue integrations linked to this project.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Git Actions</h2>
+  <form method="post">
+    {{ git_form.hidden_tag() }}
+    {{ git_form.action.label }} {{ git_form.action() }}
+    {{ git_form.ref.label }} {{ git_form.ref() }}
+    <label class="checkbox">
+      {{ git_form.clean_pull() }} {{ git_form.clean_pull.label.text }}
+    </label>
+    {{ git_form.submit() }}
+  </form>
+</section>
+
+<section>
+  <h2>Automation Consoles</h2>
+  <p>
+    Launch dedicated windows for AI-assisted edits or Ansible runs.
+    Each console locks to this project.
+  </p>
+  <p>
+    <a
+      role="button"
+      href="{{ url_for('projects.project_ai_console', project_id=project.id) }}"
+    >Open AI Console</a>
+    <a
+      role="button"
+      class="secondary"
+      href="{{ url_for('projects.project_ansible_console', project_id=project.id) }}"
+    >Open Ansible Console</a>
+  </p>
+</section>
+
+{% if message %}
+<article class="contrast">
+  <h3>Task Output</h3>
+  <pre>{{ message }}</pre>
+</article>
+{% endif %}
+
+{% if error %}
+<article class="contrast" data-theme="dark">
+  <h3>Errors</h3>
+  <pre>{{ error }}</pre>
+</article>
+{% endif %}
+{% endblock %}
+
+{% block extra_body %}
+<script>
+  (function () {
+    const buttons = document.querySelectorAll('.start-codex-session');
+    if (!buttons.length) {
+      return;
+    }
+    const storageKeyPrefix = 'aiops-session-context';
+    const projectId = {{ project.id }};
+    const storageKey = `${storageKeyPrefix}-${projectId}`;
+    buttons.forEach(button => {
+      button.addEventListener('click', () => {
+        const target = button.dataset.target;
+        const prepareEndpoint = button.dataset.prepare;
+        const payloadRaw = button.dataset.context;
+        if (!target || !payloadRaw) {
+          return;
+        }
+        let payload;
+        try {
+          payload = JSON.parse(payloadRaw);
+        } catch (error) {
+          return;
+        }
+
+        const finalize = (context) => {
+          try {
+            sessionStorage.setItem(storageKey, JSON.stringify(context));
+          } catch (error) {
+            /* ignore storage errors */
+          }
+          window.location.href = target;
+        };
+
+        const csrfInput = document.querySelector('input[name="csrf_token"]');
+
+        if (payload.issueId && prepareEndpoint) {
+          fetch(prepareEndpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(csrfInput ? { 'X-CSRFToken': csrfInput.value } : {}),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({})
+          })
+            .then((response) => (
+              response.ok
+                ? response.json()
+                : response.json().then((data) => Promise.reject(data))
+            ))
+            .then(data => {
+              finalize({
+                prompt: data.prompt,
+                command: data.command,
+                tool: data.tool || payload.tool,
+                autoStart: true,
+                agentPath: data.agent_path || null,
+                tmuxTarget: data.tmux_target || null,
+              });
+            })
+            .catch(() => {
+              finalize({
+                prompt: payload.prompt,
+                command: payload.command,
+                tool: payload.tool,
+                autoStart: payload.autoStart,
+                agentPath: payload.agentPath || null,
+                tmuxTarget: payload.tmuxTarget || null,
+              });
+            });
+        } else {
+          finalize({
+            prompt: payload.prompt,
+            command: payload.command,
+            tool: payload.tool,
+            autoStart: payload.autoStart,
+            agentPath: payload.agentPath || null,
+            tmuxTarget: payload.tmuxTarget || null,
+          });
+        }
+      });
+    });
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Edit SSH Key | aiops Control Panel{% endblock %}
+{% block content %}
+<h1>Edit SSH Key</h1>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <label>
+    {{ form.name.label }}
+    {{ form.name() }}
+    {% for error in form.name.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.public_key.label }}
+    {{ form.public_key(rows=4) }}
+    {% for error in form.public_key.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.private_key.label }}
+    {{ form.private_key(rows=6, placeholder="Leave blank to keep current private key") }}
+    {% if form.private_key.description %}
+      <small class="text-muted">{{ form.private_key.description }}</small>
+    {% endif %}
+    {% for error in form.private_key.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.tenant_id.label }}
+    {{ form.tenant_id() }}
+    {% for error in form.tenant_id.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  {% if ssh_key.private_key_path %}
+    <label class="checkbox">
+      {{ form.remove_private_key() }} {{ form.remove_private_key.label.text }}
+    </label>
+  {% endif %}
+  <button type="submit">Save Changes</button>
+  <a role="button" class="secondary" href="{{ url_for('admin.manage_ssh_keys') }}">Cancel</a>
+</form>
+
+<section>
+  <h2>Private Key</h2>
+  {% if private_key_contents %}
+    <p>Stored at <code>{{ ssh_key.private_key_path }}</code></p>
+    <textarea rows="12" readonly>{{ private_key_contents }}</textarea>
+  {% else %}
+    <p>No private key on disk.</p>
+  {% endif %}
+</section>
+{% endblock %}

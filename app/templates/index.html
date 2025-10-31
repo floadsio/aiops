@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Welcome | aiops Control Panel{% endblock %}
+{% block content %}
+<h1>Welcome to aiops</h1>
+<p>Use the admin credentials to sign in and configure tenants, projects, and automation workflows.</p>
+<p><a role="button" href="{{ url_for('auth.login') }}">Go to Login</a></p>
+<article>
+  <h2>Quick Start</h2>
+  <ul>
+    <li>Run <code>flask --app manage.py db_init</code> to initialise the database.</li>
+    <li>Create an admin user with <code>flask --app manage.py create-admin</code>.</li>
+    <li>Log in and add tenants, projects, and SSH keys from the admin dashboard.</li>
+  </ul>
+</article>
+{% endblock %}

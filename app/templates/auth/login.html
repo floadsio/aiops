@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Login | aiops Control Panel{% endblock %}
+{% block content %}
+<h1>Sign In</h1>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <label>
+    {{ form.email.label }}
+    {{ form.email(class="") }}
+    {% for error in form.email.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.password.label }}
+    {{ form.password() }}
+    {% for error in form.password.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <button type="submit">Login</button>
+</form>
+{% endblock %}

@@ -1,0 +1,14 @@
+.DS_Store
+.aiops.pid
+.env
+.venv/
+.venv*/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.pyc
+instance/
+.coverage
+coverage.xml
+/logs/

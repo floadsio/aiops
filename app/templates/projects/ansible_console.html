@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Ansible Console | {{ project.name }}{% endblock %}
+{% block content %}
+<h1>Ansible Console: {{ project.name }}</h1>
+<p><strong>Repository:</strong> <code>{{ project.repo_url }}</code></p>
+<p>Trigger Semaphore templates within <code>{{ project.name }}</code>'s automation context. Provide overrides as needed before launching.</p>
+{% if template_error %}
+  <article class="contrast" data-theme="dark">
+    <h2>Semaphore Status</h2>
+    <p>{{ template_error }}</p>
+  </article>
+{% endif %}
+<form method="post">
+  {{ form.hidden_tag() }}
+  <div class="grid">
+    <label>
+      {{ form.semaphore_project_id.label }}
+      {{ form.semaphore_project_id(placeholder="123") }}
+      {% for error in form.semaphore_project_id.errors %}
+        <small class="invalid">{{ error }}</small>
+      {% endfor %}
+    </label>
+    <label>
+      {{ form.template_id.label }}
+      {{ form.template_id() }}
+      {% for error in form.template_id.errors %}
+        <small class="invalid">{{ error }}</small>
+      {% endfor %}
+    </label>
+  </div>
+  <label>
+    {{ form.playbook.label }}
+    {{ form.playbook(placeholder="deploy.yml") }}
+    {% for error in form.playbook.errors %}
+      <small class="invalid">{{ error }}</small>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.git_branch.label }}
+    {{ form.git_branch(placeholder="main") }}
+    {% for error in form.git_branch.errors %}
+      <small class="invalid">{{ error }}</small>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.arguments.label }}
+    {{ form.arguments(rows=4, placeholder='{"env": "staging"}') }}
+    {% for error in form.arguments.errors %}
+      <small class="invalid">{{ error }}</small>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.limit.label }}
+    {{ form.limit(placeholder="all") }}
+    {% for error in form.limit.errors %}
+      <small class="invalid">{{ error }}</small>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.message.label }}
+    {{ form.message(placeholder="Triggered from AIOps") }}
+    {% for error in form.message.errors %}
+      <small class="invalid">{{ error }}</small>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.inventory_id.label }}
+    {{ form.inventory_id(placeholder="Optional override") }}
+    {% for error in form.inventory_id.errors %}
+      <small class="invalid">{{ error }}</small>
+    {% endfor %}
+  </label>
+  <div class="grid">
+    <label class="checkbox">
+      {{ form.dry_run() }} {{ form.dry_run.label.text }}
+    </label>
+    <label class="checkbox">
+      {{ form.debug() }} {{ form.debug.label.text }}
+    </label>
+    <label class="checkbox">
+      {{ form.diff() }} {{ form.diff.label.text }}
+    </label>
+  </div>
+  {{ form.submit(class="contrast") }}
+</form>
+{% if message %}
+  <article class="contrast">
+    <h2>Semaphore Output</h2>
+    <pre>{{ message }}</pre>
+  </article>
+{% endif %}
+{% if error %}
+  <article class="contrast" data-theme="dark">
+    <h2>Errors</h2>
+    <pre>{{ error }}</pre>
+  </article>
+{% endif %}
+{% if task_result %}
+  <article class="contrast">
+    <h2>Task Summary</h2>
+    <p><strong>Status:</strong> {{ task_result.status or "unknown" }}</p>
+    <p><strong>Task ID:</strong> {{ task_result.task_id }}</p>
+    <p><strong>Template ID:</strong> {{ task_result.template_id }}</p>
+    <p><strong>Semaphore Project:</strong> {{ task_result.semaphore_project_id }}</p>
+  </article>
+{% endif %}
+{% endblock %}

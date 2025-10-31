@@ -1,0 +1,720 @@
+{% extends "base.html" %}
+{% block title %}AI Console | {{ project.name }}{% endblock %}
+{% block content %}
+<h1>AI Console: {{ project.name }}</h1>
+<p><strong>Repository:</strong> <code>{{ project.repo_url }}</code></p>
+<p><strong>Local Path:</strong> <code>{{ project.local_path }}</code></p>
+<p>Launch an interactive terminal session inside the project workspace and drive Codex, Aider, or other configured assistants.</p>
+
+<section id="terminal-container" class="terminal-wrapper">
+<div class="terminal-toolbar">
+  <div class="terminal-actions">
+    <button type="button" id="fullscreen-toggle" class="secondary" aria-label="Toggle fullscreen">
+      <span id="fullscreen-label">⛶</span>
+    </button>
+  </div>
+</div>
+  <div id="terminal" class="terminal-panel"></div>
+</section>
+
+<form id="ai-control">
+  {{ form.hidden_tag() }}
+  <input type="hidden" id="tmux_target" />
+  <label>{{ form.ai_tool.label }} {{ form.ai_tool(id="ai_tool") }}</label>
+  <label>Command <input type="text" id="command" value="{{ default_codex_command }}" /></label>
+  <label>{{ form.prompt.label }} {{ form.prompt(id="initial_prompt", rows=4, placeholder="Optional one-shot instruction to send when the session starts") }}</label>
+  <div class="grid">
+    <button type="submit" id="start-session">Start Session</button>
+    <button type="button" id="stop-session" class="secondary">Stop Session</button>
+  </div>
+</form>
+
+{% if tmux_error %}
+  <article class="contrast">
+    <strong>tmux unavailable</strong>
+    <p>{{ tmux_error }}</p>
+  </article>
+{% elif tmux_windows %}
+  <section class="tmux-session-summary">
+    <h2>tmux windows for {{ project.tenant.name if project.tenant else project.name }}</h2>
+    <p class="text-muted">Attach from your shell with <code>tmux attach -t &lt;session:window&gt;</code>.</p>
+    <div class="tmux-session-grid">
+      {% for session in tmux_windows %}
+        <article class="tmux-card">
+          <header>
+            <span class="tmux-name">{{ session.window }}</span>
+          </header>
+          <p>{{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}</p>
+          {% if session.created_display %}
+            <p class="text-muted">Started {{ session.created_display }}</p>
+          {% else %}
+            <p class="text-muted">Start time unavailable</p>
+          {% endif %}
+          <div class="tmux-card-actions">
+            <button type="button" class="secondary attach-session" data-attach-session="{{ session.target }}">
+              Attach in browser
+            </button>
+            <button type="button" class="tertiary copy-command" data-session-name="{{ session.target }}">
+              Copy attach command
+            </button>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  </section>
+{% endif %}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+<style>
+  @font-face {
+    font-family: 'JetBrainsMono Nerd Font Mono';
+    src: url('https://cdn.jsdelivr.net/gh/ryanoasis/nerd-fonts@master/patched-fonts/JetBrainsMono/Regular/complete/JetBrainsMonoNerdFontMono-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.7.0/lib/xterm-addon-fit.js"></script>
+<script>
+  const projectId = {{ project.id }};
+  const requestedTmuxTarget = {{ requested_tmux_target|tojson }};
+  const terminalPanel = document.getElementById('terminal');
+  const term = new Terminal({ cols: 100, rows: 30, scrollback: 2000, convertEol: false });
+  const fitAddon = window.FitAddon && typeof window.FitAddon.FitAddon === 'function'
+    ? new window.FitAddon.FitAddon()
+    : null;
+
+  if (fitAddon) {
+    term.loadAddon(fitAddon);
+  }
+
+  if (terminalPanel) {
+    term.open(terminalPanel);
+    if (term.element) {
+      term.element.addEventListener(
+        'wheel',
+        event => {
+          event.preventDefault();
+        },
+        { passive: false }
+      );
+    }
+  }
+
+  term.write('\x1b[32mReady. Choose an AI tool or attach to an existing tmux session.\x1b[0m\n');
+
+  const csrfInput = document.querySelector('#ai-control input[name="csrf_token"]');
+  const csrfHeaders = csrfInput ? { 'X-CSRFToken': csrfInput.value } : {};
+  const supportsUtf8Write = typeof term.writeUtf8 === 'function';
+  const canDecodeText = !supportsUtf8Write && window.TextDecoder;
+  let sessionDecoder = canDecodeText ? new TextDecoder('utf-8') : null;
+  const terminalWrapper = document.getElementById('terminal-container');
+  const fullscreenToggle = document.getElementById('fullscreen-toggle');
+  const fullscreenLabel = document.getElementById('fullscreen-label');
+
+  let eventSource = null;
+  let dataDisposable = null;
+  let sessionId = null;
+  let inputBuffer = '';
+  let flushTimer = null;
+  let resizeTimer = null;
+  let pendingResize = null;
+  let pendingFit = false;
+
+  const aiForm = document.getElementById('ai-control');
+  const tmuxTargetInput = document.getElementById('tmux_target');
+  const aiToolSelect = document.getElementById('ai_tool');
+  const commandInput = document.getElementById('command');
+  const promptInput = document.getElementById('initial_prompt');
+  const sessionStorageKey = `aiops-session-context-${projectId}`;
+  let storedSessionContext = null;
+  let plannedPrompt = '';
+  let pendingPrompt = false;
+
+  function consumeStoredContext() {
+    try {
+      const payload = sessionStorage.getItem(sessionStorageKey);
+      if (!payload) {
+        return null;
+      }
+      sessionStorage.removeItem(sessionStorageKey);
+      return JSON.parse(payload);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function applySessionContext(context) {
+    if (!context) {
+      return false;
+    }
+    storedSessionContext = context;
+    if (context.tool && aiToolSelect) {
+      const optionExists = Array.from(aiToolSelect.options).some(opt => opt.value === context.tool);
+      if (optionExists) {
+        aiToolSelect.value = context.tool;
+      }
+    }
+    if (context.command && commandInput) {
+      commandInput.value = context.command;
+    }
+    if (typeof context.prompt === 'string') {
+      plannedPrompt = context.prompt;
+      if (promptInput) {
+        promptInput.value = context.prompt;
+      }
+      pendingPrompt = Boolean(plannedPrompt && plannedPrompt.trim());
+    } else {
+      plannedPrompt = '';
+      pendingPrompt = false;
+      if (promptInput) {
+        promptInput.value = '';
+      }
+    }
+    if (context.tmuxTarget && tmuxTargetInput) {
+      tmuxTargetInput.value = context.tmuxTarget;
+    }
+    return Boolean(context.autoStart);
+  }
+
+  const storedContext = consumeStoredContext();
+  const shouldAutoStart = applySessionContext(storedContext);
+  let autoStartPending = shouldAutoStart && !requestedTmuxTarget;
+
+  function base64ToBytes(payload) {
+    const binary = atob(payload);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+
+  function flushDecoder() {
+    if (!sessionDecoder) {
+      return '';
+    }
+    const remainder = sessionDecoder.decode();
+    sessionDecoder = canDecodeText ? new TextDecoder('utf-8') : null;
+    return remainder;
+  }
+
+  function flushResizeUpdate() {
+    if (!sessionId || !pendingResize) {
+      pendingResize = null;
+      return;
+    }
+    const payload = pendingResize;
+    pendingResize = null;
+    fetch(`/projects/${projectId}/ai/session/${sessionId}/resize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders },
+      body: JSON.stringify(payload),
+      credentials: 'same-origin'
+    }).catch(() => {});
+  }
+
+  function queueResizeUpdate() {
+    if (!sessionId) {
+      return;
+    }
+    const rows = Math.max(1, Math.floor(term.rows || 0));
+    const cols = Math.max(1, Math.floor(term.cols || 0));
+    pendingResize = { rows, cols };
+    if (resizeTimer) {
+      return;
+    }
+    resizeTimer = setTimeout(() => {
+      resizeTimer = null;
+      flushResizeUpdate();
+    }, 120);
+  }
+
+  function fitTerminal() {
+    if (!fitAddon || !terminalPanel) {
+      return;
+    }
+    try {
+      fitAddon.fit();
+    } catch (error) {
+      // Ignore fit errors triggered while the panel is hidden.
+    }
+    queueResizeUpdate();
+  }
+
+  function scheduleFit() {
+    if (!fitAddon || !terminalPanel) {
+      return;
+    }
+    if (pendingFit) {
+      return;
+    }
+    pendingFit = true;
+    const runFit = () => {
+      pendingFit = false;
+      fitTerminal();
+    };
+    if (window.requestAnimationFrame) {
+      window.requestAnimationFrame(runFit);
+    } else {
+      setTimeout(runFit, 0);
+    }
+  }
+
+  function writeChunk(payload) {
+    try {
+      const bytes = base64ToBytes(payload);
+      if (supportsUtf8Write) {
+        term.writeUtf8(bytes);
+        return;
+      }
+      if (sessionDecoder) {
+        const text = sessionDecoder.decode(bytes, { stream: true });
+        if (text) {
+          term.write(text);
+        }
+        return;
+      }
+      term.write(String.fromCharCode(...bytes));
+    } catch (error) {
+      term.write(payload);
+    }
+  }
+
+  function isFullscreen() {
+    if (!terminalWrapper) {
+      return false;
+    }
+    return document.fullscreenElement === terminalWrapper;
+  }
+
+  function updateFullscreenButton() {
+    if (!fullscreenToggle) {
+      return;
+    }
+    const fullscreenActive = isFullscreen();
+    if (fullscreenLabel) {
+      fullscreenLabel.textContent = fullscreenActive ? '⨯' : '⛶';
+    }
+    if (terminalWrapper) {
+      terminalWrapper.classList.toggle('fullscreen', fullscreenActive);
+    }
+  }
+
+  if (fullscreenToggle && terminalWrapper) {
+    fullscreenToggle.addEventListener('click', () => {
+      if (isFullscreen()) {
+        document.exitFullscreen().catch(() => {});
+      } else {
+        terminalWrapper.requestFullscreen().catch(() => {});
+      }
+    });
+
+    const handleFullscreenChange = () => {
+      updateFullscreenButton();
+      scheduleFit();
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+  }
+
+  if (terminalPanel) {
+    window.addEventListener('resize', scheduleFit);
+    if ('ResizeObserver' in window) {
+      const observer = new ResizeObserver(() => scheduleFit());
+      observer.observe(terminalPanel);
+      if (terminalWrapper) {
+        observer.observe(terminalWrapper);
+      }
+    }
+  }
+
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => scheduleFit()).catch(() => {});
+  }
+
+  function flushInput() {
+    if (!sessionId || !inputBuffer) {
+      return;
+    }
+    const payload = inputBuffer;
+    inputBuffer = '';
+    fetch(`/projects/${projectId}/ai/session/${sessionId}/input`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders },
+      body: JSON.stringify({ data: payload }),
+      credentials: 'same-origin'
+    });
+  }
+
+  function queueInput(data) {
+    inputBuffer += data;
+    if (!flushTimer) {
+      flushTimer = setTimeout(() => {
+        flushTimer = null;
+        flushInput();
+      }, 40);
+    }
+  }
+
+  function stopSession(message) {
+    if (flushTimer) {
+      clearTimeout(flushTimer);
+      flushTimer = null;
+    }
+    flushInput();
+    if (dataDisposable) {
+      dataDisposable.dispose();
+      dataDisposable = null;
+    }
+    if (eventSource) {
+      eventSource.close();
+      eventSource = null;
+    }
+    if (resizeTimer) {
+      clearTimeout(resizeTimer);
+      resizeTimer = null;
+    }
+    pendingResize = null;
+    if (sessionId) {
+      fetch(`/projects/${projectId}/ai/session/${sessionId}`, {
+        method: 'DELETE',
+        headers: csrfHeaders,
+        credentials: 'same-origin'
+      });
+      sessionId = null;
+    }
+    term.write(flushDecoder());
+    if (message) {
+      term.write(`\n${message}\n`);
+    }
+    scheduleFit();
+  }
+
+  function startSession(options = {}) {
+    const { tmuxTargetOverride } = options;
+    const attachOnly = Boolean(tmuxTargetOverride);
+    const tool = aiToolSelect.value;
+    const command = commandInput.value.trim();
+    const selectedTmuxTarget = attachOnly
+      ? tmuxTargetOverride
+      : (tmuxTargetInput ? tmuxTargetInput.value.trim() : '');
+
+    if (!tool && !command && !selectedTmuxTarget) {
+      term.write('\n\x1b[31mProvide an AI tool, command, or choose a tmux window to attach.\x1b[0m\n');
+      return;
+    }
+
+    stopSession();
+
+    scheduleFit();
+
+    const sessionLabel = selectedTmuxTarget
+      ? `tmux:${selectedTmuxTarget}`
+      : (command ? command.split(' ')[0] : (tool || 'shell'));
+    term.write(`\n[Starting ${sessionLabel}]\n`);
+
+    if (!plannedPrompt && promptInput) {
+      plannedPrompt = promptInput.value.trim();
+    }
+    pendingPrompt = Boolean(plannedPrompt);
+
+    const { cols, rows } = term;
+
+    const payload = {
+      tool: tool || null,
+      command: command || null,
+      prompt: '',
+      cols,
+      rows
+    };
+
+    if (selectedTmuxTarget && attachOnly) {
+      payload.tmux_target = selectedTmuxTarget;
+      payload.tool = null;
+      payload.command = null;
+      if (aiToolSelect) {
+        aiToolSelect.value = '';
+      }
+      if (commandInput) {
+        commandInput.value = '';
+      }
+      term.write(`\n[Attaching to tmux target ${selectedTmuxTarget}]\n`);
+    } else if (selectedTmuxTarget && tmuxTargetInput) {
+      tmuxTargetInput.value = selectedTmuxTarget;
+    }
+
+    fetch(`/projects/${projectId}/ai/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...csrfHeaders },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload)
+    })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(data => {
+            throw new Error(data.error || 'Failed to start session');
+          });
+        }
+        return response.json();
+      })
+      .then(data => {
+        sessionId = data.session_id;
+        const label = selectedTmuxTarget ? `tmux:${selectedTmuxTarget}` : (tool ? tool : (command || 'shell'));
+        term.write(`\n[Connected to ${label}]\n`);
+        if (storedSessionContext && storedSessionContext.agentPath) {
+          term.write(`[Agent loaded: ${storedSessionContext.agentPath}]\n`);
+        }
+
+        eventSource = new EventSource(`/projects/${projectId}/ai/session/${sessionId}/stream`);
+        eventSource.addEventListener('ready', () => {
+          term.write('\n[Session ready]\n');
+          queueResizeUpdate();
+          scheduleFit();
+          if (pendingPrompt && plannedPrompt) {
+            term.write(`[Submitting prompt]\n${plannedPrompt}\n`);
+            queueInput(`${plannedPrompt}\n`);
+            pendingPrompt = false;
+          }
+        });
+        eventSource.addEventListener('chunk', (evt) => {
+          writeChunk(evt.data);
+        });
+        eventSource.addEventListener('close', () => {
+          term.write(flushDecoder());
+          stopSession('[Session closed]');
+        });
+        eventSource.onerror = () => {
+          term.write(flushDecoder());
+          stopSession('[Session closed]');
+        };
+
+        dataDisposable = term.onData(dataChunk => {
+          if (sessionId) {
+            queueInput(dataChunk);
+          }
+        });
+
+        if (tmuxTargetInput) {
+          tmuxTargetInput.value = '';
+        }
+
+        queueResizeUpdate();
+        scheduleFit();
+      })
+      .catch(err => {
+        term.write(`\n\x1b[31m${err.message}\x1b[0m\n`);
+      });
+  }
+
+  aiForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+    startSession();
+  });
+
+  document.getElementById('stop-session').addEventListener('click', function () {
+    stopSession('[Session terminated by user]');
+  });
+
+  document.querySelectorAll('.attach-session').forEach(button => {
+    button.addEventListener('click', () => {
+      const targetSession = button.dataset.attachSession;
+      startSession({ tmuxTargetOverride: targetSession });
+    });
+  });
+
+  document.querySelectorAll('.copy-command').forEach(button => {
+    button.addEventListener('click', () => {
+      const sessionName = button.dataset.sessionName;
+      const commandText = `tmux attach -t ${sessionName}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(commandText)
+          .then(() => term.write(`\n[Copied "${commandText}" to clipboard]\n`))
+          .catch(() => term.write('\n\x1b[31mFailed to copy to clipboard.\x1b[0m\n'));
+      } else {
+        term.write('\n\x1b[31mClipboard API unavailable.\x1b[0m\n');
+      }
+    });
+  });
+
+  scheduleFit();
+  setTimeout(scheduleFit, 250);
+  updateFullscreenButton();
+
+  if (requestedTmuxTarget) {
+    startSession({ tmuxTargetOverride: requestedTmuxTarget });
+  } else if (autoStartPending) {
+    term.write('\n[Preparing Codex session with selected issue]\n');
+    if (storedSessionContext && storedSessionContext.agentPath) {
+      term.write(`Agent file: ${storedSessionContext.agentPath}\n`);
+    }
+    setTimeout(() => {
+      startSession();
+    }, 150);
+  }
+</script>
+
+<style>
+  .terminal-wrapper {
+    margin: 0;
+    border: 1px solid var(--muted-border-color);
+    border-radius: var(--border-radius);
+    background: #111;
+    padding: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .terminal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+
+  .terminal-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+  }
+
+  .terminal-actions button {
+    padding: 0.05rem 0.3rem;
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  .terminal-panel {
+    width: 100%;
+    min-height: 320px;
+    height: clamp(320px, 65vh, 900px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--border-radius);
+    padding: 0.25rem;
+    background: #111;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .terminal-panel .xterm,
+  .terminal-panel .xterm * {
+    font-family: 'JetBrainsMono Nerd Font Mono', 'JetBrains Mono', monospace;
+  }
+
+  .terminal-panel .xterm-viewport {
+    overflow: hidden !important;
+  }
+
+  .terminal-wrapper.fullscreen {
+    position: fixed;
+    inset: 0;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    z-index: 1000;
+    padding: 0.15rem;
+    gap: 0.15rem;
+  }
+
+  .terminal-wrapper.fullscreen .terminal-panel {
+    height: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  @supports (height: 100dvh) {
+    .terminal-wrapper.fullscreen .terminal-panel {
+      height: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+  }
+
+  .tmux-session-summary {
+    margin: 2rem 0;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(100, 116, 139, 0.25);
+    background: rgba(15, 23, 42, 0.04);
+  }
+
+  [data-theme="dark"] .tmux-session-summary {
+    background: rgba(15, 23, 42, 0.55);
+    border-color: rgba(148, 163, 184, 0.25);
+  }
+
+  .tmux-session-summary h2 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+  }
+
+  .tmux-session-grid {
+    margin-top: 1rem;
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .tmux-session-grid {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+  }
+
+  .tmux-card {
+    padding: 1rem 1.25rem;
+    border-radius: 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
+  }
+
+  [data-theme="dark"] .tmux-card {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: rgba(148, 163, 184, 0.35);
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.55);
+  }
+
+  .tmux-card .tmux-name {
+    display: inline-flex;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  [data-theme="dark"] .tmux-card .tmux-name {
+    background: rgba(96, 165, 250, 0.15);
+    color: #93c5fd;
+  }
+  .tmux-card-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+  .tmux-card-actions .tertiary {
+    border: none;
+    background: transparent;
+    color: #1e3a8a;
+    cursor: pointer;
+    padding: 0.35rem 0.4rem;
+  }
+  .tmux-card-actions .tertiary:hover {
+    text-decoration: underline;
+  }
+  [data-theme="dark"] .tmux-card-actions .tertiary {
+    color: #bfdbfe;
+  }
+
+  .text-muted {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  [data-theme="dark"] .text-muted {
+    color: rgba(203, 213, 225, 0.78);
+  }
+</style>
+{% endblock %}

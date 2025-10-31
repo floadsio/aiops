@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}SSH Keys | aiops Control Panel{% endblock %}
+{% block content %}
+<h1>SSH Keys</h1>
+<h2>Registered Keys</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Fingerprint</th>
+      <th>Tenant</th>
+      <th>Added</th>
+      <th>Private Key</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for key in ssh_keys %}
+    <tr>
+      <td>{{ key.name }}</td>
+      <td><code>{{ key.fingerprint }}</code></td>
+      <td>{{ key.tenant.name if key.tenant else "Unassigned" }}</td>
+      <td>{{ key.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+      <td>{{ "Stored" if key.private_key_path else "—" }}</td>
+      <td>
+        <a href="{{ url_for('admin.edit_ssh_key', key_id=key.id) }}">Edit</a>
+        <form
+          method="post"
+          action="{{ url_for('admin.delete_ssh_key', key_id=key.id) }}"
+          class="inline-form"
+        >
+          {{ delete_form.csrf_token }}
+          {{ delete_form.key_id(value=key.id) }}
+          <button type="submit" class="link-button danger" onclick="return confirm('Remove SSH key {{ key.name }}?')">
+            Remove
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="6">No keys configured.</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<h2>Add SSH Key</h2>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <label>
+    {{ form.name.label }}
+    {{ form.name() }}
+    {% for error in form.name.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.public_key.label }}
+    {{ form.public_key(rows=4) }}
+    {% for error in form.public_key.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.private_key.label }}
+    {{ form.private_key(rows=6, placeholder="Optional: paste private key material") }}
+    {% if form.private_key.description %}
+      <small class="text-muted">{{ form.private_key.description }}</small>
+    {% endif %}
+    {% for error in form.private_key.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.tenant_id.label }}
+    {{ form.tenant_id() }}
+    {% for error in form.tenant_id.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <button type="submit">Add Key</button>
+</form>
+{% endblock %}

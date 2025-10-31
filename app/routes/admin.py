@@ -22,6 +22,7 @@ from flask import (
 )
 from markupsafe import Markup, escape
 from flask_login import current_user, login_required
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ..extensions import db
@@ -35,6 +36,7 @@ from ..forms.admin import (
     ProjectDeleteForm,
     UpdateApplicationForm,
     CreateUserForm,
+    UserUpdateForm,
     UserToggleAdminForm,
     UserResetPasswordForm,
     UserDeleteForm,
@@ -430,21 +432,34 @@ def manage_settings():
     update_form.next.data = url_for("admin.manage_settings")
 
     create_user_form = CreateUserForm()
-    if create_user_form.submit.data and create_user_form.validate_on_submit():
-        email = create_user_form.email.data.lower()
-        user = User(
-            email=email,
-            name=create_user_form.name.data,
-            password_hash=hash_password(create_user_form.password.data),
-            is_admin=create_user_form.is_admin.data,
-        )
-        db.session.add(user)
-        db.session.commit()
-        status = "Administrator" if user.is_admin else "Standard user"
-        flash(f"Created {status.lower()} account for {user.email}.", "success")
-        return redirect(url_for("admin.manage_settings"))
-    elif create_user_form.submit.data:
-        flash("Unable to create user. Please correct the errors below.", "danger")
+    if create_user_form.submit.data:
+        if create_user_form.validate_on_submit():
+            name = (create_user_form.name.data or "").strip()
+            email = (create_user_form.email.data or "").strip().lower()
+
+            if not name:
+                create_user_form.name.errors.append("Full Name is required.")
+                flash("Unable to create user. Please correct the errors below.", "danger")
+            else:
+                user = User(
+                    email=email,
+                    name=name,
+                    password_hash=hash_password(create_user_form.password.data),
+                    is_admin=create_user_form.is_admin.data,
+                )
+                db.session.add(user)
+                try:
+                    db.session.commit()
+                except IntegrityError:
+                    db.session.rollback()
+                    create_user_form.email.errors.append("A user with this email already exists.")
+                    flash("Unable to create user. Please correct the errors below.", "danger")
+                else:
+                    status = "Administrator" if user.is_admin else "Standard user"
+                    flash(f"Created {status.lower()} account for {user.email}.", "success")
+                    return redirect(url_for("admin.manage_settings"))
+        else:
+            flash("Unable to create user. Please correct the errors below.", "danger")
 
     users = User.query.order_by(User.email).all()
     user_toggle_forms = {
@@ -456,6 +471,14 @@ def manage_settings():
     user_delete_forms = {
         user.id: UserDeleteForm(user_id=str(user.id)) for user in users
     }
+    user_update_forms = {}
+    for user in users:
+        form = UserUpdateForm(formdata=None)
+        form.user_id.data = str(user.id)
+        form.name.data = user.name
+        form.email.data = user.email
+        form.is_admin.data = user.is_admin
+        user_update_forms[user.id] = form
 
     return render_template(
         "admin/settings.html",
@@ -465,6 +488,7 @@ def manage_settings():
         user_toggle_forms=user_toggle_forms,
         user_reset_forms=user_reset_forms,
         user_delete_forms=user_delete_forms,
+        user_update_forms=user_update_forms,
         restart_command=current_app.config.get("UPDATE_RESTART_COMMAND"),
         log_file=current_app.config.get("LOG_FILE"),
     )
@@ -600,6 +624,59 @@ def delete_user(user_id: int):
     db.session.delete(user)
     db.session.commit()
     flash(f"Deleted user {user.email}.", "success")
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/users/<int:user_id>/update", methods=["POST"])
+@admin_required
+def update_user(user_id: int):
+    form = UserUpdateForm()
+    if not form.validate_on_submit():
+        error_messages = [message for messages in form.errors.values() for message in messages]
+        if error_messages:
+            for message in error_messages:
+                flash(message, "danger")
+        else:
+            flash("Invalid user update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        submitted_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Invalid user update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    if submitted_id != user_id:
+        flash("Invalid user update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user = User.query.get_or_404(user_id)
+    name = (form.name.data or "").strip()
+    email_input = (form.email.data or "").strip()
+    normalized_email = email_input.lower()
+
+    if not name:
+        flash("Full Name is required.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    if user.is_admin and not form.is_admin.data:
+        admin_count = User.query.filter_by(is_admin=True).count()
+        if admin_count <= 1:
+            flash("At least one administrator must remain.", "danger")
+            return redirect(url_for("admin.manage_settings"))
+
+    user.name = name
+    user.email = normalized_email
+    user.is_admin = form.is_admin.data
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        flash("A user with this email already exists.", "danger")
+    else:
+        flash(f"Updated account for {user.email}.", "success")
+
     return redirect(url_for("admin.manage_settings"))
 
 

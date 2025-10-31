@@ -53,6 +53,20 @@
     flex-direction: column;
     gap: 0.4rem;
   }
+  .user-actions details {
+    margin-bottom: 0.35rem;
+  }
+  .user-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .user-edit-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
   .user-actions form {
     display: flex;
     gap: 0.35rem;
@@ -165,6 +179,7 @@
             {% set toggle_form = user_toggle_forms[user.id] %}
             {% set reset_form = user_reset_forms[user.id] %}
             {% set delete_form = user_delete_forms[user.id] %}
+            {% set update_form = user_update_forms[user.id] %}
             <tr>
               <th scope="row">
                 {{ user.name or "Unnamed user" }}
@@ -183,6 +198,25 @@
               </td>
               <td>
                 <div class="user-actions">
+                  <details>
+                    <summary>Edit details</summary>
+                    <form method="post" action="{{ url_for('admin.update_user', user_id=user.id) }}" class="user-edit-form">
+                      {{ update_form.hidden_tag() }}
+                      <label>
+                        {{ update_form.name.label }}
+                        {{ update_form.name() }}
+                      </label>
+                      <label>
+                        {{ update_form.email.label }}
+                        {{ update_form.email(type="email") }}
+                      </label>
+                      <label class="checkbox">
+                        {{ update_form.is_admin() }}
+                        {{ update_form.is_admin.label }}
+                      </label>
+                      <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
+                    </form>
+                  </details>
                   <form method="post" action="{{ url_for('admin.toggle_user_admin', user_id=user.id) }}">
                     {{ toggle_form.hidden_tag() }}
                     <button type="submit" class="secondary">

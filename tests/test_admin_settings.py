@@ -80,6 +80,82 @@ def test_create_user_via_settings(app, client, login_admin):
         assert user.is_admin is True
 
 
+def test_update_user_details(app, client, login_admin):
+    with app.app_context():
+        user = User(
+            email="member3@example.com",
+            name="Member 3",
+            password_hash=hash_password("member-pass"),
+            is_admin=False,
+        )
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+
+    resp = client.post(
+        f"/admin/settings/users/{user_id}/update",
+        data={
+            "user_id": str(user_id),
+            "name": "Renamed User",
+            "email": "renamed@example.com",
+            "is_admin": "y",
+            "submit": "Save Changes",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    with app.app_context():
+        updated = User.query.get(user_id)
+        assert updated.name == "Renamed User"
+        assert updated.email == "renamed@example.com"
+        assert updated.is_admin is True
+
+
+def test_update_user_rejects_duplicate_email(app, client, login_admin):
+    with app.app_context():
+        admin_email = User.query.filter_by(email="admin@example.com").one().email
+        other = User(
+            email="other@example.com",
+            name="Other User",
+            password_hash=hash_password("other-pass"),
+            is_admin=False,
+        )
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+
+    resp = client.post(
+        f"/admin/settings/users/{other_id}/update",
+        data={
+            "user_id": str(other_id),
+            "name": "Other User",
+            "email": admin_email,
+            "submit": "Save Changes",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b"A user with this email already exists." in resp.data
+    with app.app_context():
+        persisted = User.query.get(other_id)
+        assert persisted.email == "other@example.com"
+
+
+def test_update_user_prevents_last_admin_removal(app, client, login_admin):
+    resp = client.post(
+        "/admin/settings/users/1/update",
+        data={
+            "user_id": "1",
+            "name": "Admin",
+            "email": "admin@example.com",
+            "submit": "Save Changes",
+        },
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b"At least one administrator must remain." in resp.data
+
+
 def test_toggle_user_admin(app, client, login_admin):
     with app.app_context():
         user = User(

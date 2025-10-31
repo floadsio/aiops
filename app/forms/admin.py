@@ -189,6 +189,36 @@ class CreateUserForm(FlaskForm):
         field.data = raw
 
 
+class UserUpdateForm(FlaskForm):
+    user_id = HiddenField(validators=[DataRequired()])
+    name = StringField("Full Name", validators=[DataRequired(), Length(max=255)])
+    email = StringField("Email", validators=[DataRequired(), Length(max=255)])
+    is_admin = BooleanField("Grant administrator access", default=False)
+    submit = SubmitField("Save Changes")
+
+    def validate_email(self, field):
+        from ..models import User
+
+        raw = (field.data or "").strip()
+        email = raw.lower()
+        if "@" not in email:
+            raise ValidationError("Enter a valid email address.")
+
+        query = User.query.filter(User.email == email)
+        if self.user_id.data:
+            try:
+                current_id = int(self.user_id.data)
+            except (TypeError, ValueError):
+                current_id = None
+            if current_id:
+                query = query.filter(User.id != current_id)
+
+        if query.first():
+            raise ValidationError("A user with this email already exists.")
+
+        field.data = raw
+
+
 class UserToggleAdminForm(FlaskForm):
     user_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Toggle Admin")

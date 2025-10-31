@@ -62,6 +62,7 @@ from ..services.tmux_service import (
 )
 from ..services.key_service import compute_fingerprint
 from ..services.update_service import run_update_script, UpdateError
+from ..services.log_service import read_log_tail, LogReadError
 from ..security import hash_password
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
@@ -465,6 +466,7 @@ def manage_settings():
         user_reset_forms=user_reset_forms,
         user_delete_forms=user_delete_forms,
         restart_command=current_app.config.get("UPDATE_RESTART_COMMAND"),
+        log_file=current_app.config.get("LOG_FILE"),
     )
 
 
@@ -517,6 +519,31 @@ def run_system_update():
 
     redirect_target = form.next.data or url_for("admin.dashboard")
     return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/logs", methods=["GET"])
+@admin_required
+def fetch_application_logs():
+    try:
+        requested_lines = int(request.args.get("lines", "400"))
+    except ValueError:
+        requested_lines = 400
+    requested_lines = max(1, min(requested_lines, 2000))
+
+    log_path_raw = current_app.config.get("LOG_FILE") or "/tmp/aiops.log"
+    log_path = Path(log_path_raw)
+
+    try:
+        tail = read_log_tail(log_path, max_lines=requested_lines)
+    except LogReadError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 500
+
+    return jsonify({
+        "ok": True,
+        "content": tail.content,
+        "truncated": tail.truncated,
+        "path": str(log_path),
+    })
 
 
 @admin_bp.route("/settings/users/<int:user_id>/toggle-admin", methods=["POST"])

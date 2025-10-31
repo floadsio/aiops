@@ -69,6 +69,23 @@
   [data-theme="dark"] .user-meta {
     color: rgba(226, 232, 240, 0.75);
   }
+  .log-output {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(241, 245, 249, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    max-height: 20rem;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  [data-theme="dark"] .log-output {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(148, 163, 184, 0.25);
+  }
 </style>
 {% endblock %}
 {% block content %}
@@ -191,5 +208,61 @@
       <p class="text-muted">No users found.</p>
     {% endif %}
   </article>
+
+  <article class="settings-card">
+    <h2>Application Logs</h2>
+    {% if log_file %}
+      <p>Inspect recent entries from <code>{{ log_file }}</code> to troubleshoot background activity.</p>
+    {% else %}
+      <p>Inspect recent log output to troubleshoot background activity.</p>
+    {% endif %}
+    <div class="settings-actions">
+      <label class="checkbox-inline" for="log-line-count">
+        <span>Lines</span>
+        <input type="number" id="log-line-count" min="50" max="2000" value="400" />
+      </label>
+      <button type="button" class="secondary" id="refresh-log">Refresh logs</button>
+      <span class="text-muted form-helper" id="log-status" aria-live="polite"></span>
+    </div>
+    <pre id="app-log-output" class="log-output" tabindex="0">Loading…</pre>
+  </article>
 </div>
+<script>
+  (function () {
+    const refreshButton = document.getElementById('refresh-log');
+    const output = document.getElementById('app-log-output');
+    const status = document.getElementById('log-status');
+    const lineInput = document.getElementById('log-line-count');
+    if (!refreshButton || !output) {
+      return;
+    }
+
+    const fetchLogs = () => {
+      const lines = Math.max(50, Math.min(2000, parseInt(lineInput?.value || '400', 10) || 400));
+      if (status) {
+        status.textContent = 'Fetching…';
+      }
+      fetch(`/admin/settings/logs?lines=${lines}`, { credentials: 'same-origin' })
+        .then(response => response.json())
+        .then(payload => {
+          if (!payload.ok) {
+            throw new Error(payload.error || 'Unable to read logs.');
+          }
+          output.textContent = payload.content || '(no log entries)';
+          if (status) {
+            status.textContent = payload.truncated ? `Showing last ${lines} lines (truncated).` : `Showing up to ${lines} lines.`;
+          }
+        })
+        .catch(error => {
+          output.textContent = `Error loading logs: ${error.message}`;
+          if (status) {
+            status.textContent = 'Failed to fetch logs';
+          }
+        });
+    };
+
+    refreshButton.addEventListener('click', fetchLogs);
+    fetchLogs();
+  })();
+</script>
 {% endblock %}

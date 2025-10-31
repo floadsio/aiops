@@ -112,6 +112,10 @@
   const terminalWrapper = document.getElementById('terminal-container');
   const fullscreenToggle = document.getElementById('fullscreen-toggle');
   const fullscreenLabel = document.getElementById('fullscreen-label');
+  const supportsNativeFullscreen = Boolean(
+    terminalWrapper && terminalWrapper.requestFullscreen && document.fullscreenEnabled !== false
+  );
+  let fallbackFullscreen = false;
 
   let eventSource = null;
   let dataDisposable = null;
@@ -286,36 +290,53 @@
     if (!terminalWrapper) {
       return false;
     }
-    return document.fullscreenElement === terminalWrapper;
+    if (supportsNativeFullscreen) {
+      return document.fullscreenElement === terminalWrapper;
+    }
+    return fallbackFullscreen;
+  }
+
+  function applyFullscreenState(active) {
+    if (terminalWrapper) {
+      terminalWrapper.classList.toggle('fullscreen', active);
+    }
+    if (fullscreenLabel) {
+      fullscreenLabel.textContent = active ? '⨯' : '⛶';
+    }
   }
 
   function updateFullscreenButton() {
-    if (!fullscreenToggle) {
-      return;
-    }
-    const fullscreenActive = isFullscreen();
-    if (fullscreenLabel) {
-      fullscreenLabel.textContent = fullscreenActive ? '⨯' : '⛶';
-    }
-    if (terminalWrapper) {
-      terminalWrapper.classList.toggle('fullscreen', fullscreenActive);
-    }
+    applyFullscreenState(isFullscreen());
   }
 
   if (fullscreenToggle && terminalWrapper) {
     fullscreenToggle.addEventListener('click', () => {
-      if (isFullscreen()) {
-        document.exitFullscreen().catch(() => {});
+      if (supportsNativeFullscreen) {
+        if (isFullscreen()) {
+          document.exitFullscreen().catch(() => {});
+        } else {
+          terminalWrapper.requestFullscreen().catch(() => {
+            fallbackFullscreen = !fallbackFullscreen;
+            applyFullscreenState(fallbackFullscreen);
+            scheduleFit();
+          });
+        }
       } else {
-        terminalWrapper.requestFullscreen().catch(() => {});
+        fallbackFullscreen = !fallbackFullscreen;
+        applyFullscreenState(fallbackFullscreen);
+        scheduleFit();
       }
     });
 
-    const handleFullscreenChange = () => {
-      updateFullscreenButton();
-      scheduleFit();
-    };
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    if (supportsNativeFullscreen) {
+      const handleFullscreenChange = () => {
+        applyFullscreenState(isFullscreen());
+        scheduleFit();
+      };
+      document.addEventListener('fullscreenchange', handleFullscreenChange);
+    } else {
+      applyFullscreenState(fallbackFullscreen);
+    }
   }
 
   if (terminalPanel) {

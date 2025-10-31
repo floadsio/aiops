@@ -20,9 +20,13 @@ def app(tmp_path: Path):
     class _Config(SettingsTestConfig):
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'settings.db'}"
         REPO_STORAGE_PATH = str(tmp_path / "repos")
+        LOG_FILE = str(tmp_path / "logs" / "aiops.log")
 
     application = create_app(_Config, instance_path=tmp_path / "instance")
     with application.app_context():
+        log_path = Path(application.config["LOG_FILE"])
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("Initial log line\n", encoding="utf-8")
         db.create_all()
         admin = User(
             email="admin@example.com",
@@ -153,3 +157,16 @@ def test_delete_user(app, client, login_admin):
     assert resp.status_code == 200
     with app.app_context():
         assert User.query.get(user_id) is None
+
+
+def test_fetch_logs(app, client, login_admin, tmp_path):
+    log_path = Path(app.config["LOG_FILE"])
+    log_path.write_text("line1\nline2\nline3\n", encoding="utf-8")
+
+    response = client.get("/admin/settings/logs?lines=2")
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["ok"] is True
+    assert "line2" in payload["content"]
+    assert "line1" not in payload["content"]
+    assert payload["truncated"] is True

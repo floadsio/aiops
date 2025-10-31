@@ -13,9 +13,60 @@ from flask import current_app
 from git import GitCommandError, Repo, exc
 from git.remote import Remote
 
+from ..extensions import db
 from ..models import Project
 
 log = logging.getLogger(__name__)
+
+
+def _project_slug(project: Project) -> str:
+    name = getattr(project, "name", "") or f"project-{project.id}"
+    slug = name.lower().translate(str.maketrans({c: "-" for c in " ./\\:"}))
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    slug = slug.strip("-")
+    return slug or f"project-{project.id}"
+
+
+def _project_repo_root() -> Path:
+    root = Path(current_app.config["REPO_STORAGE_PATH"]).expanduser()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def _default_project_path(project: Project) -> Path:
+    root = _project_repo_root()
+    base_slug = _project_slug(project)
+    candidate = root / base_slug
+    suffix = 1
+    existing = Path(getattr(project, "local_path", ""))
+    while candidate.exists() and candidate != existing:
+        if (candidate / ".git").exists():
+            suffix += 1
+            candidate = root / f"{base_slug}-{suffix}"
+        else:
+            break
+    return candidate
+
+
+def _relocate_project_path(project: Project) -> Path:
+    new_path = _default_project_path(project)
+    new_path.mkdir(parents=True, exist_ok=True)
+    old_path = project.local_path
+    project.local_path = str(new_path)
+    try:
+        db.session.add(project)
+        db.session.commit()
+    except Exception:  # pragma: no cover - protect against failed commit
+        db.session.rollback()
+        raise
+    current_app.logger.warning(
+        "Project %s local checkout path reset from %s to %s due to inaccessible path.",
+        getattr(project, "name", project.id),
+        old_path,
+        new_path,
+    )
+    return new_path
 
 
 def _normalize_private_key_path(path: Optional[str]) -> Optional[Path]:
@@ -143,7 +194,29 @@ def _build_git_env(ssh_key_path: Optional[str]) -> dict[str, str]:
 
 
 def ensure_repo_checkout(project: Project) -> Repo:
-    path = Path(project.local_path)
+    storage_root = _project_repo_root()
+    path = Path(project.local_path).expanduser()
+    try:
+        resolved_path = path.resolve(strict=False)
+    except TypeError:  # pragma: no cover - older Python compatibility
+        resolved_path = path.resolve()
+    resolved_root = storage_root.resolve()
+    within_storage = resolved_path == resolved_root or resolved_root in resolved_path.parents
+    if not within_storage:
+        path = _relocate_project_path(project)
+        resolved_path = path.resolve()
+
+    if path.exists() and (path / ".git").exists():
+        try:
+            return Repo(path)
+        except Exception:  # noqa: BLE001
+            path = _relocate_project_path(project)
+    else:
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except (PermissionError, OSError):
+            path = _relocate_project_path(project)
+
     invalid_keys: set[str] = set()
 
     def _attempt_clone(env: dict[str, str] | None) -> Repo:
@@ -153,11 +226,6 @@ def ensure_repo_checkout(project: Project) -> Repo:
             branch=project.default_branch,
             env=env or None,
         )
-
-    if path.exists() and (path / ".git").exists():
-        return Repo(path)
-
-    path.mkdir(parents=True, exist_ok=True)
 
     while True:
         key_path = _resolve_project_ssh_key_path(project, invalid=invalid_keys)

@@ -24,6 +24,7 @@ This project provides a Flask-based web UI that orchestrates multi-tenant source
 - Runtime state (SQLite DB, SSH keys, tmux configs) lives under `instance/` and is ignored by git.
 - Environment overrides should go in `.env` which is also ignored; copy from `.env.example`.
 - If you need to back up or migrate the runtime data, archive the `instance/` directory separately.
+- Application logs default to `logs/aiops.log`; adjust `LOG_FILE` in `.env` to relocate them.
 
 ### Updating an Existing Deployment
 Use the helper script to pull the latest tagged release or main branch while keeping local files:

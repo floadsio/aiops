@@ -217,3 +217,53 @@ def test_ensure_repo_checkout_uses_ssh_env(app, owner, tenant, tmp_path, monkeyp
         assert known_hosts_path.exists()
         assert str(known_hosts_path) in command
         assert len(attempts) >= 2
+
+
+def test_ensure_repo_checkout_relocates_inaccessible_path(app, owner, tenant, monkeypatch):
+    inaccessible_path = "/Users/eim/src/floads/github/aiops/instance/repos/demo"
+
+    with app.app_context():
+        project = Project(
+            name="demo-project",
+            repo_url="https://example.com/demo.git",
+            default_branch="main",
+            local_path=inaccessible_path,
+            tenant=tenant,
+            owner=owner,
+        )
+        db.session.add(project)
+        db.session.commit()
+
+        class DummyRepo:
+            def __init__(self, repo_path: Path):
+                self.path = Path(repo_path)
+                self.git_dir = self.path / ".git"
+                self.git = self
+
+            @classmethod
+            def clone_from(cls, repo_url, path, branch=None, env=None):
+                path = Path(path)
+                path.mkdir(parents=True, exist_ok=True)
+                (path / ".git").mkdir(parents=True, exist_ok=True)
+                return cls(path)
+
+            def custom_environment(self, **kwargs):
+                class _Ctx:
+                    def __enter__(self_inner):
+                        return self
+
+                    def __exit__(self_inner, exc_type, exc, tb):
+                        return False
+
+                return _Ctx()
+
+            def status(self, *args, **kwargs):
+                return ""
+
+        monkeypatch.setattr("app.services.git_service.Repo", DummyRepo)
+
+        repo = ensure_repo_checkout(project)
+        storage_root = Path(app.config["REPO_STORAGE_PATH"]).expanduser().resolve()
+        new_path = Path(project.local_path).resolve()
+        assert new_path == storage_root or storage_root in new_path.parents
+        assert repo.path == Path(project.local_path)

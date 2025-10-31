@@ -401,22 +401,6 @@
 
 <section class="dashboard-section">
   <header>
-    <h2>System Maintenance</h2>
-    <small class="text-muted">Pull the latest code from GitHub without shell access.</small>
-  </header>
-  <form method="post" action="{{ url_for('admin.run_system_update') }}" class="update-form">
-    {{ update_form.hidden_tag() }}
-    <label class="checkbox-inline">
-      {{ update_form.restart() }}
-      <span>Restart application after update</span>
-    </label>
-    <button type="submit" class="secondary">Run update script</button>
-    <span class="text-muted form-helper">Runs <code>scripts/update.sh</code> in the project root.</span>
-  </form>
-</section>
-
-<section class="dashboard-section">
-  <header>
     <h2>Recent tmux Windows</h2>
     <small class="text-muted">Quickly reattach to active AI consoles.</small>
   </header>

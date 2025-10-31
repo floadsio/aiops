@@ -38,7 +38,7 @@ ProviderFunc = Callable[[TenantIntegration, ProjectIntegration, Optional[datetim
 CreateProviderFunc = Callable[[TenantIntegration, ProjectIntegration, IssueCreateRequest], IssuePayload]
 
 from . import github, gitlab, jira  # noqa: E402  (import depends on IssuePayload declaration)
-from .utils import ProviderTestError, test_provider_credentials
+from .utils import ProviderTestError, test_provider_credentials  # noqa: E402
 
 PROVIDER_REGISTRY: Dict[str, ProviderFunc] = {
     "gitlab": gitlab.fetch_issues,

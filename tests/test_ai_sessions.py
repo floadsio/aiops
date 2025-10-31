@@ -1,7 +1,5 @@
 from types import SimpleNamespace
 
-import pytest
-
 from app import create_app
 from app.config import Config
 from app.ai_sessions import create_session
@@ -73,7 +71,7 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         window._pane = pane
         session_obj = FakeSession("aiops", window)
 
-        monkeypatch.setattr("app.ai_sessions.ensure_project_window", lambda project, window_name=None: (session_obj, window))
+        monkeypatch.setattr("app.ai_sessions.ensure_project_window", lambda project, window_name=None: (session_obj, window, True))
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (1234, 56))
         monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
@@ -133,7 +131,7 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
             pane = FakePane()
             window = FakeWindow(window_name or "tenant-beta-demo")
             window._pane = pane
-            return session_obj, window
+            return session_obj, window, True
 
         monkeypatch.setattr("app.ai_sessions.ensure_project_window", fake_ensure)
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
@@ -159,3 +157,50 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
 
         assert captured["window_name"] == "tenant-tooling"
         assert session.tmux_target == "aiops:tenant-tooling"
+
+
+def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_path):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    with app.app_context():
+        project_path = tmp_path / "repos" / "demo"
+        project_path.mkdir(parents=True, exist_ok=True)
+        project = SimpleNamespace(
+            id=3,
+            name="Demo Project",
+            local_path=str(project_path),
+            tenant=SimpleNamespace(name="Tenant Beta"),
+        )
+
+        pane = FakePane()
+        window = FakeWindow("tenant-beta-demo")
+        window._pane = pane
+        session_obj = FakeSession("aiops", window)
+
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None: (session_obj, window, False),
+        )
+        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
+        monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (9876, 54))
+        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
+
+        class DummyThread:
+            def __init__(self, *_, **__):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
+        monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
+
+        session = create_session(project, user_id=202, tmux_target="aiops:tenant-beta-demo")
+
+        assert session.command == "codex"
+        assert pane.commands == []

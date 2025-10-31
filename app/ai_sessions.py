@@ -12,11 +12,9 @@ import uuid
 from base64 import b64encode
 from queue import Empty, Queue
 from select import select
-from typing import Optional, Tuple
+from typing import Optional
 
 from flask import current_app
-from pathlib import Path
-
 from .services.tmux_service import ensure_project_window
 
 
@@ -102,7 +100,7 @@ def _resolve_tmux_window(project, tmux_target: Optional[str] = None):
             window_name = tmux_target
 
     try:
-        session, window = ensure_project_window(project, window_name=window_name)
+        session, window, created = ensure_project_window(project, window_name=window_name)
     except ValueError as exc:
         current_app.logger.warning(
             "Unable to open tmux window %s for project %s: %s. Falling back to default window.",
@@ -110,14 +108,14 @@ def _resolve_tmux_window(project, tmux_target: Optional[str] = None):
             getattr(project, "id", "unknown"),
             exc,
         )
-        session, window = ensure_project_window(project)
+        session, window, created = ensure_project_window(project)
     try:
         window.select_window()
     except Exception:  # noqa: BLE001 - best effort
         current_app.logger.debug(
             "Unable to select tmux window %s:%s", session.get("session_name"), window.get("window_name")
         )
-    return session, window
+    return session, window, created
 
 
 def _register_session(session: AISession) -> AISession:
@@ -174,7 +172,7 @@ def create_session(
     if not tmux_path:
         raise RuntimeError("tmux binary not found. Install tmux or disable tmux integration.")
 
-    session, window = _resolve_tmux_window(project, tmux_target)
+    session, window, created = _resolve_tmux_window(project, tmux_target)
     session_name = session.get("session_name")
     window_name = window.get("window_name")
     pane = window.attached_pane or (window.panes[0] if window.panes else None)
@@ -216,14 +214,16 @@ def create_session(
         _set_winsize(fd, rows, cols)
     _register_session(session_record)
 
-    try:
-        pane.send_keys("clear", enter=True)
-    except Exception:  # noqa: BLE001
-        current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
-    try:
-        pane.send_keys(command_str, enter=True)
-    except Exception as exc:  # noqa: BLE001
-        current_app.logger.warning("Failed to start command in tmux window %s: %s", window_name, exc)
+    should_bootstrap = created or tmux_target is None
+    if should_bootstrap:
+        try:
+            pane.send_keys("clear", enter=True)
+        except Exception:  # noqa: BLE001
+            current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
+        try:
+            pane.send_keys(command_str, enter=True)
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning("Failed to start command in tmux window %s: %s", window_name, exc)
 
     threading.Thread(target=_reader_loop, args=(session_record,), daemon=True).start()
     return session_record

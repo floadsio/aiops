@@ -3,8 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
-
 from app import create_app, db
 from app.config import Config
 from app.models import Project, ProjectIntegration, Tenant, TenantIntegration, User

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -10,6 +9,7 @@ from app import create_app, db
 from app.config import Config
 from app.models import Project, ProjectIntegration, SSHKey, Tenant, TenantIntegration, User
 from app.security import hash_password
+from app.services.update_service import UpdateError
 
 
 class AdminTestConfig(Config):
@@ -206,6 +206,85 @@ def test_can_update_and_delete_project_integration(app, client, login_admin):
 
     with app.app_context():
         assert ProjectIntegration.query.get(link_id) is None
+
+
+def test_admin_can_trigger_update(app, client, login_admin, monkeypatch):
+    class DummyResult:
+        def __init__(self):
+            self.command = "/bin/bash scripts/update.sh"
+            self.returncode = 0
+            self.stdout = "update completed"
+            self.stderr = ""
+
+        @property
+        def ok(self):
+            return True
+
+    calls = {}
+
+    def fake_run_update():
+        calls["invoked"] = True
+        return DummyResult()
+
+    monkeypatch.setattr("app.routes.admin.run_update_script", fake_run_update)
+
+    restart_calls = {}
+
+    def fake_trigger(command):
+        restart_calls["command"] = command
+        return True, "Restart scheduled"
+
+    monkeypatch.setattr("app.routes.admin._trigger_restart", fake_trigger)
+
+    response = client.post(
+        "/admin/system/update",
+        data={"restart": "y", "submit": "Run update script"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert calls.get("invoked") is True
+    assert b"Update succeeded" in response.data
+    assert b"update-log" in response.data
+    assert restart_calls.get("command") is None
+    assert b"Restart scheduled" in response.data
+
+
+def test_admin_update_handles_error(app, client, login_admin, monkeypatch):
+    def fake_run_update():
+        raise UpdateError("script missing")
+
+    monkeypatch.setattr("app.routes.admin.run_update_script", fake_run_update)
+
+    response = client.post(
+        "/admin/system/update",
+        data={"submit": "Run update script"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"script missing" in response.data
+
+
+def test_admin_update_restart_failure(app, client, login_admin, monkeypatch):
+    class DummyResult:
+        command = "/bin/bash scripts/update.sh"
+        returncode = 0
+        stdout = "done"
+        stderr = ""
+
+        @property
+        def ok(self):
+            return True
+
+    monkeypatch.setattr("app.routes.admin.run_update_script", lambda: DummyResult())
+    monkeypatch.setattr("app.routes.admin._trigger_restart", lambda cmd: (False, "Restart failed"))
+
+    response = client.post(
+        "/admin/system/update",
+        data={"restart": "y", "submit": "Run update script"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"Restart failed" in response.data
 
 
 def test_can_delete_tenant(app, client, login_admin):

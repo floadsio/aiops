@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional, Any
+from typing import Iterable, List, Optional
 
 from flask import current_app
 
@@ -87,6 +87,7 @@ def ensure_project_window(project, *, window_name: Optional[str] = None):
     if session is None:
         raise TmuxServiceError("Unable to create shared tmux session.")
     window_name = window_name or _project_window_name(project)
+    created = False
     window = next(
         (item for item in session.windows if item.get("window_name") == window_name),
         None,
@@ -98,7 +99,8 @@ def ensure_project_window(project, *, window_name: Optional[str] = None):
             attach=False,
             start_directory=start_directory,
         )
-    return session, window
+        created = True
+    return session, window, created
 
 
 def _window_info(session, window) -> TmuxWindow:
@@ -152,7 +154,7 @@ def list_windows_for_aliases(
 
 
 def get_or_create_window_for_project(project) -> TmuxWindow:
-    session, window = ensure_project_window(project)
+    session, window, _ = ensure_project_window(project)
     return _window_info(session, window)
 
 

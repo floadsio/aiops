@@ -162,3 +162,8 @@ class ProjectIssueSyncForm(FlaskForm):
 class ProjectGitRefreshForm(FlaskForm):
     project_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Pull Latest")
+
+
+class UpdateApplicationForm(FlaskForm):
+    restart = BooleanField("Restart application after update")
+    submit = SubmitField("Run Update")

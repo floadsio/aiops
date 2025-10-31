@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import shlex
-import shutil
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Optional

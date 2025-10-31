@@ -197,7 +197,7 @@ def project_detail(project_id: int):
                 except IssueSyncError as exc:
                     db.session.rollback()
                     flash(f"Failed to create issue: {exc}", "danger")
-                except Exception as exc:  # noqa: BLE001
+                except Exception:  # noqa: BLE001
                     db.session.rollback()
                     current_app.logger.exception(
                         "Issue creation failed for project_id=%s integration_id=%s",

@@ -337,6 +337,37 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  .update-form {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .update-form .checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .update-form .form-helper {
+    font-size: 0.85rem;
+  }
+  .update-log {
+    display: block;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    background: rgba(241, 245, 249, 0.9);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    max-height: 18rem;
+    overflow: auto;
+  }
+  [data-theme="dark"] .update-log {
+    background: rgba(30, 41, 59, 0.6);
+    border-color: rgba(148, 163, 184, 0.25);
+  }
   .empty-state {
     padding: 1.5rem;
     border-radius: 1.25rem;
@@ -370,6 +401,22 @@
 
 <section class="dashboard-section">
   <header>
+    <h2>System Maintenance</h2>
+    <small class="text-muted">Pull the latest code from GitHub without shell access.</small>
+  </header>
+  <form method="post" action="{{ url_for('admin.run_system_update') }}" class="update-form">
+    {{ update_form.hidden_tag() }}
+    <label class="checkbox-inline">
+      {{ update_form.restart() }}
+      <span>Restart application after update</span>
+    </label>
+    <button type="submit" class="secondary">Run update script</button>
+    <span class="text-muted form-helper">Runs <code>scripts/update.sh</code> in the project root.</span>
+  </form>
+</section>
+
+<section class="dashboard-section">
+  <header>
     <h2>Recent tmux Windows</h2>
     <small class="text-muted">Quickly reattach to active AI consoles.</small>
   </header>
@@ -382,6 +429,9 @@
           <div class="tmux-recent-meta">
             <span class="tmux-chip">{{ window.window }}</span>
             <span class="text-muted">Session {{ window.session }}</span>
+            {% if window.project %}
+              <span class="text-muted">Project {{ window.project.project_name }}</span>
+            {% endif %}
             <span class="text-muted">
               {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
               {% if window.created_display %}
@@ -390,6 +440,15 @@
             </span>
           </div>
           <div class="tmux-recent-actions">
+            {% if window.project %}
+              <a
+                role="button"
+                class="secondary outline"
+                href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
+              >
+                Reattach
+              </a>
+            {% endif %}
             <code class="tmux-command">tmux attach -t {{ window.target }}</code>
             <button type="button" class="secondary outline copy-tmux-command" data-command="tmux attach -t {{ window.target }}">
               Copy command

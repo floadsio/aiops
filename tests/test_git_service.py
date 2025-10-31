@@ -8,7 +8,7 @@ from app import create_app, db
 from app.config import Config
 from app.models import Project, SSHKey, Tenant, User
 from app.security import hash_password
-from app.services.git_service import ensure_repo_checkout, _resolve_project_ssh_key_path, _ensure_known_hosts_file
+from app.services.git_service import ensure_repo_checkout, _resolve_project_ssh_key_path
 from git import GitCommandError
 
 

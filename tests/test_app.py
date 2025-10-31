@@ -221,7 +221,6 @@ def test_project_detail_shows_external_issues(tmp_path):
         db.session.add_all([user, tenant, project, integration, project_integration, issue])
         db.session.commit()
         project_id = project.id
-        issue_id = issue.id
 
     client = app.test_client()
     login_resp = client.post(

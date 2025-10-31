@@ -4,7 +4,6 @@ import sys
 import types
 
 import pytest
-import requests
 from requests.auth import HTTPBasicAuth
 
 if "github" not in sys.modules:

@@ -6,6 +6,9 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import subprocess
+import threading
+import time
 
 from flask import (
     Blueprint,
@@ -17,6 +20,7 @@ from flask import (
     request,
     url_for,
 )
+from markupsafe import Markup, escape
 from flask_login import current_user, login_required
 from sqlalchemy.orm import selectinload
 
@@ -29,6 +33,7 @@ from ..forms.admin import (
     ProjectIssueSyncForm,
     ProjectGitRefreshForm,
     ProjectDeleteForm,
+    UpdateApplicationForm,
     SSHKeyForm,
     SSHKeyDeleteForm,
     TenantForm,
@@ -50,9 +55,9 @@ from ..services.issues.utils import normalize_issue_status
 from ..services.tmux_service import (
     TmuxServiceError,
     list_windows_for_aliases,
-    find_window_for_project,
 )
 from ..services.key_service import compute_fingerprint
+from ..services.update_service import run_update_script, UpdateError
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -74,6 +79,44 @@ def _private_key_dir() -> Path:
     path = Path(current_app.instance_path) / "keys"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def _truncate_output(text: str, limit: int = 4000) -> str:
+    if len(text) <= limit:
+        return text
+    return text[:limit] + "\n… (truncated)"
+
+
+def _trigger_restart(restart_command: str | None) -> tuple[bool, str]:
+    """
+    Attempt to restart the application process.
+
+    Returns a (success, message) tuple suitable for flashing in the UI.
+    """
+    if restart_command:
+        try:
+            subprocess.Popen(
+                restart_command,
+                shell=True,
+                env=os.environ.copy(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError as exc:
+            return False, f"Failed to execute restart command: {exc}"
+        return True, f"Executed restart command: {restart_command}"
+
+    shutdown_func = request.environ.get("werkzeug.server.shutdown")
+    if shutdown_func:
+        threading.Thread(target=shutdown_func, daemon=True).start()
+        return True, "Werkzeug server shutting down to apply updates."
+
+    def _delayed_exit():
+        time.sleep(1.0)
+        os._exit(3)
+
+    threading.Thread(target=_delayed_exit, daemon=True).start()
+    return True, "Application process will exit shortly to allow supervisor restart."
 
 
 def _remove_private_key_file(ssh_key: SSHKey) -> None:
@@ -145,6 +188,7 @@ def _coerce_timestamp(value: Any) -> datetime | None:
 @admin_required
 def dashboard():
     tenants = Tenant.query.order_by(Tenant.name).all()
+    update_form = UpdateApplicationForm()
     projects = (
         Project.query.options(
             selectinload(Project.tenant),
@@ -158,6 +202,7 @@ def dashboard():
     project_cards: list[dict[str, Any]] = []
     recent_tmux_windows: list[dict[str, Any]] = []
     recent_tmux_error: str | None = None
+    window_project_map: dict[str, dict[str, Any]] = {}
 
     def _status_sort_key(item: tuple[str, str]) -> tuple[int, str]:
         key, label = item
@@ -218,7 +263,16 @@ def dashboard():
                             if window_created
                             else None
                         ),
+                        "project_id": project.id,
+                        "project_name": project.name,
                     }
+                )
+                window_project_map.setdefault(
+                    window.target,
+                    {
+                        "project_id": project.id,
+                        "project_name": project.name,
+                    },
                 )
         except TmuxServiceError as exc:
             tmux_error = str(exc)
@@ -343,6 +397,7 @@ def dashboard():
                     "panes": window.panes,
                     "created": window.created,
                     "created_display": created_display,
+                    "project": window_project_map.get(window.target),
                 }
             )
     except TmuxServiceError as exc:
@@ -357,7 +412,58 @@ def dashboard():
         pending_tasks=pending_tasks,
         recent_tmux_windows=recent_tmux_windows,
         recent_tmux_error=recent_tmux_error,
+        update_form=update_form,
     )
+
+
+@admin_bp.route("/system/update", methods=["POST"])
+@admin_required
+def run_system_update():
+    form = UpdateApplicationForm()
+    if not form.validate_on_submit():
+        flash("Invalid update request.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    restart_requested = bool(form.restart.data)
+
+    try:
+        result = run_update_script()
+    except UpdateError as exc:
+        current_app.logger.exception("Application update failed to start.")
+        flash(str(exc), "danger")
+    else:
+        combined_output = "\n".join(
+            part for part in [result.stdout.strip(), result.stderr.strip()] if part
+        )
+        truncated = _truncate_output(combined_output)
+        message = (
+            f"Update succeeded (exit {result.returncode})."
+            if result.ok
+            else f"Update failed (exit {result.returncode})."
+        )
+        category = "success" if result.ok else "danger"
+        log_message = f"Application update command finished with exit {result.returncode}"
+        if combined_output:
+            current_app.logger.info("%s; output: %s", log_message, combined_output)
+        else:
+            current_app.logger.info(log_message)
+        if truncated:
+            flash(
+                Markup(
+                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                ),
+                category,
+            )
+        else:
+            flash(message, category)
+
+        if result.ok and restart_requested:
+            restart_command = current_app.config.get("UPDATE_RESTART_COMMAND")
+            restart_success, restart_message = _trigger_restart(restart_command)
+            restart_category = "info" if restart_success else "danger"
+            flash(restart_message, restart_category)
+
+    return redirect(url_for("admin.dashboard"))
 
 
 @admin_bp.route("/projects/<int:project_id>/refresh-issues", methods=["POST"])
@@ -381,7 +487,7 @@ def refresh_project_issues(project_id: int):
     except IssueSyncError as exc:
         db.session.rollback()
         flash(f"Issue refresh failed: {exc}", "danger")
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         db.session.rollback()
         current_app.logger.exception("Issue refresh failed for project_id=%s", project_id)
         flash("Unexpected error while refreshing issues.", "danger")

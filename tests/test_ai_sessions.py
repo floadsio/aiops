@@ -1,8 +1,10 @@
+import shlex
 from types import SimpleNamespace
 
 from app import create_app
 from app.config import Config
 from app.ai_sessions import create_session
+from app.services.git_service import build_project_git_env
 
 
 class FakePane:
@@ -100,8 +102,11 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         assert session.pid == 1234
         assert session.fd == 56
         assert captured["session"] is session
-        assert pane.commands[0] == ("clear", True)
-        assert pane.commands[1] == ("codex", True)
+        git_env = build_project_git_env(project)
+        expected_export = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        assert pane.commands[0] == (expected_export, True)
+        assert pane.commands[1] == ("clear", True)
+        assert pane.commands[2] == ("codex", True)
 
 
 def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):

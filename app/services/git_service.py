@@ -193,6 +193,12 @@ def _build_git_env(ssh_key_path: Optional[str]) -> dict[str, str]:
     return {"GIT_SSH_COMMAND": command}
 
 
+def build_project_git_env(project: Project) -> dict[str, str]:
+    """Return a Git environment configured for a project's SSH credentials."""
+    key_path = _resolve_project_ssh_key_path(project)
+    return _build_git_env(key_path)
+
+
 def ensure_repo_checkout(project: Project) -> Repo:
     storage_root = _project_repo_root()
     path = Path(project.local_path).expanduser()

@@ -17,3 +17,9 @@ Use imperative commit subjects like `Add tenant creation form validation`, split
 
 ## Security & Configuration Tips
 Keep secrets in `.env` (gitignored) and surface only safe defaults through `.env.example`. Record public SSH keys via the admin UI; when private keys must live with the app, import them with `.venv/bin/flask --app manage.py seed-identities --owner-email <admin@domain>` so they’re copied into `instance/keys/` with `chmod 600`. Review new dependencies for license compliance and known CVEs, recording findings in the PR. When exposing AI or Ansible commands, update the allowlists in `app/config.py` and document production overrides in `docs/`.
+
+## Agent Session Context
+- Keep issue-specific guidance out of Git history by writing it to `AGENTS.local.md` with `python3 scripts/agent_context.py write --issue <ID> --title "<short blurb>" <<'EOF'`.
+- Append new notes for the same issue by rerunning the command with the `append` subcommand.
+- Clear the file between issues with `python3 scripts/agent_context.py clear`.
+- When you start a Codex session, ask the agent to read `AGENTS.local.md` so it loads the latest instructions before doing work.

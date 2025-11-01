@@ -331,6 +331,12 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert "Sample Issue" in agent_path.read_text()
     assert "Secondary Issue" in agent_path.read_text()
 
+    local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.local.md")
+    assert local_context_path.exists()
+    local_contents = local_context_path.read_text()
+    assert "Sample Issue" in local_contents
+    assert "Secondary Issue" in local_contents
+
 
 def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
     class TestConfig(Config):

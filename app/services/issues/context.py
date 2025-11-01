@@ -1,43 +1,18 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 from textwrap import dedent
 
 from flask import current_app
 
 from ...models import ExternalIssue, Project
+from ..agent_context import write_local_issue_context
+from .utils import format_issue_datetime, summarize_issue
 
 
 def _ensure_agent_directory(base_path: Path) -> Path:
     base_path.mkdir(parents=True, exist_ok=True)
     return base_path
-
-
-def _format_datetime(value: datetime | None) -> str:
-    if value is None:
-        return "Unknown"
-    timestamp = value
-    if timestamp.tzinfo is None:
-        timestamp = timestamp.replace(tzinfo=timezone.utc)
-    return timestamp.astimezone().strftime("%Y-%m-%d %H:%M %Z")
-
-
-def _summarize_issue(issue: ExternalIssue, include_url: bool = False) -> str:
-    integration = issue.project_integration.integration if issue.project_integration else None
-    provider = integration.provider if integration else "unknown"
-    parts = [f"[{provider}] {issue.external_id}: {issue.title}"]
-    parts.append(f"status={issue.status or 'unspecified'}")
-    if issue.assignee:
-        parts.append(f"assignee={issue.assignee}")
-    if issue.labels:
-        parts.append(f"labels={', '.join(issue.labels)}")
-    parts.append(
-        f"updated={_format_datetime(issue.external_updated_at or issue.updated_at or issue.created_at)}"
-    )
-    if include_url and issue.url:
-        parts.append(f"url={issue.url}")
-    return "; ".join(parts)
 
 
 def build_issue_prompt(
@@ -53,13 +28,13 @@ def build_issue_prompt(
         f"Local Path: {project.local_path}",
         "",
         "== Selected Issue ==",
-        _summarize_issue(primary_issue, include_url=True),
+        summarize_issue(primary_issue, include_url=True),
         "",
         "== All Project Issues ==",
     ]
     for issue in all_issues:
         prefix = "-> " if issue.id == primary_issue.id else "   "
-        lines.append(prefix + _summarize_issue(issue))
+        lines.append(prefix + summarize_issue(issue))
 
     lines.extend(
         [
@@ -90,7 +65,7 @@ def build_issue_agent_file(
     tenant = project.tenant
 
     issues_summary = "\n".join(
-        f"* {'-> ' if issue.id == primary_issue.id else ''}{_summarize_issue(issue)}"
+        f"* {'-> ' if issue.id == primary_issue.id else ''}{summarize_issue(issue)}"
         for issue in all_issues
     )
 
@@ -112,7 +87,7 @@ def build_issue_agent_file(
         - Assignee: {primary_issue.assignee or 'unassigned'}
         - Labels: {', '.join(primary_issue.labels) if primary_issue.labels else 'none'}
         - Source URL: {primary_issue.url or 'N/A'}
-        - Last Updated: {_format_datetime(primary_issue.external_updated_at or primary_issue.updated_at or primary_issue.created_at)}
+        - Last Updated: {format_issue_datetime(primary_issue.external_updated_at or primary_issue.updated_at or primary_issue.created_at)}
 
         ## All Issues for this Project
         {issues_summary}
@@ -127,4 +102,11 @@ def build_issue_agent_file(
     ).strip()
 
     agent_path.write_text(content, encoding="utf-8")
+
+    # Maintain a git-ignored local context file for agent sessions.
+    try:
+        write_local_issue_context(project, primary_issue, all_issues)
+    except Exception:  # pragma: no cover - best effort
+        current_app.logger.exception("Failed to write local agent context")
+
     return agent_path

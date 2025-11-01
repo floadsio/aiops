@@ -235,6 +235,7 @@ def test_admin_can_trigger_update(app, client, login_admin, monkeypatch):
         return True, "Restart scheduled"
 
     monkeypatch.setattr("app.routes.admin._trigger_restart", fake_trigger)
+    app.config["UPDATE_RESTART_COMMAND"] = None
 
     response = client.post(
         "/admin/system/update",

@@ -39,12 +39,20 @@ def _shared_session_name() -> str:
 
 
 def _project_window_name(project) -> str:
-    tenant = getattr(project, "tenant", None)
-    tenant_part = _slugify(getattr(tenant, "name", "") or "")
-    project_part = _slugify(getattr(project, "name", "") or f"project-{project.id}")
-    if tenant_part:
-        return f"{tenant_part}-{project_part}"
-    return project_part
+    project_name = _slugify(getattr(project, "name", "") or "")
+    project_id = getattr(project, "id", None)
+    suffix = ""
+    if project_id is not None:
+        suffix = f"-p{project_id}"
+    if project_name:
+        return f"{project_name}{suffix}"
+    if suffix:
+        return f"project{suffix}"
+    local_path = getattr(project, "local_path", "")
+    slug_path = _slugify(local_path or "")
+    if slug_path:
+        return f"{slug_path}{suffix}"
+    return f"project{suffix}"
 
 
 def _get_server():
@@ -70,11 +78,14 @@ def _ensure_shared_session(create: bool = True):
         start_directory = current_app.config.get("TMUX_SHARED_SESSION_DIR")
         if not start_directory:
             start_directory = current_app.instance_path
-        session = server.new_session(
-            session_name=session_name,
-            start_directory=start_directory,
-            attach=False,
-        )
+        try:
+            session = server.new_session(
+                session_name=session_name,
+                start_directory=start_directory,
+                attach=False,
+            )
+        except Exception as exc:
+            raise TmuxServiceError(f"Unable to create tmux session {session_name!r}: {exc}") from exc
         try:
             session.set_option("mouse", "off")
         except Exception:  # noqa: BLE001 - best effort
@@ -94,11 +105,14 @@ def ensure_project_window(project, *, window_name: Optional[str] = None):
     )
     if window is None:
         start_directory = getattr(project, "local_path", None) or current_app.instance_path
-        window = session.new_window(
-            window_name=window_name,
-            attach=False,
-            start_directory=start_directory,
-        )
+        try:
+            window = session.new_window(
+                window_name=window_name,
+                attach=False,
+                start_directory=start_directory,
+            )
+        except Exception as exc:
+            raise TmuxServiceError(f"Unable to create tmux window {window_name!r}: {exc}") from exc
         created = True
     return session, window, created
 

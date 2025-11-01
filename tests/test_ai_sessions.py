@@ -69,7 +69,7 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         )
 
         pane = FakePane()
-        window = FakeWindow("tenant-beta-demo")
+        window = FakeWindow("demo-project-p1")
         window._pane = pane
         session_obj = FakeSession("aiops", window)
 
@@ -97,8 +97,9 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
 
         session = create_session(project, user_id=99)
 
-        assert session.command == "codex"
-        assert session.tmux_target == "aiops:tenant-beta-demo"
+        expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
+        assert session.command == expected_command
+        assert session.tmux_target == "aiops:demo-project-p1"
         assert session.pid == 1234
         assert session.fd == 56
         assert captured["session"] is session
@@ -106,7 +107,7 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         expected_export = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
         assert pane.commands[0] == (expected_export, True)
         assert pane.commands[1] == ("clear", True)
-        assert pane.commands[2] == ("codex", True)
+        assert pane.commands[2] == (expected_command, True)
 
 
 def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
@@ -127,14 +128,14 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
             tenant=SimpleNamespace(name="Tenant Beta"),
         )
 
-        session_obj = FakeSession("aiops", FakeWindow("tenant-beta-demo"))
+        session_obj = FakeSession("aiops", FakeWindow("demo-project-p2"))
 
         captured: dict[str, str] = {}
 
         def fake_ensure(project, window_name=None):
             captured["window_name"] = window_name
             pane = FakePane()
-            window = FakeWindow(window_name or "tenant-beta-demo")
+            window = FakeWindow(window_name or "demo-project-p2")
             window._pane = pane
             return session_obj, window, True
 
@@ -183,7 +184,7 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
         )
 
         pane = FakePane()
-        window = FakeWindow("tenant-beta-demo")
+        window = FakeWindow("demo-project-p3")
         window._pane = pane
         session_obj = FakeSession("aiops", window)
 
@@ -205,7 +206,8 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
         monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
         monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
 
-        session = create_session(project, user_id=202, tmux_target="aiops:tenant-beta-demo")
+        session = create_session(project, user_id=202, tmux_target="aiops:demo-project-p3")
 
-        assert session.command == "codex"
+        expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
+        assert session.command == expected_command
         assert pane.commands == []

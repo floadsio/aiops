@@ -12,3 +12,5 @@ instance/
 .coverage
 coverage.xml
 /logs/
+AGENTS.local.md
+codex_issue_notes.md

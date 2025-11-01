@@ -5,6 +5,7 @@ import os
 import pty
 import shutil
 import signal
+import shlex
 import struct
 import threading
 import termios
@@ -16,6 +17,7 @@ from typing import Optional
 
 from flask import current_app
 from .services.tmux_service import ensure_project_window
+from .services.git_service import build_project_git_env
 
 
 class AISession:
@@ -179,6 +181,12 @@ def create_session(
     if pane is None:
         raise RuntimeError("Unable to access tmux pane for project window.")
 
+    git_env = build_project_git_env(project)
+    for key, value in git_env.items():
+        if value:
+            os.environ[key] = value
+    ssh_command = git_env.get("GIT_SSH_COMMAND")
+
     exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
 
     session_id = uuid.uuid4().hex
@@ -216,6 +224,12 @@ def create_session(
 
     should_bootstrap = created or tmux_target is None
     if should_bootstrap:
+        if ssh_command:
+            export_command = f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
+            try:
+                pane.send_keys(export_command, enter=True)
+            except Exception:  # noqa: BLE001
+                current_app.logger.debug("Unable to set GIT_SSH_COMMAND for %s", window_name)
         try:
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001

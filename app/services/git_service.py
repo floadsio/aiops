@@ -133,9 +133,10 @@ def _resolve_project_ssh_key_path(project: Project, *, invalid: Optional[set[str
 
     tenant = getattr(project, "tenant", None)
     if tenant:
+        tenant_keys = getattr(tenant, "ssh_keys", []) or []
         sorted_keys = sorted(
-            tenant.ssh_keys,
-            key=lambda key: key.created_at or datetime.min,
+            tenant_keys,
+            key=lambda key: getattr(key, "created_at", None) or datetime.min,
         )
         for key in sorted_keys:
             if (

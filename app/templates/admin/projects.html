@@ -72,9 +72,11 @@
         <form method="post" class="inline-form">
           {{ delete_form.csrf_token }}
           {{ delete_form.project_id(value=project.id) }}
-          <button type="submit" class="link-button danger" onclick="return confirm('Remove project {{ project.name }} and all related data?')">
-            Remove
-          </button>
+          {{ delete_form.submit(
+            class_="link-button danger",
+            value="Remove",
+            onclick="return confirm('Remove project {{ project.name }} and all related data?')"
+          ) }}
         </form>
       </td>
     </tr>

@@ -15,6 +15,7 @@ from app.models import (
     User,
 )
 from app.security import hash_password
+from app.services.agent_context import MISSING_ISSUE_DETAILS_MESSAGE
 
 
 class AdminTestConfig(Config):
@@ -56,11 +57,12 @@ def app(tmp_path):
         )
         integration = TenantIntegration(
             tenant_id=tenant.id,
-            provider="github",
-            name="GitHub Cloud",
-            base_url="https://github.com",
+            provider="jira",
+            name="Jira Cloud",
+            base_url="https://example.atlassian.net",
             api_token="secret",
             enabled=True,
+            settings={"username": "jira@example.com"},
         )
         db.session.add_all([project, integration])
         db.session.commit()
@@ -84,6 +86,57 @@ def app(tmp_path):
                 assignee="sam@example.com",
                 labels=["incident"],
                 external_updated_at=now - timedelta(hours=2),
+                raw_payload={
+                    "fields": {
+                        "description": {
+                            "type": "doc",
+                            "content": [
+                                {
+                                    "type": "paragraph",
+                                    "content": [
+                                        {
+                                            "type": "text",
+                                            "text": "Enable InnoDB page tracking for faster incremental backups.",
+                                        }
+                                    ],
+                                },
+                                {
+                                    "type": "bulletList",
+                                    "content": [
+                                        {
+                                            "type": "listItem",
+                                            "content": [
+                                                {
+                                                    "type": "paragraph",
+                                                    "content": [
+                                                        {
+                                                            "type": "text",
+                                                            "text": "Set innodb_page_tracking=ON in my.cnf",
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        },
+                                        {
+                                            "type": "listItem",
+                                            "content": [
+                                                {
+                                                    "type": "paragraph",
+                                                    "content": [
+                                                        {
+                                                            "type": "text",
+                                                            "text": "Schedule incremental xtrabackup run",
+                                                        }
+                                                    ],
+                                                }
+                                            ],
+                                        },
+                                    ],
+                                },
+                            ],
+                        }
+                    }
+                },
             ),
             ExternalIssue(
                 project_integration_id=project_integration.id,
@@ -176,3 +229,34 @@ def test_invalid_sort_falls_back_to_default(client, login_admin):
     body = response.get_data(as_text=True)
     order = _positions_in_html(body, ["ISSUE-002", "ISSUE-001", "ISSUE-003"])
     assert order == sorted(order)
+
+
+def test_issue_detail_row_includes_description(client, login_admin):
+    response = client.get("/admin/issues")
+    assert response.status_code == 200
+
+    body = response.get_data(as_text=True)
+    assert "Enable InnoDB page tracking for faster incremental backups." in body
+    assert MISSING_ISSUE_DETAILS_MESSAGE in body
+    assert 'class="issue-title-button issue-detail-toggle"' in body
+
+
+def test_force_full_refresh_triggers_full_sync(client, login_admin, monkeypatch):
+    calls = {}
+
+    def fake_sync(integrations, *, force_full=False):
+        calls["force_full"] = force_full
+        return {integration.id: [] for integration in integrations}
+
+    monkeypatch.setattr("app.routes.admin.sync_tenant_integrations", fake_sync)
+
+    response = client.post(
+        "/admin/issues/refresh",
+        data={"force_full": "1"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Completed full issue resync" in body
+    assert calls.get("force_full") is True

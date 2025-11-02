@@ -77,6 +77,10 @@ from ..services.codex_update_service import (
     get_codex_status,
     install_latest_codex,
 )
+from ..services.agent_context import (
+    MISSING_ISSUE_DETAILS_MESSAGE,
+    extract_issue_description,
+)
 from ..services.log_service import read_log_tail, LogReadError
 from ..security import hash_password
 
@@ -801,10 +805,12 @@ def refresh_project_issues(project_id: int):
         selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
     ).get_or_404(project_id)
 
+    force_full = bool(request.form.get("force_full"))
+
     try:
         total_synced = 0
         for link in project.issue_integrations:
-            updated = sync_project_integration(link)
+            updated = sync_project_integration(link, force_full=force_full)
             total_synced += len(updated)
         db.session.commit()
     except IssueSyncError as exc:
@@ -817,6 +823,8 @@ def refresh_project_issues(project_id: int):
     else:
         if total_synced:
             flash(f"Refreshed issues for {project.name} ({total_synced} updated).", "success")
+        elif force_full:
+            flash(f"Refreshed issues for {project.name}. No new updates detected.", "success")
         else:
             flash(f"Issue cache for {project.name} is up to date.", "success")
     return redirect(url_for("admin.dashboard"))
@@ -921,6 +929,8 @@ def manage_issues():
             "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
         )
 
+        description_text = extract_issue_description(issue)
+
         issue_entries.append(
             {
                 "id": issue.id,
@@ -941,6 +951,9 @@ def manage_issues():
                 "tenant_id": tenant.id if tenant else None,
                 "updated_display": _format_issue_timestamp(updated_reference),
                 "updated_sort": _issue_sort_key(issue),
+                "description": description_text,
+                "description_available": bool(description_text),
+                "description_fallback": MISSING_ISSUE_DETAILS_MESSAGE,
                 "prepare_endpoint": url_for("projects.prepare_issue_context", project_id=project.id, issue_id=issue.id) if project else None,
                 "codex_target": url_for("projects.project_ai_console", project_id=project.id) if project else None,
                 "codex_payload": {
@@ -1144,11 +1157,12 @@ def manage_issues():
 @admin_bp.route("/issues/refresh", methods=["POST"])
 @admin_required
 def refresh_all_issues():
+    force_full = bool(request.form.get("force_full"))
     try:
         integrations = ProjectIntegration.query.options(
             selectinload(ProjectIntegration.integration)
         ).all()
-        results = sync_tenant_integrations(integrations)
+        results = sync_tenant_integrations(integrations, force_full=force_full)
         total_updated = sum(len(issues or []) for issues in results.values())
     except IssueSyncError as exc:
         db.session.rollback()
@@ -1160,6 +1174,8 @@ def refresh_all_issues():
     else:
         if total_updated:
             flash(f"Refreshed issues across all integrations ({total_updated} updated).", "success")
+        elif force_full:
+            flash("Completed full issue resync with no new changes detected.", "success")
         else:
             flash("Issue caches are already up to date.", "success")
 

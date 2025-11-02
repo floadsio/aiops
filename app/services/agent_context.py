@@ -337,6 +337,18 @@ def render_issue_context(
     return f"{content}\n\n## Issue Details\n{details_section}\n"
 
 
+def extract_issue_description(issue: ExternalIssue) -> str | None:
+    """Return a Markdown-friendly description for the given issue, if available."""
+    integration = (
+        issue.project_integration.integration if issue.project_integration else None
+    )
+    provider = integration.provider if integration else None
+    description = _extract_issue_description(issue, provider)
+    if description is None:
+        return None
+    return description.strip() or None
+
+
 def write_local_issue_context(
     project: Project,
     primary_issue: ExternalIssue,

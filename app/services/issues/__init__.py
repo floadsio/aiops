@@ -71,6 +71,8 @@ def utcnow() -> datetime:
 def sync_project_integration(
     project_integration: ProjectIntegration,
     since: Optional[datetime] = None,
+    *,
+    force_full: bool = False,
 ) -> List[ExternalIssue]:
     integration = project_integration.integration
     if integration is None:
@@ -81,7 +83,10 @@ def sync_project_integration(
     if fetcher is None:
         raise IssueSyncError(f"Unsupported issue provider '{integration.provider}'.")
 
-    effective_since = since or project_integration.last_synced_at
+    if force_full:
+        effective_since = since
+    else:
+        effective_since = since or project_integration.last_synced_at
     try:
         payloads = fetcher(integration, project_integration, effective_since)
     except IssueSyncError:
@@ -157,10 +162,15 @@ def close_issue_for_project_integration(
 
 def sync_tenant_integrations(
     tenant_integrations: Iterable[ProjectIntegration],
+    *,
+    force_full: bool = False,
 ) -> Dict[int, List[ExternalIssue]]:
     results: Dict[int, List[ExternalIssue]] = {}
     for p_integration in tenant_integrations:
-        results[p_integration.id] = sync_project_integration(p_integration)
+        results[p_integration.id] = sync_project_integration(
+            p_integration,
+            force_full=force_full,
+        )
     db.session.commit()
     return results
 

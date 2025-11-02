@@ -53,6 +53,88 @@
     .issues-table .sort-link.is-active .sort-indicator {
       opacity: 1;
     }
+    .issue-title-button {
+      background: none;
+      border: none;
+      color: #2563eb;
+      font: inherit;
+      padding: 0;
+      cursor: pointer;
+      text-align: left;
+    }
+    .issue-title-button:hover,
+    .issue-title-button:focus {
+      text-decoration: underline;
+    }
+    [data-theme="dark"] .issue-title-button {
+      color: #93c5fd;
+    }
+    .issue-detail-row[hidden] {
+      display: none;
+    }
+    .issue-detail {
+      padding: 1.25rem 1.4rem;
+      border-radius: 1rem;
+      background: rgba(241, 245, 249, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      display: grid;
+      gap: 0.8rem;
+    }
+    [data-theme="dark"] .issue-detail {
+      background: rgba(30, 41, 59, 0.7);
+      border-color: rgba(148, 163, 184, 0.3);
+    }
+    .issue-detail__header {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      align-items: flex-start;
+    }
+    .issue-detail__description {
+      white-space: pre-wrap;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+    .issue-detail__meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+    .issue-detail__meta dt {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(71, 85, 105, 0.9);
+      margin: 0;
+    }
+    .issue-detail__meta dd {
+      margin: 0.1rem 0 0;
+      font-weight: 600;
+    }
+    [data-theme="dark"] .issue-detail__meta dt {
+      color: rgba(226, 232, 240, 0.72);
+    }
+    .issue-detail__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      align-items: center;
+    }
+    .issue-detail__status {
+      display: inline-flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .issue-card__details {
+      margin-top: 1rem;
+    }
+    .issue-card__description {
+      margin-top: 0.75rem;
+      white-space: pre-wrap;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
   .issues-card-list {
     display: none;
     gap: 1rem;
@@ -157,6 +239,9 @@
   <form method="post" action="{{ url_for('admin.refresh_all_issues') }}" class="inline-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <button type="submit" class="secondary">Refresh All Issues</button>
+    <button type="submit" class="secondary outline" name="force_full" value="1" title="Fetch all issues from every provider, ignoring incremental tracking.">
+      Force Full Resync
+    </button>
   </form>
 </div>
 
@@ -201,7 +286,17 @@
                 {{ issue.external_id }}
               {% endif %}
             </td>
-            <td>{{ issue.title }}</td>
+            <td>
+              <button
+                type="button"
+                class="issue-title-button issue-detail-toggle"
+                data-issue-id="{{ issue.id }}"
+                aria-expanded="false"
+                aria-controls="issue-detail-{{ issue.id }}"
+              >
+                {{ issue.title }}
+              </button>
+            </td>
             <td>
               {% if issue.status %}
                 <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
@@ -257,6 +352,74 @@
               {% else %}
                 <span class="text-muted">Unavailable</span>
               {% endif %}
+            </td>
+          </tr>
+          <tr id="issue-detail-{{ issue.id }}" class="issue-detail-row" hidden>
+            <td colspan="10">
+              <div class="issue-detail">
+                <div class="issue-detail__header">
+                  <div>
+                    <h3 class="issue-card__title">{{ issue.title }}</h3>
+                    <p class="text-muted">
+                      External ID: <code>{{ issue.external_id }}</code>
+                    </p>
+                  </div>
+                  <div class="issue-detail__status">
+                    {% if issue.status %}
+                      <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
+                        {{ issue.status }}
+                      </span>
+                    {% else %}
+                      <span class="badge">Unspecified</span>
+                    {% endif %}
+                    {% if issue.url %}
+                      <a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a>
+                    {% endif %}
+                  </div>
+                </div>
+                <dl class="issue-detail__meta">
+                  <div>
+                    <dt>Provider</dt>
+                    <dd>{{ issue.provider|capitalize }}</dd>
+                  </div>
+                  <div>
+                    <dt>Project</dt>
+                    <dd>{{ issue.project_name or "Unknown project" }}</dd>
+                  </div>
+                  <div>
+                    <dt>Tenant</dt>
+                    <dd>{{ issue.tenant_name or "Unknown tenant" }}</dd>
+                  </div>
+                  <div>
+                    <dt>Last Updated</dt>
+                    <dd>{{ issue.updated_display or "Unknown" }}</dd>
+                  </div>
+                  <div>
+                    <dt>Assignee</dt>
+                    <dd>{{ issue.assignee or "Unassigned" }}</dd>
+                  </div>
+                  <div>
+                    <dt>Labels</dt>
+                    <dd>
+                      {% if issue.labels %}
+                        {{ issue.labels|join(', ') }}
+                      {% else %}
+                        <span class="text-muted">None</span>
+                      {% endif %}
+                    </dd>
+                  </div>
+                </dl>
+                <div>
+                  <h4>Issue Description</h4>
+                  <div class="issue-detail__description">
+                    {% if issue.description_available %}
+                      {{ issue.description|e|replace('\n', '<br>')|safe }}
+                    {% else %}
+                      <span class="text-muted">{{ issue.description_fallback }}</span>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
             </td>
           </tr>
         {% endfor %}
@@ -319,6 +482,19 @@
             </dd>
           </div>
         </dl>
+        <details class="issue-card__details">
+          <summary>View details</summary>
+          <div class="issue-card__description">
+            {% if issue.description_available %}
+              {{ issue.description|e|replace('\n', '<br>')|safe }}
+            {% else %}
+              <span class="text-muted">{{ issue.description_fallback }}</span>
+            {% endif %}
+          </div>
+          {% if issue.url %}
+            <p><a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a></p>
+          {% endif %}
+        </details>
         {% if issue.project_id %}
           <div class="issues-actions">
             {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
@@ -361,11 +537,30 @@
 {% block extra_body %}
 <script>
   (function () {
+    const detailButtons = document.querySelectorAll('.issue-detail-toggle');
+    detailButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const issueId = button.dataset.issueId;
+        if (!issueId) {
+          return;
+        }
+        const detailRow = document.getElementById(`issue-detail-${issueId}`);
+        if (!detailRow) {
+          return;
+        }
+        const isHidden = detailRow.hasAttribute('hidden');
+        if (isHidden) {
+          detailRow.removeAttribute('hidden');
+          button.setAttribute('aria-expanded', 'true');
+        } else {
+          detailRow.setAttribute('hidden', '');
+          button.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+
     const codexButtons = document.querySelectorAll('.issues-start-codex');
     const populateButtons = document.querySelectorAll('.issues-populate-agents');
-    if (!codexButtons.length && !populateButtons.length) {
-      return;
-    }
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     const csrfTokenValue = csrfMeta ? csrfMeta.getAttribute('content') : '';
 

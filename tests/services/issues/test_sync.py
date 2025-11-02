@@ -127,7 +127,7 @@ def test_sync_issues_command_invokes_service(tmp_path, monkeypatch):
 
     captured: Dict[str, List[int]] = {}
 
-    def fake_sync(integrations):
+    def fake_sync(integrations, *, force_full=False):
         captured["ids"] = [pi.id for pi in integrations]
         return {pi.id: [object()] for pi in integrations}
 

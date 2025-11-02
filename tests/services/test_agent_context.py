@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from app.services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
+    extract_issue_description,
     render_issue_context,
 )
 
@@ -111,3 +112,14 @@ def test_render_issue_context_handles_missing_issue_details():
     content = render_issue_context(project, issue, [issue])
 
     assert MISSING_ISSUE_DETAILS_MESSAGE in content
+
+
+def test_extract_issue_description_returns_body_text():
+    issue = _make_issue("github", raw_payload={"body": "  Example body text  "})
+    description = extract_issue_description(issue)
+    assert description == "Example body text"
+
+
+def test_extract_issue_description_handles_absent_text():
+    issue = _make_issue("github", raw_payload={})
+    assert extract_issue_description(issue) is None

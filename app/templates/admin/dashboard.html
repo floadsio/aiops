@@ -470,6 +470,9 @@
               {{ issue_form.hidden_tag() }}
               {{ issue_form.project_id() }}
               <button type="submit" class="secondary">Refresh Issues</button>
+              <button type="submit" class="secondary outline" name="force_full" value="1" title="Force a full resync of all cached issues for this project.">
+                Force Full Resync
+              </button>
             </form>
             <form method="post" action="{{ url_for('admin.refresh_project_git', project_id=project.id) }}">
               {{ git_form.hidden_tag() }}

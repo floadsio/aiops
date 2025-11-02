@@ -7,7 +7,8 @@ from ...models import ProjectIntegration, TenantIntegration
 from . import IssueCreateRequest, IssuePayload, IssueSyncError
 from .utils import ensure_base_url, get_timeout, parse_datetime
 
-DEFAULT_FIELDS = ["summary", "status", "assignee", "updated", "labels"]
+DEFAULT_FIELDS = ["summary", "status", "assignee", "updated", "labels", "description"]
+DEFAULT_EXPAND = ["renderedFields"]
 DEFAULT_ISSUE_TYPE = "Task"
 DEFAULT_CLOSE_TRANSITIONS = [
     "done",
@@ -83,6 +84,7 @@ def fetch_issues(
             startAt=0,
             maxResults=100,
             fields=",".join(DEFAULT_FIELDS),
+            expand=",".join(DEFAULT_EXPAND),
             validate_query=True,
             json_result=True,
         )
@@ -164,7 +166,11 @@ def create_issue(
         created_issue = client.create_issue(fields=fields)
         issue_data = getattr(created_issue, "raw", None)
         if not isinstance(issue_data, dict) or "fields" not in issue_data:
-            fetched_issue = client.issue(created_issue.key, fields=",".join(DEFAULT_FIELDS))
+            fetched_issue = client.issue(
+                created_issue.key,
+                fields=",".join(DEFAULT_FIELDS),
+                expand=",".join(DEFAULT_EXPAND),
+            )
             issue_data = getattr(fetched_issue, "raw", None)
         if not isinstance(issue_data, dict):
             raise IssueSyncError("Jira did not return expected issue payload.")

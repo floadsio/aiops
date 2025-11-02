@@ -303,6 +303,12 @@ def render_issue_context(
         or primary_issue.created_at
     )
 
+    details_section = (
+        issue_description.strip()
+        if issue_description
+        else MISSING_ISSUE_DETAILS_MESSAGE
+    )
+
     content = dedent(
         f"""
         # {primary_issue.external_id} - {primary_issue.title}
@@ -316,6 +322,9 @@ def render_issue_context(
         - Labels: {labels}
         - Source: {source_url}
         - Last Synced: {last_updated}
+
+        ## Issue Description
+        {details_section}
 
         ## Project Context
         - Project: {project.name}
@@ -333,8 +342,7 @@ def render_issue_context(
         5. Summarize modifications and verification commands when you finish.
         """
     ).strip()
-    details_section = issue_description.strip() if issue_description else MISSING_ISSUE_DETAILS_MESSAGE
-    return f"{content}\n\n## Issue Details\n{details_section}\n"
+    return f"{content}\n"
 
 
 def extract_issue_description(issue: ExternalIssue) -> str | None:

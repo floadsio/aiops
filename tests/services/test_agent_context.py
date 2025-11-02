@@ -48,7 +48,7 @@ def test_render_issue_context_includes_github_body():
 
     content = render_issue_context(project, issue, [issue])
 
-    assert "## Issue Details" in content
+    assert "## Issue Description" in content
     assert "Detailed body" in content
     assert "More text" in content
 
@@ -111,6 +111,7 @@ def test_render_issue_context_handles_missing_issue_details():
 
     content = render_issue_context(project, issue, [issue])
 
+    assert "## Issue Description" in content
     assert MISSING_ISSUE_DETAILS_MESSAGE in content
 
 

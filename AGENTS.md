@@ -1,10 +1,33 @@
+# Project Overview
+
+aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
+AI-assisted tmux sessions, and Ansible automation. Platform engineers use it to synchronise issues,
+triage incidents, and trigger automation tasks without leaving the dashboard. The codebase favours
+thin blueprints, well-tested service helpers, and clear separation between configuration, database
+models, and provider adapters. Secrets stay in `instance/` and `.env`, while infrastructure assets
+live under `ansible/`.
+
+## How Agents Should Work Here
+
+- Always load `AGENTS.local.md` (generated from the UI) for the current issue context before
+  changing files.
+- Keep request/response handling inside `app/routes/` minimal; push integrations and orchestration
+  into `app/services/` with dedicated tests.
+- When touching issue provider logic, add provider stubs in `tests/services/issues/`; CI never hits
+  real APIs.
+- Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
+  runs detached and will not reload code.
+- Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so
+  teammates can reproduce results.
+- Run `make check` (Ruff + MyPy + Pytest) before every commit; treat style/type errors as blockers.
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization
 The aiops Flask app lives in `app/`, with blueprints in `app/routes/`, forms in `app/forms/`, and shared helpers in `app/services/`. Database models sit in `app/models.py`, configuration glue in `app/config.py` and `app/extensions.py`, and CLI entry points in `manage.py`. Store infrastructure assets under `ansible/playbooks/`, documentation in `docs/`, and keep tests parallel to runtime modules inside `tests/`.
 
 ## Build, Test, and Development Commands
-Install [uv](https://github.com/astral-sh/uv) and run `make sync` to create the uv-managed `.venv/` (Python 3.12 by default) and install runtime dependencies; `make sync-dev` adds contributor tooling. Core automation: `make format` (Ruff auto-format), `make lint` (Ruff + MyPy), `make test` (Pytest), and `make check` (linting plus tests). Use `make seed AIOPS_ADMIN_EMAIL=<admin@domain>` to migrate and register default tenants/projects, and `make seed-identities AIOPS_ADMIN_EMAIL=<admin@domain> [SEED_SOURCE=/path]` to import syseng SSH material. Manage the aiops Flask server with `make start`, `make stop`, `make restart`, and `make status`; logs land in `/tmp/aiops.log`. `make all` bootstraps dependencies and launches the server for local work. Run additional CLI tasks via `.venv/bin/flask ...` or after activating the env.
+Install [uv](https://github.com/astral-sh/uv) and run `make sync` to create the uv-managed `.venv/` (Python 3.12 by default) and install runtime dependencies; `make sync-dev` adds contributor tooling. Core automation: `make format` (Ruff auto-format), `make lint` (Ruff + MyPy), `make test` (Pytest), and `make check` (linting plus tests). Use `make seed AIOPS_ADMIN_EMAIL=<admin@domain>` to migrate and register default tenants/projects, and `make seed-identities AIOPS_ADMIN_EMAIL=<admin@domain> [SEED_SOURCE=/path]` to import syseng SSH material. Run the Flask server with `make start-dev` during development (auto reload) or `make start`/`make stop` for the background runner; logs land in `/tmp/aiops.log`. `make all` bootstraps dependencies and launches the server for local work. Run additional CLI tasks via `.venv/bin/flask ...` or after activating the env.
 
 ## Coding Style & Naming Conventions
 Follow PEP 8 with 4-space indentation and 100-character lines. Apply `ruff format` before pushing and fix import order with `ruff check --select I --fix`. Treat MyPy warnings as errors and add type hints on new code paths. Modules and functions use snake_case, classes use PascalCase, and constants stay UPPER_SNAKE_CASE. Push complex orchestration into `app/services/` helpers to keep blueprints thin.

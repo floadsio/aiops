@@ -1,23 +1,150 @@
 {% extends "base.html" %}
 {% block title %}Issues | aiops Control Panel{% endblock %}
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .issues-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .issue-filter-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .issue-filter-form label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(71, 85, 105, 0.9);
+    }
+    [data-theme="dark"] .issue-filter-form label {
+      color: rgba(226, 232, 240, 0.72);
+    }
+    .issues-table table {
+      width: 100%;
+    }
+    .issues-table th {
+      white-space: nowrap;
+    }
+    .issues-table .sort-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: inherit;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .issues-table .sort-link:hover,
+    .issues-table .sort-link:focus {
+      text-decoration: underline;
+    }
+    .issues-table .sort-indicator {
+      font-size: 0.8rem;
+      opacity: 0.65;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .issues-table .sort-link.is-active .sort-indicator {
+      opacity: 1;
+    }
+    .issues-card-list {
+      display: none;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .issue-card {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 1rem;
+      padding: 1rem 1.15rem;
+      background: rgba(255, 255, 255, 0.86);
+    }
+    [data-theme="dark"] .issue-card {
+      background: rgba(15, 23, 42, 0.65);
+      border-color: rgba(148, 163, 184, 0.4);
+    }
+    .issue-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .issue-card__header h3 {
+      margin: 0;
+      font-size: 1rem;
+    }
+    .issue-card__title {
+      margin: 0.25rem 0 0;
+      font-size: 0.95rem;
+    }
+    .issue-card__meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.6rem 1rem;
+      margin: 1rem 0 0;
+      padding: 0;
+    }
+    .issue-card__meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .issue-card__meta dt {
+      margin: 0;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(71, 85, 105, 0.9);
+    }
+    .issue-card__meta dd {
+      margin: 0;
+      font-weight: 600;
+    }
+    [data-theme="dark"] .issue-card__meta dt {
+      color: rgba(226, 232, 240, 0.72);
+    }
+    @media (max-width: 900px) {
+      .issues-actions {
+        align-items: stretch;
+      }
+    }
+    @media (max-width: 720px) {
+      .table-scroll.issues-table {
+        display: none;
+      }
+      .issues-card-list {
+        display: grid;
+      }
+    }
+  </style>
+{% endblock %}
 {% block content %}
 <h1>External Issues</h1>
 
-<form method="get" class="issue-filter-form">
-  <label for="issue-status-filter">Issue status</label>
-  <select id="issue-status-filter" name="status" onchange="this.form.submit()">
-    {% for option in status_options %}
-      <option value="{{ option.value }}" {% if option.value == status_filter %}selected{% endif %}>
-        {{ option.label }} ({{ option.count }})
-      </option>
-    {% endfor %}
-  </select>
-</form>
+<div class="issues-actions">
+  <form method="get" class="issue-filter-form">
+    <label for="issue-status-filter">Issue status</label>
+    <select id="issue-status-filter" name="status" onchange="this.form.submit()">
+      {% for option in status_options %}
+        <option value="{{ option.value }}" {% if option.value == status_filter %}selected{% endif %}>
+          {{ option.label }} ({{ option.count }})
+        </option>
+      {% endfor %}
+    </select>
+    <input type="hidden" name="sort" value="{{ sort_state.key }}">
+    <input type="hidden" name="direction" value="{{ sort_state.direction }}">
+  </form>
 
-<form method="post" action="{{ url_for('admin.refresh_all_issues') }}" class="inline-form">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-  <button type="submit" class="secondary">Refresh All Issues</button>
-</form>
+  <form method="post" action="{{ url_for('admin.refresh_all_issues') }}" class="inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <button type="submit" class="secondary">Refresh All Issues</button>
+  </form>
+</div>
 
 {% if issues %}
   <p class="text-muted">
@@ -27,19 +154,26 @@
       (status: {{ status_filter_label }})
     {% endif %}.
   </p>
-  <div class="table-scroll">
+
+  <div class="table-scroll issues-table">
     <table>
       <thead>
         <tr>
-          <th>External ID</th>
-          <th>Title</th>
-          <th>Status</th>
-          <th>Provider</th>
-          <th>Project</th>
-          <th>Tenant</th>
-          <th>Updated</th>
-          <th>Assignee</th>
-          <th>Labels</th>
+          {% for column in sort_columns %}
+            {% set header = sort_headers.get(column.key) %}
+            <th scope="col" aria-sort="{{ header.aria_sort }}">
+              <a href="{{ header.url }}" class="sort-link{% if header.is_active %} is-active{% endif %}">
+                {{ column.label }}
+                <span class="sort-indicator" aria-hidden="true">
+                  {% if header.is_active %}
+                    {% if sort_state.direction == 'asc' %}▲{% else %}▼{% endif %}
+                  {% else %}
+                    ↕
+                  {% endif %}
+                </span>
+              </a>
+            </th>
+          {% endfor %}
         </tr>
       </thead>
       <tbody>
@@ -78,6 +212,65 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+  <div class="issues-card-list">
+    {% for issue in issues %}
+      <article class="issue-card">
+        <header class="issue-card__header">
+          <div>
+            <h3>
+              {% if issue.url %}
+                <a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.external_id }}</a>
+              {% else %}
+                {{ issue.external_id }}
+              {% endif %}
+            </h3>
+            <p class="issue-card__title">{{ issue.title }}</p>
+          </div>
+          <div>
+            {% if issue.status %}
+              <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
+                {{ issue.status }}
+              </span>
+            {% else %}
+              <span class="badge">Unspecified</span>
+            {% endif %}
+          </div>
+        </header>
+        <dl class="issue-card__meta">
+          <div class="issue-card__meta-item">
+            <dt>Provider</dt>
+            <dd>{{ issue.provider|capitalize }}</dd>
+          </div>
+          <div class="issue-card__meta-item">
+            <dt>Project</dt>
+            <dd>{{ issue.project_name or "Unknown project" }}</dd>
+          </div>
+          <div class="issue-card__meta-item">
+            <dt>Tenant</dt>
+            <dd>{{ issue.tenant_name or "Unknown tenant" }}</dd>
+          </div>
+          <div class="issue-card__meta-item">
+            <dt>Updated</dt>
+            <dd>{{ issue.updated_display or "Unknown" }}</dd>
+          </div>
+          <div class="issue-card__meta-item">
+            <dt>Assignee</dt>
+            <dd>{{ issue.assignee or "Unassigned" }}</dd>
+          </div>
+          <div class="issue-card__meta-item">
+            <dt>Labels</dt>
+            <dd>
+              {% if issue.labels %}
+                {{ issue.labels|join(', ') }}
+              {% else %}
+                <span class="text-muted">None</span>
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+      </article>
+    {% endfor %}
   </div>
 {% else %}
   <p class="text-muted">No issues found for the selected filter.</p>

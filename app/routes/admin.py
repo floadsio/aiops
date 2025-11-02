@@ -119,6 +119,21 @@ def _format_issue_timestamp(value):
     return timestamp.astimezone().strftime("%b %d, %Y • %H:%M %Z")
 
 
+ISSUE_SORT_COLUMNS = (
+    {"key": "external_id", "label": "External ID", "default_direction": "asc"},
+    {"key": "title", "label": "Title", "default_direction": "asc"},
+    {"key": "status", "label": "Status", "default_direction": "asc"},
+    {"key": "provider", "label": "Provider", "default_direction": "asc"},
+    {"key": "project", "label": "Project", "default_direction": "asc"},
+    {"key": "tenant", "label": "Tenant", "default_direction": "asc"},
+    {"key": "updated", "label": "Updated", "default_direction": "desc"},
+    {"key": "assignee", "label": "Assignee", "default_direction": "asc"},
+    {"key": "labels", "label": "Labels", "default_direction": "asc"},
+)
+ISSUE_SORT_DEFAULT_KEY = "updated"
+ISSUE_SORT_META = {column["key"]: column for column in ISSUE_SORT_COLUMNS}
+
+
 def _trigger_restart(restart_command: str | None) -> tuple[bool, str]:
     """
     Attempt to restart the application process.
@@ -842,11 +857,20 @@ def manage_issues():
                 "project_name": project.name if project else "",
                 "tenant_name": tenant.name if tenant else "",
                 "updated_display": _format_issue_timestamp(updated_reference),
+                "updated_sort": _issue_sort_key(issue),
             }
         )
 
     total_issue_full_count = len(issue_entries)
     raw_filter = (request.args.get("status") or "").strip().lower()
+    raw_sort = (request.args.get("sort") or "").strip().lower()
+    sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
+    raw_direction = (request.args.get("direction") or "").strip().lower()
+    if raw_direction not in {"asc", "desc"}:
+        sort_direction = ISSUE_SORT_META[sort_key]["default_direction"]
+    else:
+        sort_direction = raw_direction
+
     has_open = status_counts.get("open", 0) > 0
     default_filter = "open" if has_open else "all"
 
@@ -873,6 +897,35 @@ def manage_issues():
 
     filtered_issues = [entry for entry in issue_entries if _matches(entry)]
     total_issue_count = len(filtered_issues)
+
+    def _string_sort_key(field: str, transform=None):
+        def _key(entry: dict[str, object]):
+            value = entry.get(field)
+            if transform is not None:
+                value = transform(value)
+            text = "" if value is None else str(value)
+            return (text.casefold(), text, entry.get("external_id") or "")
+
+        return _key
+
+    sort_key_functions = {
+        "external_id": _string_sort_key("external_id"),
+        "title": _string_sort_key("title"),
+        "status": _string_sort_key("status_label"),
+        "provider": _string_sort_key("provider"),
+        "project": _string_sort_key("project_name"),
+        "tenant": _string_sort_key("tenant_name"),
+        "assignee": _string_sort_key("assignee"),
+        "labels": _string_sort_key("labels", transform=lambda labels: ", ".join(labels or [])),
+        "updated": lambda entry: entry.get("updated_sort"),
+    }
+
+    key_func = sort_key_functions.get(sort_key, sort_key_functions[ISSUE_SORT_DEFAULT_KEY])
+    issues_for_template = sorted(
+        filtered_issues,
+        key=key_func,
+        reverse=(sort_direction == "desc"),
+    )
 
     status_options = [
         {
@@ -902,14 +955,51 @@ def manage_issues():
         else status_labels.get(status_filter, status_filter.title())
     )
 
+    sort_state = {"key": sort_key, "direction": sort_direction}
+    sort_columns = [dict(column) for column in ISSUE_SORT_COLUMNS]
+
+    base_query_params: dict[str, str] = {}
+    if "status" in request.args:
+        base_query_params["status"] = status_filter
+
+    sort_headers: dict[str, dict[str, object]] = {}
+    for column in sort_columns:
+        column_key = column["key"]
+        is_active = column_key == sort_key
+        current_direction = sort_direction if is_active else None
+        if is_active:
+            next_direction = "asc" if sort_direction == "desc" else "desc"
+        else:
+            next_direction = column["default_direction"]
+
+        query_params = {**base_query_params, "sort": column_key, "direction": next_direction}
+        sort_headers[column_key] = {
+            "url": url_for("admin.manage_issues", **query_params),
+            "is_active": is_active,
+            "current_direction": current_direction,
+            "next_direction": next_direction,
+            "aria_sort": (
+                "ascending"
+                if current_direction == "asc"
+                else "descending"
+                if current_direction == "desc"
+                else "none"
+            ),
+        }
+
     return render_template(
         "admin/issues.html",
-        issues=filtered_issues,
+        issues=issues_for_template,
         status_filter=status_filter,
         status_filter_label=status_filter_label,
         status_options=status_options,
         total_issue_count=total_issue_count,
         total_issue_full_count=total_issue_full_count,
+        sort_columns=sort_columns,
+        sort_headers=sort_headers,
+        sort_state=sort_state,
+        sort_key=sort_key,
+        sort_direction=sort_direction,
     )
 
 

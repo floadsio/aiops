@@ -36,6 +36,7 @@ class IssueCreateRequest:
 
 ProviderFunc = Callable[[TenantIntegration, ProjectIntegration, Optional[datetime]], List[IssuePayload]]
 CreateProviderFunc = Callable[[TenantIntegration, ProjectIntegration, IssueCreateRequest], IssuePayload]
+CloseProviderFunc = Callable[[TenantIntegration, ProjectIntegration, str], IssuePayload]
 
 from . import github, gitlab, jira  # noqa: E402  (import depends on IssuePayload declaration)
 from .utils import ProviderTestError, test_provider_credentials  # noqa: E402
@@ -49,6 +50,12 @@ PROVIDER_REGISTRY: Dict[str, ProviderFunc] = {
 CREATE_PROVIDER_REGISTRY: Dict[str, CreateProviderFunc] = {
     "jira": jira.create_issue,
     "gitlab": gitlab.create_issue,
+}
+
+CLOSE_PROVIDER_REGISTRY: Dict[str, CloseProviderFunc] = {
+    "github": github.close_issue,
+    "gitlab": gitlab.close_issue,
+    "jira": jira.close_issue,
 }
 
 
@@ -79,6 +86,33 @@ def sync_project_integration(
             "Issue synchronization failed for project_integration=%s provider=%s",
             project_integration.id,
             provider_key,
+        )
+        raise IssueSyncError(str(exc)) from exc
+
+
+def close_issue_for_project_integration(
+    project_integration: ProjectIntegration,
+    external_id: str,
+) -> IssuePayload:
+    integration = project_integration.integration
+    if integration is None:
+        raise IssueSyncError("Project integration is missing associated tenant integration.")
+
+    provider_key = integration.provider.lower()
+    closer = CLOSE_PROVIDER_REGISTRY.get(provider_key)
+    if closer is None:
+        raise IssueSyncError(f"Issue closing is not supported for provider '{integration.provider}'.")
+
+    try:
+        return closer(integration, project_integration, external_id)
+    except IssueSyncError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception(
+            "Issue closing failed for project_integration=%s provider=%s issue=%s",
+            project_integration.id,
+            provider_key,
+            external_id,
         )
         raise IssueSyncError(str(exc)) from exc
 

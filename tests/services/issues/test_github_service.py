@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import sys
+import types
 from types import SimpleNamespace
 from typing import List
 
@@ -8,6 +10,21 @@ import pytest
 
 from app.services.issues import IssueCreateRequest, IssueSyncError
 from app.services.issues import github as github_service
+
+if "github" not in sys.modules:
+    github_stub = types.ModuleType("github")
+
+    class GithubExceptionStub(Exception):
+        def __init__(self, status=None, *args, **kwargs):
+            self.status = status
+            super().__init__(status)
+
+    github_stub.GithubException = GithubExceptionStub
+    sys.modules["github"] = github_stub
+
+    github_exception_module = types.ModuleType("github.GithubException")
+    github_exception_module.GithubException = GithubExceptionStub
+    sys.modules["github.GithubException"] = github_exception_module
 
 
 class FakeGithubIssue:
@@ -22,11 +39,16 @@ class FakeGithubIssue:
         self.pull_request = None
         self.raw_data = {"number": number}
 
+    def edit(self, **kwargs):
+        if "state" in kwargs:
+            self.state = kwargs["state"]
+
 
 class FakeRepo:
     def __init__(self, issues: List[FakeGithubIssue]):
         self._issues = issues
         self.created_payload = None
+        self.closed_numbers: List[int] = []
 
     def get_issues(self, **_):
         return self._issues
@@ -42,6 +64,13 @@ class FakeRepo:
         )
         self.created_payload = {"title": title, "body": body, "labels": labels}
         return issue
+
+    def get_issue(self, number):
+        for issue in self._issues:
+            if issue.number == number:
+                self.closed_numbers.append(number)
+                return issue
+        raise IssueSyncError("Issue not found")
 
 
 def _install_fake_client(monkeypatch, repo: FakeRepo):
@@ -94,6 +123,26 @@ def test_create_issue(monkeypatch):
     assert repo.created_payload == {"title": "Add feature", "body": "Details", "labels": ["enhancement"]}
     assert payload.external_id == "200"
     assert payload.title == "Add feature"
+
+
+def test_close_issue(monkeypatch):
+    issue = FakeGithubIssue(
+        number=42,
+        title="Fix bug",
+        state="open",
+        html_url="https://github.com/org/repo/issues/42",
+    )
+    repo = FakeRepo([issue])
+    _install_fake_client(monkeypatch, repo)
+
+    integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
+    project_integration = SimpleNamespace(external_identifier="org/repo", config={})
+
+    payload = github_service.close_issue(integration, project_integration, "42")
+
+    assert issue.state == "closed"
+    assert payload.status == "closed"
+    assert repo.closed_numbers.count(42) >= 2  # fetched before and after close
 
 
 def test_create_issue_requires_summary():

@@ -11,6 +11,7 @@ from .routes.api import api_bp
 from .routes.admin import admin_bp
 from .routes.auth import auth_bp
 from .routes.projects import projects_bp
+from .version import __version__
 
 
 def create_app(
@@ -34,6 +35,8 @@ def create_app(
     register_blueprints(app)
     register_cli_commands(app)
 
+    app.config.setdefault("AIOPS_VERSION", __version__)
+
     return app
 
 
@@ -45,7 +48,10 @@ def register_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_csrf_token():
-        return {"csrf_token": generate_csrf}
+        return {
+            "csrf_token": generate_csrf,
+            "app_version": app.config.get("AIOPS_VERSION", __version__),
+        }
 
 
 def register_blueprints(app: Flask) -> None:

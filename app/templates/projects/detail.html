@@ -199,6 +199,16 @@
                 >
                   Populate AGENTS.md
                 </button>
+                {% if issue.status_key != 'closed' %}
+                  <form
+                    method="post"
+                    class="inline-form"
+                    action="{{ url_for('projects.close_issue', project_id=project.id, issue_id=issue.id) }}"
+                  >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit" class="secondary outline">Close Issue</button>
+                  </form>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>

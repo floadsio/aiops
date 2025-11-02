@@ -21,6 +21,99 @@
   }
 </style>
 
+<h2>Configured Integrations</h2>
+{% if integrations %}
+<table>
+  <thead>
+    <tr>
+      <th>Tenant</th>
+      <th>Name</th>
+      <th>Provider</th>
+      <th>Base URL</th>
+      <th>Status</th>
+      <th>Linked Projects</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for integration in integrations %}
+    <tr>
+      <td>{{ integration.tenant.name if integration.tenant else "Unknown" }}</td>
+      <td>{{ integration.name }}</td>
+      <td>{{ integration.provider|capitalize }}</td>
+      <td>{% if integration.base_url %}<code>{{ integration.base_url }}</code>{% else %}<span class="text-muted">Default</span>{% endif %}</td>
+      <td>
+        {% if integration.enabled %}
+          <span class="badge success">Enabled</span>
+        {% else %}
+          <span class="badge">Disabled</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if integration.project_integrations %}
+          <ul>
+            {% for project_integration in integration.project_integrations %}
+              <li>
+                {{ project_integration.project.name if project_integration.project else "Unknown project" }}
+                <br />
+                <small>
+                  Identifier: <code>{{ project_integration.external_identifier }}</code>
+                  {% if project_integration.issues %}
+                    &bull; {{ project_integration.issues|length }} cached issue{{ '' if project_integration.issues|length == 1 else 's' }}
+                  {% endif %}
+                  {% if project_integration.last_synced_at %}
+                    &bull; Synced {{ project_integration.last_synced_at.strftime("%Y-%m-%d %H:%M") }} UTC
+                  {% endif %}
+                </small>
+                <details>
+                  <summary>Edit link</summary>
+                  {% set update_form = integration_update_forms[project_integration.id] %}
+                  {% set delete_form = integration_delete_forms[project_integration.id] %}
+                  <form method="post" action="{{ url_for('admin.update_project_integration', project_integration_id=project_integration.id) }}" class="integration-inline-form">
+                    {{ update_form.hidden_tag() }}
+                    <label>
+                      {{ update_form.external_identifier.label }}
+                      {{ update_form.external_identifier() }}
+                    </label>
+                    {% if integration.provider == 'jira' %}
+                      <label>
+                        {{ update_form.jira_jql.label }}
+                        {{ update_form.jira_jql(rows=2) }}
+                      </label>
+                    {% endif %}
+                    <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
+                  </form>
+                  <form method="post" action="{{ url_for('admin.delete_project_integration', project_integration_id=project_integration.id) }}" class="integration-inline-form">
+                    {{ delete_form.hidden_tag() }}
+                    {{ delete_form.submit(class_="secondary outline") }}
+                  </form>
+                </details>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">No linked projects.</span>
+        {% endif %}
+      </td>
+      <td>
+        <form method="post" class="inline-form">
+          {{ integration_delete_form.csrf_token }}
+          {{ integration_delete_form.integration_id(value=integration.id) }}
+          {{ integration_delete_form.submit(
+            class_="link-button danger",
+            value="Remove",
+            onclick="return confirm('Remove integration {{ integration.name }} and all linked issues?')"
+          ) }}
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No integrations configured yet.</p>
+{% endif %}
+
 <div class="grid">
   <article>
     <header>
@@ -120,99 +213,6 @@
     </form>
   </article>
 </div>
-
-<h2>Configured Integrations</h2>
-{% if integrations %}
-<table>
-  <thead>
-    <tr>
-      <th>Tenant</th>
-      <th>Name</th>
-      <th>Provider</th>
-      <th>Base URL</th>
-      <th>Status</th>
-      <th>Linked Projects</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for integration in integrations %}
-    <tr>
-      <td>{{ integration.tenant.name if integration.tenant else "Unknown" }}</td>
-      <td>{{ integration.name }}</td>
-      <td>{{ integration.provider|capitalize }}</td>
-      <td>{% if integration.base_url %}<code>{{ integration.base_url }}</code>{% else %}<span class="text-muted">Default</span>{% endif %}</td>
-      <td>
-        {% if integration.enabled %}
-          <span class="badge success">Enabled</span>
-        {% else %}
-          <span class="badge">Disabled</span>
-        {% endif %}
-      </td>
-      <td>
-        {% if integration.project_integrations %}
-          <ul>
-            {% for project_integration in integration.project_integrations %}
-              <li>
-                {{ project_integration.project.name if project_integration.project else "Unknown project" }}
-                <br />
-                <small>
-                  Identifier: <code>{{ project_integration.external_identifier }}</code>
-                  {% if project_integration.issues %}
-                    &bull; {{ project_integration.issues|length }} cached issue{{ '' if project_integration.issues|length == 1 else 's' }}
-                  {% endif %}
-                  {% if project_integration.last_synced_at %}
-                    &bull; Synced {{ project_integration.last_synced_at.strftime("%Y-%m-%d %H:%M") }} UTC
-                  {% endif %}
-                </small>
-                <details>
-                  <summary>Edit link</summary>
-                  {% set update_form = integration_update_forms[project_integration.id] %}
-                  {% set delete_form = integration_delete_forms[project_integration.id] %}
-                  <form method="post" action="{{ url_for('admin.update_project_integration', project_integration_id=project_integration.id) }}" class="integration-inline-form">
-                    {{ update_form.hidden_tag() }}
-                    <label>
-                      {{ update_form.external_identifier.label }}
-                      {{ update_form.external_identifier() }}
-                    </label>
-                    {% if integration.provider == 'jira' %}
-                      <label>
-                        {{ update_form.jira_jql.label }}
-                        {{ update_form.jira_jql(rows=2) }}
-                      </label>
-                    {% endif %}
-                    <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin.delete_project_integration', project_integration_id=project_integration.id) }}" class="integration-inline-form">
-                    {{ delete_form.hidden_tag() }}
-                    {{ delete_form.submit(class_="secondary outline") }}
-                  </form>
-                </details>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <span class="text-muted">No linked projects.</span>
-        {% endif %}
-      </td>
-      <td>
-        <form method="post" class="inline-form">
-          {{ integration_delete_form.csrf_token }}
-          {{ integration_delete_form.integration_id(value=integration.id) }}
-          {{ integration_delete_form.submit(
-            class_="link-button danger",
-            value="Remove",
-            onclick="return confirm('Remove integration {{ integration.name }} and all linked issues?')"
-          ) }}
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p>No integrations configured yet.</p>
-{% endif %}
 {% endblock %}
 
 {% block extra_body %}

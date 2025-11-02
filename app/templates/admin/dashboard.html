@@ -502,7 +502,7 @@
             <p class="text-muted">No pull recorded yet (branch {{ branch_name }}).</p>
           {% endif %}
           {% if status.get("dirty") %}
-            <p class="warning-note">Uncommitted changes detected</p>
+            <p class="critical-note">Uncommitted changes detected</p>
           {% endif %}
           {% if status.get("error") %}
             <p class="warning-note">Status unavailable: {{ status.get("error") }}</p>

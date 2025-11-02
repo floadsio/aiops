@@ -9,7 +9,7 @@ FLASK_APP ?= manage.py
 FLASK_HOST ?= 127.0.0.1
 FLASK_PORT ?= 8060
 
-.PHONY: all venv sync sync-dev seed seed-identities format lint test check clean start stop restart status
+.PHONY: all venv sync sync-dev seed seed-identities format lint test check clean start start-dev dev stop restart status
 
 all: sync-dev start
 
@@ -80,6 +80,9 @@ start:
 			exit 1; \
 		fi; \
 	fi
+
+start-dev dev:
+	FLASK_DEBUG=1 FLASK_ENV=development $(FLASK) --app $(FLASK_APP) --debug run --host $(FLASK_HOST) --port $(FLASK_PORT)
 
 stop:
 	@if [ -f $(PID_FILE) ]; then \

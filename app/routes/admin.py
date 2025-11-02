@@ -866,7 +866,9 @@ def manage_integrations():
     tenants = Tenant.query.order_by(Tenant.name).all()
     integration_form.tenant_id.choices = [(t.id, t.name) for t in tenants]
 
-    integrations_q = TenantIntegration.query.order_by(TenantIntegration.created_at.desc())
+    integrations_q = TenantIntegration.query.order_by(
+        TenantIntegration.enabled.desc(), TenantIntegration.created_at.desc()
+    )
     integrations_list = integrations_q.all()
 
     integration_choices = []
@@ -998,7 +1000,7 @@ def manage_integrations():
     ]
     integrations = (
         TenantIntegration.query.options(*integration_load_options)
-        .order_by(TenantIntegration.created_at.desc())
+        .order_by(TenantIntegration.enabled.desc(), TenantIntegration.created_at.desc())
         .all()
     )
 

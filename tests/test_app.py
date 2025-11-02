@@ -16,6 +16,7 @@ from app.models import (
 from app.security import hash_password
 from app.services.ansible_runner import run_ansible_playbook
 from app.services.key_service import resolve_private_key_path
+from app.services.issues import IssuePayload
 
 
 def test_app_factory():
@@ -593,6 +594,96 @@ def test_agents_editor_requires_commit_message(tmp_path, monkeypatch):
     assert response.status_code == 200
     assert "Commit message is required" in response.get_data(as_text=True)
     assert commit_called is False
+
+
+def test_close_issue_route_updates_status(tmp_path, monkeypatch):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'close_issue.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="owner@example.com",
+            name="Owner",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="demo", description="Demo tenant")
+        integration = TenantIntegration(
+            tenant=tenant,
+            provider="github",
+            name="GitHub",
+            api_token="token",
+            enabled=True,
+            settings={},
+        )
+        project = Project(
+            name="demo-project",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "demo-project"),
+            tenant=tenant,
+            owner=user,
+        )
+        project_integration = ProjectIntegration(
+            project=project,
+            integration=integration,
+            external_identifier="org/repo",
+            config={},
+        )
+        issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="42",
+            title="Fix bug",
+            status="open",
+            labels=[],
+        )
+        db.session.add_all([user, tenant, integration, project, project_integration, issue])
+        db.session.commit()
+
+        project_id = project.id
+        issue_id = issue.id
+
+    def fake_close(project_integration_obj, external_id):
+        assert external_id == "42"
+        return IssuePayload(
+            external_id="42",
+            title="Fix bug",
+            status="closed",
+            assignee=None,
+            url="https://github.com/org/repo/issues/42",
+            labels=["bug"],
+            external_updated_at=datetime(2024, 10, 20, 12, 0, tzinfo=timezone.utc),
+            raw={"state": "closed"},
+        )
+
+    monkeypatch.setattr("app.routes.projects.close_issue_for_project_integration", fake_close)
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "owner@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    response = client.post(
+        f"/projects/{project_id}/issues/{issue_id}/close",
+        data={},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert "Closed issue 42" in response.get_data(as_text=True)
+
+    with app.app_context():
+        updated_issue = ExternalIssue.query.get(issue_id)
+        assert updated_issue.status == "closed"
+        assert updated_issue.labels == ["bug"]
 
 def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
     class TestConfig(Config):

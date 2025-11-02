@@ -9,6 +9,14 @@ from .utils import ensure_base_url, get_timeout, parse_datetime
 
 DEFAULT_FIELDS = ["summary", "status", "assignee", "updated", "labels"]
 DEFAULT_ISSUE_TYPE = "Task"
+DEFAULT_CLOSE_TRANSITIONS = [
+    "done",
+    "closed",
+    "close issue",
+    "resolve issue",
+    "resolved",
+    "complete",
+]
 
 
 def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
@@ -174,6 +182,63 @@ def create_issue(
                 pass
 
 
+def close_issue(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration,
+    external_id: str,
+) -> IssuePayload:
+    base_url = integration.base_url
+    if not base_url:
+        raise IssueSyncError("Jira integration requires a base URL.")
+    base_url = ensure_base_url(integration, base_url)
+
+    settings = integration.settings or {}
+    username = (settings.get("username") or "").strip()
+    if not username:
+        raise IssueSyncError("Jira integration requires an account email.")
+
+    issue_key = (external_id or "").strip()
+    if not issue_key:
+        raise IssueSyncError("Jira issue identifier is required for closing an issue.")
+
+    config = project_integration.config or {}
+    preferred_transition_name = (config.get("close_transition") or "").strip().lower()
+
+    timeout = get_timeout(integration)
+    try:
+        from jira import JIRA, JIRAError  # type: ignore import-not-found
+    except ImportError as exc:  # pragma: no cover - environment misconfiguration
+        missing = getattr(exc, "name", None) or "jira"
+        raise IssueSyncError(
+            f"Jira support requires the '{missing}' package. Install dependencies with 'make sync' or 'uv pip install jira'."
+        ) from exc
+
+    client: Optional[Any] = None
+    try:
+        client = JIRA(server=base_url, basic_auth=(username, integration.api_token), timeout=timeout)
+        transitions = client.transitions(issue_key)
+        transition_id = _select_close_transition(transitions, preferred_transition_name)
+        if transition_id is None:
+            raise IssueSyncError("Jira project configuration lacks a suitable transition to close issues.")
+        client.transition_issue(issue_key, transition_id)
+        issue = client.issue(issue_key, fields=",".join(DEFAULT_FIELDS))
+        issue_data = getattr(issue, "raw", None)
+        if not isinstance(issue_data, dict):
+            raise IssueSyncError("Jira did not return expected issue payload after closing.")
+        return _issue_to_payload(base_url, issue_data)
+    except JIRAError as exc:
+        message = getattr(exc, "text", None) or str(exc)
+        raise IssueSyncError(f"Jira API error: {message}") from exc
+    except Exception as exc:  # pragma: no cover - unexpected failures
+        raise IssueSyncError(str(exc)) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover - best effort cleanup
+                pass
+
+
 def _resolve_assignee(fields: dict) -> Optional[str]:
     assignee = fields.get("assignee")
     if isinstance(assignee, dict):
@@ -196,3 +261,21 @@ def _format_jira_datetime(source: datetime) -> str:
     else:
         aware = source.astimezone(timezone.utc)
     return aware.strftime("%Y-%m-%d %H:%M")
+
+
+def _select_close_transition(transitions: List[dict[str, Any]], preferred_name: str) -> Optional[str]:
+    candidates = []
+    if preferred_name:
+        candidates.append(preferred_name)
+    candidates.extend(DEFAULT_CLOSE_TRANSITIONS)
+
+    lower_candidates = [name.lower() for name in candidates]
+    for transition in transitions or []:
+        name = str(transition.get("name") or "").strip().lower()
+        if not name:
+            continue
+        if name in lower_candidates:
+            identifier = transition.get("id")
+            if identifier:
+                return str(identifier)
+    return None

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import sys
 from types import ModuleType, SimpleNamespace
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 
@@ -224,6 +224,87 @@ def test_create_issue_uses_jira_client(monkeypatch):
     assert payload.external_id == "DEVOPS-2"
     assert payload.title == "Create new pipeline task"
     assert payload.labels == ["automation"]
+
+
+def test_close_issue_uses_transition(monkeypatch):
+    captured: Dict[str, Any] = {}
+
+    class FakeJIRA:
+        def __init__(self, server: str, basic_auth: tuple[str, str], timeout: float):
+            captured["server"] = server
+            captured["basic_auth"] = basic_auth
+            captured["timeout"] = timeout
+
+        def transitions(self, issue_key: str) -> List[Dict[str, Any]]:
+            captured["transitions_key"] = issue_key
+            return [
+                {"id": "20", "name": "In Progress"},
+                {"id": "30", "name": "Done"},
+            ]
+
+        def transition_issue(self, issue_key: str, transition_id: str):
+            captured["transition_issue_key"] = issue_key
+            captured["transition_id"] = transition_id
+
+        def issue(self, issue_key: str, fields: str):
+            captured["issue_fields"] = fields
+            return SimpleNamespace(
+                raw={
+                    "key": issue_key,
+                    "fields": {
+                        "summary": "Legacy cleanup",
+                        "status": {"name": "Done"},
+                        "assignee": None,
+                        "updated": "2024-10-15T12:00:00.000+0000",
+                        "labels": ["cleanup"],
+                    },
+                }
+            )
+
+        def close(self):
+            captured["closed"] = True
+
+    _install_fake_jira(monkeypatch, FakeJIRA)
+
+    integration = SimpleNamespace(
+        base_url="https://example.atlassian.net",
+        api_token="token-123",
+        settings={"username": "user@example.com"},
+    )
+    project_integration = SimpleNamespace(config={}, external_identifier="DEVOPS")
+
+    payload = jira_service.close_issue(integration, project_integration, "DEVOPS-10")
+
+    assert captured["transition_issue_key"] == "DEVOPS-10"
+    assert captured["transition_id"] == "30"
+    assert "summary" in captured["issue_fields"]
+    assert captured.get("closed") is True
+    assert payload.external_id == "DEVOPS-10"
+    assert payload.status == "Done"
+
+
+def test_close_issue_requires_transition(monkeypatch):
+    class FakeJIRA:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def transitions(self, issue_key: str) -> List[Dict[str, Any]]:
+            return [{"id": "10", "name": "Review"}]
+
+        def close(self):
+            pass
+
+    _install_fake_jira(monkeypatch, FakeJIRA)
+
+    integration = SimpleNamespace(
+        base_url="https://example.atlassian.net",
+        api_token="token-123",
+        settings={"username": "user@example.com"},
+    )
+    project_integration = SimpleNamespace(config={}, external_identifier="DEVOPS")
+
+    with pytest.raises(IssueSyncError):
+        jira_service.close_issue(integration, project_integration, "DEVOPS-11")
 
 
 def test_create_issue_fetches_when_raw_missing(monkeypatch):

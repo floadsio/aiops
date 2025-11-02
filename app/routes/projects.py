@@ -49,6 +49,7 @@ from ..services.issues.context import build_issue_agent_file, build_issue_prompt
 from ..services.issues import (
     CREATE_PROVIDER_REGISTRY,
     IssueSyncError,
+    close_issue_for_project_integration,
     create_issue_for_project_integration,
     sync_project_integration,
 )
@@ -321,6 +322,7 @@ def project_detail(project_id: int):
             updated_display = _format_timestamp(
                 record.external_updated_at or record.updated_at or record.created_at
             )
+            status_key, _ = normalize_issue_status(record.status)
             issue_payload = {
                 "id": record.id,
                 "external_id": record.external_id,
@@ -330,6 +332,7 @@ def project_detail(project_id: int):
                 "url": record.url,
                 "labels": record.labels or [],
                 "updated_display": updated_display,
+                "status_key": status_key,
             }
             issue_entries.append(
                 {
@@ -620,6 +623,39 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
             "local_path": str(local_path),
         }
     )
+
+
+@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/close", methods=["POST"])
+@login_required
+def close_issue(project_id: int, issue_id: int):
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    integration = issue.project_integration
+    if integration is None or integration.project_id != project_id:
+        abort(404)
+
+    try:
+        payload = close_issue_for_project_integration(integration, issue.external_id)
+    except IssueSyncError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("projects.project_detail", project_id=project.id))
+
+    issue.title = payload.title or issue.title
+    issue.status = payload.status
+    issue.assignee = payload.assignee
+    issue.url = payload.url
+    issue.labels = payload.labels
+    issue.external_updated_at = payload.external_updated_at
+    issue.last_seen_at = datetime.now(timezone.utc)
+    issue.raw_payload = payload.raw
+    db.session.commit()
+
+    flash(f"Closed issue {issue.external_id}.", "success")
+    return redirect(url_for("projects.project_detail", project_id=project.id))
 
 
 @projects_bp.route("/<int:project_id>/ai/session", methods=["POST"])

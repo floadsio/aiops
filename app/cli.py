@@ -17,6 +17,7 @@ from .services.issues import (
     sync_tenant_integrations,
 )
 from .services.key_service import compute_fingerprint, format_private_key_path
+from .version import __version__
 
 
 @click.command("db_init")
@@ -340,6 +341,12 @@ def create_issue_command(
         click.echo(f"Issue URL: {payload.url}")
 
 
+@click.command("version")
+def version_command() -> None:
+    """Display the aiops version."""
+    click.echo(__version__)
+
+
 def register_cli_commands(app) -> None:
     app.cli.add_command(db_init_command)
     app.cli.add_command(create_admin_command)
@@ -347,3 +354,4 @@ def register_cli_commands(app) -> None:
     app.cli.add_command(seed_identities_command)
     app.cli.add_command(sync_issues_command)
     app.cli.add_command(create_issue_command)
+    app.cli.add_command(version_command)

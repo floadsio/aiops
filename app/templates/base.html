@@ -110,6 +110,29 @@
       .inline-form .link-button.danger {
         color: #dc2626;
       }
+      .version-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.1rem 0.45rem;
+        border-radius: 999px;
+        background: rgba(59, 130, 246, 0.15);
+        color: rgba(30, 64, 175, 0.95);
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+      [data-theme="dark"] .version-badge {
+        background: rgba(96, 165, 250, 0.22);
+        color: rgba(191, 219, 254, 0.9);
+      }
+      .critical-note {
+        background: rgba(220, 38, 38, 0.12);
+        border-left: 4px solid rgba(220, 38, 38, 0.9);
+        color: #b91c1c;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        font-weight: 600;
+        margin: 0.5rem 0;
+      }
     </style>
     {% block extra_head %}{% endblock %}
   </head>
@@ -118,6 +141,7 @@
       <nav>
         <ul>
           <li><strong>aiops Control Panel</strong></li>
+          <li><span class="version-badge">v{{ app_version }}</span></li>
         </ul>
         <ul>
           {% if current_user.is_authenticated %}

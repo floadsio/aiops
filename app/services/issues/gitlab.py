@@ -122,6 +122,49 @@ def create_issue(
     )
 
 
+def close_issue(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration,
+    external_id: str,
+) -> IssuePayload:
+    project_ref = project_integration.external_identifier
+    if not project_ref:
+        raise IssueSyncError("GitLab project integration requires an external project path.")
+
+    identifier = str(external_id).strip()
+    try:
+        issue_ref = int(identifier)
+    except (TypeError, ValueError):
+        issue_ref = identifier
+
+    client = _build_client(integration)
+    try:
+        from gitlab import exceptions as gitlab_exc
+
+        project = client.projects.get(project_ref)
+        issue = project.issues.get(issue_ref)
+        issue.state_event = "close"
+        issue.save()
+        issue = project.issues.get(issue_ref)
+    except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabGetError) as exc:
+        status = getattr(exc, "response_code", "unknown")
+        raise IssueSyncError(f"GitLab API error: {status}") from exc
+    except gitlab_exc.GitlabError as exc:
+        raise IssueSyncError(str(exc)) from exc
+
+    external_id_value = getattr(issue, "id", None) or identifier
+    return IssuePayload(
+        external_id=str(external_id_value),
+        title=getattr(issue, "title", "") or "",
+        status=getattr(issue, "state", None),
+        assignee=_resolve_assignee(issue),
+        url=getattr(issue, "web_url", None),
+        labels=[str(label) for label in getattr(issue, "labels", [])],
+        external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
+        raw=issue.attributes if hasattr(issue, "attributes") else {},
+    )
+
+
 def _resolve_assignee(issue_payload: Any) -> Optional[str]:
     assignee = getattr(issue_payload, "assignee", None)
     if isinstance(assignee, dict):

@@ -94,33 +94,6 @@ def sync_project_integration(
         )
         raise IssueSyncError(str(exc)) from exc
 
-
-def close_issue_for_project_integration(
-    project_integration: ProjectIntegration,
-    external_id: str,
-) -> IssuePayload:
-    integration = project_integration.integration
-    if integration is None:
-        raise IssueSyncError("Project integration is missing associated tenant integration.")
-
-    provider_key = integration.provider.lower()
-    closer = CLOSE_PROVIDER_REGISTRY.get(provider_key)
-    if closer is None:
-        raise IssueSyncError(f"Issue closing is not supported for provider '{integration.provider}'.")
-
-    try:
-        return closer(integration, project_integration, external_id)
-    except IssueSyncError:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        current_app.logger.exception(
-            "Issue closing failed for project_integration=%s provider=%s issue=%s",
-            project_integration.id,
-            provider_key,
-            external_id,
-        )
-        raise IssueSyncError(str(exc)) from exc
-
     existing_issues = {
         issue.external_id: issue
         for issue in ExternalIssue.query.filter_by(
@@ -153,6 +126,33 @@ def close_issue_for_project_integration(
     project_integration.last_synced_at = now
     db.session.flush()
     return updated_issues
+
+
+def close_issue_for_project_integration(
+    project_integration: ProjectIntegration,
+    external_id: str,
+) -> IssuePayload:
+    integration = project_integration.integration
+    if integration is None:
+        raise IssueSyncError("Project integration is missing associated tenant integration.")
+
+    provider_key = integration.provider.lower()
+    closer = CLOSE_PROVIDER_REGISTRY.get(provider_key)
+    if closer is None:
+        raise IssueSyncError(f"Issue closing is not supported for provider '{integration.provider}'.")
+
+    try:
+        return closer(integration, project_integration, external_id)
+    except IssueSyncError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception(
+            "Issue closing failed for project_integration=%s provider=%s issue=%s",
+            project_integration.id,
+            provider_key,
+            external_id,
+        )
+        raise IssueSyncError(str(exc)) from exc
 
 
 def sync_tenant_integrations(

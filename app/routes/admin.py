@@ -48,6 +48,7 @@ from ..forms.admin import (
     TenantIntegrationDeleteForm,
 )
 from ..models import (
+    ExternalIssue,
     Project,
     ProjectIntegration,
     SSHKey,
@@ -56,7 +57,12 @@ from ..models import (
     User,
 )
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
-from ..services.issues import IssueSyncError, test_integration_connection, sync_project_integration
+from ..services.issues import (
+    IssueSyncError,
+    test_integration_connection,
+    sync_project_integration,
+    sync_tenant_integrations,
+)
 from ..services.issues.utils import normalize_issue_status
 from ..services.tmux_service import (
     TmuxServiceError,
@@ -93,6 +99,24 @@ def _truncate_output(text: str, limit: int = 4000) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + "\n… (truncated)"
+
+
+def _issue_sort_key(issue: ExternalIssue):
+    reference = issue.external_updated_at or issue.updated_at or issue.created_at
+    if reference is None:
+        reference = datetime.min.replace(tzinfo=timezone.utc)
+    elif reference.tzinfo is None:
+        reference = reference.replace(tzinfo=timezone.utc)
+    return reference
+
+
+def _format_issue_timestamp(value):
+    if value is None:
+        return None
+    timestamp = value
+    if timestamp.tzinfo is None:
+        timestamp = timestamp.replace(tzinfo=timezone.utc)
+    return timestamp.astimezone().strftime("%b %d, %Y • %H:%M %Z")
 
 
 def _trigger_restart(restart_command: str | None) -> tuple[bool, str]:
@@ -770,6 +794,148 @@ def manage_tenants():
 
     tenants = Tenant.query.order_by(Tenant.name).all()
     return render_template("admin/tenants.html", form=form, delete_form=delete_form, tenants=tenants)
+
+
+@admin_bp.route("/issues", methods=["GET"])
+@admin_required
+def manage_issues():
+    issues = (
+        ExternalIssue.query.options(
+            selectinload(ExternalIssue.project_integration)
+            .selectinload(ProjectIntegration.project)
+            .selectinload(Project.tenant),
+            selectinload(ExternalIssue.project_integration)
+            .selectinload(ProjectIntegration.integration),
+        ).all()
+    )
+
+    sorted_issues = sorted(issues, key=_issue_sort_key, reverse=True)
+
+    status_counts: Counter[str] = Counter()
+    status_labels: dict[str, str] = {}
+    issue_entries: list[dict[str, object]] = []
+
+    for issue in sorted_issues:
+        status_key, status_label = normalize_issue_status(issue.status)
+        status_counts[status_key] += 1
+        status_labels.setdefault(status_key, status_label)
+
+        integration = issue.project_integration.integration if issue.project_integration else None
+        project = issue.project_integration.project if issue.project_integration else None
+        tenant = project.tenant if project else None
+
+        updated_reference = issue.external_updated_at or issue.updated_at or issue.created_at
+
+        issue_entries.append(
+            {
+                "id": issue.id,
+                "external_id": issue.external_id,
+                "title": issue.title,
+                "status": issue.status,
+                "status_key": status_key,
+                "status_label": status_label,
+                "assignee": issue.assignee,
+                "url": issue.url,
+                "labels": issue.labels or [],
+                "provider": integration.provider if integration else "unknown",
+                "integration_name": integration.name if integration else "",
+                "project_name": project.name if project else "",
+                "tenant_name": tenant.name if tenant else "",
+                "updated_display": _format_issue_timestamp(updated_reference),
+            }
+        )
+
+    total_issue_full_count = len(issue_entries)
+    raw_filter = (request.args.get("status") or "").strip().lower()
+    has_open = status_counts.get("open", 0) > 0
+    default_filter = "open" if has_open else "all"
+
+    if raw_filter == "all":
+        status_filter = "all"
+    elif raw_filter in status_labels:
+        status_filter = raw_filter
+    elif raw_filter == "__none__" and "__none__" in status_labels:
+        status_filter = "__none__"
+    else:
+        status_filter = default_filter
+
+    if (
+        status_filter == "open"
+        and status_counts.get("open", 0) == 0
+        and total_issue_full_count
+    ):
+        status_filter = "all"
+
+    def _matches(entry: dict[str, object]) -> bool:
+        if status_filter == "all":
+            return True
+        return entry.get("status_key") == status_filter
+
+    filtered_issues = [entry for entry in issue_entries if _matches(entry)]
+    total_issue_count = len(filtered_issues)
+
+    status_options = [
+        {
+            "value": "all",
+            "label": "All statuses",
+            "count": total_issue_full_count,
+        }
+    ]
+
+    def _status_option_sort_key(item: tuple[str, str]) -> tuple[int, str]:
+        key, label = item
+        priority = 0 if key == "open" else 1
+        return priority, label.lower()
+
+    for status_key, status_label in sorted(status_labels.items(), key=_status_option_sort_key):
+        status_options.append(
+            {
+                "value": status_key,
+                "label": status_label,
+                "count": status_counts.get(status_key, 0),
+            }
+        )
+
+    status_filter_label = (
+        "All statuses"
+        if status_filter == "all"
+        else status_labels.get(status_filter, status_filter.title())
+    )
+
+    return render_template(
+        "admin/issues.html",
+        issues=filtered_issues,
+        status_filter=status_filter,
+        status_filter_label=status_filter_label,
+        status_options=status_options,
+        total_issue_count=total_issue_count,
+        total_issue_full_count=total_issue_full_count,
+    )
+
+
+@admin_bp.route("/issues/refresh", methods=["POST"])
+@admin_required
+def refresh_all_issues():
+    try:
+        integrations = ProjectIntegration.query.options(
+            selectinload(ProjectIntegration.integration)
+        ).all()
+        results = sync_tenant_integrations(integrations)
+        total_updated = sum(len(issues or []) for issues in results.values())
+    except IssueSyncError as exc:
+        db.session.rollback()
+        flash(f"Issue refresh failed: {exc}", "danger")
+    except Exception:  # noqa: BLE001
+        db.session.rollback()
+        current_app.logger.exception("Global issue refresh failed")
+        flash("Unexpected error while refreshing issues.", "danger")
+    else:
+        if total_updated:
+            flash(f"Refreshed issues across all integrations ({total_updated} updated).", "success")
+        else:
+            flash("Issue caches are already up to date.", "success")
+
+    return redirect(url_for("admin.manage_issues"))
 
 
 @admin_bp.route("/projects", methods=["GET", "POST"])

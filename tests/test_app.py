@@ -332,7 +332,7 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert "Sample Issue" in agent_path.read_text()
     assert "Secondary Issue" in agent_path.read_text()
 
-    local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.local.md")
+    local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.md")
     assert local_context_path.exists()
     local_contents = local_context_path.read_text()
     assert "Sample Issue" in local_contents
@@ -428,6 +428,8 @@ def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
 
     tracked_path = Path(data["tracked_path"])
     local_path = Path(data["local_path"])
+
+    assert tracked_path == local_path
 
     assert tracked_path.exists()
     tracked_contents = tracked_path.read_text()
@@ -596,6 +598,97 @@ def test_agents_editor_requires_commit_message(tmp_path, monkeypatch):
     assert commit_called is False
 
 
+def test_admin_issues_page_filters(tmp_path):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'issues_page.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        admin_user = User(
+            email="admin@example.com",
+            name="Admin",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="demo", description="Demo tenant")
+        integration = TenantIntegration(
+            tenant=tenant,
+            provider="github",
+            name="GitHub",
+            api_token="token",
+            enabled=True,
+            settings={},
+        )
+        project = Project(
+            name="demo-project",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "demo-project"),
+            tenant=tenant,
+            owner=admin_user,
+        )
+        project_integration = ProjectIntegration(
+            project=project,
+            integration=integration,
+            external_identifier="org/repo",
+            config={},
+        )
+        open_issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="42",
+            title="Fix deployment",
+            status="open",
+            labels=["infra"],
+        )
+        closed_issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="43",
+            title="Retire legacy job",
+            status="closed",
+            labels=["cleanup"],
+        )
+        db.session.add_all([
+            admin_user,
+            tenant,
+            integration,
+            project,
+            project_integration,
+            open_issue,
+            closed_issue,
+        ])
+        db.session.commit()
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "admin@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    response = client.get("/admin/issues")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "Fix deployment" in body
+    assert "Retire legacy job" not in body
+
+    response_closed = client.get("/admin/issues?status=closed")
+    assert response_closed.status_code == 200
+    body_closed = response_closed.get_data(as_text=True)
+    assert "Retire legacy job" in body_closed
+    assert "Fix deployment" not in body_closed
+
+    response_all = client.get("/admin/issues?status=all")
+    body_all = response_all.get_data(as_text=True)
+    assert "Fix deployment" in body_all
+    assert "Retire legacy job" in body_all
+
+
 def test_close_issue_route_updates_status(tmp_path, monkeypatch):
     class TestConfig(Config):
         TESTING = True
@@ -684,6 +777,97 @@ def test_close_issue_route_updates_status(tmp_path, monkeypatch):
         updated_issue = ExternalIssue.query.get(issue_id)
         assert updated_issue.status == "closed"
         assert updated_issue.labels == ["bug"]
+
+
+def test_assign_issue_route_updates_assignee(tmp_path, monkeypatch):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'assign_issue.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="owner@example.com",
+            name="Owner",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="demo", description="Demo tenant")
+        integration = TenantIntegration(
+            tenant=tenant,
+            provider="github",
+            name="GitHub",
+            api_token="token",
+            enabled=True,
+            settings={},
+        )
+        project = Project(
+            name="demo-project",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "demo-project"),
+            tenant=tenant,
+            owner=user,
+        )
+        project_integration = ProjectIntegration(
+            project=project,
+            integration=integration,
+            external_identifier="org/repo",
+            config={},
+        )
+        issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="42",
+            title="Fix bug",
+            status="open",
+            labels=["bug"],
+        )
+        db.session.add_all([user, tenant, integration, project, project_integration, issue])
+        db.session.commit()
+
+        project_id = project.id
+        issue_id = issue.id
+
+    def fake_assign(project_integration_obj, external_id, assignees):
+        assert external_id == "42"
+        assert assignees == ["octocat"]
+        return IssuePayload(
+            external_id="42",
+            title="Fix bug",
+            status="open",
+            assignee="octocat",
+            url="https://github.com/org/repo/issues/42",
+            labels=["bug"],
+            external_updated_at=datetime(2024, 10, 21, 12, 0, tzinfo=timezone.utc),
+            raw={"assignee": "octocat"},
+        )
+
+    monkeypatch.setattr("app.routes.projects.assign_issue_for_project_integration", fake_assign)
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "owner@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    response = client.post(
+        f"/projects/{project_id}/issues/{issue_id}/assign",
+        data={"assignee": "octocat"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert "Assigned issue 42 to octocat" in response.get_data(as_text=True)
+
+    with app.app_context():
+        updated_issue = ExternalIssue.query.get(issue_id)
+        assert updated_issue.assignee == "octocat"
+
 
 def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
     class TestConfig(Config):

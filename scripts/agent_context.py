@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Helper to manage local instructions for coding agents.
+"""Helper to manage aiops agent instructions.
 
-The script writes to a git-ignored Markdown file (AGENTS.local.md by default)
-so you can stash issue-specific guidance that agents should read at the start
-of a session without committing the content to the repository.
+By default this script updates the tracked ``AGENTS.md`` file so the current
+project guidance stays versioned with the codebase.
 """
 
 from __future__ import annotations
@@ -15,7 +14,7 @@ import sys
 from typing import Optional
 
 
-DEFAULT_FILENAME = "AGENTS.local.md"
+DEFAULT_FILENAME = "AGENTS.md"
 
 
 def parse_args() -> argparse.Namespace:

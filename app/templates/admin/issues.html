@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Issues | aiops Control Panel{% endblock %}
+{% block content %}
+<h1>External Issues</h1>
+
+<form method="get" class="issue-filter-form">
+  <label for="issue-status-filter">Issue status</label>
+  <select id="issue-status-filter" name="status" onchange="this.form.submit()">
+    {% for option in status_options %}
+      <option value="{{ option.value }}" {% if option.value == status_filter %}selected{% endif %}>
+        {{ option.label }} ({{ option.count }})
+      </option>
+    {% endfor %}
+  </select>
+</form>
+
+<form method="post" action="{{ url_for('admin.refresh_all_issues') }}" class="inline-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <button type="submit" class="secondary">Refresh All Issues</button>
+</form>
+
+{% if issues %}
+  <p class="text-muted">
+    Showing {{ total_issue_count }} of {{ total_issue_full_count }}
+    issue{{ '' if total_issue_full_count == 1 else 's' }}
+    {% if status_filter != 'all' %}
+      (status: {{ status_filter_label }})
+    {% endif %}.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>External ID</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Provider</th>
+        <th>Project</th>
+        <th>Tenant</th>
+        <th>Updated</th>
+        <th>Assignee</th>
+        <th>Labels</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for issue in issues %}
+        <tr>
+          <td>
+            {% if issue.url %}
+              <a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.external_id }}</a>
+            {% else %}
+              {{ issue.external_id }}
+            {% endif %}
+          </td>
+          <td>{{ issue.title }}</td>
+          <td>
+            {% if issue.status %}
+              <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
+                {{ issue.status }}
+              </span>
+            {% else %}
+              <span class="badge">Unspecified</span>
+            {% endif %}
+          </td>
+          <td>{{ issue.provider|capitalize }}</td>
+          <td>{{ issue.project_name or "Unknown project" }}</td>
+          <td>{{ issue.tenant_name or "Unknown tenant" }}</td>
+          <td>{{ issue.updated_display or "Unknown" }}</td>
+          <td>{{ issue.assignee or "Unassigned" }}</td>
+          <td>
+            {% if issue.labels %}
+              {{ issue.labels|join(', ') }}
+            {% else %}
+              <span class="text-muted">None</span>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="text-muted">No issues found for the selected filter.</p>
+{% endif %}
+{% endblock %}

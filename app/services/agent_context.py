@@ -9,7 +9,7 @@ from ..models import ExternalIssue, Project
 from .issues.utils import format_issue_datetime, summarize_issue
 
 
-DEFAULT_CONTEXT_FILENAME = "AGENTS.local.md"
+DEFAULT_CONTEXT_FILENAME = "AGENTS.md"
 DEFAULT_TRACKED_CONTEXT_FILENAME = "AGENTS.md"
 ISSUE_CONTEXT_START = "<!-- issue-context:start -->"
 ISSUE_CONTEXT_END = "<!-- issue-context:end -->"
@@ -86,15 +86,13 @@ def write_local_issue_context(
     all_issues: Iterable[ExternalIssue],
     filename: str = DEFAULT_CONTEXT_FILENAME,
 ) -> Path:
-    """Write the issue context Markdown file inside the project checkout."""
-    repo_path = Path(project.local_path)
-    if not repo_path.exists():
-        repo_path.mkdir(parents=True, exist_ok=True)
-
-    context_path = repo_path / filename
-    content = render_issue_context(project, primary_issue, all_issues)
-    context_path.write_text(content, encoding="utf-8")
-    return context_path
+    """Alias for tracked issue context writing (kept for compatibility)."""
+    return write_tracked_issue_context(
+        project,
+        primary_issue,
+        all_issues,
+        filename=filename,
+    )
 
 
 def write_tracked_issue_context(
@@ -110,7 +108,7 @@ def write_tracked_issue_context(
 
     context_path = repo_path / filename
     issue_content = render_issue_context(project, primary_issue, all_issues).rstrip()
-    header_note = "NOTE: Local agent context - do not commit this section."
+    header_note = "NOTE: Generated issue context. Update before publishing if needed."
     appended_section = (
         f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
         f"{ISSUE_CONTEXT_START}\n\n"

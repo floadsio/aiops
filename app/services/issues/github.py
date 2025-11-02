@@ -117,6 +117,38 @@ def close_issue(
     return _issue_to_payload(issue)
 
 
+def assign_issue(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration,
+    external_id: str,
+    assignees: List[str],
+) -> IssuePayload:
+    repo_path = project_integration.external_identifier
+    if not repo_path:
+        raise IssueSyncError("GitHub project integration requires an owner/repo identifier.")
+
+    try:
+        issue_number = int(str(external_id).strip().lstrip("#"))
+    except (TypeError, ValueError):
+        raise IssueSyncError("GitHub issue identifier must be a number.")
+
+    client = _build_client(integration)
+    try:
+        from github.GithubException import GithubException
+
+        repo = client.get_repo(repo_path)
+        issue = repo.get_issue(number=issue_number)
+        issue.edit(assignees=assignees)
+        issue = repo.get_issue(number=issue_number)
+    except GithubException as exc:
+        status = getattr(exc, "status", "unknown")
+        raise IssueSyncError(f"GitHub API error: {status}") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise IssueSyncError(str(exc)) from exc
+
+    return _issue_to_payload(issue)
+
+
 def _issue_to_payload(issue: Any) -> IssuePayload:
     number = getattr(issue, "number", None)
     if number is None:

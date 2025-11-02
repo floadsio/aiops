@@ -199,6 +199,22 @@
                 >
                   Populate AGENTS.md
                 </button>
+                {% if issue.can_assign %}
+                  <form
+                    method="post"
+                    class="inline-form"
+                    action="{{ url_for('projects.assign_issue', project_id=project.id, issue_id=issue.id) }}"
+                  >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <input
+                      type="text"
+                      name="assignee"
+                      placeholder="Assign to (comma-separated)"
+                      style="max-width: 14rem;"
+                    />
+                    <button type="submit" class="secondary outline">Assign</button>
+                  </form>
+                {% endif %}
                 {% if issue.status_key != 'closed' %}
                   <form
                     method="post"

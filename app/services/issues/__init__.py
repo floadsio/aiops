@@ -37,6 +37,7 @@ class IssueCreateRequest:
 ProviderFunc = Callable[[TenantIntegration, ProjectIntegration, Optional[datetime]], List[IssuePayload]]
 CreateProviderFunc = Callable[[TenantIntegration, ProjectIntegration, IssueCreateRequest], IssuePayload]
 CloseProviderFunc = Callable[[TenantIntegration, ProjectIntegration, str], IssuePayload]
+AssignProviderFunc = Callable[[TenantIntegration, ProjectIntegration, str, List[str]], IssuePayload]
 
 from . import github, gitlab, jira  # noqa: E402  (import depends on IssuePayload declaration)
 from .utils import ProviderTestError, test_provider_credentials  # noqa: E402
@@ -56,6 +57,10 @@ CLOSE_PROVIDER_REGISTRY: Dict[str, CloseProviderFunc] = {
     "github": github.close_issue,
     "gitlab": gitlab.close_issue,
     "jira": jira.close_issue,
+}
+
+ASSIGN_PROVIDER_REGISTRY: Dict[str, AssignProviderFunc] = {
+    "github": github.assign_issue,
 }
 
 
@@ -158,6 +163,38 @@ def sync_tenant_integrations(
         results[p_integration.id] = sync_project_integration(p_integration)
     db.session.commit()
     return results
+
+
+def assign_issue_for_project_integration(
+    project_integration: ProjectIntegration,
+    external_id: str,
+    assignees: List[str],
+) -> IssuePayload:
+    integration = project_integration.integration
+    if integration is None:
+        raise IssueSyncError("Project integration is missing associated tenant integration.")
+
+    provider_key = integration.provider.lower()
+    assigner = ASSIGN_PROVIDER_REGISTRY.get(provider_key)
+    if assigner is None:
+        raise IssueSyncError(f"Issue assignment is not supported for provider '{integration.provider}'.")
+
+    cleaned_assignees = [assignee.strip() for assignee in assignees if assignee and assignee.strip()]
+    if not cleaned_assignees:
+        raise IssueSyncError("At least one assignee is required.")
+
+    try:
+        return assigner(integration, project_integration, external_id, cleaned_assignees)
+    except IssueSyncError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception(
+            "Issue assignment failed for project_integration=%s provider=%s issue=%s",
+            project_integration.id,
+            provider_key,
+            external_id,
+        )
+        raise IssueSyncError(str(exc)) from exc
 
 
 def test_integration_connection(

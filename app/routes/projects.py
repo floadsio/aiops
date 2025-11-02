@@ -44,11 +44,13 @@ from ..services.tmux_service import (
     TmuxServiceError,
     get_or_create_window_for_project,
 )
-from ..services.agent_context import write_local_issue_context, write_tracked_issue_context
+from ..services.agent_context import write_tracked_issue_context
 from ..services.issues.context import build_issue_agent_file, build_issue_prompt
 from ..services.issues import (
+    ASSIGN_PROVIDER_REGISTRY,
     CREATE_PROVIDER_REGISTRY,
     IssueSyncError,
+    assign_issue_for_project_integration,
     close_issue_for_project_integration,
     create_issue_for_project_integration,
     sync_project_integration,
@@ -323,6 +325,7 @@ def project_detail(project_id: int):
                 record.external_updated_at or record.updated_at or record.created_at
             )
             status_key, _ = normalize_issue_status(record.status)
+            provider_key_lower = (integration.provider or "").lower() if integration and integration.provider else ""
             issue_payload = {
                 "id": record.id,
                 "external_id": record.external_id,
@@ -333,6 +336,7 @@ def project_detail(project_id: int):
                 "labels": record.labels or [],
                 "updated_display": updated_display,
                 "status_key": status_key,
+                "can_assign": provider_key_lower in ASSIGN_PROVIDER_REGISTRY,
             }
             issue_entries.append(
                 {
@@ -611,7 +615,6 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
 
     try:
         tracked_path = write_tracked_issue_context(project, issue, all_issues)
-        local_path = write_local_issue_context(project, issue, all_issues)
     except OSError as exc:
         current_app.logger.exception("Failed to populate agent context for project %s", project.id)
         return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
@@ -620,9 +623,52 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
         {
             "message": "Updated agent context files.",
             "tracked_path": str(tracked_path),
-            "local_path": str(local_path),
+            "local_path": str(tracked_path),
         }
     )
+
+
+@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/assign", methods=["POST"])
+@login_required
+def assign_issue(project_id: int, issue_id: int):
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    integration = issue.project_integration
+    if (
+        integration is None
+        or integration.project_id != project_id
+    ):
+        abort(404)
+
+    assignee_input = (request.form.get("assignee") or "").strip()
+    assignees = [value.strip() for value in assignee_input.split(",") if value.strip()]
+    if not assignees:
+        flash("Provide at least one assignee.", "warning")
+        return redirect(url_for("projects.project_detail", project_id=project.id))
+
+    try:
+        payload = assign_issue_for_project_integration(integration, issue.external_id, assignees)
+    except IssueSyncError as exc:
+        flash(str(exc), "danger")
+        return redirect(url_for("projects.project_detail", project_id=project.id))
+
+    issue.title = payload.title or issue.title
+    issue.status = payload.status
+    issue.assignee = payload.assignee
+    issue.url = payload.url
+    issue.labels = payload.labels
+    issue.external_updated_at = payload.external_updated_at
+    issue.last_seen_at = datetime.now(timezone.utc)
+    issue.raw_payload = payload.raw
+    db.session.commit()
+
+    assignee_display = payload.assignee or ", ".join(assignees)
+    flash(f"Assigned issue {issue.external_id} to {assignee_display}.", "success")
+    return redirect(url_for("projects.project_detail", project_id=project.id))
 
 
 @projects_bp.route("/<int:project_id>/issues/<int:issue_id>/close", methods=["POST"])

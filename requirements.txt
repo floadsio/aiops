@@ -20,6 +20,8 @@ smmap>=5.0
 jira>=3.6
 python-gitlab>=4.7
 PyGithub>=2.3
+PyJWT==2.10.1
+PyNaCl==1.6.0
 libtmux>=0.32
 colorama>=0.4.6
 mypy>=1.10

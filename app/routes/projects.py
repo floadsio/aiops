@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shlex
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -254,7 +253,6 @@ def project_detail(project_id: int):
         for link in project.issue_integrations
         for issue in link.issues
     ]
-    sorted_project_issues = sorted(all_project_issues, key=_issue_sort_key, reverse=True)
 
     status_counts: Counter[str] = Counter()
     status_labels: dict[str, str] = {}

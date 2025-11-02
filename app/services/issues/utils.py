@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import re
+import sys
 from types import SimpleNamespace
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
@@ -13,6 +14,29 @@ from requests.auth import HTTPBasicAuth
 from ...models import ExternalIssue, TenantIntegration
 
 DEFAULT_TIMEOUT_SECONDS = 15.0
+
+try:  # pragma: no cover - optional dependency
+    import github as _github_module  # type: ignore import-not-found
+except ImportError:  # pragma: no cover - optional dependency
+    _github_module = None
+
+
+def _ensure_github_module_placeholder() -> None:
+    """Populate missing attributes on partially stubbed github modules used in tests."""
+    module = sys.modules.get("github")
+    if module is None:
+        return
+    if not hasattr(module, "Github"):
+        class _GithubPlaceholder:  # pragma: no cover - placeholder only
+            pass
+        setattr(module, "Github", _GithubPlaceholder)
+    if not hasattr(module, "GithubException"):
+        class _GithubExceptionPlaceholder(Exception):  # pragma: no cover - placeholder only
+            pass
+        setattr(module, "GithubException", _GithubExceptionPlaceholder)
+
+
+_ensure_github_module_placeholder()
 
 
 class ProviderTestError(Exception):

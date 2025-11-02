@@ -46,7 +46,6 @@ from ..forms.admin import (
     TenantDeleteForm,
     TenantIntegrationForm,
     TenantIntegrationDeleteForm,
-    UpdateApplicationForm,
     CodexUpdateForm,
 )
 from ..models import (

@@ -2,89 +2,94 @@
 {% block title %}Projects | aiops Control Panel{% endblock %}
 {% block content %}
 <h1>Projects</h1>
-<form method="post">
-  {{ form.hidden_tag() }}
-  <label>
-    {{ form.name.label }}
-    {{ form.name() }}
-    {% for error in form.name.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.repo_url.label }}
-    {{ form.repo_url() }}
-    {% for error in form.repo_url.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.default_branch.label }}
-    {{ form.default_branch() }}
-    {% for error in form.default_branch.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.description.label }}
-    {{ form.description(rows=3) }}
-    {% for error in form.description.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.tenant_id.label }}
-    {{ form.tenant_id() }}
-    {% for error in form.tenant_id.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.owner_id.label }}
-    {{ form.owner_id() }}
-    {% for error in form.owner_id.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <button type="submit">Add Project</button>
-</form>
+<section>
+  <h2>Configured Projects</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Tenant</th>
+        <th>Owner</th>
+        <th>Repository</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for project in projects %}
+      <tr>
+        <td>{{ project.name }}</td>
+        <td>{{ project.tenant.name }}</td>
+        <td>{{ project.owner.email }}</td>
+        <td><code>{{ project.repo_url }}</code></td>
+        <td>
+          <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">Open</a>
+          <form method="post" class="inline-form">
+            {{ delete_form.csrf_token }}
+            {{ delete_form.project_id(value=project.id) }}
+            {{ delete_form.submit(
+              class_="link-button danger",
+              value="Remove",
+              onclick="return confirm('Remove project {{ project.name }} and all related data?')"
+            ) }}
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5">No projects configured.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 
-<h2>Configured Projects</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Tenant</th>
-      <th>Owner</th>
-      <th>Repository</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for project in projects %}
-    <tr>
-      <td>{{ project.name }}</td>
-      <td>{{ project.tenant.name }}</td>
-      <td>{{ project.owner.email }}</td>
-      <td><code>{{ project.repo_url }}</code></td>
-      <td>
-        <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">Open</a>
-        <form method="post" class="inline-form">
-          {{ delete_form.csrf_token }}
-          {{ delete_form.project_id(value=project.id) }}
-          {{ delete_form.submit(
-            class_="link-button danger",
-            value="Remove",
-            onclick="return confirm('Remove project {{ project.name }} and all related data?')"
-          ) }}
-        </form>
-      </td>
-    </tr>
-    {% else %}
-    <tr>
-      <td colspan="5">No projects configured.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<section>
+  <h2>Add New Project</h2>
+  <form method="post">
+    {{ form.hidden_tag() }}
+    <label>
+      {{ form.name.label }}
+      {{ form.name() }}
+      {% for error in form.name.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      {{ form.repo_url.label }}
+      {{ form.repo_url() }}
+      {% for error in form.repo_url.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      {{ form.default_branch.label }}
+      {{ form.default_branch() }}
+      {% for error in form.default_branch.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      {{ form.description.label }}
+      {{ form.description(rows=3) }}
+      {% for error in form.description.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      {{ form.tenant_id.label }}
+      {{ form.tenant_id() }}
+      {% for error in form.tenant_id.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      {{ form.owner_id.label }}
+      {{ form.owner_id() }}
+      {% for error in form.owner_id.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <button type="submit">Add Project</button>
+  </form>
+</section>
 {% endblock %}

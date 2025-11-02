@@ -170,6 +170,11 @@ class UpdateApplicationForm(FlaskForm):
     submit = SubmitField("Run Update")
 
 
+class CodexUpdateForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Update Codex CLI")
+
+
 class CreateUserForm(FlaskForm):
     name = StringField("Full Name", validators=[DataRequired(), Length(max=255)])
     email = StringField("Email", validators=[DataRequired(), Length(max=255)])

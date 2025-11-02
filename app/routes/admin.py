@@ -46,6 +46,8 @@ from ..forms.admin import (
     TenantDeleteForm,
     TenantIntegrationForm,
     TenantIntegrationDeleteForm,
+    UpdateApplicationForm,
+    CodexUpdateForm,
 )
 from ..models import (
     ExternalIssue,
@@ -70,6 +72,12 @@ from ..services.tmux_service import (
 )
 from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
 from ..services.update_service import run_update_script, UpdateError
+from ..services.codex_update_service import (
+    CodexStatus,
+    CodexUpdateError,
+    get_codex_status,
+    install_latest_codex,
+)
 from ..services.log_service import read_log_tail, LogReadError
 from ..security import hash_password
 
@@ -474,6 +482,20 @@ def manage_settings():
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.manage_settings")
 
+    codex_update_form = CodexUpdateForm()
+    codex_update_form.next.data = url_for("admin.manage_settings")
+
+    try:
+        codex_status = get_codex_status()
+    except Exception as exc:  # pragma: no cover - defensive logging
+        current_app.logger.exception("Unable to determine Codex CLI status.")
+        codex_status = CodexStatus(
+            installed_version=None,
+            latest_version=None,
+            update_available=False,
+            errors=(f"Unable to determine Codex status: {exc}",),
+        )
+
     create_user_form = CreateUserForm()
     if create_user_form.submit.data:
         if create_user_form.validate_on_submit():
@@ -534,6 +556,8 @@ def manage_settings():
         user_update_forms=user_update_forms,
         restart_command=current_app.config.get("UPDATE_RESTART_COMMAND"),
         log_file=current_app.config.get("LOG_FILE"),
+        codex_status=codex_status,
+        codex_update_form=codex_update_form,
     )
 
 
@@ -585,6 +609,49 @@ def run_system_update():
             flash(restart_message, restart_category)
 
     redirect_target = form.next.data or url_for("admin.dashboard")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/codex/update", methods=["POST"])
+@admin_required
+def update_codex_cli():
+    form = CodexUpdateForm()
+    if not form.validate_on_submit():
+        flash("Invalid Codex update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        result = install_latest_codex()
+    except CodexUpdateError as exc:
+        current_app.logger.exception("Failed to run Codex CLI update.")
+        flash(str(exc), "danger")
+    else:
+        combined_output = "\n".join(
+            part for part in [result.stdout.strip(), result.stderr.strip()] if part
+        )
+        truncated = _truncate_output(combined_output)
+        message = (
+            f"Codex CLI update succeeded (exit {result.returncode})."
+            if result.ok
+            else f"Codex CLI update failed (exit {result.returncode})."
+        )
+        category = "success" if result.ok else "danger"
+        log_message = f"Codex CLI update command finished with exit {result.returncode}"
+        if combined_output:
+            current_app.logger.info("%s; output: %s", log_message, combined_output)
+        else:
+            current_app.logger.info(log_message)
+        if truncated:
+            flash(
+                Markup(
+                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                ),
+                category,
+            )
+        else:
+            flash(message, category)
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
     return redirect(redirect_target)
 
 
@@ -825,6 +892,16 @@ def manage_issues():
     )
 
     sorted_issues = sorted(issues, key=_issue_sort_key, reverse=True)
+    tenant_counts: Counter[str] = Counter()
+    tenant_labels: dict[str, str] = {}
+    for issue in issues:
+        tenant = None
+        if issue.project_integration and issue.project_integration.project:
+            tenant = issue.project_integration.project.tenant
+        tenant_key = str(tenant.id) if tenant else "__unknown__"
+        tenant_label = tenant.name if tenant else "Unknown tenant"
+        tenant_counts[tenant_key] += 1
+        tenant_labels.setdefault(tenant_key, tenant_label)
 
     status_counts: Counter[str] = Counter()
     status_labels: dict[str, str] = {}
@@ -841,6 +918,10 @@ def manage_issues():
 
         updated_reference = issue.external_updated_at or issue.updated_at or issue.created_at
 
+        codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
+            "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
+        )
+
         issue_entries.append(
             {
                 "id": issue.id,
@@ -853,16 +934,34 @@ def manage_issues():
                 "url": issue.url,
                 "labels": issue.labels or [],
                 "provider": integration.provider if integration else "unknown",
+                "provider_key": (integration.provider or "").lower() if integration and integration.provider else "",
                 "integration_name": integration.name if integration else "",
                 "project_name": project.name if project else "",
+                "project_id": project.id if project else None,
                 "tenant_name": tenant.name if tenant else "",
+                "tenant_id": tenant.id if tenant else None,
                 "updated_display": _format_issue_timestamp(updated_reference),
                 "updated_sort": _issue_sort_key(issue),
+                "prepare_endpoint": url_for("projects.prepare_issue_context", project_id=project.id, issue_id=issue.id) if project else None,
+                "codex_target": url_for("projects.project_ai_console", project_id=project.id) if project else None,
+                "codex_payload": {
+                    "prompt": "",
+                    "command": codex_command,
+                    "tool": "codex",
+                    "autoStart": True,
+                    "issueId": issue.id,
+                    "agentPath": None,
+                    "tmuxTarget": None,
+                } if project else None,
+                "populate_endpoint": url_for("projects.populate_issue_agents_md", project_id=project.id, issue_id=issue.id) if project else None,
+                "close_endpoint": url_for("projects.close_issue", project_id=project.id, issue_id=issue.id) if project else None,
+                "can_close": status_key != "closed",
             }
         )
 
     total_issue_full_count = len(issue_entries)
     raw_filter = (request.args.get("status") or "").strip().lower()
+    tenant_raw_filter = (request.args.get("tenant") or "").strip()
     raw_sort = (request.args.get("sort") or "").strip().lower()
     sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
     raw_direction = (request.args.get("direction") or "").strip().lower()
@@ -890,10 +989,22 @@ def manage_issues():
     ):
         status_filter = "all"
 
+    if tenant_raw_filter and tenant_raw_filter.lower() != "all":
+        if tenant_raw_filter in tenant_labels:
+            tenant_filter = tenant_raw_filter
+        else:
+            tenant_filter = "all"
+    else:
+        tenant_filter = "all"
+
     def _matches(entry: dict[str, object]) -> bool:
-        if status_filter == "all":
-            return True
-        return entry.get("status_key") == status_filter
+        if status_filter != "all" and entry.get("status_key") != status_filter:
+            return False
+        if tenant_filter != "all":
+            entry_tenant = entry.get("tenant_id")
+            entry_key = str(entry_tenant) if entry_tenant is not None else "__unknown__"
+            return entry_key == tenant_filter
+        return True
 
     filtered_issues = [entry for entry in issue_entries if _matches(entry)]
     total_issue_count = len(filtered_issues)
@@ -955,12 +1066,37 @@ def manage_issues():
         else status_labels.get(status_filter, status_filter.title())
     )
 
+    tenant_options = [
+        {
+            "value": "all",
+            "label": "All tenants",
+            "count": total_issue_full_count,
+        }
+    ]
+
+    for key, label in sorted(tenant_labels.items(), key=lambda item: item[1].lower()):
+        tenant_options.append(
+            {
+                "value": key,
+                "label": label,
+                "count": tenant_counts.get(key, 0),
+            }
+        )
+
+    tenant_filter_label = (
+        "All tenants"
+        if tenant_filter == "all"
+        else tenant_labels.get(tenant_filter, tenant_filter)
+    )
+
     sort_state = {"key": sort_key, "direction": sort_direction}
     sort_columns = [dict(column) for column in ISSUE_SORT_COLUMNS]
 
     base_query_params: dict[str, str] = {}
     if "status" in request.args:
         base_query_params["status"] = status_filter
+    if "tenant" in request.args:
+        base_query_params["tenant"] = tenant_filter
 
     sort_headers: dict[str, dict[str, object]] = {}
     for column in sort_columns:
@@ -993,6 +1129,9 @@ def manage_issues():
         status_filter=status_filter,
         status_filter_label=status_filter_label,
         status_options=status_options,
+        tenant_filter=tenant_filter,
+        tenant_filter_label=tenant_filter_label,
+        tenant_options=tenant_options,
         total_issue_count=total_issue_count,
         total_issue_full_count=total_issue_full_count,
         sort_columns=sort_columns,

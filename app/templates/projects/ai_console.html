@@ -491,9 +491,6 @@
         sessionId = data.session_id;
         const label = selectedTmuxTarget ? `tmux:${selectedTmuxTarget}` : (tool ? tool : (command || 'shell'));
         term.write(`\n[Connected to ${label}]\n`);
-        if (storedSessionContext && storedSessionContext.agentPath) {
-          term.write(`[Agent loaded: ${storedSessionContext.agentPath}]\n`);
-        }
 
         eventSource = new EventSource(`/projects/${projectId}/ai/session/${sessionId}/stream`);
         eventSource.addEventListener('ready', () => {
@@ -574,9 +571,6 @@
     startSession({ tmuxTargetOverride: requestedTmuxTarget });
   } else if (autoStartPending) {
     term.write('\n[Preparing Codex session with selected issue]\n');
-    if (storedSessionContext && storedSessionContext.agentPath) {
-      term.write(`Agent file: ${storedSessionContext.agentPath}\n`);
-    }
     setTimeout(() => {
       startSession();
     }, 150);

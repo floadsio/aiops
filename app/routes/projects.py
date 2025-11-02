@@ -45,7 +45,6 @@ from ..services.tmux_service import (
     get_or_create_window_for_project,
 )
 from ..services.agent_context import write_tracked_issue_context
-from ..services.issues.context import build_issue_agent_file, build_issue_prompt
 from ..services.issues import (
     ASSIGN_PROVIDER_REGISTRY,
     CREATE_PROVIDER_REGISTRY,
@@ -338,20 +337,20 @@ def project_detail(project_id: int):
                 "status_key": status_key,
                 "can_assign": provider_key_lower in ASSIGN_PROVIDER_REGISTRY,
             }
-            issue_entries.append(
-                {
-                    **issue_payload,
-                    "codex_payload": {
-                        "prompt": build_issue_prompt(project, record, sorted_project_issues),
-                        "tool": "codex",
-                        "command": codex_command,
-                        "autoStart": True,
-                        "issueId": record.id,
-                        "agentPath": None,
-                        "tmuxTarget": None,
-                    },
-                }
-            )
+        issue_entries.append(
+            {
+                **issue_payload,
+                "codex_payload": {
+                    "prompt": "",
+                    "tool": "codex",
+                    "command": codex_command,
+                    "autoStart": True,
+                    "issueId": record.id,
+                    "agentPath": None,
+                    "tmuxTarget": None,
+                },
+            }
+        )
         total_issue_count += len(issue_entries)
         provider_key = integration.provider if integration else "unknown"
         provider_display = provider_key.capitalize() if provider_key else "Unknown"
@@ -574,19 +573,24 @@ def prepare_issue_context(project_id: int, issue_id: int):
         reverse=True,
     )
 
-    prompt = build_issue_prompt(project, issue, all_issues)
-    agent_path = build_issue_agent_file(project, issue, all_issues)
+    prompt = ""
+    agents_path = None
+    try:
+        agents_path = write_tracked_issue_context(project, issue, all_issues)
+    except OSError as exc:
+        current_app.logger.exception("Failed to update agent context for project %s", project.id)
+        return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
 
     codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
         "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
     )
-    command = f"{codex_command} --agent {shlex.quote(str(agent_path))}"
+    command = codex_command
 
     return jsonify({
         "prompt": prompt,
         "command": command,
         "tool": "codex",
-        "agent_path": str(agent_path),
+        "agent_path": str(agents_path) if agents_path else None,
         "tmux_target": get_or_create_window_for_project(project).target,
     })
 

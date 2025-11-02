@@ -370,7 +370,6 @@
                 command: data.command,
                 tool: data.tool || payload.tool,
                 autoStart: true,
-                agentPath: data.agent_path || null,
                 tmuxTarget: data.tmux_target || null,
               });
             })
@@ -380,7 +379,6 @@
                 command: payload.command,
                 tool: payload.tool,
                 autoStart: payload.autoStart,
-                agentPath: payload.agentPath || null,
                 tmuxTarget: payload.tmuxTarget || null,
               });
             });
@@ -390,7 +388,6 @@
             command: payload.command,
             tool: payload.tool,
             autoStart: payload.autoStart,
-            agentPath: payload.agentPath || null,
             tmuxTarget: payload.tmuxTarget || null,
           });
         }

@@ -323,14 +323,9 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert response.status_code == 200
     data = response.get_json()
     assert data["tool"] == "codex"
-    assert "--agent" in data["command"]
-    assert "Secondary Issue" in data["prompt"]
-    assert "->" in data["prompt"]
+    assert data["command"] == "codex"
+    assert data["prompt"] == ""
     assert ":" in data["tmux_target"]
-    agent_path = Path(data["agent_path"])
-    assert agent_path.exists()
-    assert "Sample Issue" in agent_path.read_text()
-    assert "Secondary Issue" in agent_path.read_text()
 
     local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.md")
     assert local_context_path.exists()
@@ -652,6 +647,38 @@ def test_admin_issues_page_filters(tmp_path):
             status="closed",
             labels=["cleanup"],
         )
+
+        other_tenant = Tenant(name="ops", description="Ops tenant")
+        other_integration = TenantIntegration(
+            tenant=other_tenant,
+            provider="github",
+            name="Ops GitHub",
+            api_token="token",
+            enabled=True,
+            settings={},
+        )
+        other_project = Project(
+            name="ops-project",
+            repo_url="git@example.com/ops.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "ops-project"),
+            tenant=other_tenant,
+            owner=admin_user,
+        )
+        other_project_integration = ProjectIntegration(
+            project=other_project,
+            integration=other_integration,
+            external_identifier="ops/repo",
+            config={},
+        )
+        other_issue = ExternalIssue(
+            project_integration=other_project_integration,
+            external_id="88",
+            title="Provision runner",
+            status="open",
+            labels=["ops"],
+        )
+
         db.session.add_all([
             admin_user,
             tenant,
@@ -660,8 +687,16 @@ def test_admin_issues_page_filters(tmp_path):
             project_integration,
             open_issue,
             closed_issue,
+            other_tenant,
+            other_integration,
+            other_project,
+            other_project_integration,
+            other_issue,
         ])
         db.session.commit()
+
+        tenant_id = tenant.id
+        other_tenant_id = other_tenant.id
 
     client = app.test_client()
     login_resp = client.post(
@@ -675,18 +710,39 @@ def test_admin_issues_page_filters(tmp_path):
     assert response.status_code == 200
     body = response.get_data(as_text=True)
     assert "Fix deployment" in body
-    assert "Retire legacy job" not in body
+    assert "Retire legacy job</" not in body
+    assert "Provision runner" in body
+    assert "issue-tenant-filter" in body
+    assert "Start Codex Session" in body
+    assert "Populate AGENTS.md" in body
+    assert "Close Issue" in body
 
     response_closed = client.get("/admin/issues?status=closed")
     assert response_closed.status_code == 200
     body_closed = response_closed.get_data(as_text=True)
-    assert "Retire legacy job" in body_closed
-    assert "Fix deployment" not in body_closed
+    assert "Retire legacy job</" in body_closed
+    assert "Fix deployment</" not in body_closed
+    assert "Provision runner" not in body_closed
+    assert "Start Codex Session" in body_closed
+    assert "Populate AGENTS.md" in body_closed
+    assert "Close Issue" not in body_closed
 
     response_all = client.get("/admin/issues?status=all")
     body_all = response_all.get_data(as_text=True)
     assert "Fix deployment" in body_all
     assert "Retire legacy job" in body_all
+    assert "Provision runner" in body_all
+
+    response_tenant = client.get(f"/admin/issues?tenant={tenant_id}")
+    body_tenant = response_tenant.get_data(as_text=True)
+    assert "Fix deployment" in body_tenant
+    assert "Retire legacy job" not in body_tenant
+    assert "Provision runner" not in body_tenant
+
+    response_other_tenant = client.get(f"/admin/issues?tenant={other_tenant_id}&status=all")
+    body_other = response_other_tenant.get_data(as_text=True)
+    assert "Provision runner" in body_other
+    assert "Fix deployment" not in body_other
 
 
 def test_close_issue_route_updates_status(tmp_path, monkeypatch):

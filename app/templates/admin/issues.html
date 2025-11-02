@@ -53,11 +53,17 @@
     .issues-table .sort-link.is-active .sort-indicator {
       opacity: 1;
     }
-    .issues-card-list {
-      display: none;
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
+  .issues-card-list {
+    display: none;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .issues-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
     .issue-card {
       border: 1px solid rgba(148, 163, 184, 0.3);
       border-radius: 1rem;
@@ -136,6 +142,14 @@
         </option>
       {% endfor %}
     </select>
+    <label for="issue-tenant-filter">Tenant</label>
+    <select id="issue-tenant-filter" name="tenant" onchange="this.form.submit()">
+      {% for option in tenant_options %}
+        <option value="{{ option.value }}" {% if option.value == tenant_filter %}selected{% endif %}>
+          {{ option.label }} ({{ option.count }})
+        </option>
+      {% endfor %}
+    </select>
     <input type="hidden" name="sort" value="{{ sort_state.key }}">
     <input type="hidden" name="direction" value="{{ sort_state.direction }}">
   </form>
@@ -174,6 +188,7 @@
               </a>
             </th>
           {% endfor %}
+          <th scope="col">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -206,6 +221,41 @@
                 {{ issue.labels|join(', ') }}
               {% else %}
                 <span class="text-muted">None</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if issue.project_id %}
+                <div class="issues-actions">
+                  {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
+                    <button
+                      type="button"
+                      class="secondary outline issues-start-codex"
+                      data-project-id="{{ issue.project_id }}"
+                      data-target="{{ issue.codex_target }}"
+                      data-prepare="{{ issue.prepare_endpoint }}"
+                      data-context='{{ issue.codex_payload|tojson }}'
+                    >
+                      Start Codex Session
+                    </button>
+                  {% endif %}
+                  {% if issue.populate_endpoint %}
+                    <button
+                      type="button"
+                      class="tertiary issues-populate-agents"
+                      data-populate="{{ issue.populate_endpoint }}"
+                    >
+                      Populate AGENTS.md
+                    </button>
+                  {% endif %}
+                  {% if issue.can_close and issue.close_endpoint %}
+                    <form method="post" action="{{ issue.close_endpoint }}" class="inline-form">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                      <button type="submit" class="secondary outline">Close Issue</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% else %}
+                <span class="text-muted">Unavailable</span>
               {% endif %}
             </td>
           </tr>
@@ -269,10 +319,164 @@
             </dd>
           </div>
         </dl>
+        {% if issue.project_id %}
+          <div class="issues-actions">
+            {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
+              <button
+                type="button"
+                class="secondary outline issues-start-codex"
+                data-project-id="{{ issue.project_id }}"
+                data-target="{{ issue.codex_target }}"
+                data-prepare="{{ issue.prepare_endpoint }}"
+                data-context='{{ issue.codex_payload|tojson }}'
+              >
+                Start Codex Session
+              </button>
+            {% endif %}
+            {% if issue.populate_endpoint %}
+              <button
+                type="button"
+                class="tertiary issues-populate-agents"
+                data-populate="{{ issue.populate_endpoint }}"
+              >
+                Populate AGENTS.md
+              </button>
+            {% endif %}
+            {% if issue.can_close and issue.close_endpoint %}
+              <form method="post" action="{{ issue.close_endpoint }}" class="inline-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="secondary outline">Close Issue</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
       </article>
     {% endfor %}
   </div>
 {% else %}
   <p class="text-muted">No issues found for the selected filter.</p>
 {% endif %}
+{% endblock %}
+
+{% block extra_body %}
+<script>
+  (function () {
+    const codexButtons = document.querySelectorAll('.issues-start-codex');
+    const populateButtons = document.querySelectorAll('.issues-populate-agents');
+    if (!codexButtons.length && !populateButtons.length) {
+      return;
+    }
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfTokenValue = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    codexButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const projectId = button.dataset.projectId;
+        const target = button.dataset.target;
+        const prepareEndpoint = button.dataset.prepare;
+        const payloadRaw = button.dataset.context;
+        if (!projectId || !target || !prepareEndpoint || !payloadRaw) {
+          return;
+        }
+
+        let payload;
+        try {
+          payload = JSON.parse(payloadRaw);
+        } catch (error) {
+          return;
+        }
+
+        const storageKey = `aiops-session-context-${projectId}`;
+
+        const finalize = (context) => {
+          try {
+            sessionStorage.setItem(storageKey, JSON.stringify(context));
+          } catch (error) {
+            /* ignore storage errors */
+          }
+          window.location.href = target;
+        };
+
+        fetch(prepareEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfTokenValue ? { 'X-CSRFToken': csrfTokenValue, 'X-CSRF-Token': csrfTokenValue } : {}),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({}),
+        })
+          .then((response) => (
+            response.ok
+              ? response.json()
+              : response.json().then((data) => Promise.reject(data))
+          ))
+          .then((data) => {
+            finalize({
+              prompt: data.prompt,
+              command: data.command,
+              tool: data.tool || payload.tool,
+              autoStart: true,
+              tmuxTarget: data.tmux_target || null,
+            });
+          })
+          .catch(() => {
+            finalize({
+              prompt: payload.prompt,
+              command: payload.command,
+              tool: payload.tool,
+              autoStart: payload.autoStart,
+              tmuxTarget: payload.tmuxTarget || null,
+            });
+          });
+      });
+    });
+
+    populateButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const endpoint = button.dataset.populate;
+        if (!endpoint) {
+          return;
+        }
+
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Populating...';
+
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfTokenValue ? { 'X-CSRFToken': csrfTokenValue, 'X-CSRF-Token': csrfTokenValue } : {}),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({}),
+        })
+          .then(response => (
+            response.ok
+              ? response.json()
+              : response.json().then(data => Promise.reject(data))
+          ))
+          .then(data => {
+            button.textContent = 'AGENTS.md updated';
+            setTimeout(() => {
+              button.textContent = originalLabel;
+              button.disabled = false;
+            }, 2000);
+            if (data && data.tracked_path) {
+              console.info(`Updated agent context at ${data.tracked_path}`);
+            }
+          })
+          .catch(error => {
+            console.error('Failed to populate AGENTS.md', error);
+            button.textContent = 'Update failed';
+            setTimeout(() => {
+              button.textContent = originalLabel;
+              button.disabled = false;
+            }, 2500);
+          });
+      });
+    });
+  })();
+</script>
 {% endblock %}

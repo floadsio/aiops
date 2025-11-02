@@ -128,6 +128,66 @@
   </article>
 
   <article class="settings-card">
+    <h2>Codex CLI Updates</h2>
+    <p>Check the installed Codex CLI version and install the latest release without shell access.</p>
+    <p class="text-muted">The update command runs <code>sudo npm install -g @openai/codex</code> on Debian-based hosts. Ensure the service account has passwordless sudo access for npm.</p>
+    <div>
+      <p><strong>Installed version:</strong>
+        {% if codex_status.installed_version %}
+          <code>{{ codex_status.installed_version }}</code>
+        {% else %}
+          <span class="text-muted">Unknown</span>
+        {% endif %}
+      </p>
+      <p><strong>Latest release:</strong>
+        {% if codex_status.latest_version %}
+          <code>{{ codex_status.latest_version }}</code>
+        {% else %}
+          <span class="text-muted">Unknown</span>
+        {% endif %}
+      </p>
+      <p>
+        {% if codex_status.errors %}
+          <span class="badge danger">Status unavailable</span>
+        {% elif codex_status.update_available %}
+          <span class="badge warning">Update available</span>
+        {% else %}
+          <span class="badge success">Up to date</span>
+        {% endif %}
+      </p>
+    </div>
+    {% if codex_status.errors %}
+      <div class="critical-note">
+        <p>Unable to determine Codex CLI status:</p>
+        <ul>
+          {% for message in codex_status.errors %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin.update_codex_cli') }}">
+      {{ codex_update_form.hidden_tag() }}
+      {% set disable_update = codex_status.errors or (not codex_status.update_available) %}
+      <div class="settings-actions">
+        <button type="submit" class="secondary"
+                {% if disable_update %}disabled aria-disabled="true"{% endif %}
+                {% if disable_update %}title="Codex must have an update available and a healthy status to proceed."{% endif %}>
+          Install latest Codex
+        </button>
+        <span class="text-muted form-helper">Runs the Debian-friendly Codex upgrade in the background.</span>
+      </div>
+    </form>
+    {% if codex_status.errors %}
+      <p class="text-muted">Resolve the issues above, then refresh to try again.</p>
+    {% elif codex_status.update_available %}
+      <p class="text-muted">A newer Codex CLI release is available. Updates can take a few minutes.</p>
+    {% else %}
+      <p class="text-muted">Codex CLI is up to date. Refresh the page to check for newer releases.</p>
+    {% endif %}
+  </article>
+
+  <article class="settings-card">
     <h2>User Accounts</h2>
     <p>Create and manage application users. Promote additional administrators so critical tasks are not blocked on a single account.</p>
     <details>

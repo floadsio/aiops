@@ -188,6 +188,17 @@
                 >
                   Start Codex Session
                 </button>
+                <button
+                  type="button"
+                  class="tertiary populate-agents-md"
+                  data-populate="{{ url_for(
+                    'projects.populate_issue_agents_md',
+                    project_id=project.id,
+                    issue_id=issue.id
+                  ) }}"
+                >
+                  Populate AGENTS.md
+                </button>
               </li>
             {% endfor %}
           </ul>
@@ -255,14 +266,17 @@
 {% block extra_body %}
 <script>
   (function () {
-    const buttons = document.querySelectorAll('.start-codex-session');
-    if (!buttons.length) {
+    const codexButtons = document.querySelectorAll('.start-codex-session');
+    const populateButtons = document.querySelectorAll('.populate-agents-md');
+    if (!codexButtons.length && !populateButtons.length) {
       return;
     }
     const storageKeyPrefix = 'aiops-session-context';
     const projectId = {{ project.id }};
     const storageKey = `${storageKeyPrefix}-${projectId}`;
-    buttons.forEach(button => {
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+
+    codexButtons.forEach(button => {
       button.addEventListener('click', () => {
         const target = button.dataset.target;
         const prepareEndpoint = button.dataset.prepare;
@@ -285,8 +299,6 @@
           }
           window.location.href = target;
         };
-
-        const csrfInput = document.querySelector('input[name="csrf_token"]');
 
         if (payload.issueId && prepareEndpoint) {
           fetch(prepareEndpoint, {
@@ -333,6 +345,52 @@
             tmuxTarget: payload.tmuxTarget || null,
           });
         }
+      });
+    });
+
+    populateButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const endpoint = button.dataset.populate;
+        if (!endpoint) {
+          return;
+        }
+
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Populating...';
+
+        fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(csrfInput ? { 'X-CSRFToken': csrfInput.value } : {}),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({}),
+        })
+          .then(response => (
+            response.ok
+              ? response.json()
+              : response.json().then(data => Promise.reject(data))
+          ))
+          .then(data => {
+            button.textContent = 'AGENTS.md updated';
+            setTimeout(() => {
+              button.textContent = originalLabel;
+              button.disabled = false;
+            }, 2000);
+            if (data && data.tracked_path) {
+              console.info(`Updated agent context at ${data.tracked_path}`);
+            }
+          })
+          .catch(error => {
+            console.error('Failed to populate AGENTS.md', error);
+            button.textContent = 'Update failed';
+            window.setTimeout(() => {
+              button.textContent = originalLabel;
+              button.disabled = false;
+            }, 2500);
+          });
       });
     });
   })();

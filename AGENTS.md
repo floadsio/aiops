@@ -22,4 +22,12 @@ Keep secrets in `.env` (gitignored) and surface only safe defaults through `.env
 - Keep issue-specific guidance out of Git history by writing it to `AGENTS.local.md` with `python3 scripts/agent_context.py write --issue <ID> --title "<short blurb>" <<'EOF'`.
 - Append new notes for the same issue by rerunning the command with the `append` subcommand.
 - Clear the file between issues with `python3 scripts/agent_context.py clear`.
+- Use the "Populate AGENTS.md" button next to an issue in the project dashboard to refresh both `AGENTS.md` and `AGENTS.local.md` with the latest context.
 - When you start a Codex session, ask the agent to read `AGENTS.local.md` so it loads the latest instructions before doing work.
+
+## Current Issue Context
+<!-- issue-context:start -->
+
+_No issue context populated yet. Use the Populate AGENTS.md button to generate it._
+
+<!-- issue-context:end -->

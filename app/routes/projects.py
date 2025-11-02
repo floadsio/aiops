@@ -36,6 +36,7 @@ from ..services.tmux_service import (
     TmuxServiceError,
     get_or_create_window_for_project,
 )
+from ..services.agent_context import write_local_issue_context, write_tracked_issue_context
 from ..services.issues.context import build_issue_agent_file, build_issue_prompt
 from ..services.issues import (
     CREATE_PROVIDER_REGISTRY,
@@ -489,6 +490,44 @@ def prepare_issue_context(project_id: int, issue_id: int):
         "agent_path": str(agent_path),
         "tmux_target": get_or_create_window_for_project(project).target,
     })
+
+
+@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/populate-agent-md", methods=["POST"])
+@login_required
+def populate_issue_agents_md(project_id: int, issue_id: int):
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        return jsonify({"error": "Access denied"}), 403
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    if (
+        issue.project_integration is None
+        or issue.project_integration.project_id != project_id
+    ):
+        abort(404)
+
+    all_issues = sorted(
+        ExternalIssue.query.join(ProjectIntegration)
+        .filter(ProjectIntegration.project_id == project_id)
+        .all(),
+        key=_issue_sort_key,
+        reverse=True,
+    )
+
+    try:
+        tracked_path = write_tracked_issue_context(project, issue, all_issues)
+        local_path = write_local_issue_context(project, issue, all_issues)
+    except OSError as exc:
+        current_app.logger.exception("Failed to populate agent context for project %s", project.id)
+        return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
+
+    return jsonify(
+        {
+            "message": "Updated agent context files.",
+            "tracked_path": str(tracked_path),
+            "local_path": str(local_path),
+        }
+    )
 
 
 @projects_bp.route("/<int:project_id>/ai/session", methods=["POST"])

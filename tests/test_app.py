@@ -338,6 +338,110 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert "Secondary Issue" in local_contents
 
 
+def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'populate.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="owner@example.com",
+            name="Owner",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="demo", description="Demo tenant")
+        project = Project(
+            name="demo-project",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "demo-project"),
+            tenant=tenant,
+            owner=user,
+        )
+        integration = TenantIntegration(
+            tenant=tenant,
+            provider="gitlab",
+            name="GitLab Cloud",
+            api_token="token",
+            enabled=True,
+            settings={},
+        )
+        project_integration = ProjectIntegration(
+            project=project,
+            integration=integration,
+            external_identifier="group/demo",
+            config={},
+        )
+        issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="123",
+            title="Sample Issue",
+            status="opened",
+        )
+        other_issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="456",
+            title="Secondary Issue",
+            status="closed",
+        )
+        db.session.add_all([user, tenant, project, integration, project_integration, issue, other_issue])
+        db.session.commit()
+
+        # Seed a tracked AGENTS.md file with a placeholder section.
+        repo_root = Path(project.local_path)
+        repo_root.mkdir(parents=True, exist_ok=True)
+        (repo_root / "AGENTS.md").write_text(
+            (
+                "# Demo Repository Guidelines\n\n"
+                "## Current Issue Context\n"
+                "<!-- issue-context:start -->\n\n"
+                "_No content yet._\n\n"
+                "<!-- issue-context:end -->\n"
+            ),
+            encoding="utf-8",
+        )
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "owner@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    with app.app_context():
+        project_id = Project.query.filter_by(name="demo-project").first().id
+        issue_id = ExternalIssue.query.filter_by(external_id="123").first().id
+
+    response = client.post(f"/projects/{project_id}/issues/{issue_id}/populate-agent-md")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert "tracked_path" in data
+    assert "local_path" in data
+
+    tracked_path = Path(data["tracked_path"])
+    local_path = Path(data["local_path"])
+
+    assert tracked_path.exists()
+    tracked_contents = tracked_path.read_text()
+    assert "Sample Issue" in tracked_contents
+    assert "Secondary Issue" in tracked_contents
+    assert "_No content yet._" not in tracked_contents
+    assert "<!-- issue-context:start -->" in tracked_contents
+    assert "<!-- issue-context:end -->" in tracked_contents
+
+    assert local_path.exists()
+    local_contents = local_path.read_text()
+    assert "Sample Issue" in local_contents
+    assert "Secondary Issue" in local_contents
+
+
 def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
     class TestConfig(Config):
         TESTING = True

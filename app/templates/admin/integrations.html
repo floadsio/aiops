@@ -225,11 +225,17 @@
     const form = testButton.closest('form');
     const resultElement = document.getElementById('integration-test-result');
     const provider = form ? form.elements['provider'] : null;
-    const tenant = form ? form.elements['tenant_id'] : null;
-    const baseUrl = form ? form.elements['base_url'] : null;
-    const apiToken = form ? form.elements['api_token'] : null;
-    const jiraEmail = form ? form.elements['jira_email'] : null;
-    const csrfToken = form ? form.elements['csrf_token'] : null;
+  const tenant = form ? form.elements['tenant_id'] : null;
+  const baseUrl = form ? form.elements['base_url'] : null;
+  const apiToken = form ? form.elements['api_token'] : null;
+  const jiraEmail = form ? form.elements['jira_email'] : null;
+  const csrfToken = form ? form.elements['csrf_token'] : null;
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  const csrfTokenValue = (
+    (csrfToken && csrfToken.value) ||
+    (csrfMeta && csrfMeta.getAttribute('content')) ||
+    ''
+  );
     const jiraEmailField = document.getElementById('jira-email-field');
 
     function toggleJiraField() {
@@ -263,7 +269,7 @@
       if (!form) {
         return;
       }
-      if (!provider || !tenant || !apiToken || !csrfToken) {
+      if (!provider || !tenant || !apiToken || !csrfTokenValue) {
         setResult('Integration form is incomplete.', 'error');
         return;
       }
@@ -283,7 +289,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken.value
+            ...(csrfTokenValue ? { 'X-CSRFToken': csrfTokenValue, 'X-CSRF-Token': csrfTokenValue } : {})
           },
           body: JSON.stringify(payload),
           credentials: 'same-origin'

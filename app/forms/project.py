@@ -89,3 +89,22 @@ class IssueCreateForm(FlaskForm):
 class ProjectKeyForm(FlaskForm):
     ssh_key_id = SelectField("SSH Key", coerce=int, validators=[Optional()])
     submit = SubmitField("Update SSH Key")
+
+
+class AgentFileForm(FlaskForm):
+    contents = TextAreaField(
+        "AGENTS.md Contents",
+        validators=[Optional()],
+        render_kw={
+            "rows": 24,
+            "spellcheck": "false",
+            "class": "code-editor",
+        },
+    )
+    commit_message = StringField(
+        "Commit Message",
+        validators=[Optional(), Length(max=255)],
+        render_kw={"placeholder": "Update AGENTS.md"},
+    )
+    save = SubmitField("Save Changes")
+    save_and_push = SubmitField("Save, Commit & Push")

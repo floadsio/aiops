@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} | Edit AGENTS.md{% endblock %}
+{% block extra_head %}
+<style>
+  textarea.code-editor {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    min-height: 22rem;
+  }
+</style>
+{% endblock %}
+{% block content %}
+<h1>{{ project.name }} — AGENTS.md</h1>
+<p>
+  <strong>File:</strong> <code>{{ relative_path }}</code>
+  {% if last_modified_display %}
+    • <strong>Last modified:</strong> {{ last_modified_display }}
+  {% endif %}
+</p>
+<p class="text-muted">
+  Use this editor to review the project guide maintained in <code>AGENTS.md</code>. Saving will update the file in the local checkout; optionally commit and push the change to your remote.
+</p>
+
+{% if not file_exists %}
+<article class="contrast">
+  <strong>Heads up:</strong> AGENTS.md does not exist yet. Saving will create the file in this repository.
+</article>
+{% endif %}
+
+<form method="post">
+  {{ form.hidden_tag() }}
+  <label>
+    {{ form.contents.label }}
+    {{ form.contents() }}
+    {% for error in form.contents.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <div class="grid">
+    <label>
+      {{ form.commit_message.label }}
+      {{ form.commit_message() }}
+      {% for error in form.commit_message.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+  </div>
+  <div class="grid">
+    {{ form.save(class="secondary") }}
+    {{ form.save_and_push(class="contrast") }}
+  </div>
+</form>
+
+<p>
+  <a role="button" class="secondary" href="{{ url_for('projects.project_detail', project_id=project.id) }}">
+    Back to Project
+  </a>
+</p>
+{% endblock %}

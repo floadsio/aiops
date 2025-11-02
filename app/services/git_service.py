@@ -281,6 +281,52 @@ def _select_remote(repo: Repo) -> Remote:
     return repo.remotes[0]
 
 
+def commit_project_files(project: Project, files: list[Path | str], message: str) -> bool:
+    """Stage the provided files, commit them, and return True if a commit was created."""
+    repo = ensure_repo_checkout(project)
+    root = Path(repo.working_tree_dir).resolve()
+    relative_paths: list[str] = []
+    for item in files:
+        resolved = Path(item).expanduser()
+        try:
+            resolved = resolved.resolve()
+        except OSError:
+            raise RuntimeError(f"Unable to resolve path {item!s}") from None
+        try:
+            rel_path = resolved.relative_to(root)
+        except ValueError:
+            raise RuntimeError(f"Path {resolved} is not inside the project repository.")
+        relative_paths.append(str(rel_path))
+
+    if not relative_paths:
+        return False
+
+    try:
+        repo.index.add(relative_paths)
+    except GitCommandError as exc:
+        raise RuntimeError(f"Failed to stage files for commit: {exc}") from exc
+
+    if not repo.is_dirty(index=True, working_tree=True, untracked_files=True):
+        return False
+
+    commit_env = build_project_git_env(project) or {}
+    author_name = current_app.config.get("GIT_AUTHOR_NAME", "AI Ops Dashboard")
+    author_email = current_app.config.get("GIT_AUTHOR_EMAIL", "aiops@example.com")
+    commit_env.setdefault("GIT_AUTHOR_NAME", author_name)
+    commit_env.setdefault("GIT_AUTHOR_EMAIL", author_email)
+    commit_env.setdefault("GIT_COMMITTER_NAME", author_name)
+    commit_env.setdefault("GIT_COMMITTER_EMAIL", author_email)
+
+    env_context = repo.git.custom_environment(**commit_env) if commit_env else nullcontext()
+    try:
+        with env_context:
+            repo.git.commit("-m", message)
+    except GitCommandError as exc:
+        raise RuntimeError(f"Git commit failed: {exc}") from exc
+
+    return True
+
+
 def run_git_action(
     project: Project,
     action: str,

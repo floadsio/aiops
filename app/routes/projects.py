@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 from collections import Counter
 from datetime import datetime, timezone
+from pathlib import Path
 from flask import (
     Blueprint,
     Response,
@@ -19,7 +20,14 @@ from flask import (
 from flask_login import current_user, login_required
 
 from ..extensions import db
-from ..forms.project import AIRunForm, AnsibleForm, GitActionForm, IssueCreateForm, ProjectKeyForm
+from ..forms.project import (
+    AIRunForm,
+    AgentFileForm,
+    AnsibleForm,
+    GitActionForm,
+    IssueCreateForm,
+    ProjectKeyForm,
+)
 from sqlalchemy.orm import selectinload
 
 from ..models import ExternalIssue, Project, ProjectIntegration, SSHKey
@@ -30,7 +38,7 @@ from ..services.ansible_runner import (
     SemaphoreConfigError,
     SemaphoreTimeoutError,
 )
-from ..services.git_service import get_repo_status, run_git_action
+from ..services.git_service import commit_project_files, get_repo_status, run_git_action
 from ..services.tmux_service import (
     list_windows_for_aliases,
     TmuxServiceError,
@@ -55,6 +63,8 @@ from ..ai_sessions import (
 )
 
 projects_bp = Blueprint("projects", __name__, template_folder="../templates/projects")
+
+AGENTS_DEFAULT_COMMIT_MESSAGE = "Update AGENTS.md"
 
 
 def _authorize(project: Project) -> bool:
@@ -368,6 +378,88 @@ def project_detail(project_id: int):
         issue_status_options=issue_status_options,
         ssh_key_form=ssh_key_form,
         tenant_default_key=tenant_default_key,
+    )
+
+
+def _format_agents_timestamp(path: Path | None) -> str | None:
+    if path is None or not path.exists():
+        return None
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return None
+    timestamp = datetime.fromtimestamp(mtime, tz=timezone.utc)
+    return timestamp.astimezone().strftime("%b %d, %Y • %H:%M %Z")
+
+
+@projects_bp.route("/<int:project_id>/agents", methods=["GET", "POST"])
+@login_required
+def edit_agents_file(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    agents_path = Path(project.local_path).expanduser() / "AGENTS.md"
+    form = AgentFileForm()
+
+    if request.method == "GET":
+        if not form.contents.data:
+            try:
+                form.contents.data = agents_path.read_text(encoding="utf-8")
+            except OSError:
+                form.contents.data = ""
+        if not form.commit_message.data:
+            form.commit_message.data = AGENTS_DEFAULT_COMMIT_MESSAGE
+
+    if form.validate_on_submit():
+        content = form.contents.data or ""
+        try:
+            agents_path.parent.mkdir(parents=True, exist_ok=True)
+            agents_path.write_text(content, encoding="utf-8")
+        except OSError as exc:
+            form.contents.errors.append(f"Failed to write AGENTS.md: {exc}")
+        else:
+            flash("Saved AGENTS.md to the local workspace.", "success")
+            if form.save_and_push.data:
+                commit_message = (form.commit_message.data or "").strip()
+                if not commit_message:
+                    form.commit_message.errors.append("Commit message is required to push changes.")
+                else:
+                    try:
+                        committed = commit_project_files(project, [agents_path], commit_message)
+                    except RuntimeError as exc:
+                        flash(f"Commit failed: {exc}", "danger")
+                    else:
+                        if not committed:
+                            flash("No changes to commit.", "warning")
+                        else:
+                            try:
+                                push_output = run_git_action(project, "push")
+                            except RuntimeError as exc:
+                                flash(f"Push failed: {exc}", "danger")
+                            else:
+                                flash("Committed and pushed AGENTS.md.", "success")
+                                if push_output:
+                                    flash(push_output, "info")
+            if not form.errors:
+                return redirect(url_for("projects.edit_agents_file", project_id=project.id))
+
+    file_exists = agents_path.exists()
+    last_modified_display = _format_agents_timestamp(agents_path if file_exists else None)
+    relative_path = "AGENTS.md"
+    try:
+        relative_path = str(agents_path.relative_to(Path(project.local_path)))
+    except (ValueError, OSError):
+        relative_path = "AGENTS.md"
+
+    return render_template(
+        "projects/agents.html",
+        project=project,
+        form=form,
+        file_exists=file_exists,
+        relative_path=relative_path,
+        last_modified_display=last_modified_display,
     )
 
 

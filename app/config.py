@@ -61,6 +61,8 @@ class Config:
     SEMAPHORE_TASK_TIMEOUT = float(os.getenv("SEMAPHORE_TASK_TIMEOUT", "600"))
     SEMAPHORE_POLL_INTERVAL = float(os.getenv("SEMAPHORE_POLL_INTERVAL", "2"))
     UPDATE_RESTART_COMMAND = os.getenv("UPDATE_RESTART_COMMAND")
+    GIT_AUTHOR_NAME = os.getenv("GIT_AUTHOR_NAME", "AI Ops Dashboard")
+    GIT_AUTHOR_EMAIL = os.getenv("GIT_AUTHOR_EMAIL", "aiops@example.com")
     LOG_FILE = os.getenv(
         "LOG_FILE",
         str((BASE_DIR / "logs" / "aiops.log").resolve()),

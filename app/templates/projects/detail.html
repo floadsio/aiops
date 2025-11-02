@@ -217,6 +217,20 @@
 </section>
 
 <section>
+  <h2>Project Guide</h2>
+  <p class="text-muted">
+    Review or update the repository's <code>AGENTS.md</code> guide from the dashboard.
+  </p>
+  <p>
+    <a
+      role="button"
+      class="secondary"
+      href="{{ url_for('projects.edit_agents_file', project_id=project.id) }}"
+    >View &amp; Edit AGENTS.md</a>
+  </p>
+</section>
+
+<section>
   <h2>Git Actions</h2>
   <form method="post">
     {{ git_form.hidden_tag() }}
@@ -275,6 +289,15 @@
     const projectId = {{ project.id }};
     const storageKey = `${storageKeyPrefix}-${projectId}`;
     const csrfInput = document.querySelector('input[name="csrf_token"]');
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfTokenValue = (
+      (csrfInput && csrfInput.value) ||
+      (csrfMeta && csrfMeta.getAttribute('content')) ||
+      ''
+    );
+    const csrfHeaders = csrfTokenValue
+      ? { 'X-CSRFToken': csrfTokenValue, 'X-CSRF-Token': csrfTokenValue }
+      : {};
 
     codexButtons.forEach(button => {
       button.addEventListener('click', () => {
@@ -305,7 +328,7 @@
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              ...(csrfInput ? { 'X-CSRFToken': csrfInput.value } : {}),
+              ...csrfHeaders,
             },
             credentials: 'same-origin',
             body: JSON.stringify({})
@@ -363,7 +386,7 @@
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(csrfInput ? { 'X-CSRFToken': csrfInput.value } : {}),
+            ...csrfHeaders,
           },
           credentials: 'same-origin',
           body: JSON.stringify({}),

@@ -110,27 +110,57 @@ def write_tracked_issue_context(
 
     context_path = repo_path / filename
     issue_content = render_issue_context(project, primary_issue, all_issues).rstrip()
+    header_note = "NOTE: Local agent context - do not commit this section."
+    appended_section = (
+        f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
+        f"{ISSUE_CONTEXT_START}\n\n"
+        f"{header_note}\n\n"
+        f"{issue_content}\n"
+        f"{ISSUE_CONTEXT_END}"
+    )
 
     existing = ""
     if context_path.exists():
         existing = context_path.read_text(encoding="utf-8")
-
-    if ISSUE_CONTEXT_START in existing and ISSUE_CONTEXT_END in existing:
-        prefix, remainder = existing.split(ISSUE_CONTEXT_START, 1)
-        _, suffix = remainder.split(ISSUE_CONTEXT_END, 1)
-        updated_section = (
-            f"{ISSUE_CONTEXT_START}\n\n{issue_content}\n{ISSUE_CONTEXT_END}"
-        )
-        updated = f"{prefix}{updated_section}{suffix}"
+        stripped_existing = existing.rstrip()
     else:
-        base = existing.rstrip()
-        new_section = (
-            f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
-            f"{ISSUE_CONTEXT_START}\n\n"
-            f"{issue_content}\n"
-            f"{ISSUE_CONTEXT_END}"
-        )
-        updated = f"{base}\n\n{new_section}" if base else new_section
+        stripped_existing = ""
+
+    if existing:
+        cleaned = _remove_existing_issue_context(stripped_existing)
+    else:
+        cleaned = stripped_existing
+
+    if cleaned:
+        updated = f"{cleaned.rstrip()}\n\n{appended_section}"
+    else:
+        updated = appended_section
 
     context_path.write_text(updated.rstrip() + "\n", encoding="utf-8")
     return context_path
+
+
+def _remove_existing_issue_context(source: str) -> str:
+    """Strip any previously appended issue context block while keeping project docs intact."""
+    if ISSUE_CONTEXT_START not in source or ISSUE_CONTEXT_END not in source:
+        return source
+
+    start_index = source.find(ISSUE_CONTEXT_START)
+    end_index = source.find(ISSUE_CONTEXT_END, start_index)
+    if start_index == -1 or end_index == -1:
+        return source
+
+    end_index += len(ISSUE_CONTEXT_END)
+    prefix = source[:start_index]
+    suffix = source[end_index:]
+
+    # Remove trailing section title if it directly precedes the marker block.
+    title_index = prefix.rfind(ISSUE_CONTEXT_SECTION_TITLE)
+    if title_index != -1 and prefix[title_index:].strip().startswith(ISSUE_CONTEXT_SECTION_TITLE):
+        prefix = prefix[:title_index]
+
+    cleaned_prefix = prefix.rstrip()
+    cleaned_suffix = suffix.lstrip()
+    if cleaned_prefix and cleaned_suffix:
+        return f"{cleaned_prefix}\n\n{cleaned_suffix}"
+    return cleaned_prefix or cleaned_suffix

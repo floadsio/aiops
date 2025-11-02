@@ -105,7 +105,15 @@
   term.write('\x1b[32mReady. Choose an AI tool or attach to an existing tmux session.\x1b[0m\n');
 
   const csrfInput = document.querySelector('#ai-control input[name="csrf_token"]');
-  const csrfHeaders = csrfInput ? { 'X-CSRFToken': csrfInput.value } : {};
+  const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+  const csrfTokenValue = (
+    (csrfInput && csrfInput.value) ||
+    (csrfMeta && csrfMeta.getAttribute('content')) ||
+    ''
+  );
+  const csrfHeaders = csrfTokenValue
+    ? { 'X-CSRFToken': csrfTokenValue, 'X-CSRF-Token': csrfTokenValue }
+    : {};
   const supportsUtf8Write = typeof term.writeUtf8 === 'function';
   const canDecodeText = !supportsUtf8Write && window.TextDecoder;
   let sessionDecoder = canDecodeText ? new TextDecoder('utf-8') : null;

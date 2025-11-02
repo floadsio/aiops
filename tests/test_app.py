@@ -442,6 +442,158 @@ def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
     assert "Secondary Issue" in local_contents
 
 
+def test_agents_editor_save_and_push(tmp_path, monkeypatch):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'agents.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="owner@example.com",
+            name="Owner",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="demo", description="Demo tenant")
+        project = Project(
+            name="demo-project",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "demo-project"),
+            tenant=tenant,
+            owner=user,
+        )
+        db.session.add_all([user, tenant, project])
+        db.session.commit()
+
+        agents_path = Path(project.local_path)
+        agents_path.mkdir(parents=True, exist_ok=True)
+        (agents_path / "AGENTS.md").write_text("Initial guide", encoding="utf-8")
+
+        project_id = project.id
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "owner@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    recorded: dict[str, object] = {}
+
+    def fake_commit(project, files, message):
+        recorded["commit"] = {
+            "project_id": project.id,
+            "files": [str(Path(path)) for path in files],
+            "message": message,
+        }
+        return True
+
+    def fake_push(project, action, ref=None, clean=False):
+        recorded["push"] = {"project_id": project.id, "action": action}
+        return "Push completed."
+
+    monkeypatch.setattr("app.routes.projects.commit_project_files", fake_commit)
+    monkeypatch.setattr("app.routes.projects.run_git_action", fake_push)
+
+    response = client.get(f"/projects/{project_id}/agents")
+    assert response.status_code == 200
+    assert "Initial guide" in response.get_data(as_text=True)
+
+    post_response = client.post(
+        f"/projects/{project_id}/agents",
+        data={
+            "contents": "Rewritten guide",
+            "commit_message": "Update AGENTS.md",
+            "save_and_push": "1",
+        },
+        follow_redirects=True,
+    )
+    assert post_response.status_code == 200
+    assert "Committed and pushed AGENTS.md." in post_response.get_data(as_text=True)
+    assert "Push completed." in post_response.get_data(as_text=True)
+
+    saved_text = (tmp_path / "repos" / "demo-project" / "AGENTS.md").read_text()
+    assert "Rewritten guide" in saved_text
+
+    assert recorded["commit"]["project_id"] == project_id
+    assert "AGENTS.md" in recorded["commit"]["files"][0]
+    assert recorded["commit"]["message"] == "Update AGENTS.md"
+    assert recorded["push"]["action"] == "push"
+
+
+def test_agents_editor_requires_commit_message(tmp_path, monkeypatch):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'agents2.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="owner@example.com",
+            name="Owner",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="demo", description="Demo tenant")
+        project = Project(
+            name="demo-project",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "demo-project"),
+            tenant=tenant,
+            owner=user,
+        )
+        db.session.add_all([user, tenant, project])
+        db.session.commit()
+
+        agents_path = Path(project.local_path)
+        agents_path.mkdir(parents=True, exist_ok=True)
+        (agents_path / "AGENTS.md").write_text("Initial guide", encoding="utf-8")
+
+        project_id = project.id
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "owner@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    commit_called = False
+
+    def fake_commit(*_args, **_kwargs):
+        nonlocal commit_called
+        commit_called = True
+        return True
+
+    monkeypatch.setattr("app.routes.projects.commit_project_files", fake_commit)
+
+    response = client.post(
+        f"/projects/{project_id}/agents",
+        data={
+            "contents": "Rewritten guide",
+            "commit_message": "",
+            "save_and_push": "1",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert "Commit message is required" in response.get_data(as_text=True)
+    assert commit_called is False
+
 def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
     class TestConfig(Config):
         TESTING = True

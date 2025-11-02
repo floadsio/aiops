@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional, Type
 
 from flask import Flask
+from flask_wtf.csrf import generate_csrf
 
 from .cli import register_cli_commands
 from .config import Config
@@ -41,6 +42,10 @@ def register_extensions(app: Flask) -> None:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+
+    @app.context_processor
+    def inject_csrf_token():
+        return {"csrf_token": generate_csrf}
 
 
 def register_blueprints(app: Flask) -> None:

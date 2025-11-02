@@ -27,56 +27,58 @@
       (status: {{ status_filter_label }})
     {% endif %}.
   </p>
-  <table>
-    <thead>
-      <tr>
-        <th>External ID</th>
-        <th>Title</th>
-        <th>Status</th>
-        <th>Provider</th>
-        <th>Project</th>
-        <th>Tenant</th>
-        <th>Updated</th>
-        <th>Assignee</th>
-        <th>Labels</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for issue in issues %}
+  <div class="table-scroll">
+    <table>
+      <thead>
         <tr>
-          <td>
-            {% if issue.url %}
-              <a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.external_id }}</a>
-            {% else %}
-              {{ issue.external_id }}
-            {% endif %}
-          </td>
-          <td>{{ issue.title }}</td>
-          <td>
-            {% if issue.status %}
-              <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
-                {{ issue.status }}
-              </span>
-            {% else %}
-              <span class="badge">Unspecified</span>
-            {% endif %}
-          </td>
-          <td>{{ issue.provider|capitalize }}</td>
-          <td>{{ issue.project_name or "Unknown project" }}</td>
-          <td>{{ issue.tenant_name or "Unknown tenant" }}</td>
-          <td>{{ issue.updated_display or "Unknown" }}</td>
-          <td>{{ issue.assignee or "Unassigned" }}</td>
-          <td>
-            {% if issue.labels %}
-              {{ issue.labels|join(', ') }}
-            {% else %}
-              <span class="text-muted">None</span>
-            {% endif %}
-          </td>
+          <th>External ID</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Provider</th>
+          <th>Project</th>
+          <th>Tenant</th>
+          <th>Updated</th>
+          <th>Assignee</th>
+          <th>Labels</th>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {% for issue in issues %}
+          <tr>
+            <td>
+              {% if issue.url %}
+                <a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.external_id }}</a>
+              {% else %}
+                {{ issue.external_id }}
+              {% endif %}
+            </td>
+            <td>{{ issue.title }}</td>
+            <td>
+              {% if issue.status %}
+                <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
+                  {{ issue.status }}
+                </span>
+              {% else %}
+                <span class="badge">Unspecified</span>
+              {% endif %}
+            </td>
+            <td>{{ issue.provider|capitalize }}</td>
+            <td>{{ issue.project_name or "Unknown project" }}</td>
+            <td>{{ issue.tenant_name or "Unknown tenant" }}</td>
+            <td>{{ issue.updated_display or "Unknown" }}</td>
+            <td>{{ issue.assignee or "Unassigned" }}</td>
+            <td>
+              {% if issue.labels %}
+                {{ issue.labels|join(', ') }}
+              {% else %}
+                <span class="text-muted">None</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 {% else %}
   <p class="text-muted">No issues found for the selected filter.</p>
 {% endif %}

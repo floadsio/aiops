@@ -165,79 +165,81 @@
 
     <h3>Existing users</h3>
     {% if users %}
-      <table class="user-table">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Email</th>
-            <th scope="col">Role</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for user in users %}
-            {% set toggle_form = user_toggle_forms[user.id] %}
-            {% set reset_form = user_reset_forms[user.id] %}
-            {% set delete_form = user_delete_forms[user.id] %}
-            {% set update_form = user_update_forms[user.id] %}
+      <div class="table-scroll">
+        <table class="user-table">
+          <thead>
             <tr>
-              <th scope="row">
-                {{ user.name or "Unnamed user" }}
-                <div class="user-meta">#{{ user.id }}</div>
-              </th>
-              <td><code>{{ user.email }}</code></td>
-              <td>
-                {% if user.is_admin %}
-                  <span class="badge success">Administrator</span>
-                {% else %}
-                  <span class="badge">Standard</span>
-                {% endif %}
-                {% if current_user.id == user.id %}
-                  <div class="user-meta">(You)</div>
-                {% endif %}
-              </td>
-              <td>
-                <div class="user-actions">
-                  <details>
-                    <summary>Edit details</summary>
-                    <form method="post" action="{{ url_for('admin.update_user', user_id=user.id) }}" class="user-edit-form">
-                      {{ update_form.hidden_tag() }}
-                      <label>
-                        {{ update_form.name.label }}
-                        {{ update_form.name() }}
-                      </label>
-                      <label>
-                        {{ update_form.email.label }}
-                        {{ update_form.email(type="email") }}
-                      </label>
-                      <label class="checkbox">
-                        {{ update_form.is_admin() }}
-                        {{ update_form.is_admin.label }}
-                      </label>
-                      <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
-                    </form>
-                  </details>
-                  <form method="post" action="{{ url_for('admin.toggle_user_admin', user_id=user.id) }}">
-                    {{ toggle_form.hidden_tag() }}
-                    <button type="submit" class="secondary">
-                      {% if user.is_admin %}Revoke admin{% else %}Promote to admin{% endif %}
-                    </button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin.reset_user_password', user_id=user.id) }}">
-                    {{ reset_form.hidden_tag() }}
-                    {{ reset_form.password(type="password", placeholder="New password", autocomplete="new-password") }}
-                    <button type="submit" class="secondary outline">Reset password</button>
-                  </form>
-                  <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}">
-                    {{ delete_form.hidden_tag() }}
-                    <button type="submit" class="secondary outline">Delete user</button>
-                  </form>
-                </div>
-              </td>
+              <th scope="col">Name</th>
+              <th scope="col">Email</th>
+              <th scope="col">Role</th>
+              <th scope="col">Actions</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for user in users %}
+              {% set toggle_form = user_toggle_forms[user.id] %}
+              {% set reset_form = user_reset_forms[user.id] %}
+              {% set delete_form = user_delete_forms[user.id] %}
+              {% set update_form = user_update_forms[user.id] %}
+              <tr>
+                <th scope="row">
+                  {{ user.name or "Unnamed user" }}
+                  <div class="user-meta">#{{ user.id }}</div>
+                </th>
+                <td><code>{{ user.email }}</code></td>
+                <td>
+                  {% if user.is_admin %}
+                    <span class="badge success">Administrator</span>
+                  {% else %}
+                    <span class="badge">Standard</span>
+                  {% endif %}
+                  {% if current_user.id == user.id %}
+                    <div class="user-meta">(You)</div>
+                  {% endif %}
+                </td>
+                <td>
+                  <div class="user-actions">
+                    <details>
+                      <summary>Edit details</summary>
+                      <form method="post" action="{{ url_for('admin.update_user', user_id=user.id) }}" class="user-edit-form">
+                        {{ update_form.hidden_tag() }}
+                        <label>
+                          {{ update_form.name.label }}
+                          {{ update_form.name() }}
+                        </label>
+                        <label>
+                          {{ update_form.email.label }}
+                          {{ update_form.email(type="email") }}
+                        </label>
+                        <label class="checkbox">
+                          {{ update_form.is_admin() }}
+                          {{ update_form.is_admin.label }}
+                        </label>
+                        <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
+                      </form>
+                    </details>
+                    <form method="post" action="{{ url_for('admin.toggle_user_admin', user_id=user.id) }}">
+                      {{ toggle_form.hidden_tag() }}
+                      <button type="submit" class="secondary">
+                        {% if user.is_admin %}Revoke admin{% else %}Promote to admin{% endif %}
+                      </button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.reset_user_password', user_id=user.id) }}">
+                      {{ reset_form.hidden_tag() }}
+                      {{ reset_form.password(type="password", placeholder="New password", autocomplete="new-password") }}
+                      <button type="submit" class="secondary outline">Reset password</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}">
+                      {{ delete_form.hidden_tag() }}
+                      <button type="submit" class="secondary outline">Delete user</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
       <p class="text-muted">No users found.</p>
     {% endif %}

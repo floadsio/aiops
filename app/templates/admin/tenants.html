@@ -22,38 +22,40 @@
 </form>
 
 <h2>Existing Tenants</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Description</th>
-      <th>Projects</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for tenant in tenants %}
-    <tr>
-      <td>{{ tenant.name }}</td>
-      <td>{{ tenant.description or "—" }}</td>
-      <td>{{ tenant.projects|length }}</td>
-      <td>
-        <form method="post" class="inline-form">
-          {{ delete_form.csrf_token }}
-          {{ delete_form.tenant_id(value=tenant.id) }}
-          {{ delete_form.submit(
-            class_="link-button danger",
-            value="Remove",
-            onclick="return confirm('Remove tenant {{ tenant.name }} and all related data?')"
-          ) }}
-        </form>
-      </td>
-    </tr>
-    {% else %}
-    <tr>
-      <td colspan="4">No tenants yet.</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+<div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Projects</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for tenant in tenants %}
+      <tr>
+        <td>{{ tenant.name }}</td>
+        <td>{{ tenant.description or "—" }}</td>
+        <td>{{ tenant.projects|length }}</td>
+        <td>
+          <form method="post" class="inline-form">
+            {{ delete_form.csrf_token }}
+            {{ delete_form.tenant_id(value=tenant.id) }}
+            {{ delete_form.submit(
+              class_="link-button danger",
+              value="Remove",
+              onclick="return confirm('Remove tenant {{ tenant.name }} and all related data?')"
+            ) }}
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="4">No tenants yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
 {% endblock %}

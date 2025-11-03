@@ -843,14 +843,20 @@ def refresh_project_git(project_id: int):
         return redirect(url_for("admin.dashboard"))
 
     project = Project.query.get_or_404(project_id)
+    clean_requested = bool(form.clean_submit.data)
     try:
-        output = run_git_action(project, "pull")
+        output = run_git_action(project, "pull", clean=clean_requested)
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("Git pull failed for project_id=%s", project_id)
         flash(f"Git pull failed: {exc}", "danger")
     else:
-        flash(f"Pulled latest changes for {project.name}.", "success")
-        current_app.logger.info("Git pull for project %s: %s", project.name, output)
+        if clean_requested:
+            flash(f"Clean pull completed for {project.name}.", "success")
+        else:
+            flash(f"Pulled latest changes for {project.name}.", "success")
+        current_app.logger.info(
+            "Git pull for project %s (clean=%s): %s", project.name, clean_requested, output
+        )
     return redirect(url_for("admin.dashboard"))
 
 

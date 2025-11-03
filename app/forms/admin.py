@@ -162,6 +162,7 @@ class ProjectIssueSyncForm(FlaskForm):
 class ProjectGitRefreshForm(FlaskForm):
     project_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Pull Latest")
+    clean_submit = SubmitField("Clean Pull")
 
 
 class UpdateApplicationForm(FlaskForm):

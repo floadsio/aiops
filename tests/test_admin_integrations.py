@@ -515,6 +515,7 @@ def test_dashboard_refresh_project_git(app, client, login_admin, monkeypatch, tm
     def fake_run(project_obj, action, ref=None, clean=False):
         captured["project"] = project_obj.id
         captured["action"] = action
+        captured["clean"] = clean
         return "Pulled"
 
     monkeypatch.setattr("app.routes.admin.run_git_action", fake_run)
@@ -528,7 +529,47 @@ def test_dashboard_refresh_project_git(app, client, login_admin, monkeypatch, tm
     assert response.status_code == 200
     assert captured["project"] == project_id
     assert captured["action"] == "pull"
+    assert captured["clean"] is False
     assert b"Pulled latest changes" in response.data
+
+
+def test_admin_can_clean_pull_project_repo(app, client, login_admin, tmp_path, monkeypatch):
+    with app.app_context():
+        tenant = Tenant.query.filter_by(name="tenant-one").first()
+        user = User.query.filter_by(email="admin@example.com").first()
+        project = Project(
+            name="git-clean-refresh",
+            repo_url="git@example.com/git-clean-refresh.git",
+            default_branch="main",
+            tenant=tenant,
+            owner=user,
+            local_path=str(tmp_path / "git-clean-refresh"),
+        )
+        db.session.add(project)
+        db.session.commit()
+        project_id = project.id
+
+    captured = {}
+
+    def fake_run(project_obj, action, ref=None, clean=False):
+        captured["project"] = project_obj.id
+        captured["action"] = action
+        captured["clean"] = clean
+        return "Clean Pull"
+
+    monkeypatch.setattr("app.routes.admin.run_git_action", fake_run)
+
+    response = client.post(
+        f"/admin/projects/{project_id}/git-refresh",
+        data={"project_id": str(project_id), "clean_submit": "Clean Pull"},
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert captured["project"] == project_id
+    assert captured["action"] == "pull"
+    assert captured["clean"] is True
+    assert b"Clean pull completed" in response.data
 
 
 def test_dashboard_orders_projects_by_last_activity(app, client, login_admin, monkeypatch):

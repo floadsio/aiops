@@ -52,6 +52,12 @@
     gap: 1.5rem;
     grid-template-columns: 1fr;
   }
+  @media (min-width: 1100px) {
+    .dashboard-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: stretch;
+    }
+  }
   .dashboard-card {
     padding: 1.75rem;
     border-radius: 1.25rem;
@@ -124,6 +130,12 @@
   }
   .project-actions form {
     margin: 0;
+    display: flex;
+    gap: 0.5rem;
+  }
+  .project-actions button {
+    min-width: 9.5rem;
+    justify-content: center;
   }
   .issue-overview {
     margin-top: 1.1rem;
@@ -477,7 +489,8 @@
             <form method="post" action="{{ url_for('admin.refresh_project_git', project_id=project.id) }}">
               {{ git_form.hidden_tag() }}
               {{ git_form.project_id() }}
-              <button type="submit" class="secondary outline">Pull Latest</button>
+              {{ git_form.submit(class="secondary outline") }}
+              {{ git_form.clean_submit(class="critical outline", title="Discard local changes before pulling.") }}
             </form>
           </div>
           {% set branch_name = status.get("branch") or project.default_branch %}

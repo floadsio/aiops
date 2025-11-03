@@ -93,7 +93,7 @@ class ProjectKeyForm(FlaskForm):
 
 class AgentFileForm(FlaskForm):
     contents = TextAreaField(
-        "AGENTS.md Contents",
+        "AGENTS.override.md Contents",
         validators=[Optional()],
         render_kw={
             "rows": 24,
@@ -104,7 +104,7 @@ class AgentFileForm(FlaskForm):
     commit_message = StringField(
         "Commit Message",
         validators=[Optional(), Length(max=255)],
-        render_kw={"placeholder": "Update AGENTS.md"},
+        render_kw={"placeholder": "Update AGENTS.override.md"},
     )
     save = SubmitField("Save Changes")
     save_and_push = SubmitField("Save, Commit & Push")

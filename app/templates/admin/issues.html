@@ -123,8 +123,9 @@
     }
     .issue-detail__status {
       display: inline-flex;
-      gap: 0.5rem;
+      gap: 0.75rem;
       align-items: center;
+      flex-wrap: wrap;
     }
     .issue-card__details {
       margin-top: 1rem;
@@ -146,6 +147,42 @@
     gap: 0.5rem;
     align-items: center;
   }
+    .issue-status-form {
+      display: inline-flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .issue-status-form--table {
+      justify-content: flex-start;
+    }
+    .issue-status-select {
+      padding: 0.35rem 2rem 0.35rem 0.6rem;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(255, 255, 255, 0.92);
+      font-size: 0.85rem;
+      min-width: 9rem;
+      appearance: none;
+      position: relative;
+    }
+    .issue-status-input {
+      padding: 0.35rem 0.6rem;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      font-size: 0.85rem;
+      min-width: 9rem;
+    }
+    [data-theme="dark"] .issue-status-input {
+      border-color: rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.6);
+      color: rgba(226, 232, 240, 0.9);
+    }
+    [data-theme="dark"] .issue-status-select {
+      border-color: rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.65);
+      color: rgba(226, 232, 240, 0.9);
+    }
     .issue-card {
       border: 1px solid rgba(148, 163, 184, 0.3);
       border-radius: 1rem;
@@ -298,13 +335,30 @@
               </button>
             </td>
             <td>
-              {% if issue.status %}
-                <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
-                  {{ issue.status }}
-                </span>
-              {% else %}
-                <span class="badge">Unspecified</span>
-              {% endif %}
+              {% set requires_custom = issue.status and issue.status not in issue.status_choices %}
+              <form method="post" action="{{ issue.status_update_endpoint }}" class="issue-status-form issue-status-form--table" data-issue-status-form>
+                <select name="status_choice" class="issue-status-select" aria-label="Update status for {{ issue.external_id }}" data-status-select>
+                  <option value="" {% if not issue.status %}selected{% endif %}>Unspecified</option>
+                  {% for choice in issue.status_choices %}
+                    <option value="{{ choice }}" {% if issue.status == choice %}selected{% endif %}>{{ choice }}</option>
+                  {% endfor %}
+                  <option value="__custom__" {% if requires_custom %}selected{% endif %}>Custom status…</option>
+                </select>
+                <input
+                  type="text"
+                  name="status_custom"
+                  value="{{ issue.status if requires_custom else '' }}"
+                  maxlength="{{ issue_status_max_length }}"
+                  class="issue-status-input issue-status-input--custom"
+                  placeholder="Enter custom status"
+                  data-status-custom
+                  {% if not requires_custom %}hidden disabled{% endif %}
+                />
+                <input type="hidden" name="status" value="{{ issue.status or '' }}" data-status-hidden />
+                <input type="hidden" name="next" value="{{ current_view_url }}" />
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="secondary outline">Save</button>
+              </form>
             </td>
             <td>{{ issue.provider|capitalize }}</td>
             <td>{{ issue.project_name or "Unknown project" }}</td>
@@ -339,7 +393,7 @@
                       class="tertiary issues-populate-agents"
                       data-populate="{{ issue.populate_endpoint }}"
                     >
-                      Populate AGENTS.md
+                      Populate AGENTS.override.md
                     </button>
                   {% endif %}
                   {% if issue.can_close and issue.close_endpoint %}
@@ -365,13 +419,39 @@
                     </p>
                   </div>
                   <div class="issue-detail__status">
-                    {% if issue.status %}
-                      <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
-                        {{ issue.status }}
-                      </span>
-                    {% else %}
-                      <span class="badge">Unspecified</span>
-                    {% endif %}
+                    <div>
+                      {% if issue.status %}
+                        <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
+                          {{ issue.status }}
+                        </span>
+                      {% else %}
+                        <span class="badge">Unspecified</span>
+                      {% endif %}
+                    </div>
+                    {% set requires_custom_detail = issue.status and issue.status not in issue.status_choices %}
+                    <form method="post" action="{{ issue.status_update_endpoint }}" class="issue-status-form" data-issue-status-form>
+                      <select name="status_choice" class="issue-status-select" aria-label="Update status for {{ issue.external_id }}" data-status-select>
+                        <option value="" {% if not issue.status %}selected{% endif %}>Unspecified</option>
+                        {% for choice in issue.status_choices %}
+                          <option value="{{ choice }}" {% if issue.status == choice %}selected{% endif %}>{{ choice }}</option>
+                        {% endfor %}
+                        <option value="__custom__" {% if requires_custom_detail %}selected{% endif %}>Custom status…</option>
+                      </select>
+                      <input
+                        type="text"
+                        name="status_custom"
+                        value="{{ issue.status if requires_custom_detail else '' }}"
+                        maxlength="{{ issue_status_max_length }}"
+                        class="issue-status-input issue-status-input--custom"
+                        placeholder="Enter custom status"
+                        data-status-custom
+                        {% if not requires_custom_detail %}hidden disabled{% endif %}
+                      />
+                      <input type="hidden" name="status" value="{{ issue.status or '' }}" data-status-hidden />
+                      <input type="hidden" name="next" value="{{ current_view_url }}" />
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                      <button type="submit" class="secondary outline">Save</button>
+                    </form>
                     {% if issue.url %}
                       <a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a>
                     {% endif %}
@@ -515,7 +595,7 @@
                 class="tertiary issues-populate-agents"
                 data-populate="{{ issue.populate_endpoint }}"
               >
-                Populate AGENTS.md
+                Populate AGENTS.override.md
               </button>
             {% endif %}
             {% if issue.can_close and issue.close_endpoint %}
@@ -653,7 +733,7 @@
               : response.json().then(data => Promise.reject(data))
           ))
           .then(data => {
-            button.textContent = 'AGENTS.md updated';
+            button.textContent = 'AGENTS.override.md updated';
             setTimeout(() => {
               button.textContent = originalLabel;
               button.disabled = false;
@@ -663,7 +743,7 @@
             }
           })
           .catch(error => {
-            console.error('Failed to populate AGENTS.md', error);
+            console.error('Failed to populate AGENTS.override.md', error);
             button.textContent = 'Update failed';
             setTimeout(() => {
               button.textContent = originalLabel;
@@ -671,6 +751,53 @@
             }, 2500);
           });
       });
+    });
+
+    const statusForms = document.querySelectorAll('[data-issue-status-form]');
+    statusForms.forEach(form => {
+      const select = form.querySelector('[data-status-select]');
+      const customInput = form.querySelector('[data-status-custom]');
+      const hiddenInput = form.querySelector('[data-status-hidden]');
+      if (!select || !hiddenInput) {
+        return;
+      }
+
+      const syncState = () => {
+        const choice = select.value;
+        if (choice === '__custom__') {
+          if (customInput) {
+            customInput.removeAttribute('hidden');
+            customInput.removeAttribute('disabled');
+            hiddenInput.value = customInput.value.trim();
+            customInput.focus();
+          } else {
+            hiddenInput.value = '';
+          }
+        } else {
+          if (customInput) {
+            customInput.value = '';
+            customInput.setAttribute('hidden', '');
+            customInput.setAttribute('disabled', '');
+          }
+          hiddenInput.value = choice;
+        }
+      };
+
+      select.addEventListener('change', syncState);
+      if (customInput) {
+        customInput.addEventListener('input', () => {
+          if (select.value === '__custom__') {
+            hiddenInput.value = customInput.value.trim();
+          }
+        });
+      }
+      form.addEventListener('submit', () => {
+        if (select.value === '__custom__' && customInput) {
+          hiddenInput.value = customInput.value.trim();
+        }
+      });
+
+      syncState();
     });
   })();
 </script>

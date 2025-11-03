@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import os
 import shutil
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 import subprocess
 import threading
 import time
+from urllib.parse import urlparse
 
 from flask import (
     Blueprint,
@@ -59,10 +60,13 @@ from ..models import (
 )
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
 from ..services.issues import (
+    ISSUE_STATUS_MAX_LENGTH,
     IssueSyncError,
+    IssueUpdateError,
     test_integration_connection,
     sync_project_integration,
     sync_tenant_integrations,
+    update_issue_status as update_issue_status_service,
 )
 from ..services.issues.utils import normalize_issue_status
 from ..services.tmux_service import (
@@ -913,6 +917,7 @@ def manage_issues():
     status_counts: Counter[str] = Counter()
     status_labels: dict[str, str] = {}
     issue_entries: list[dict[str, object]] = []
+    provider_statuses: dict[str, set[str]] = defaultdict(set)
 
     for issue in sorted_issues:
         status_key, status_label = normalize_issue_status(issue.status)
@@ -922,6 +927,7 @@ def manage_issues():
         integration = issue.project_integration.integration if issue.project_integration else None
         project = issue.project_integration.project if issue.project_integration else None
         tenant = project.tenant if project else None
+        provider_key = (integration.provider or "").lower() if integration and integration.provider else ""
 
         updated_reference = issue.external_updated_at or issue.updated_at or issue.created_at
 
@@ -943,7 +949,7 @@ def manage_issues():
                 "url": issue.url,
                 "labels": issue.labels or [],
                 "provider": integration.provider if integration else "unknown",
-                "provider_key": (integration.provider or "").lower() if integration and integration.provider else "",
+                "provider_key": provider_key,
                 "integration_name": integration.name if integration else "",
                 "project_name": project.name if project else "",
                 "project_id": project.id if project else None,
@@ -968,9 +974,20 @@ def manage_issues():
                 "populate_endpoint": url_for("projects.populate_issue_agents_md", project_id=project.id, issue_id=issue.id) if project else None,
                 "close_endpoint": url_for("projects.close_issue", project_id=project.id, issue_id=issue.id) if project else None,
                 "can_close": status_key != "closed",
+                "status_update_endpoint": url_for("admin.update_issue_status", issue_id=issue.id),
+                "status_choices": None,  # placeholder
             }
         )
+        if issue.status:
+            provider_statuses[provider_key].add(issue.status)
 
+    provider_status_choices = {
+        key: sorted(values, key=lambda item: (item.lower(), item))
+        for key, values in provider_statuses.items()
+    }
+    for entry in issue_entries:
+        choices = provider_status_choices.get(entry["provider_key"], [])
+        entry["status_choices"] = choices
     total_issue_full_count = len(issue_entries)
     raw_filter = (request.args.get("status") or "").strip().lower()
     tenant_raw_filter = (request.args.get("tenant") or "").strip()
@@ -1135,6 +1152,10 @@ def manage_issues():
             ),
         }
 
+    current_view_url = request.full_path if request.query_string else request.path
+    if current_view_url.endswith("?"):
+        current_view_url = current_view_url[:-1]
+
     return render_template(
         "admin/issues.html",
         issues=issues_for_template,
@@ -1151,7 +1172,34 @@ def manage_issues():
         sort_state=sort_state,
         sort_key=sort_key,
         sort_direction=sort_direction,
+        issue_status_max_length=ISSUE_STATUS_MAX_LENGTH,
+        current_view_url=current_view_url,
     )
+
+
+@admin_bp.route("/issues/<int:issue_id>/status", methods=["POST"])
+@admin_required
+def update_issue_status(issue_id: int):
+    next_url = request.form.get("next") or url_for("admin.manage_issues")
+    parsed_next = urlparse(next_url)
+    if parsed_next.netloc:
+        next_url = url_for("admin.manage_issues")
+
+    try:
+        issue = update_issue_status_service(issue_id, request.form.get("status"))
+        db.session.commit()
+    except IssueUpdateError as exc:
+        db.session.rollback()
+        flash(str(exc), "danger")
+    except Exception:  # noqa: BLE001
+        db.session.rollback()
+        current_app.logger.exception("Failed to update issue status", extra={"issue_id": issue_id})
+        flash("Unexpected error while updating issue status.", "danger")
+    else:
+        status_label = issue.status or "unspecified"
+        flash(f"Updated status for issue {issue.external_id} to {status_label}.", "success")
+
+    return redirect(next_url)
 
 
 @admin_bp.route("/issues/refresh", methods=["POST"])

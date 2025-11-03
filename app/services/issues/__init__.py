@@ -10,10 +10,6 @@ from ...extensions import db
 from ...models import ExternalIssue, ProjectIntegration, TenantIntegration
 
 
-class IssueSyncError(Exception):
-    """Raised when an external issue provider cannot be queried."""
-
-
 @dataclass(slots=True)
 class IssuePayload:
     external_id: str
@@ -32,6 +28,14 @@ class IssueCreateRequest:
     description: Optional[str] = None
     issue_type: Optional[str] = None
     labels: Optional[List[str]] = None
+
+
+class IssueSyncError(Exception):
+    """Raised when an external issue provider cannot be queried."""
+
+
+class IssueUpdateError(Exception):
+    """Raised when an issue update request cannot be applied."""
 
 
 ProviderFunc = Callable[[TenantIntegration, ProjectIntegration, Optional[datetime]], List[IssuePayload]]
@@ -66,6 +70,26 @@ ASSIGN_PROVIDER_REGISTRY: Dict[str, AssignProviderFunc] = {
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+ISSUE_STATUS_MAX_LENGTH = ExternalIssue.status.property.columns[0].type.length
+
+
+def update_issue_status(issue_id: int, status: Optional[str]) -> ExternalIssue:
+    """Update the stored status for a synced issue."""
+    issue = ExternalIssue.query.get(issue_id)
+    if issue is None:
+        raise IssueUpdateError("Issue not found.")
+
+    cleaned = (status or "").strip()
+    if len(cleaned) > ISSUE_STATUS_MAX_LENGTH:
+        raise IssueUpdateError(
+            f"Status must be {ISSUE_STATUS_MAX_LENGTH} characters or fewer."
+        )
+
+    issue.status = cleaned or None
+    db.session.flush()
+    return issue
 
 
 def sync_project_integration(

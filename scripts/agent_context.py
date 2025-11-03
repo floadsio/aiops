@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Helper to manage aiops agent instructions.
 
-By default this script updates the tracked ``AGENTS.md`` file so the current
-project guidance stays versioned with the codebase.
+By default this script updates the tracked ``AGENTS.override.md`` file so the
+current project guidance stays versioned with the codebase while still
+inheriting the repository defaults stored in ``AGENTS.md``.
 """
 
 from __future__ import annotations
@@ -14,14 +15,15 @@ import sys
 from typing import Optional
 
 
-DEFAULT_FILENAME = "AGENTS.md"
+DEFAULT_FILENAME = "AGENTS.override.md"
+BASE_FILENAME = "AGENTS.md"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Manage the local AGENTS.md companion file that stores "
-            "issue-specific instructions for coding agents."
+            "Manage the local AGENTS override file that stores issue-specific instructions for "
+            "coding agents."
         )
     )
     parser.add_argument(
@@ -127,11 +129,21 @@ def write_content(path: Path, entry: str, mode: str) -> None:
     if path.is_dir():
         raise SystemExit(f"Target path is a directory: {path}")
 
+    entry = entry.rstrip()
+    base_content = load_base_instructions()
+
     if mode == "append" and path.exists():
         existing = path.read_text().rstrip()
         if existing:
             entry = f"{existing}\n\n---\n\n{entry}"
-    path.write_text(entry)
+        else:
+            pieces = [base_content, entry] if base_content else [entry]
+            entry = "\n\n---\n\n".join(part for part in pieces if part)
+    else:
+        pieces = [base_content, entry] if base_content else [entry]
+        entry = "\n\n---\n\n".join(part for part in pieces if part)
+
+    path.write_text(entry + "\n")
     print(f"Wrote context to {path}")
 
 
@@ -147,6 +159,14 @@ def show_file(path: Path) -> None:
     if not path.exists():
         raise SystemExit(f"No context file found at {path}")
     sys.stdout.write(path.read_text())
+
+
+def load_base_instructions() -> str:
+    """Return the repository-level agent guidance stored in BASE_FILENAME."""
+    base_path = Path(BASE_FILENAME)
+    if not base_path.exists():
+        return ""
+    return base_path.read_text().rstrip()
 
 
 if __name__ == "__main__":

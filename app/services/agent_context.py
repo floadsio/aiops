@@ -9,8 +9,9 @@ from ..models import ExternalIssue, Project
 from .issues.utils import format_issue_datetime, summarize_issue
 
 
-DEFAULT_CONTEXT_FILENAME = "AGENTS.md"
-DEFAULT_TRACKED_CONTEXT_FILENAME = "AGENTS.md"
+BASE_CONTEXT_FILENAME = "AGENTS.md"
+DEFAULT_CONTEXT_FILENAME = "AGENTS.override.md"
+DEFAULT_TRACKED_CONTEXT_FILENAME = "AGENTS.override.md"
 ISSUE_CONTEXT_START = "<!-- issue-context:start -->"
 ISSUE_CONTEXT_END = "<!-- issue-context:end -->"
 ISSUE_CONTEXT_SECTION_TITLE = "## Current Issue Context"
@@ -378,12 +379,13 @@ def write_tracked_issue_context(
     all_issues: Iterable[ExternalIssue],
     filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
 ) -> Path:
-    """Update a tracked AGENTS.md file with the latest context for the selected issue."""
+    """Update a tracked AGENTS.override.md file with the latest context for the selected issue."""
     repo_path = Path(project.local_path)
     if not repo_path.exists():
         repo_path.mkdir(parents=True, exist_ok=True)
 
     context_path = repo_path / filename
+    base_content = _load_base_instructions(repo_path)
     issue_content = render_issue_context(project, primary_issue, all_issues).rstrip()
     header_note = "NOTE: Generated issue context. Update before publishing if needed."
     appended_section = (
@@ -401,15 +403,21 @@ def write_tracked_issue_context(
     else:
         stripped_existing = ""
 
-    if existing:
+    if stripped_existing:
         cleaned = _remove_existing_issue_context(stripped_existing)
     else:
-        cleaned = stripped_existing
+        cleaned = ""
 
-    if cleaned:
-        updated = f"{cleaned.rstrip()}\n\n{appended_section}"
-    else:
-        updated = appended_section
+    cleaned_without_base = _strip_base_instructions(cleaned, base_content)
+
+    sections: list[str] = []
+    if base_content:
+        sections.append(base_content.rstrip())
+    if cleaned_without_base:
+        sections.append(cleaned_without_base.rstrip())
+    sections.append(appended_section.rstrip())
+
+    updated = "\n\n---\n\n".join(section for section in sections if section)
 
     context_path.write_text(updated.rstrip() + "\n", encoding="utf-8")
     return context_path
@@ -439,3 +447,30 @@ def _remove_existing_issue_context(source: str) -> str:
     if cleaned_prefix and cleaned_suffix:
         return f"{cleaned_prefix}\n\n{cleaned_suffix}"
     return cleaned_prefix or cleaned_suffix
+
+
+def _load_base_instructions(repo_path: Path) -> str:
+    base_path = repo_path / BASE_CONTEXT_FILENAME
+    if not base_path.exists():
+        return ""
+    raw = base_path.read_text(encoding="utf-8").rstrip()
+    return _remove_existing_issue_context(raw)
+
+
+def _strip_base_instructions(source: str, base_content: str) -> str:
+    if not source:
+        return ""
+    stripped_source = source.strip()
+    if not base_content:
+        return stripped_source
+    normalized_base = base_content.strip()
+    if not normalized_base:
+        return stripped_source
+
+    if stripped_source.startswith(normalized_base):
+        remainder = stripped_source[len(normalized_base):].lstrip()
+        if remainder.startswith("---"):
+            remainder = remainder[3:].lstrip("- \n")
+        return remainder.lstrip()
+
+    return stripped_source

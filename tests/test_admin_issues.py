@@ -238,7 +238,42 @@ def test_issue_detail_row_includes_description(client, login_admin):
     body = response.get_data(as_text=True)
     assert "Enable InnoDB page tracking for faster incremental backups." in body
     assert MISSING_ISSUE_DETAILS_MESSAGE in body
-    assert 'class="issue-title-button issue-detail-toggle"' in body
+    assert "issue-status-select" in body
+    assert "Custom status…" in body
+
+
+def test_admin_can_update_issue_status(client, login_admin, app):
+    with app.app_context():
+        issue = ExternalIssue.query.filter_by(external_id="ISSUE-001").one()
+        issue_id = issue.id
+
+    response = client.post(
+        f"/admin/issues/{issue_id}/status",
+        data={"status": "In Progress", "next": "/admin/issues"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        updated = ExternalIssue.query.get(issue_id)
+        assert updated.status == "In Progress"
+
+
+def test_admin_can_clear_issue_status(client, login_admin, app):
+    with app.app_context():
+        issue = ExternalIssue.query.filter_by(external_id="ISSUE-002").one()
+        issue_id = issue.id
+
+    response = client.post(
+        f"/admin/issues/{issue_id}/status",
+        data={"status": "", "next": "/admin/issues"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        updated = ExternalIssue.query.get(issue_id)
+        assert updated.status is None
 
 
 def test_force_full_refresh_triggers_full_sync(client, login_admin, monkeypatch):

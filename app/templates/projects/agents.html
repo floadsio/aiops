@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ project.name }} | Edit AGENTS.md{% endblock %}
+{% block title %}{{ project.name }} | Edit AGENTS.override.md{% endblock %}
 {% block extra_head %}
 <style>
   textarea.code-editor {
@@ -9,7 +9,7 @@
 </style>
 {% endblock %}
 {% block content %}
-<h1>{{ project.name }} — AGENTS.md</h1>
+<h1>{{ project.name }} — AGENTS.override.md</h1>
 <p>
   <strong>File:</strong> <code>{{ relative_path }}</code>
   {% if last_modified_display %}
@@ -17,12 +17,12 @@
   {% endif %}
 </p>
 <p class="text-muted">
-  Use this editor to review the project guide maintained in <code>AGENTS.md</code>. Saving will update the file in the local checkout; optionally commit and push the change to your remote.
+  Use this editor to review the project guide maintained in <code>AGENTS.override.md</code>. Saving will update the file in the local checkout; optionally commit and push the change to your remote.
 </p>
 
 {% if not file_exists %}
 <article class="contrast">
-  <strong>Heads up:</strong> AGENTS.md does not exist yet. Saving will create the file in this repository.
+  <strong>Heads up:</strong> AGENTS.override.md does not exist yet. Saving will create the file in this repository.
 </article>
 {% endif %}
 

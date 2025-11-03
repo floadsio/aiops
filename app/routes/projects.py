@@ -65,7 +65,8 @@ from ..ai_sessions import (
 
 projects_bp = Blueprint("projects", __name__, template_folder="../templates/projects")
 
-AGENTS_DEFAULT_COMMIT_MESSAGE = "Update AGENTS.md"
+AGENTS_OVERRIDE_FILENAME = "AGENTS.override.md"
+AGENTS_DEFAULT_COMMIT_MESSAGE = f"Update {AGENTS_OVERRIDE_FILENAME}"
 
 
 def _authorize(project: Project) -> bool:
@@ -404,7 +405,7 @@ def edit_agents_file(project_id: int):
         flash("You do not have access to this project.", "danger")
         return redirect(url_for("admin.dashboard"))
 
-    agents_path = Path(project.local_path).expanduser() / "AGENTS.md"
+    agents_path = Path(project.local_path).expanduser() / AGENTS_OVERRIDE_FILENAME
     form = AgentFileForm()
 
     if request.method == "GET":
@@ -422,9 +423,9 @@ def edit_agents_file(project_id: int):
             agents_path.parent.mkdir(parents=True, exist_ok=True)
             agents_path.write_text(content, encoding="utf-8")
         except OSError as exc:
-            form.contents.errors.append(f"Failed to write AGENTS.md: {exc}")
+            form.contents.errors.append(f"Failed to write {AGENTS_OVERRIDE_FILENAME}: {exc}")
         else:
-            flash("Saved AGENTS.md to the local workspace.", "success")
+            flash(f"Saved {AGENTS_OVERRIDE_FILENAME} to the local workspace.", "success")
             if form.save_and_push.data:
                 commit_message = (form.commit_message.data or "").strip()
                 if not commit_message:
@@ -443,7 +444,7 @@ def edit_agents_file(project_id: int):
                             except RuntimeError as exc:
                                 flash(f"Push failed: {exc}", "danger")
                             else:
-                                flash("Committed and pushed AGENTS.md.", "success")
+                                flash(f"Committed and pushed {AGENTS_OVERRIDE_FILENAME}.", "success")
                                 if push_output:
                                     flash(push_output, "info")
             if not form.errors:
@@ -451,11 +452,11 @@ def edit_agents_file(project_id: int):
 
     file_exists = agents_path.exists()
     last_modified_display = _format_agents_timestamp(agents_path if file_exists else None)
-    relative_path = "AGENTS.md"
+    relative_path = AGENTS_OVERRIDE_FILENAME
     try:
         relative_path = str(agents_path.relative_to(Path(project.local_path)))
     except (ValueError, OSError):
-        relative_path = "AGENTS.md"
+        relative_path = AGENTS_OVERRIDE_FILENAME
 
     return render_template(
         "projects/agents.html",

@@ -327,7 +327,7 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert data["prompt"] == ""
     assert ":" in data["tmux_target"]
 
-    local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.md")
+    local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.override.md")
     assert local_context_path.exists()
     local_contents = local_context_path.read_text()
     assert "Sample Issue" in local_contents
@@ -389,7 +389,7 @@ def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
         db.session.add_all([user, tenant, project, integration, project_integration, issue, other_issue])
         db.session.commit()
 
-        # Seed a tracked AGENTS.md file with a placeholder section.
+        # Seed a tracked AGENTS base file with a placeholder section.
         repo_root = Path(project.local_path)
         repo_root.mkdir(parents=True, exist_ok=True)
         (repo_root / "AGENTS.md").write_text(
@@ -471,7 +471,7 @@ def test_agents_editor_save_and_push(tmp_path, monkeypatch):
 
         agents_path = Path(project.local_path)
         agents_path.mkdir(parents=True, exist_ok=True)
-        (agents_path / "AGENTS.md").write_text("Initial guide", encoding="utf-8")
+        (agents_path / "AGENTS.override.md").write_text("Initial guide", encoding="utf-8")
 
         project_id = project.id
 
@@ -508,21 +508,21 @@ def test_agents_editor_save_and_push(tmp_path, monkeypatch):
         f"/projects/{project_id}/agents",
         data={
             "contents": "Rewritten guide",
-            "commit_message": "Update AGENTS.md",
+            "commit_message": "Update AGENTS.override.md",
             "save_and_push": "1",
         },
         follow_redirects=True,
     )
     assert post_response.status_code == 200
-    assert "Committed and pushed AGENTS.md." in post_response.get_data(as_text=True)
+    assert "Committed and pushed AGENTS.override.md." in post_response.get_data(as_text=True)
     assert "Push completed." in post_response.get_data(as_text=True)
 
-    saved_text = (tmp_path / "repos" / "demo-project" / "AGENTS.md").read_text()
+    saved_text = (tmp_path / "repos" / "demo-project" / "AGENTS.override.md").read_text()
     assert "Rewritten guide" in saved_text
 
     assert recorded["commit"]["project_id"] == project_id
-    assert "AGENTS.md" in recorded["commit"]["files"][0]
-    assert recorded["commit"]["message"] == "Update AGENTS.md"
+    assert "AGENTS.override.md" in recorded["commit"]["files"][0]
+    assert recorded["commit"]["message"] == "Update AGENTS.override.md"
     assert recorded["push"]["action"] == "push"
 
 
@@ -557,7 +557,7 @@ def test_agents_editor_requires_commit_message(tmp_path, monkeypatch):
 
         agents_path = Path(project.local_path)
         agents_path.mkdir(parents=True, exist_ok=True)
-        (agents_path / "AGENTS.md").write_text("Initial guide", encoding="utf-8")
+        (agents_path / "AGENTS.override.md").write_text("Initial guide", encoding="utf-8")
 
         project_id = project.id
 
@@ -714,7 +714,7 @@ def test_admin_issues_page_filters(tmp_path):
     assert "Provision runner" in body
     assert "issue-tenant-filter" in body
     assert "Start Codex Session" in body
-    assert "Populate AGENTS.md" in body
+    assert "Populate AGENTS.override.md" in body
     assert "Close Issue" in body
 
     response_closed = client.get("/admin/issues?status=closed")
@@ -724,7 +724,7 @@ def test_admin_issues_page_filters(tmp_path):
     assert "Fix deployment</" not in body_closed
     assert "Provision runner" not in body_closed
     assert "Start Codex Session" in body_closed
-    assert "Populate AGENTS.md" in body_closed
+    assert "Populate AGENTS.override.md" in body_closed
     assert "Close Issue" not in body_closed
 
     response_all = client.get("/admin/issues?status=all")

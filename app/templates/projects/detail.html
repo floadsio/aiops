@@ -197,7 +197,7 @@
                     issue_id=issue.id
                   ) }}"
                 >
-                  Populate AGENTS.md
+                  Populate AGENTS.override.md
                 </button>
                 {% if issue.can_assign %}
                   <form
@@ -245,14 +245,14 @@
 <section>
   <h2>Project Guide</h2>
   <p class="text-muted">
-    Review or update the repository's <code>AGENTS.md</code> guide from the dashboard.
+    Review or update the repository's <code>AGENTS.override.md</code> guide from the dashboard.
   </p>
   <p>
     <a
       role="button"
       class="secondary"
       href="{{ url_for('projects.edit_agents_file', project_id=project.id) }}"
-    >View &amp; Edit AGENTS.md</a>
+    >View &amp; Edit AGENTS.override.md</a>
   </p>
 </section>
 
@@ -420,7 +420,7 @@
               : response.json().then(data => Promise.reject(data))
           ))
           .then(data => {
-            button.textContent = 'AGENTS.md updated';
+            button.textContent = 'AGENTS.override.md updated';
             setTimeout(() => {
               button.textContent = originalLabel;
               button.disabled = false;
@@ -430,7 +430,7 @@
             }
           })
           .catch(error => {
-            console.error('Failed to populate AGENTS.md', error);
+            console.error('Failed to populate AGENTS.override.md', error);
             button.textContent = 'Update failed';
             window.setTimeout(() => {
               button.textContent = originalLabel;

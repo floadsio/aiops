@@ -313,6 +313,7 @@
             {% if current_user.is_authenticated %}
               <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
               <li><a href="{{ url_for('admin.manage_projects') }}">Projects</a></li>
+              <li><a href="{{ url_for('admin.manage_tenants') }}">Tenants</a></li>
               <li><a href="{{ url_for('admin.manage_issues') }}">Issues</a></li>
               <li><a href="{{ url_for('admin.manage_integrations') }}">Integrations</a></li>
               <li><a href="{{ url_for('admin.manage_ssh_keys') }}">SSH Keys</a></li>

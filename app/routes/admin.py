@@ -26,6 +26,7 @@ from flask_login import current_user, login_required
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
+from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..extensions import db
 from ..forms.admin import (
     ProjectForm,
@@ -44,10 +45,12 @@ from ..forms.admin import (
     SSHKeyForm,
     SSHKeyDeleteForm,
     TenantForm,
+    TenantAppearanceForm,
     TenantDeleteForm,
     TenantIntegrationForm,
     TenantIntegrationDeleteForm,
     CodexUpdateForm,
+    MigrationRunForm,
 )
 from ..models import (
     ExternalIssue,
@@ -75,6 +78,7 @@ from ..services.tmux_service import (
 )
 from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
 from ..services.update_service import run_update_script, UpdateError
+from ..services.migration_service import run_db_upgrade, MigrationError
 from ..services.codex_update_service import (
     CodexStatus,
     CodexUpdateError,
@@ -492,6 +496,9 @@ def manage_settings():
     codex_update_form = CodexUpdateForm()
     codex_update_form.next.data = url_for("admin.manage_settings")
 
+    migration_form = MigrationRunForm()
+    migration_form.next.data = url_for("admin.manage_settings")
+
     try:
         codex_status = get_codex_status()
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -555,6 +562,7 @@ def manage_settings():
     return render_template(
         "admin/settings.html",
         update_form=update_form,
+        migration_form=migration_form,
         create_user_form=create_user_form,
         users=users,
         user_toggle_forms=user_toggle_forms,
@@ -616,6 +624,49 @@ def run_system_update():
             flash(restart_message, restart_category)
 
     redirect_target = form.next.data or url_for("admin.dashboard")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/migrations/run", methods=["POST"])
+@admin_required
+def run_database_migrations():
+    form = MigrationRunForm()
+    if not form.validate_on_submit():
+        flash("Invalid migration request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        result = run_db_upgrade()
+    except MigrationError as exc:
+        current_app.logger.exception("Database migration run failed to start.")
+        flash(str(exc), "danger")
+    else:
+        combined_output = "\n".join(
+            part for part in [result.stdout.strip(), result.stderr.strip()] if part
+        )
+        truncated = _truncate_output(combined_output)
+        message = (
+            f"Database migrations succeeded (exit {result.returncode})."
+            if result.ok
+            else f"Database migrations failed (exit {result.returncode})."
+        )
+        category = "success" if result.ok else "danger"
+        log_message = f"Database migration command finished with exit {result.returncode}"
+        if combined_output:
+            current_app.logger.info("%s; output: %s", log_message, combined_output)
+        else:
+            current_app.logger.info(log_message)
+        if truncated:
+            flash(
+                Markup(
+                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                ),
+                category,
+            )
+        else:
+            flash(message, category)
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
     return redirect(redirect_target)
 
 
@@ -865,6 +916,25 @@ def refresh_project_git(project_id: int):
 def manage_tenants():
     form = TenantForm()
     delete_form = TenantDeleteForm()
+    appearance_form = TenantAppearanceForm()
+
+    if appearance_form.save.data and appearance_form.validate_on_submit():
+        tenant_id_raw = appearance_form.tenant_id.data
+        try:
+            tenant_id = int(tenant_id_raw)
+        except (TypeError, ValueError):
+            flash("Invalid tenant selection.", "warning")
+            return redirect(url_for("admin.manage_tenants"))
+
+        tenant = Tenant.query.get(tenant_id)
+        if tenant is None:
+            flash("Tenant not found.", "warning")
+            return redirect(url_for("admin.manage_tenants"))
+
+        tenant.color = sanitize_tenant_color(appearance_form.color.data)
+        db.session.commit()
+        flash(f"Updated color for tenant '{tenant.name}'.", "success")
+        return redirect(url_for("admin.manage_tenants"))
 
     if delete_form.submit.data and delete_form.validate_on_submit():
         tenant_id_raw = delete_form.tenant_id.data
@@ -885,14 +955,31 @@ def manage_tenants():
         return redirect(url_for("admin.manage_tenants"))
 
     if form.validate_on_submit() and not delete_form.submit.data:
-        tenant = Tenant(name=form.name.data, description=form.description.data)
+        tenant = Tenant(
+            name=form.name.data,
+            description=form.description.data,
+            color=sanitize_tenant_color(form.color.data),
+        )
         db.session.add(tenant)
         db.session.commit()
         flash("Tenant created.", "success")
         return redirect(url_for("admin.manage_tenants"))
 
     tenants = Tenant.query.order_by(Tenant.name).all()
-    return render_template("admin/tenants.html", form=form, delete_form=delete_form, tenants=tenants)
+    tenant_rows: list[tuple[Tenant, TenantAppearanceForm]] = []
+    for tenant in tenants:
+        row_form = TenantAppearanceForm(formdata=None)
+        row_form.tenant_id.data = tenant.id
+        row_form.color.data = tenant.color or DEFAULT_TENANT_COLOR
+        tenant_rows.append((tenant, row_form))
+
+    return render_template(
+        "admin/tenants.html",
+        form=form,
+        delete_form=delete_form,
+        tenant_rows=tenant_rows,
+        tenants=tenants,
+    )
 
 
 @admin_bp.route("/issues", methods=["GET"])
@@ -961,6 +1048,7 @@ def manage_issues():
                 "project_id": project.id if project else None,
                 "tenant_name": tenant.name if tenant else "",
                 "tenant_id": tenant.id if tenant else None,
+                "tenant_color": tenant.color if tenant else DEFAULT_TENANT_COLOR,
                 "updated_display": _format_issue_timestamp(updated_reference),
                 "updated_sort": _issue_sort_key(issue),
                 "description": description_text,

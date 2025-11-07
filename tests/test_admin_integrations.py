@@ -10,6 +10,7 @@ from app.models import Project, ProjectIntegration, SSHKey, Tenant, TenantIntegr
 from app.security import hash_password
 from app.services.key_service import resolve_private_key_path
 from app.services.update_service import UpdateError
+from app.services.migration_service import MigrationError
 
 
 class AdminTestConfig(Config):
@@ -286,6 +287,51 @@ def test_admin_update_restart_failure(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"Restart failed" in response.data
+
+
+def test_admin_can_run_migrations(app, client, login_admin, monkeypatch):
+    class DummyResult:
+        command = "flask --app manage.py db upgrade"
+        returncode = 0
+        stdout = "migrated"
+        stderr = ""
+
+        @property
+        def ok(self):
+            return True
+
+    calls = {}
+
+    def fake_run_migrations():
+        calls["invoked"] = True
+        return DummyResult()
+
+    monkeypatch.setattr("app.routes.admin.run_db_upgrade", fake_run_migrations)
+
+    response = client.post(
+        "/admin/settings/migrations/run",
+        data={"submit": "Run migrations"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert calls.get("invoked") is True
+    assert b"Database migrations succeeded" in response.data
+    assert b"update-log" in response.data
+
+
+def test_admin_migration_error(app, client, login_admin, monkeypatch):
+    def fake_run_migrations():
+        raise MigrationError("flask not found")
+
+    monkeypatch.setattr("app.routes.admin.run_db_upgrade", fake_run_migrations)
+
+    response = client.post(
+        "/admin/settings/migrations/run",
+        data={"submit": "Run migrations"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"flask not found" in response.data
 
 
 def test_can_delete_tenant(app, client, login_admin):

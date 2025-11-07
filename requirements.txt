@@ -25,6 +25,8 @@ PyNaCl==1.6.0
 libtmux>=0.32
 colorama>=0.4.6
 mypy>=1.10
+mypy-extensions>=1.0
+pathspec>=0.12
 ruff>=0.5
 pytest>=8.3
 pytest-cov>=5.0

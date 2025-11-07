@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from flask_wtf import FlaskForm
 from wtforms import (
     BooleanField,
@@ -12,12 +14,21 @@ from wtforms import (
     URLField,
 )
 from wtforms.validators import DataRequired, Length, Optional, URL, ValidationError
-from urllib.parse import urlparse
 
+from ..constants import DEFAULT_TENANT_COLOR, TENANT_COLOR_CHOICES
 
 class TenantForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired(), Length(max=255)])
     description = TextAreaField("Description", validators=[Length(max=1000)])
+    color = SelectField(
+        "Tenant Color",
+        validators=[DataRequired()],
+        choices=TENANT_COLOR_CHOICES,
+        default=DEFAULT_TENANT_COLOR,
+        render_kw={
+            "aria-description": "Used to color-code dashboards, issue lists, and project cards."
+        },
+    )
 
 
 def validate_repo_url(form, field):
@@ -149,6 +160,17 @@ class TenantDeleteForm(FlaskForm):
     submit = SubmitField("Remove Tenant")
 
 
+class TenantAppearanceForm(FlaskForm):
+    tenant_id = HiddenField(validators=[DataRequired()])
+    color = SelectField(
+        "Tenant Color",
+        validators=[DataRequired()],
+        choices=TENANT_COLOR_CHOICES,
+        default=DEFAULT_TENANT_COLOR,
+    )
+    save = SubmitField("Save")
+
+
 class SSHKeyDeleteForm(FlaskForm):
     key_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Remove Key")
@@ -174,6 +196,11 @@ class UpdateApplicationForm(FlaskForm):
 class CodexUpdateForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Update Codex CLI")
+
+
+class MigrationRunForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Run Database Migrations")
 
 
 class CreateUserForm(FlaskForm):

@@ -14,3 +14,4 @@ coverage.xml
 /logs/
 AGENTS.local.md
 codex_issue_notes.md
+_local.sh

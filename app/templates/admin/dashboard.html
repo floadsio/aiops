@@ -126,28 +126,27 @@
     margin: 0 0 0.5rem;
     font-size: 1.1rem;
     font-weight: 600;
-  }
-  .project-card p {
-    margin: 0;
-    color: #475569;
-    font-size: 0.95rem;
-  }
-  [data-theme="dark"] .project-card p {
-    color: rgba(226, 232, 240, 0.75);
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
   }
   .project-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 0.5rem;
     margin: 0.75rem 0 0;
+    align-items: flex-start;
+    overflow-x: auto;
   }
   .project-actions form {
     margin: 0;
     display: flex;
     gap: 0.5rem;
+    align-items: center;
   }
   .project-actions button {
-    min-width: 9.5rem;
+    min-width: 0;
     justify-content: center;
   }
   .dashboard-filter-form {
@@ -312,9 +311,8 @@
   }
   .tmux-session-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
+    flex-direction: column;
+    gap: 0.6rem;
     padding: 0.75rem 0.9rem;
     border-radius: 0.75rem;
     background: rgba(148, 163, 184, 0.12);
@@ -324,8 +322,9 @@
   }
   .tmux-session-meta {
     display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
   }
   .tmux-chip {
     display: inline-flex;
@@ -344,39 +343,69 @@
   }
   .tmux-session-actions {
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
+    width: 100%;
   }
-  .tmux-command {
-    font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
-    font-size: 0.8rem;
+  .tmux-session-actions a {
+    flex: 1 1 auto;
+    justify-content: center;
   }
   .tmux-recent-grid {
     display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.85rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
   .tmux-recent-card {
-    padding: 1rem 1.1rem;
-    border-radius: 1rem;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: rgba(241, 245, 249, 0.6);
+    padding: 0.85rem 1rem;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(241, 245, 249, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
   }
   [data-theme="dark"] .tmux-recent-card {
     border-color: rgba(148, 163, 184, 0.25);
-    background: rgba(30, 41, 59, 0.65);
+    background: rgba(30, 41, 59, 0.55);
   }
   .tmux-recent-meta {
     display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    margin-bottom: 0.75rem;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    color: #475569;
+  }
+  [data-theme="dark"] .tmux-recent-meta {
+    color: rgba(226, 232, 240, 0.75);
+  }
+  .tmux-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
   }
   .tmux-recent-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+  }
+  @media (max-width: 640px) {
+    .tmux-recent-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .tmux-recent-actions {
+      width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+    .tmux-recent-actions a,
+    .tmux-recent-actions button {
+      flex: 1 1 auto;
+    }
   }
   .update-form {
     display: flex;
@@ -423,27 +452,26 @@
 </style>
 {% endblock %}
 {% block content %}
-<section class="dashboard-hero">
-  <div class="dashboard-metrics">
-    <div class="metric-card">
-      Tenants
-      <strong>{{ tenants|length }}</strong>
-    </div>
-    <div class="metric-card">
-      Projects
-      <strong>{{ projects|length }}</strong>
-    </div>
-    <div class="metric-card">
-      Pending Tasks
-      <strong>{{ pending_tasks }}</strong>
-    </div>
-  </div>
+<section class="dashboard-search" aria-label="Dashboard search">
+  <input
+    type="search"
+    id="dashboard-search-input"
+    name="q"
+    value="{{ dashboard_query }}"
+    placeholder="Search tenants or projects…"
+    autocomplete="off"
+    data-search-endpoint="{{ url_for('admin.dashboard') }}"
+  >
 </section>
 
 <section class="dashboard-section">
   <header>
-    <h2>Recent tmux Windows</h2>
-    <small class="text-muted">Quickly reattach to active AI consoles.</small>
+    <h2>
+      tmux Sessions
+      <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
+        <strong style="margin:0;font-size:1rem;">{{ recent_tmux_windows|length }}</strong>
+      </span>
+    </h2>
   </header>
   {% if recent_tmux_error %}
     <p class="warning-note">tmux unavailable: {{ recent_tmux_error }}</p>
@@ -453,14 +481,16 @@
         <article class="tmux-recent-card">
           <div class="tmux-recent-meta">
             <span class="tmux-chip">{{ window.window }}</span>
-            <span class="text-muted">Session {{ window.session }}</span>
-            {% if window.project %}
-              <span class="text-muted">Project {{ window.project.project_name }}</span>
-            {% endif %}
-            <span class="text-muted">
+            <span class="tmux-meta">
+              {{ window.session }}
+              {% if window.project %}
+                / {{ window.project.project_name }}
+              {% endif %}
+            </span>
+            <span class="tmux-meta">
               {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
               {% if window.created_display %}
-                • Started {{ window.created_display }}
+                • {{ window.created_display }}
               {% endif %}
             </span>
           </div>
@@ -474,10 +504,6 @@
                 Reattach
               </a>
             {% endif %}
-            <code class="tmux-command">tmux attach -t {{ window.target }}</code>
-            <button type="button" class="secondary outline copy-tmux-command" data-command="tmux attach -t {{ window.target }}">
-              Copy command
-            </button>
           </div>
         </article>
       {% endfor %}
@@ -492,41 +518,34 @@
     <div class="dashboard-section-heading">
       <h2>Recent Projects</h2>
       <small><a href="{{ url_for('admin.manage_projects') }}">All projects →</a></small>
-      {% if tenant_filter != 'all' and tenant_filter_label %}
-        <small class="text-muted">Filtered by {{ tenant_filter_label }}</small>
+      {% if dashboard_query %}
+        <small class="text-muted">Filtering “{{ dashboard_query }}”</small>
       {% endif %}
     </div>
-    <form method="get" action="{{ url_for('admin.dashboard') }}" class="dashboard-filter-form">
-      <label for="dashboard-tenant-filter">Tenant filter</label>
-      <select id="dashboard-tenant-filter" name="tenant" onchange="this.form.submit()">
-        {% for option in tenant_filter_options %}
-          <option value="{{ option.value }}" {% if option.value == tenant_filter %}selected{% endif %}>
-            {{ option.label }}
-          </option>
-        {% endfor %}
-      </select>
-    </form>
   </header>
   {% if project_cards %}
     <div class="dashboard-grid">
       {% for card in project_cards %}
         {% set project = card.project %}
         {% set status = card.status %}
+        {% set tenant_color = project.tenant.color or default_tenant_color %}
         <article
           class="dashboard-card project-card tenant-accent"
-          style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+          style="
+            --tenant-color: {{ tenant_color }};
+            --tenant-color-bg: {{ tenant_color }}1a;
+            --tenant-color-bg-dark: {{ tenant_color }}30;
+          "
         >
           <h3>
-            <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">
-              {{ project.name }}
-            </a>
-          </h3>
-          <p>
             <span class="tenant-badge" style="--tenant-color: {{ project.tenant.color or default_tenant_color }}">
               <span class="tenant-badge__swatch" aria-hidden="true"></span>
               {{ project.tenant.name }}
             </span>
-          </p>
+            <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">
+              {{ project.name }}
+            </a>
+          </h3>
           {% set issue_form = card.issue_sync_form %}
           {% set git_form = card.git_refresh_form %}
           <div class="project-actions">
@@ -534,9 +553,6 @@
               {{ issue_form.hidden_tag() }}
               {{ issue_form.project_id() }}
               <button type="submit" class="secondary">Refresh Issues</button>
-              <button type="submit" class="secondary outline" name="force_full" value="1" title="Force a full resync of all cached issues for this project.">
-                Force Full Resync
-              </button>
             </form>
             <form method="post" action="{{ url_for('admin.refresh_project_git', project_id=project.id) }}">
               {{ git_form.hidden_tag() }}
@@ -639,12 +655,16 @@
                   <div class="tmux-session-row">
                     <div class="tmux-session-meta">
                       <span class="tmux-chip">{{ session.window }}</span>
-                      <span class="text-muted">
-                        {{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}
+                      <span class="tmux-meta">
+                        {{ session.session }}
+                        / {{ project.name }}
                       </span>
-                      {% if session.created_display %}
-                        <span class="text-muted">Started {{ session.created_display }}</span>
-                      {% endif %}
+                      <span class="tmux-meta">
+                        {{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}
+                        {% if session.created_display %}
+                          • {{ session.created_display }}
+                        {% endif %}
+                      </span>
                     </div>
                     <div class="tmux-session-actions">
                       <a
@@ -658,7 +678,6 @@
                       >
                         Reattach
                       </a>
-                      <span class="text-muted tmux-command">tmux attach -t {{ session.target }}</span>
                     </div>
                   </div>
                 {% endfor %}
@@ -670,8 +689,8 @@
     </div>
   {% else %}
     <div class="empty-state">
-      {% if tenant_filter != 'all' %}
-        <p>No projects match the selected tenant.</p>
+      {% if dashboard_query %}
+        <p>No projects match “{{ dashboard_query }}”.</p>
         <a role="button" href="{{ url_for('admin.dashboard') }}">Clear filter</a>
       {% else %}
         <p>No projects configured. Connect a repository to see automation insights here.</p>
@@ -689,9 +708,14 @@
   {% if tenants %}
     <div class="dashboard-grid">
       {% for tenant in tenants %}
+        {% set tenant_color = tenant.color or default_tenant_color %}
         <article
           class="dashboard-card tenant-card tenant-accent"
-          style="--tenant-color: {{ tenant.color or default_tenant_color }}"
+          style="
+            --tenant-color: {{ tenant_color }};
+            --tenant-color-bg: {{ tenant_color }}12;
+            --tenant-color-bg-dark: {{ tenant_color }}28;
+          "
         >
           <div class="tenant-meta">
             <span>
@@ -737,26 +761,31 @@
   {% endif %}
 </section>
 <script>
-  document.querySelectorAll('.copy-tmux-command').forEach(button => {
-    button.addEventListener('click', () => {
-      const command = button.dataset.command;
-      if (!command) {
-        return;
+  (function () {
+    const input = document.getElementById("dashboard-search-input");
+    if (!input) {
+      return;
+    }
+    let timer = null;
+    const endpoint = input.dataset.searchEndpoint || window.location.pathname;
+    const triggerSearch = () => {
+      const value = input.value.trim();
+      const url = new URL(endpoint, window.location.origin);
+      if (value) {
+        url.searchParams.set("q", value);
+      } else {
+        url.searchParams.delete("q");
       }
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(command).then(() => {
-          button.textContent = 'Copied!';
-          setTimeout(() => {
-            button.textContent = 'Copy command';
-          }, 1500);
-        }).catch(() => {
-          button.textContent = 'Copy failed';
-          setTimeout(() => {
-            button.textContent = 'Copy command';
-          }, 1500);
-        });
+      if (url.toString() !== window.location.href) {
+        window.location.assign(url.toString());
       }
+    };
+    input.addEventListener("input", () => {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(triggerSearch, 350);
     });
-  });
+  })();
 </script>
 {% endblock %}

@@ -171,9 +171,14 @@
     </div>
     <div class="projects-card-list">
       {% for project in projects %}
+        {% set tenant_color = project.tenant.color or default_tenant_color %}
         <article
           class="project-card tenant-accent"
-          style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+          style="
+            --tenant-color: {{ tenant_color }};
+            --tenant-color-bg: {{ tenant_color }}12;
+            --tenant-color-bg-dark: {{ tenant_color }}28;
+          "
         >
           <header class="project-card__header">
             <div>

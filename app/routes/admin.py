@@ -23,6 +23,7 @@ from flask import (
 )
 from markupsafe import Markup, escape
 from flask_login import current_user, login_required
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
@@ -51,6 +52,7 @@ from ..forms.admin import (
     TenantIntegrationDeleteForm,
     CodexUpdateForm,
     MigrationRunForm,
+    TmuxResyncForm,
 )
 from ..models import (
     ExternalIssue,
@@ -75,6 +77,8 @@ from ..services.issues.utils import normalize_issue_status
 from ..services.tmux_service import (
     TmuxServiceError,
     list_windows_for_aliases,
+    sync_project_windows,
+    TmuxSyncResult,
 )
 from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
 from ..services.update_service import run_update_script, UpdateError
@@ -257,48 +261,63 @@ def _coerce_timestamp(value: Any) -> datetime | None:
 @admin_bp.route("/")
 @admin_required
 def dashboard():
-    tenants = (
-        Tenant.query.options(selectinload(Tenant.projects))
-        .order_by(Tenant.name)
-        .all()
-    )
-    tenant_filter_raw = request.args.get("tenant", "all") or "all"
-    tenant_filter = tenant_filter_raw
-    tenant_filter_id: int | None = None
-    tenant_filter_label: str | None = None
-    tenant_lookup = {str(tenant.id): tenant for tenant in tenants}
-    if tenant_filter != "all":
-        tenant_obj = tenant_lookup.get(tenant_filter)
-        if tenant_obj:
-            tenant_filter_id = tenant_obj.id
-            tenant_filter_label = tenant_obj.name
-        else:
-            tenant_filter = "all"
-    tenant_filter_options = [
-        {"value": "all", "label": "All tenants"},
-    ]
-    for tenant in tenants:
-        project_count = len(tenant.projects or [])
-        tenant_filter_options.append(
-            {
-                "value": str(tenant.id),
-                "label": f"{tenant.name} ({project_count} project{'s' if project_count != 1 else ''})",
-            }
+    search_query = ""
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        search_query = (payload.get("q") or "").strip()
+    else:
+        search_query = (request.args.get("q") or "").strip()
+    like_pattern = f"%{search_query}%"
+    search_lower = search_query.lower()
+
+    def _contains_query(value: str | None) -> bool:
+        if not search_lower:
+            return False
+        return search_lower in (value or "").lower()
+
+    def _project_matches_query(project: Project) -> bool:
+        return any(
+            _contains_query(field)
+            for field in (
+                project.name,
+                project.description,
+                project.repo_url,
+                project.tenant.name if project.tenant else None,
+            )
         )
+
+    def _tmux_windows_match(windows: list[dict[str, Any]]) -> bool:
+        return any(
+            _contains_query(item)
+            for window in windows
+            for item in (
+                window.get("window"),
+                window.get("session"),
+                window.get("project_name"),
+            )
+        )
+
+    tenant_query = Tenant.query
+    if search_query:
+        tenant_query = tenant_query.filter(
+            or_(
+                Tenant.name.ilike(like_pattern),
+                Tenant.description.ilike(like_pattern),
+            )
+        )
+    tenants = tenant_query.order_by(Tenant.name).all()
 
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.dashboard")
-    project_query = (
-        Project.query.options(
-            selectinload(Project.tenant),
-            selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
-            selectinload(Project.issue_integrations).selectinload(ProjectIntegration.issues),
-        )
-        .order_by(Project.created_at.desc())
+    project_query = Project.query.options(
+        selectinload(Project.tenant),
+        selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
+        selectinload(Project.issue_integrations).selectinload(ProjectIntegration.issues),
     )
-    if tenant_filter_id is not None:
-        project_query = project_query.filter(Project.tenant_id == tenant_filter_id)
-    projects = project_query.limit(10).all()
+    project_limit_default = current_app.config.get("DASHBOARD_PROJECT_LIMIT", 10)
+    project_limit_search = current_app.config.get("DASHBOARD_SEARCH_PROJECT_LIMIT", 25)
+    project_limit = project_limit_search if search_query else project_limit_default
+    projects = project_query.order_by(Project.created_at.desc()).limit(project_limit).all()
     project_cards: list[dict[str, Any]] = []
     recent_tmux_windows: list[dict[str, Any]] = []
     recent_tmux_error: str | None = None
@@ -334,11 +353,9 @@ def dashboard():
         git_refresh_form.project_id.data = str(project.id)
         tmux_windows: list[dict[str, Any]] = []
         tmux_error: str | None = None
-        tenant = project.tenant
-        tenant_name = tenant.name if tenant else ""
         try:
             windows = list_windows_for_aliases(
-                tenant_name,
+                "",
                 project_local_path=project.local_path,
                 extra_aliases=(project.name, getattr(project, "slug", None)),
             )
@@ -457,6 +474,11 @@ def dashboard():
                 }
             )
 
+        matches_query = _project_matches_query(project) if search_query else True
+        tmux_matches_query = _tmux_windows_match(tmux_windows) if search_query else False
+        if search_query and not (matches_query or tmux_matches_query):
+            continue
+
         project_cards.append(
             {
                 "project": project,
@@ -503,6 +525,20 @@ def dashboard():
     except TmuxServiceError as exc:
         recent_tmux_error = str(exc)
 
+    if search_query:
+        def _recent_tmux_matches(entry: dict[str, Any]) -> bool:
+            project_info = entry.get("project") or {}
+            return any(
+                _contains_query(field)
+                for field in (
+                    entry.get("window"),
+                    entry.get("session"),
+                    project_info.get("project_name"),
+                )
+            )
+
+        recent_tmux_windows = [entry for entry in recent_tmux_windows if _recent_tmux_matches(entry)]
+
     pending_tasks = sum(p for p in [0])  # placeholder for task count
     return render_template(
         "admin/dashboard.html",
@@ -513,9 +549,7 @@ def dashboard():
         recent_tmux_windows=recent_tmux_windows,
         recent_tmux_error=recent_tmux_error,
         update_form=update_form,
-        tenant_filter=tenant_filter,
-        tenant_filter_label=tenant_filter_label,
-        tenant_filter_options=tenant_filter_options,
+        dashboard_query=search_query,
     )
 
 
@@ -530,6 +564,9 @@ def manage_settings():
 
     migration_form = MigrationRunForm()
     migration_form.next.data = url_for("admin.manage_settings")
+
+    tmux_resync_form = TmuxResyncForm()
+    tmux_resync_form.next.data = url_for("admin.manage_settings")
 
     try:
         codex_status = get_codex_status()
@@ -595,6 +632,7 @@ def manage_settings():
         "admin/settings.html",
         update_form=update_form,
         migration_form=migration_form,
+        tmux_resync_form=tmux_resync_form,
         create_user_form=create_user_form,
         users=users,
         user_toggle_forms=user_toggle_forms,
@@ -697,6 +735,31 @@ def run_database_migrations():
             )
         else:
             flash(message, category)
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/tmux/resync", methods=["POST"])
+@admin_required
+def resync_tmux_sessions():
+    form = TmuxResyncForm()
+    if not form.validate_on_submit():
+        flash("Invalid tmux resync request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        projects = Project.query.options(selectinload(Project.tenant)).all()
+        result = sync_project_windows(projects)
+    except TmuxServiceError as exc:
+        current_app.logger.exception("Failed to resync tmux sessions.")
+        flash(str(exc), "danger")
+    else:
+        flash(
+            f"Synced tmux windows for {result.total_managed} project(s); "
+            f"created {result.created}, removed {result.removed}.",
+            "success",
+        )
 
     redirect_target = form.next.data or url_for("admin.manage_settings")
     return redirect(redirect_target)

@@ -136,6 +136,10 @@
       }
       .tenant-accent {
         border-top: 4px solid var(--tenant-color, var(--tenant-fallback-color));
+        background-color: var(--tenant-color-bg, rgba(37, 99, 235, 0.08));
+      }
+      [data-theme="dark"] .tenant-accent {
+        background-color: var(--tenant-color-bg-dark, rgba(37, 99, 235, 0.22));
       }
       .version-badge {
         display: inline-flex;

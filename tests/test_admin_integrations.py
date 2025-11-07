@@ -10,6 +10,7 @@ from app.models import Project, ProjectIntegration, SSHKey, Tenant, TenantIntegr
 from app.security import hash_password
 from app.services.key_service import resolve_private_key_path
 from app.services.update_service import UpdateError
+from app.services.tmux_service import TmuxServiceError
 from app.services.migration_service import MigrationError
 
 
@@ -332,6 +333,45 @@ def test_admin_migration_error(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"flask not found" in response.data
+
+
+def test_admin_tmux_resync_success(app, client, login_admin, monkeypatch):
+    class DummyResult:
+        created = 2
+        removed = 1
+        total_managed = 5
+
+    calls = {}
+
+    def fake_sync(projects):
+        calls["count"] = len(projects)
+        return DummyResult()
+
+    monkeypatch.setattr("app.routes.admin.sync_project_windows", fake_sync)
+
+    response = client.post(
+        "/admin/settings/tmux/resync",
+        data={"submit": "Resync tmux windows"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert calls.get("count") is not None
+    assert b"Synced tmux windows" in response.data
+
+
+def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
+    def fake_sync(projects):
+        raise TmuxServiceError("tmux unavailable")
+
+    monkeypatch.setattr("app.routes.admin.sync_project_windows", fake_sync)
+
+    response = client.post(
+        "/admin/settings/tmux/resync",
+        data={"submit": "Resync tmux windows"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"tmux unavailable" in response.data
 
 
 def test_can_delete_tenant(app, client, login_admin):

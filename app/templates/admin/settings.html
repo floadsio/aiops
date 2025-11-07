@@ -128,6 +128,19 @@
   </article>
 
   <article class="settings-card">
+    <h2>tmux Sessions</h2>
+    <p>Ensure each project has an active tmux window and remove orphaned project windows from the shared session.</p>
+    <p class="text-muted">Creates missing windows (matching the DB) and prunes stale `-p<ID>` tmux windows.</p>
+    <form method="post" action="{{ url_for('admin.resync_tmux_sessions') }}">
+      {{ tmux_resync_form.hidden_tag() }}
+      <div class="settings-actions">
+        <button type="submit" class="secondary">Resync tmux windows</button>
+        <span class="text-muted form-helper">Safe to run after importing databases or pruning projects.</span>
+      </div>
+    </form>
+  </article>
+
+  <article class="settings-card">
     <h2>Database Schema</h2>
     <p>Apply pending Alembic migrations without shell access. Use this after pulling new releases that add columns or tables.</p>
     <p class="text-muted">Runs <code>flask --app manage.py db upgrade</code> inside the project virtualenv.</p>

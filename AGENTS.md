@@ -17,6 +17,12 @@ live under `ansible/`.
   real APIs.
 - Apply pending migrations before running the server: `.venv/bin/flask --app manage.py db upgrade`
   (missing fields such as `tenants.color` will crash `/admin` otherwise).
+- Local maintenance helpers live in `_local.sh` (gitignored). Use `./_local.sh sync-db` (alias
+  `pull-db`) to rsync `instance/app.db` from `syseng@dev.floads:/home/syseng/aiops/` or
+  `./_local.sh sync-instance` to clone the full `instance/` tree; override host/paths via env vars
+  when needed.
+- Use the Admin → Settings “tmux Sessions” card to resync tmux windows with DB projects after DB
+  restores; it recreates missing windows and prunes orphaned `-p<ID>` sessions.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

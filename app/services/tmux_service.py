@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Sequence
 
 from flask import current_app
 
@@ -21,6 +21,13 @@ class TmuxWindow:
 
 class TmuxServiceError(RuntimeError):
     """Raised when tmux operations fail."""
+
+
+@dataclass(frozen=True)
+class TmuxSyncResult:
+    created: int
+    removed: int
+    total_managed: int
 
 
 _SLUG_REPLACEMENTS = str.maketrans({c: "-" for c in " ./\\:"})
@@ -185,6 +192,57 @@ def find_window_for_project(project) -> Optional[TmuxWindow]:
     return _window_info(session, window)
 
 
+def _is_managed_window_name(window_name: str) -> bool:
+    if "-p" not in window_name:
+        return False
+    _, _, suffix = window_name.rpartition("-p")
+    if not suffix:
+        return False
+    try:
+        int(suffix)
+    except ValueError:
+        return False
+    return True
+
+
+def sync_project_windows(projects: Sequence[object]) -> TmuxSyncResult:
+    """
+    Ensure every project has a tmux window and prune orphaned project windows.
+    """
+
+    session = _ensure_shared_session()
+    existing = {window.get("window_name"): window for window in session.windows}
+
+    desired_names: set[str] = set()
+    created = 0
+    for project in projects:
+        window_name = _project_window_name(project)
+        desired_names.add(window_name)
+        if window_name not in existing:
+            try:
+                ensure_project_window(project, window_name=window_name)
+            except TmuxServiceError:
+                raise
+            except Exception as exc:  # pragma: no cover - libtmux raise
+                raise TmuxServiceError(f"Unable to create tmux window {window_name}: {exc}") from exc
+            created += 1
+
+    removed = 0
+    for window_name, window in existing.items():
+        if window_name in desired_names:
+            continue
+        if not _is_managed_window_name(window_name):
+            continue
+        try:
+            window.kill_window()
+        except Exception as exc:  # pragma: no cover - best effort cleanup
+            current_app.logger.warning("Unable to remove tmux window %s: %s", window_name, exc)
+        else:
+            removed += 1
+
+    return TmuxSyncResult(created=created, removed=removed, total_managed=len(desired_names))
+
+
 __all__ = [
     "TmuxWindow",
     "TmuxServiceError",
@@ -192,4 +250,6 @@ __all__ = [
     "get_or_create_window_for_project",
     "find_window_for_project",
     "list_windows_for_aliases",
+    "sync_project_windows",
+    "TmuxSyncResult",
 ]

@@ -203,6 +203,11 @@ class MigrationRunForm(FlaskForm):
     submit = SubmitField("Run Database Migrations")
 
 
+class TmuxResyncForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Resync tmux")
+
+
 class CreateUserForm(FlaskForm):
     name = StringField("Full Name", validators=[DataRequired(), Length(max=255)])
     email = StringField("Email", validators=[DataRequired(), Length(max=255)])

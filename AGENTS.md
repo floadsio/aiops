@@ -15,6 +15,8 @@ live under `ansible/`.
   into `app/services/` with dedicated tests.
 - When touching issue provider logic, add provider stubs in `tests/services/issues/`; CI never hits
   real APIs.
+- Apply pending migrations before running the server: `.venv/bin/flask --app manage.py db upgrade`
+  (missing fields such as `tenants.color` will crash `/admin` otherwise).
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

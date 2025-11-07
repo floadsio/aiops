@@ -16,9 +16,14 @@ This project provides a Flask-based web UI that orchestrates multi-tenant source
 3. (Recommended) Activate the environment for interactive work: `source .venv/bin/activate` (macOS/Linux) or `.venv\Scripts\activate` (Windows). If you skip activation, prefix commands with `.venv/bin/`.
 4. Copy `.env.example` to `.env` and adjust values (Git storage path, AI command, etc.).
 5. Initialize the database: `.venv/bin/flask --app manage.py db_init`.
-6. Create an admin user: `.venv/bin/flask --app manage.py create-admin`.
-7. (Optional) Seed demo data: `.venv/bin/flask --app manage.py seed-data --owner-email <admin email>`.
-8. Start the development server: `make start` (listens on http://127.0.0.1:8060 by default).
+6. Apply migrations (run this after every pull that adds migrations): `.venv/bin/flask --app manage.py db upgrade`.
+7. Create an admin user: `.venv/bin/flask --app manage.py create-admin`.
+8. (Optional) Seed demo data: `.venv/bin/flask --app manage.py seed-data --owner-email <admin email>`.
+9. Start the development server: `make start` (listens on http://127.0.0.1:8060 by default).
+
+If you skip step 6 after pulling new code, runtime errors such as
+`sqlite3.OperationalError: no such column: tenants.color` will occur whenever features rely on
+new fields. Running `flask db upgrade` keeps SQLite/Postgres schemas aligned with the models.
 
 ### Keeping Local Runtime Data Private
 - Runtime state (SQLite DB, SSH keys, tmux configs) lives under `instance/` and is ignored by git.

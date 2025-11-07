@@ -257,19 +257,48 @@ def _coerce_timestamp(value: Any) -> datetime | None:
 @admin_bp.route("/")
 @admin_required
 def dashboard():
-    tenants = Tenant.query.order_by(Tenant.name).all()
+    tenants = (
+        Tenant.query.options(selectinload(Tenant.projects))
+        .order_by(Tenant.name)
+        .all()
+    )
+    tenant_filter_raw = request.args.get("tenant", "all") or "all"
+    tenant_filter = tenant_filter_raw
+    tenant_filter_id: int | None = None
+    tenant_filter_label: str | None = None
+    tenant_lookup = {str(tenant.id): tenant for tenant in tenants}
+    if tenant_filter != "all":
+        tenant_obj = tenant_lookup.get(tenant_filter)
+        if tenant_obj:
+            tenant_filter_id = tenant_obj.id
+            tenant_filter_label = tenant_obj.name
+        else:
+            tenant_filter = "all"
+    tenant_filter_options = [
+        {"value": "all", "label": "All tenants"},
+    ]
+    for tenant in tenants:
+        project_count = len(tenant.projects or [])
+        tenant_filter_options.append(
+            {
+                "value": str(tenant.id),
+                "label": f"{tenant.name} ({project_count} project{'s' if project_count != 1 else ''})",
+            }
+        )
+
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.dashboard")
-    projects = (
+    project_query = (
         Project.query.options(
             selectinload(Project.tenant),
             selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
             selectinload(Project.issue_integrations).selectinload(ProjectIntegration.issues),
         )
         .order_by(Project.created_at.desc())
-        .limit(10)
-        .all()
     )
+    if tenant_filter_id is not None:
+        project_query = project_query.filter(Project.tenant_id == tenant_filter_id)
+    projects = project_query.limit(10).all()
     project_cards: list[dict[str, Any]] = []
     recent_tmux_windows: list[dict[str, Any]] = []
     recent_tmux_error: str | None = None
@@ -484,6 +513,9 @@ def dashboard():
         recent_tmux_windows=recent_tmux_windows,
         recent_tmux_error=recent_tmux_error,
         update_form=update_form,
+        tenant_filter=tenant_filter,
+        tenant_filter_label=tenant_filter_label,
+        tenant_filter_options=tenant_filter_options,
     )
 
 

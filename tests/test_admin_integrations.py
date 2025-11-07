@@ -685,3 +685,47 @@ def test_dashboard_orders_projects_by_last_activity(app, client, login_admin, mo
     assert response.status_code == 200
     html = response.data.decode()
     assert html.index("fresh-project") < html.index("stale-project")
+
+
+def test_dashboard_tenant_filter_limits_projects(app, client, login_admin, monkeypatch, tmp_path):
+    monkeypatch.setattr("app.routes.admin.list_windows_for_aliases", lambda *args, **kwargs: [])
+    monkeypatch.setattr("app.routes.admin.get_repo_status", lambda project: {})
+
+    with app.app_context():
+        tenant_one = Tenant.query.filter_by(name="tenant-one").first()
+        user = User.query.filter_by(email="admin@example.com").first()
+        tenant_two = Tenant(name="tenant-two", description="Tenant Two")
+        tenant_three = Tenant(name="tenant-three", description="Tenant Three")
+        project_alpha = Project(
+            name="alpha-project",
+            repo_url="git@example.com/alpha.git",
+            default_branch="main",
+            tenant=tenant_one,
+            owner=user,
+            local_path=str(tmp_path / "alpha"),
+        )
+        project_beta = Project(
+            name="beta-project",
+            repo_url="git@example.com/beta.git",
+            default_branch="main",
+            tenant=tenant_two,
+            owner=user,
+            local_path=str(tmp_path / "beta"),
+        )
+        db.session.add_all([tenant_two, tenant_three, project_alpha, project_beta])
+        db.session.commit()
+        tenant_two_id = tenant_two.id
+        tenant_three_id = tenant_three.id
+
+    response = client.get(f"/admin/?tenant={tenant_two_id}")
+    assert response.status_code == 200
+    html = response.data.decode()
+    assert "beta-project" in html
+    assert "alpha-project" not in html
+    assert f"Filtered by {tenant_two.name}" in html
+
+    response_empty = client.get(f"/admin/?tenant={tenant_three_id}")
+    assert response_empty.status_code == 200
+    empty_html = response_empty.data.decode()
+    assert "No projects match the selected tenant." in empty_html
+    assert "Clear filter" in empty_html

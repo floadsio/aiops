@@ -20,7 +20,16 @@
       <tr>
         <td>{{ key.name }}</td>
         <td><code>{{ key.fingerprint }}</code></td>
-        <td>{{ key.tenant.name if key.tenant else "Unassigned" }}</td>
+        <td>
+          {% if key.tenant %}
+            <span class="tenant-badge" style="--tenant-color: {{ key.tenant.color or default_tenant_color }}">
+              <span class="tenant-badge__swatch" aria-hidden="true"></span>
+              {{ key.tenant.name }}
+            </span>
+          {% else %}
+            <span class="text-muted">Unassigned</span>
+          {% endif %}
+        </td>
         <td>{{ key.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
         <td>{{ "Stored" if key.private_key_path else "—" }}</td>
         <td>

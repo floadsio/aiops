@@ -26,6 +26,7 @@
     <style>
       :root {
         --app-gutter-inline: clamp(1.25rem, 2vw, 2.75rem);
+        --tenant-fallback-color: {{ default_tenant_color }};
       }
       .container {
         width: 100%;
@@ -109,6 +110,32 @@
       }
       .inline-form .link-button.danger {
         color: #dc2626;
+      }
+      .tenant-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.15rem 0.65rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: inherit;
+        background: rgba(148, 163, 184, 0.1);
+      }
+      .tenant-badge__swatch {
+        width: 0.85rem;
+        height: 0.85rem;
+        border-radius: 999px;
+        background: var(--tenant-color, var(--tenant-fallback-color));
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.1);
+      }
+      [data-theme="dark"] .tenant-badge {
+        border-color: rgba(148, 163, 184, 0.8);
+        background: rgba(148, 163, 184, 0.16);
+      }
+      .tenant-accent {
+        border-top: 4px solid var(--tenant-color, var(--tenant-fallback-color));
       }
       .version-badge {
         display: inline-flex;

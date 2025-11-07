@@ -2,7 +2,13 @@
 {% block title %}{{ project.name }} | Projects{% endblock %}
 {% block content %}
 <h1>{{ project.name }}</h1>
-<p><strong>Tenant:</strong> {{ project.tenant.name }}</p>
+<p>
+  <strong>Tenant:</strong>
+  <span class="tenant-badge" style="--tenant-color: {{ project.tenant.color or default_tenant_color }}">
+    <span class="tenant-badge__swatch" aria-hidden="true"></span>
+    {{ project.tenant.name }}
+  </span>
+</p>
 <p><strong>Repository:</strong> <code>{{ project.repo_url }}</code></p>
 <p><strong>Local Path:</strong> <code>{{ project.local_path }}</code></p>
 

@@ -468,13 +468,21 @@
       {% for card in project_cards %}
         {% set project = card.project %}
         {% set status = card.status %}
-        <article class="dashboard-card project-card">
+        <article
+          class="dashboard-card project-card tenant-accent"
+          style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+        >
           <h3>
             <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">
               {{ project.name }}
             </a>
           </h3>
-          <p>Tenant: {{ project.tenant.name }}</p>
+          <p>
+            <span class="tenant-badge" style="--tenant-color: {{ project.tenant.color or default_tenant_color }}">
+              <span class="tenant-badge__swatch" aria-hidden="true"></span>
+              {{ project.tenant.name }}
+            </span>
+          </p>
           {% set issue_form = card.issue_sync_form %}
           {% set git_form = card.git_refresh_form %}
           <div class="project-actions">
@@ -632,13 +640,21 @@
   {% if tenants %}
     <div class="dashboard-grid">
       {% for tenant in tenants %}
-        <article class="dashboard-card tenant-card">
+        <article
+          class="dashboard-card tenant-card tenant-accent"
+          style="--tenant-color: {{ tenant.color or default_tenant_color }}"
+        >
           <div class="tenant-meta">
             <span>
               {{ tenant.projects|length }} project{{ '' if tenant.projects|length == 1 else 's' }}
             </span>
           </div>
-          <h3>{{ tenant.name }}</h3>
+          <h3>
+            <span class="tenant-badge" style="--tenant-color: {{ tenant.color or default_tenant_color }}">
+              <span class="tenant-badge__swatch" aria-hidden="true"></span>
+              {{ tenant.name }}
+            </span>
+          </h3>
           <p class="tenant-description">
             {{
               tenant.description or

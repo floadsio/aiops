@@ -140,7 +140,12 @@
           {% for project in projects %}
           <tr>
             <td>{{ project.name }}</td>
-            <td>{{ project.tenant.name }}</td>
+            <td>
+              <span class="tenant-badge" style="--tenant-color: {{ project.tenant.color or default_tenant_color }}">
+                <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                {{ project.tenant.name }}
+              </span>
+            </td>
             <td>{{ project.owner.email }}</td>
             <td><code>{{ project.repo_url }}</code></td>
             <td>
@@ -166,7 +171,10 @@
     </div>
     <div class="projects-card-list">
       {% for project in projects %}
-        <article class="project-card">
+        <article
+          class="project-card tenant-accent"
+          style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+        >
           <header class="project-card__header">
             <div>
               <h3>{{ project.name }}</h3>
@@ -179,7 +187,12 @@
           <dl class="project-card__meta">
             <div class="project-card__meta-item">
               <dt>Tenant</dt>
-              <dd>{{ project.tenant.name }}</dd>
+              <dd>
+                <span class="tenant-badge" style="--tenant-color: {{ project.tenant.color or default_tenant_color }}">
+                  <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                  {{ project.tenant.name }}
+                </span>
+              </dd>
             </div>
             <div class="project-card__meta-item">
               <dt>Owner</dt>

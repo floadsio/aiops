@@ -6,6 +6,7 @@ from typing import Optional
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
+from .constants import DEFAULT_TENANT_COLOR
 from .extensions import db, login_manager
 from .security import LoginUser
 
@@ -53,6 +54,7 @@ class Tenant(db.Model, TimestampMixin):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True)
     description = Column(Text, nullable=True)
+    color = Column(String(16), nullable=False, default=DEFAULT_TENANT_COLOR)
 
     projects = relationship("Project", back_populates="tenant", cascade="all, delete-orphan")
     ssh_keys = relationship(

@@ -1,5 +1,23 @@
 {% extends "base.html" %}
 {% block title %}Tenants | aiops Control Panel{% endblock %}
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .tenant-color-select {
+      min-width: 10rem;
+    }
+    .tenant-color-form {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin: 0;
+    }
+    .tenant-color-form button {
+      padding: 0.25rem 0.75rem;
+    }
+  </style>
+{% endblock %}
 {% block content %}
 <h1>Tenants</h1>
 <form method="post">
@@ -18,6 +36,13 @@
       <span class="error">{{ error }}</span>
     {% endfor %}
   </label>
+  <label>
+    {{ form.color.label }}
+    {{ form.color(class_="tenant-color-select") }}
+    {% for error in form.color.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
   <button type="submit">Add Tenant</button>
 </form>
 
@@ -29,15 +54,29 @@
         <th>Name</th>
         <th>Description</th>
         <th>Projects</th>
+        <th>Color</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
-      {% for tenant in tenants %}
-      <tr>
-        <td>{{ tenant.name }}</td>
+      {% for tenant, color_form in tenant_rows %}
+      <tr id="tenant-{{ tenant.id }}">
+        <td>
+          <span class="tenant-badge" style="--tenant-color: {{ tenant.color or default_tenant_color }}">
+            <span class="tenant-badge__swatch" aria-hidden="true"></span>
+            {{ tenant.name }}
+          </span>
+        </td>
         <td>{{ tenant.description or "—" }}</td>
         <td>{{ tenant.projects|length }}</td>
+        <td>
+          <form method="post" class="tenant-color-form">
+            {{ color_form.hidden_tag() }}
+            {{ color_form.tenant_id(value=tenant.id) }}
+            {{ color_form.color(class_="tenant-color-select") }}
+            {{ color_form.save(class_="secondary outline") }}
+          </form>
+        </td>
         <td>
           <form method="post" class="inline-form">
             {{ delete_form.csrf_token }}
@@ -52,7 +91,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="4">No tenants yet.</td>
+        <td colspan="5">No tenants yet.</td>
       </tr>
       {% endfor %}
     </tbody>

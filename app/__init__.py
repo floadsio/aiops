@@ -6,6 +6,7 @@ from flask_wtf.csrf import generate_csrf
 
 from .cli import register_cli_commands
 from .config import Config
+from .constants import DEFAULT_TENANT_COLOR
 from .extensions import csrf, db, login_manager, migrate
 from .routes.api import api_bp
 from .routes.admin import admin_bp
@@ -51,6 +52,7 @@ def register_extensions(app: Flask) -> None:
         return {
             "csrf_token": generate_csrf,
             "app_version": app.config.get("AIOPS_VERSION", __version__),
+            "default_tenant_color": DEFAULT_TENANT_COLOR,
         }
 
 

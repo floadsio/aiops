@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
+from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..ai_sessions import close_session, create_session, get_session, resize_session, write_to_session
 from ..extensions import csrf, db
 from ..models import Project, Tenant, User
@@ -27,6 +28,7 @@ def _tenant_to_dict(tenant: Tenant) -> dict[str, Any]:
         "name": tenant.name,
         "description": tenant.description or "",
         "project_count": len(tenant.projects),
+        "color": tenant.color or DEFAULT_TENANT_COLOR,
     }
 
 
@@ -40,6 +42,7 @@ def _project_to_dict(project: Project, *, include_status: bool = False) -> dict[
         "local_path": project.local_path,
         "tenant_id": project.tenant_id,
         "owner_id": project.owner_id,
+        "tenant_color": (project.tenant.color if project.tenant else DEFAULT_TENANT_COLOR),
     }
     if include_status:
         payload["git_status"] = get_repo_status(project)
@@ -63,11 +66,12 @@ def create_tenant():
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
     description = (data.get("description") or "").strip() or None
+    color = sanitize_tenant_color(data.get("color"))
 
     if not name:
         return jsonify({"error": "Tenant name is required."}), 400
 
-    tenant = Tenant(name=name, description=description)
+    tenant = Tenant(name=name, description=description, color=color)
     db.session.add(tenant)
 
     try:

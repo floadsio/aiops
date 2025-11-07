@@ -362,7 +362,16 @@
             </td>
             <td>{{ issue.provider|capitalize }}</td>
             <td>{{ issue.project_name or "Unknown project" }}</td>
-            <td>{{ issue.tenant_name or "Unknown tenant" }}</td>
+            <td>
+              {% if issue.tenant_name %}
+                <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
+                  <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                  {{ issue.tenant_name }}
+                </span>
+              {% else %}
+                <span class="text-muted">Unknown tenant</span>
+              {% endif %}
+            </td>
             <td>{{ issue.updated_display or "Unknown" }}</td>
             <td>{{ issue.assignee or "Unassigned" }}</td>
             <td>
@@ -468,7 +477,16 @@
                   </div>
                   <div>
                     <dt>Tenant</dt>
-                    <dd>{{ issue.tenant_name or "Unknown tenant" }}</dd>
+                    <dd>
+                      {% if issue.tenant_name %}
+                        <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
+                          <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                          {{ issue.tenant_name }}
+                        </span>
+                      {% else %}
+                        <span class="text-muted">Unknown tenant</span>
+                      {% endif %}
+                    </dd>
                   </div>
                   <div>
                     <dt>Last Updated</dt>
@@ -541,7 +559,16 @@
           </div>
           <div class="issue-card__meta-item">
             <dt>Tenant</dt>
-            <dd>{{ issue.tenant_name or "Unknown tenant" }}</dd>
+            <dd>
+              {% if issue.tenant_name %}
+                <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
+                  <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                  {{ issue.tenant_name }}
+                </span>
+              {% else %}
+                <span class="text-muted">Unknown tenant</span>
+              {% endif %}
+            </dd>
           </div>
           <div class="issue-card__meta-item">
             <dt>Updated</dt>

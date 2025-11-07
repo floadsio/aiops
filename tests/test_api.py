@@ -7,6 +7,7 @@ import pytest
 
 from app import create_app, db
 from app.config import Config
+from app.constants import DEFAULT_TENANT_COLOR
 from app.models import Project, Tenant, User
 from app.security import hash_password
 
@@ -58,7 +59,9 @@ def test_create_tenant_and_project(test_app, monkeypatch):
 
     tenant_resp = client.post("/api/tenants", json={"name": "Alpha", "description": "Tenant Alpha"})
     assert tenant_resp.status_code == 201
-    tenant_id = tenant_resp.get_json()["tenant"]["id"]
+    tenant_payload = tenant_resp.get_json()["tenant"]
+    tenant_id = tenant_payload["id"]
+    assert tenant_payload["color"] == DEFAULT_TENANT_COLOR
 
     with test_app.app_context():
         owner_id = User.query.filter_by(email="admin@example.com").first().id  # type: ignore[union-attr]
@@ -80,6 +83,46 @@ def test_create_tenant_and_project(test_app, monkeypatch):
     assert tenant_detail.status_code == 200
     tenant_data = tenant_detail.get_json()["tenant"]
     assert any(p["id"] == project_id for p in tenant_data["projects"])
+    assert all(p["tenant_color"] == DEFAULT_TENANT_COLOR for p in tenant_data["projects"])
+
+
+def test_create_tenant_with_custom_color(test_app):
+    client = test_app.test_client()
+    login(client)
+
+    resp = client.post(
+        "/api/tenants",
+        json={"name": "Colorful", "description": "", "color": "#10b981"},
+    )
+    assert resp.status_code == 201
+    payload = resp.get_json()["tenant"]
+    assert payload["color"] == "#10b981"
+
+
+def test_create_tenant_invalid_color_falls_back(test_app):
+    client = test_app.test_client()
+    login(client)
+
+    resp = client.post(
+        "/api/tenants",
+        json={"name": "Fallback", "color": "#123456"},
+    )
+    assert resp.status_code == 201
+    payload = resp.get_json()["tenant"]
+    assert payload["color"] == DEFAULT_TENANT_COLOR
+
+
+def test_create_tenant_color_without_hash_is_normalized(test_app):
+    client = test_app.test_client()
+    login(client)
+
+    resp = client.post(
+        "/api/tenants",
+        json={"name": "Normalized", "color": "10b981"},
+    )
+    assert resp.status_code == 201
+    payload = resp.get_json()["tenant"]
+    assert payload["color"] == "#10b981"
 
 
 def _create_seed_project(app, tenant_name="seed", project_name="seed-project"):

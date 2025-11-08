@@ -1,19 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#051226"/>
-      <stop offset="100%" stop-color="#0b2343"/>
-    </linearGradient>
-    <linearGradient id="pulse" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#4ade80"/>
-      <stop offset="100%" stop-color="#22d3ee"/>
-    </linearGradient>
+    <radialGradient id="pulse" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#1ef2ff" stop-opacity="0.95"/>
+      <stop offset="55%" stop-color="#2563eb" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#04091a" stop-opacity="1"/>
+    </radialGradient>
   </defs>
-  <rect width="64" height="64" rx="12" fill="url(#bg)"/>
-  <circle cx="32" cy="32" r="22" fill="#0f3460" opacity="0.8"/>
-  <circle cx="32" cy="32" r="14" fill="#1d4ed8" opacity="0.75"/>
-  <path d="M10 36 L18 30 L26 44 L34 24 L44 39 L54 28" stroke="url(#pulse)" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="18" cy="30" r="2.5" fill="#f97316"/>
-  <circle cx="34" cy="24" r="2.5" fill="#f97316"/>
-  <circle cx="44" cy="39" r="2.5" fill="#f97316"/>
+  <rect width="96" height="96" rx="22" fill="#030712"/>
+  <circle cx="48" cy="48" r="36" fill="url(#pulse)" opacity="0.85"/>
+  <circle cx="48" cy="48" r="26" fill="#04091a" opacity="0.85"/>
+  <path d="M18 56 L30 42 L40 58 L50 30 L62 54 L74 40" fill="none" stroke="#7df9ff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="30" cy="42" r="3.2" fill="#fbbf24"/>
+  <circle cx="50" cy="30" r="3.2" fill="#fbbf24"/>
+  <circle cx="62" cy="54" r="3.2" fill="#fbbf24"/>
+  <text x="48" y="64" font-size="20" font-weight="600" text-anchor="middle" fill="#e0f2fe" font-family="'Inter', sans-serif">AO</text>
 </svg>

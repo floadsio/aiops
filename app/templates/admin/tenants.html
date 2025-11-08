@@ -20,31 +20,6 @@
 {% endblock %}
 {% block content %}
 <h1>Tenants</h1>
-<form method="post">
-  {{ form.hidden_tag() }}
-  <label>
-    {{ form.name.label }}
-    {{ form.name() }}
-    {% for error in form.name.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.description.label }}
-    {{ form.description(rows=3) }}
-    {% for error in form.description.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.color.label }}
-    {{ form.color(class_="tenant-color-select") }}
-    {% for error in form.color.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <button type="submit">Add Tenant</button>
-</form>
 
 <h2>Existing Tenants</h2>
 <div class="table-scroll">
@@ -97,4 +72,31 @@
     </tbody>
   </table>
 </div>
+
+<h2>Add Tenant</h2>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <label>
+    {{ form.name.label }}
+    {{ form.name() }}
+    {% for error in form.name.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.description.label }}
+    {{ form.description(rows=3) }}
+    {% for error in form.description.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.color.label }}
+    {{ form.color(class_="tenant-color-select") }}
+    {% for error in form.color.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <button type="submit">Add Tenant</button>
+</form>
 {% endblock %}

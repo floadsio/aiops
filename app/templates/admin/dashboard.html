@@ -567,11 +567,10 @@
   {% if recent_tmux_error %}
     <p class="warning-note">tmux unavailable: {{ recent_tmux_error }}</p>
   {% elif recent_tmux_windows %}
-    <div class="tmux-recent-grid">
+            <div class="tmux-recent-grid">
       {% for window in recent_tmux_windows %}
         <article class="tmux-recent-card">
           <div class="tmux-recent-meta">
-            <span class="tmux-chip">{{ window.window }}</span>
             {% if window.project %}
               <span
                 class="tenant-badge tenant-badge--tiny"
@@ -581,6 +580,7 @@
                 {{ window.project.tenant_name }}
               </span>
             {% endif %}
+            <span class="tmux-chip">{{ window.window }}</span>
             <span class="tmux-meta">
               {{ window.session }}
               {% if window.project %}

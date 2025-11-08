@@ -792,7 +792,7 @@ def quick_branch_switch():
         flash(message, category)
 
     restart_command = current_app.config.get("UPDATE_RESTART_COMMAND")
-    if restart_command:
+    if result.ok and restart_command:
         success, restart_message = _trigger_restart(restart_command)
         flash(restart_message, "info" if success else "danger")
 

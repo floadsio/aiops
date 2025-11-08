@@ -136,6 +136,7 @@
     <p>Pick a branch and run the update script with restart in one step. Use this when you need to jump between release trains quickly.</p>
     <form method="post" action="{{ url_for('admin.quick_branch_switch') }}">
       {{ quick_branch_form.hidden_tag() }}
+      {{ quick_branch_form.next }}
       <div class="settings-actions">
         <label>
           {{ quick_branch_form.branch.label }}

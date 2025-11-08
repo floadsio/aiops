@@ -172,13 +172,16 @@
       }
       .branch-switcher {
         position: relative;
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        margin: 0;
       }
       .branch-switcher summary {
         list-style: none;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
+        margin: 0;
       }
       .branch-switcher summary::marker,
       .branch-switcher summary::-webkit-details-marker {
@@ -364,6 +367,7 @@
                   <div class="branch-switcher__panel">
                     <form method="post" action="{{ url_for('admin.quick_branch_switch') }}">
                       {{ branch_switch_form.hidden_tag() }}
+                      {{ branch_switch_form.next(value=request.full_path or request.path) }}
                       <label>
                         <span style="font-size:0.85rem;font-weight:600;">Run branch</span>
                         {{ branch_switch_form.branch() }}

@@ -572,13 +572,15 @@
         <article class="tmux-recent-card">
           <div class="tmux-recent-meta">
             {% if window.project %}
-              <span
+              <a
                 class="tenant-badge tenant-badge--tiny"
                 style="--tenant-color: {{ window.project.tenant_color or default_tenant_color }}"
+                href="{{ url_for('admin.dashboard', q=window.project.tenant_name) }}"
+                title="Filter for {{ window.project.tenant_name }}"
               >
                 <span class="tenant-badge__swatch" aria-hidden="true"></span>
                 {{ window.project.tenant_name }}
-              </span>
+              </a>
             {% endif %}
             <span class="tmux-chip">{{ window.window }}</span>
             <span class="tmux-meta">
@@ -638,10 +640,15 @@
           "
         >
           <h3>
-            <span class="tenant-badge" style="--tenant-color: {{ project.tenant.color or default_tenant_color }}">
+            <a
+              class="tenant-badge"
+              style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+              href="{{ url_for('admin.dashboard', q=project.tenant.name) }}"
+              title="Filter dashboard by {{ project.tenant.name }}"
+            >
               <span class="tenant-badge__swatch" aria-hidden="true"></span>
               {{ project.tenant.name }}
-            </span>
+            </a>
             <a href="{{ url_for('projects.project_detail', project_id=project.id) }}">
               {{ project.name }}
             </a>
@@ -742,13 +749,15 @@
                   <div class="tmux-session-row">
                     <div class="tmux-session-meta">
                       {% if project.tenant %}
-                        <span
+                        <a
                           class="tenant-badge tenant-badge--tiny"
                           style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+                          href="{{ url_for('admin.dashboard', q=project.tenant.name) }}"
+                          title="Filter for {{ project.tenant.name }}"
                         >
                           <span class="tenant-badge__swatch" aria-hidden="true"></span>
                           {{ project.tenant.name }}
-                        </span>
+                        </a>
                       {% endif %}
                       <span class="tmux-chip">{{ session.window }}</span>
                       <span class="tmux-meta">

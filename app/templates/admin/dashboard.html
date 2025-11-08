@@ -742,7 +742,6 @@
                 {% for session in card.tmux_windows %}
                   <div class="tmux-session-row">
                     <div class="tmux-session-meta">
-                      <span class="tmux-chip">{{ session.window }}</span>
                       {% if project.tenant %}
                         <span
                           class="tenant-badge tenant-badge--tiny"
@@ -752,6 +751,7 @@
                           {{ project.tenant.name }}
                         </span>
                       {% endif %}
+                      <span class="tmux-chip">{{ session.window }}</span>
                       <span class="tmux-meta">
                         {{ session.session }}
                         / {{ project.name }}

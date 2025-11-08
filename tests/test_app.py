@@ -284,7 +284,7 @@ def test_project_detail_shows_external_issues(tmp_path):
     detail_resp = client.get(f"/projects/{project_id}")
     assert detail_resp.status_code == 200
     body = detail_resp.data.decode()
-    assert "External Issues" in body
+    assert "Issues" in body
     assert "Sample Issue" in body
     assert "GitLab Cloud" in body
     assert "group/demo" in body

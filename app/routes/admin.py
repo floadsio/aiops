@@ -159,7 +159,7 @@ def _format_issue_timestamp(value):
 
 
 ISSUE_SORT_COLUMNS = (
-    {"key": "external_id", "label": "External ID", "default_direction": "asc"},
+    {"key": "external_id", "label": "ID", "default_direction": "asc"},
     {"key": "title", "label": "Title", "default_direction": "asc"},
     {"key": "status", "label": "Status", "default_direction": "asc"},
     {"key": "provider", "label": "Provider", "default_direction": "asc"},

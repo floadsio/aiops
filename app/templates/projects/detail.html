@@ -113,7 +113,7 @@
 </section>
 
 <section>
-  <h2>External Issues</h2>
+  <h2>Issues</h2>
   <form method="get" class="issue-filter-form">
     <label for="issue-status-filter">Issue status</label>
     <select id="issue-status-filter" name="issue_status" onchange="this.form.submit()">
@@ -216,7 +216,7 @@
                 {% endif %}
                 <br />
                 <small>
-                  External ID {{ issue.external_id }}
+                  ID {{ issue.external_id }}
                   {% if issue.updated_display %}
                     • Updated {{ issue.updated_display }}
                   {% endif %}
@@ -297,7 +297,7 @@
       </article>
     {% endfor %}
   {% else %}
-    <p class="text-muted">No external issue integrations linked to this project.</p>
+  <p class="text-muted">No issue integrations linked to this project.</p>
   {% endif %}
 </section>
 

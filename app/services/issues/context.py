@@ -82,7 +82,7 @@ def build_issue_agent_file(
         ## Selected Issue
         - Provider: {integration.provider if integration else 'unknown'}
         - Integration Name: {integration.name if integration else 'Unknown Integration'}
-        - External ID: {primary_issue.external_id}
+        - ID: {primary_issue.external_id}
         - Status: {primary_issue.status or 'unspecified'}
         - Assignee: {primary_issue.assignee or 'unassigned'}
         - Labels: {', '.join(primary_issue.labels) if primary_issue.labels else 'none'}

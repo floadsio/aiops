@@ -170,12 +170,19 @@
   .project-branch-row {
     display: flex;
     gap: 0.4rem;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
   }
   .project-branch-row input[type="text"] {
     min-width: 0;
+    flex: 1 1 10rem;
+  }
+  .project-branch-row select {
+    min-width: 0;
     flex: 1 1 8rem;
+  }
+  .project-branch-row button {
+    flex: 0 0 auto;
   }
   .dashboard-filter-form {
     display: flex;
@@ -199,6 +206,11 @@
     border-radius: 1rem;
     background: rgba(15, 23, 42, 0.05);
     border: 1px solid rgba(148, 163, 184, 0.3);
+  }
+  @media (max-width: 900px) {
+    .project-branch-row {
+      flex-wrap: wrap;
+    }
   }
   [data-theme="dark"] .issue-overview {
     background: rgba(30, 41, 59, 0.6);

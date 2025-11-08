@@ -8,8 +8,12 @@ from app import create_app, db
 from app.config import Config
 from app.models import Project, SSHKey, Tenant, User
 from app.security import hash_password
-from app.services.git_service import ensure_repo_checkout, _resolve_project_ssh_key_path
-from git import GitCommandError
+from app.services.git_service import (
+    ensure_repo_checkout,
+    _resolve_project_ssh_key_path,
+    delete_project_branch,
+)
+from git import GitCommandError, Repo
 
 
 @pytest.fixture()
@@ -301,3 +305,58 @@ def test_resolve_project_key_rebases_legacy_path(app, owner, tenant, tmp_path):
 
         resolved = _resolve_project_ssh_key_path(project)
         assert resolved == str(legacy_file)
+
+
+def _create_project(app, owner, tenant, local_path: Path) -> int:
+    with app.app_context():
+        project = Project(
+            name=f"proj-{local_path.name}",
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            local_path=str(local_path),
+            tenant=tenant,
+            owner=owner,
+        )
+        db.session.add(project)
+        db.session.commit()
+        return project.id
+
+
+def test_delete_project_branch_removes_branch(app, owner, tenant, tmp_path):
+    repo_path = tmp_path / "repos" / "demo-delete"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    repo = Repo.init(repo_path)
+    (repo_path / "README.md").write_text("root", encoding="utf-8")
+    repo.index.add(["README.md"])
+    repo.index.commit("init")
+    repo.git.branch("-M", "main")
+    repo.git.checkout("-b", "feature/demo")
+    (repo_path / "demo.txt").write_text("demo", encoding="utf-8")
+    repo.index.add(["demo.txt"])
+    repo.index.commit("feature work")
+    repo.git.checkout("main")
+
+    project_id = _create_project(app, owner, tenant, repo_path)
+
+    with app.app_context():
+        project = Project.query.get(project_id)
+        delete_project_branch(project, "feature/demo", force=True)
+        remaining = [head.name for head in Repo(repo_path).heads]
+        assert "feature/demo" not in remaining
+
+
+def test_delete_project_branch_rejects_default(app, owner, tenant, tmp_path):
+    repo_path = tmp_path / "repos" / "demo-delete-default"
+    repo_path.mkdir(parents=True, exist_ok=True)
+    repo = Repo.init(repo_path)
+    (repo_path / "README.md").write_text("root", encoding="utf-8")
+    repo.index.add(["README.md"])
+    repo.index.commit("init")
+    repo.git.branch("-M", "main")
+
+    project_id = _create_project(app, owner, tenant, repo_path)
+
+    with app.app_context():
+        project = Project.query.get(project_id)
+        with pytest.raises(RuntimeError, match="Cannot delete the default branch"):
+            delete_project_branch(project, "main")

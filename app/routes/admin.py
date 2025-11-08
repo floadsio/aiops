@@ -72,6 +72,7 @@ from ..services.git_service import (
     run_git_action,
     checkout_or_create_branch,
     merge_branch,
+    delete_project_branch,
     list_project_branches,
 )
 from ..services.issues import (
@@ -1146,6 +1147,19 @@ def manage_project_branch(project_id: int):
             flash(str(exc), "danger")
         else:
             flash(f"Merged {source_branch} into {target_branch} for {project.name}.", "success")
+        return redirect(url_for("admin.dashboard"))
+
+    if form.delete_submit.data:
+        branch_to_delete = (form.delete_branch.data or "").strip()
+        if not branch_to_delete:
+            flash("Select a branch to delete.", "danger")
+            return redirect(url_for("admin.dashboard"))
+        try:
+            delete_project_branch(project, branch_to_delete, force=True)
+        except RuntimeError as exc:
+            flash(str(exc), "danger")
+        else:
+            flash(f"Deleted branch {branch_to_delete} for {project.name}.", "success")
         return redirect(url_for("admin.dashboard"))
 
     flash("Select a branch action.", "warning")

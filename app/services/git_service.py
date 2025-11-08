@@ -421,6 +421,31 @@ def list_project_branches(project: Project, *, include_remote: bool = False) -> 
     return ordered
 
 
+def delete_project_branch(project: Project, branch: str, *, force: bool = False) -> None:
+    branch = (branch or "").strip()
+    if not branch:
+        raise RuntimeError("Branch name is required.")
+    repo = ensure_repo_checkout(project)
+    default_branch = project.default_branch or "main"
+    if branch == default_branch:
+        raise RuntimeError("Cannot delete the default branch.")
+    existing_branches = [head.name for head in repo.heads]
+    if branch not in existing_branches:
+        raise RuntimeError(f"Branch {branch} does not exist.")
+
+    target_branch = default_branch if default_branch in existing_branches else existing_branches[0]
+    env = build_project_git_env(project)
+    context = repo.git.custom_environment(**env) if env else nullcontext()
+    with context:
+        current_branch = getattr(repo.head, "ref", None)
+        if current_branch and current_branch.name == branch:
+            repo.git.checkout(target_branch)
+        try:
+            repo.git.branch("-D" if force else "-d", branch)
+        except GitCommandError as exc:
+            raise RuntimeError(f"Failed to delete branch {branch}: {exc}") from exc
+
+
 def checkout_or_create_branch(project: Project, branch: str, base: Optional[str] = None) -> bool:
     branch = (branch or "").strip()
     if not branch:

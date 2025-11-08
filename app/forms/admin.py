@@ -234,6 +234,8 @@ class ProjectBranchForm(FlaskForm):
     merge_target = StringField("Target Branch", validators=[Length(max=128)])
     checkout_submit = SubmitField("Checkout/Create")
     merge_submit = SubmitField("Merge Branch")
+    delete_branch = StringField("Delete Branch", validators=[Length(max=128)])
+    delete_submit = SubmitField("Delete Branch")
 
 
 class CreateUserForm(FlaskForm):

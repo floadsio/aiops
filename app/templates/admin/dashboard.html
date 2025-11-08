@@ -777,6 +777,26 @@
                   {{ branch_form.merge_submit(class="secondary outline") }}
                 </div>
               </div>
+              <div class="project-branch-row">
+                <div class="project-branch-field">
+                  <select name="{{ branch_form.delete_branch.name }}" aria-label="Delete branch">
+                    <option value="">Select branch to delete</option>
+                    {% for branch in card.branch_choices %}
+                      {% if branch != project.default_branch %}
+                        <option value="{{ branch }}" {% if (branch_form.delete_branch.data or '') == branch %}selected{% endif %}>
+                          {{ branch }}
+                        </option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="project-branch-field">
+                  {{ branch_form.delete_submit(
+                    class="critical outline",
+                    onclick="return confirm('Delete this branch locally?')"
+                  ) }}
+                </div>
+              </div>
             </form>
           </div>
           <div class="project-actions">

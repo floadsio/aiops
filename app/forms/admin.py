@@ -200,6 +200,17 @@ class UpdateApplicationForm(FlaskForm):
     submit = SubmitField("Run Update")
 
 
+class QuickBranchSwitchForm(FlaskForm):
+    branch = SelectField(
+        "Git branch",
+        choices=[],
+        validators=[DataRequired()],
+        validate_choice=False,
+    )
+    next = HiddenField()
+    submit = SubmitField("Switch & Restart")
+
+
 class CodexUpdateForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Update Codex CLI")

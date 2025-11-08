@@ -1,7 +1,8 @@
 from pathlib import Path
 from typing import Optional, Type
 
-from flask import Flask
+from flask import Flask, request
+from flask_login import current_user
 from flask_wtf.csrf import generate_csrf
 
 from .cli import register_cli_commands
@@ -14,6 +15,8 @@ from .routes.auth import auth_bp
 from .routes.projects import projects_bp
 from .version import __version__
 from .git_info import detect_repo_branch
+from .forms.admin import QuickBranchSwitchForm
+from .services.branch_state import configure_branch_form, load_recorded_branch
 
 
 def create_app(
@@ -50,19 +53,18 @@ def register_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_csrf_token():
-        marker = Path(app.instance_path) / "current_branch.txt"
-        recorded_branch = None
-        if marker.exists():
-            try:
-                recorded_branch = marker.read_text(encoding="utf-8").strip() or None
-            except OSError:
-                recorded_branch = None
+        recorded_branch = load_recorded_branch()
         branch = recorded_branch or detect_repo_branch(Path(app.root_path).parent)
+        branch_switch_form = QuickBranchSwitchForm(prefix="header-branch")
+        configure_branch_form(branch_switch_form)
+        if request:
+            branch_switch_form.next.data = request.full_path or request.path
         return {
             "csrf_token": generate_csrf,
             "app_version": app.config.get("AIOPS_VERSION", __version__),
             "app_git_branch": branch or "unknown",
             "default_tenant_color": DEFAULT_TENANT_COLOR,
+            "branch_switch_form": branch_switch_form,
         }
 
 

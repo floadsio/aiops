@@ -64,13 +64,15 @@ def test_settings_page_loads(client, login_admin):
 
 def test_settings_update_branch_dropdown(client, login_admin, monkeypatch):
     monkeypatch.setattr(
-        "app.routes.admin._available_system_branches",
+        "app.services.branch_state.available_branches",
         lambda: ["git-identities", "main", "release-2024-08"],
     )
+    monkeypatch.setattr("app.services.branch_state.load_recorded_branch", lambda: None)
     resp = client.get("/admin/settings")
     assert resp.status_code == 200
     assert b"git-identities" in resp.data
     assert b"release-2024-08" in resp.data
+    assert b"Quick Branch Switch" in resp.data
 
 
 def test_run_system_update_records_branch(app, client, login_admin, monkeypatch):
@@ -79,9 +81,10 @@ def test_run_system_update_records_branch(app, client, login_admin, monkeypatch)
         marker_path.unlink()
 
     monkeypatch.setattr(
-        "app.routes.admin._available_system_branches",
+        "app.services.branch_state.available_branches",
         lambda: ["main", "release-2024-08"],
     )
+    monkeypatch.setattr("app.services.branch_state.load_recorded_branch", lambda: None)
 
     def fake_run_update_script(*, extra_env=None):
         assert extra_env == {"AIOPS_UPDATE_BRANCH": "release-2024-08"}
@@ -97,6 +100,35 @@ def test_run_system_update_records_branch(app, client, login_admin, monkeypatch)
     assert resp.status_code == 200
     assert marker_path.exists()
     assert marker_path.read_text().strip() == "release-2024-08"
+
+
+def test_quick_branch_switch_runs_update(app, client, login_admin, monkeypatch):
+    called = {}
+
+    def fake_run_update_script(*, extra_env=None):
+        called["env"] = extra_env
+        return SimpleNamespace(ok=True, returncode=0, stdout="done", stderr="")
+
+    def fake_restart(command):
+        called["restart"] = command
+        return True, "Restart command executed."
+
+    monkeypatch.setattr("app.services.branch_state.available_branches", lambda: ["main", "develop"])
+    monkeypatch.setattr("app.services.branch_state.load_recorded_branch", lambda: None)
+    monkeypatch.setattr("app.routes.admin.run_update_script", fake_run_update_script)
+    monkeypatch.setattr("app.routes.admin._trigger_restart", fake_restart)
+
+    with app.app_context():
+        app.config["UPDATE_RESTART_COMMAND"] = "systemctl restart aiops"
+
+    resp = client.post(
+        "/admin/system/quick-branch",
+        data={"branch": "develop"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert called["env"] == {"AIOPS_UPDATE_BRANCH": "develop"}
+    assert "restart" in called
 
 
 def test_create_user_via_settings(app, client, login_admin):

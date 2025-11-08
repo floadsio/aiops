@@ -132,6 +132,22 @@
   </article>
 
   <article class="settings-card">
+    <h2>Quick Branch Switch</h2>
+    <p>Pick a branch and run the update script with restart in one step. Use this when you need to jump between release trains quickly.</p>
+    <form method="post" action="{{ url_for('admin.quick_branch_switch') }}">
+      {{ quick_branch_form.hidden_tag() }}
+      <div class="settings-actions">
+        <label>
+          {{ quick_branch_form.branch.label }}
+          {{ quick_branch_form.branch() }}
+        </label>
+        <button type="submit" class="secondary">Switch & Restart</button>
+        <span class="text-muted form-helper">Runs the same update script and immediately triggers the configured restart command.</span>
+      </div>
+    </form>
+  </article>
+
+  <article class="settings-card">
     <h2>tmux Sessions</h2>
     <p>Ensure each project has an active tmux window and remove orphaned project windows from the shared session.</p>
     <p class="text-muted">Creates missing windows (matching the DB) and prunes stale `-p<ID>` tmux windows.</p>

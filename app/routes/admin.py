@@ -23,7 +23,6 @@ from flask import (
 )
 from markupsafe import Markup, escape
 from flask_login import current_user, login_required
-from git import Repo
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -40,6 +39,7 @@ from ..forms.admin import (
     ProjectBranchForm,
     ProjectDeleteForm,
     UpdateApplicationForm,
+    QuickBranchSwitchForm,
     CreateUserForm,
     UserUpdateForm,
     UserToggleAdminForm,
@@ -104,6 +104,11 @@ from ..services.agent_context import (
     extract_issue_description,
 )
 from ..services.log_service import read_log_tail, LogReadError
+from ..services.branch_state import (
+    configure_branch_form,
+    remember_branch,
+    current_repo_branch,
+)
 from ..security import hash_password
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
@@ -132,76 +137,6 @@ def _truncate_output(text: str, limit: int = 4000) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + "\n… (truncated)"
-
-
-def _current_repo_branch() -> str:
-    repo_root = Path(current_app.root_path).parent
-    try:
-        repo = Repo(repo_root)
-        if repo.head.is_detached:
-            return repo.head.commit.hexsha[:7]
-        return repo.active_branch.name
-    except Exception:  # noqa: BLE001 - best effort helper
-        return "main"
-
-
-def _branch_marker_path() -> Path:
-    marker_dir = Path(current_app.instance_path)
-    marker_dir.mkdir(parents=True, exist_ok=True)
-    return marker_dir / "current_branch.txt"
-
-
-def _load_recorded_branch() -> str | None:
-    marker = _branch_marker_path()
-    if not marker.exists():
-        return None
-    try:
-        value = marker.read_text(encoding="utf-8").strip()
-    except OSError:
-        return None
-    return value or None
-
-
-def _remember_selected_branch(branch: str | None) -> None:
-    marker = _branch_marker_path()
-    if branch:
-        try:
-            marker.write_text(branch.strip(), encoding="utf-8")
-        except OSError:
-            current_app.logger.warning("Unable to record selected branch to %s", marker)
-    else:
-        try:
-            marker.unlink(missing_ok=True)
-        except OSError:
-            current_app.logger.debug("Branch marker removal skipped; file missing.", exc_info=True)
-
-
-def _available_system_branches() -> list[str]:
-    repo_root = Path(current_app.root_path).parent
-    detected = list_repo_branches(repo_root, include_remote=True)
-    branches: list[str] = []
-    current_branch = _current_repo_branch()
-    if current_branch:
-        branches.append(current_branch)
-    for name in detected:
-        if name not in branches:
-            branches.append(name)
-    if not branches:
-        branches.append("main")
-    return branches
-
-
-def _configure_update_branch_field(form: UpdateApplicationForm) -> None:
-    branches = _available_system_branches()
-    recorded_branch = _load_recorded_branch()
-    choices = [(branch, branch) for branch in branches]
-    if recorded_branch and recorded_branch not in {value for value, _ in choices}:
-        choices.insert(0, (recorded_branch, recorded_branch))
-    form.branch.choices = choices
-    if recorded_branch:
-        form.branch.data = recorded_branch
-    elif not form.branch.data and choices:
-        form.branch.data = choices[0][0]
 
 
 def _issue_sort_key(issue: ExternalIssue):
@@ -661,7 +596,7 @@ def dashboard():
 def manage_settings():
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.manage_settings")
-    _configure_update_branch_field(update_form)
+    configure_branch_form(update_form)
 
     codex_update_form = CodexUpdateForm()
     codex_update_form.next.data = url_for("admin.manage_settings")
@@ -682,6 +617,10 @@ def manage_settings():
             update_available=False,
             errors=(f"Unable to determine Codex status: {exc}",),
         )
+
+    quick_branch_form = QuickBranchSwitchForm()
+    quick_branch_form.next.data = url_for("admin.manage_settings")
+    configure_branch_form(quick_branch_form)
 
     create_user_form = CreateUserForm()
     if create_user_form.submit.data:
@@ -747,6 +686,7 @@ def manage_settings():
         log_file=current_app.config.get("LOG_FILE"),
         codex_status=codex_status,
         codex_update_form=codex_update_form,
+        quick_branch_form=quick_branch_form,
     )
 
 
@@ -754,7 +694,7 @@ def manage_settings():
 @admin_required
 def run_system_update():
     form = UpdateApplicationForm()
-    _configure_update_branch_field(form)
+    configure_branch_form(form)
     if not form.validate_on_submit():
         flash("Invalid update request.", "danger")
         return redirect(url_for("admin.dashboard"))
@@ -764,7 +704,7 @@ def run_system_update():
     env_overrides = {}
     if branch_override:
         env_overrides["AIOPS_UPDATE_BRANCH"] = branch_override
-    _remember_selected_branch(branch_override or _current_repo_branch())
+    remember_branch(branch_override or current_repo_branch())
 
     try:
         result = run_update_script(extra_env=env_overrides or None)
@@ -805,6 +745,58 @@ def run_system_update():
 
     redirect_target = form.next.data or url_for("admin.dashboard")
     return redirect(redirect_target)
+
+
+@admin_bp.route("/system/quick-branch", methods=["POST"])
+@admin_required
+def quick_branch_switch():
+    form = QuickBranchSwitchForm()
+    configure_branch_form(form)
+    if not form.validate_on_submit():
+        flash("Invalid branch switch request.", "danger")
+        return redirect(form.next.data or url_for("admin.dashboard"))
+
+    branch = (form.branch.data or "").strip()
+    if not branch:
+        flash("Select a branch to switch to.", "warning")
+        return redirect(form.next.data or url_for("admin.dashboard"))
+
+    env_overrides = {"AIOPS_UPDATE_BRANCH": branch}
+    remember_branch(branch)
+
+    try:
+        result = run_update_script(extra_env=env_overrides)
+    except UpdateError as exc:
+        current_app.logger.exception("Quick branch switch failed to start.")
+        flash(str(exc), "danger")
+        return redirect(form.next.data or url_for("admin.dashboard"))
+
+    combined_output = "\n".join(
+        part for part in [result.stdout.strip(), result.stderr.strip()] if part
+    )
+    truncated = _truncate_output(combined_output)
+    message = (
+        f"Switched to {branch} (exit {result.returncode})."
+        if result.ok
+        else f"Branch switch failed (exit {result.returncode})."
+    )
+    category = "success" if result.ok else "danger"
+    if combined_output:
+        current_app.logger.info("Quick branch switch output: %s", combined_output)
+    if truncated:
+        flash(
+            Markup(f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"),
+            category,
+        )
+    else:
+        flash(message, category)
+
+    restart_command = current_app.config.get("UPDATE_RESTART_COMMAND")
+    if restart_command:
+        success, restart_message = _trigger_restart(restart_command)
+        flash(restart_message, "info" if success else "danger")
+
+    return redirect(form.next.data or url_for("admin.dashboard"))
 
 
 @admin_bp.route("/settings/migrations/run", methods=["POST"])

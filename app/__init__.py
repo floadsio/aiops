@@ -38,7 +38,6 @@ def create_app(
     register_cli_commands(app)
 
     app.config.setdefault("AIOPS_VERSION", __version__)
-    app.config.setdefault("AIOPS_GIT_BRANCH", detect_repo_branch())
 
     return app
 
@@ -51,10 +50,11 @@ def register_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_csrf_token():
+        branch = detect_repo_branch(Path(app.root_path).parent)
         return {
             "csrf_token": generate_csrf,
             "app_version": app.config.get("AIOPS_VERSION", __version__),
-            "app_git_branch": app.config.get("AIOPS_GIT_BRANCH"),
+            "app_git_branch": branch or "unknown",
             "default_tenant_color": DEFAULT_TENANT_COLOR,
         }
 

@@ -604,27 +604,6 @@
           </h3>
           {% set issue_form = card.issue_sync_form %}
           {% set git_form = card.git_refresh_form %}
-          <div class="project-actions">
-            <form method="post" action="{{ url_for('admin.refresh_project_issues', project_id=project.id) }}">
-              {{ issue_form.hidden_tag() }}
-              {{ issue_form.project_id() }}
-              <button type="submit" class="secondary">Refresh Issues</button>
-            </form>
-            <form method="post" action="{{ url_for('admin.refresh_project_git', project_id=project.id) }}">
-              {{ git_form.hidden_tag() }}
-              {{ git_form.project_id() }}
-              <select name="{{ git_form.branch.name }}" aria-label="Branch">
-                <option value="">Default ({{ project.default_branch }})</option>
-                {% for branch in card.branch_choices %}
-                  <option value="{{ branch }}" {% if (git_form.branch.data or '') == branch %}selected{% endif %}>
-                    {{ branch }}
-                  </option>
-                {% endfor %}
-              </select>
-              {{ git_form.submit(class="secondary outline") }}
-              {{ git_form.clean_submit(class="critical outline", title="Discard local changes before pulling.") }}
-            </form>
-          </div>
           {% set branch_form = card.branch_form %}
           <div class="project-branch-tools">
             <form method="post" action="{{ url_for('admin.manage_project_branch', project_id=project.id) }}" class="project-branch-form">
@@ -800,6 +779,27 @@
               </div>
             </div>
           {% endif %}
+          <div class="project-actions">
+            <form method="post" action="{{ url_for('admin.refresh_project_issues', project_id=project.id) }}">
+              {{ issue_form.hidden_tag() }}
+              {{ issue_form.project_id() }}
+              <button type="submit" class="secondary">Refresh Issues</button>
+            </form>
+            <form method="post" action="{{ url_for('admin.refresh_project_git', project_id=project.id) }}">
+              {{ git_form.hidden_tag() }}
+              {{ git_form.project_id() }}
+              <select name="{{ git_form.branch.name }}" aria-label="Branch">
+                <option value="">Default ({{ project.default_branch }})</option>
+                {% for branch in card.branch_choices %}
+                  <option value="{{ branch }}" {% if (git_form.branch.data or '') == branch %}selected{% endif %}>
+                    {{ branch }}
+                  </option>
+                {% endfor %}
+              </select>
+              {{ git_form.submit(class="secondary outline") }}
+              {{ git_form.clean_submit(class="critical outline", title="Discard local changes before pulling.") }}
+            </form>
+          </div>
         </article>
       {% endfor %}
     </div>

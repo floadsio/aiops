@@ -26,8 +26,18 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
     <style>
       :root {
-        --app-gutter-inline: clamp(1.25rem, 2vw, 2.75rem);
+        --app-gutter-inline: clamp(1rem, 5vw, 2.75rem);
         --tenant-fallback-color: {{ default_tenant_color }};
+        box-sizing: border-box;
+      }
+      *, *::before, *::after {
+        box-sizing: inherit;
+      }
+      html, body {
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
+        margin: 0;
       }
       .container {
         width: 100%;

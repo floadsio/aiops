@@ -172,10 +172,17 @@
       }
       .branch-switcher {
         position: relative;
+        display: inline-block;
       }
       .branch-switcher summary {
         list-style: none;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+      }
+      .branch-switcher summary::marker,
+      .branch-switcher summary::-webkit-details-marker {
+        display: none;
       }
       .branch-switcher[open] summary::marker,
       .branch-switcher summary::-webkit-details-marker {

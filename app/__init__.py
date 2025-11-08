@@ -55,7 +55,7 @@ def register_extensions(app: Flask) -> None:
     def inject_csrf_token():
         recorded_branch = load_recorded_branch()
         branch = recorded_branch or detect_repo_branch(Path(app.root_path).parent)
-        branch_switch_form = QuickBranchSwitchForm(prefix="header-branch")
+        branch_switch_form = QuickBranchSwitchForm()
         configure_branch_form(branch_switch_form)
         if request:
             branch_switch_form.next.data = request.full_path or request.path

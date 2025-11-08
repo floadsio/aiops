@@ -61,6 +61,17 @@ def test_settings_page_loads(client, login_admin):
     assert b"User Accounts" in resp.data
 
 
+def test_settings_update_branch_dropdown(client, login_admin, monkeypatch):
+    monkeypatch.setattr(
+        "app.routes.admin._available_system_branches",
+        lambda: ["git-identities", "main", "release-2024-08"],
+    )
+    resp = client.get("/admin/settings")
+    assert resp.status_code == 200
+    assert b"git-identities" in resp.data
+    assert b"release-2024-08" in resp.data
+
+
 def test_create_user_via_settings(app, client, login_admin):
     resp = client.post(
         "/admin/settings",

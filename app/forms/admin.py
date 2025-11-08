@@ -190,7 +190,12 @@ class ProjectGitRefreshForm(FlaskForm):
 
 class UpdateApplicationForm(FlaskForm):
     restart = BooleanField("Restart application after update")
-    branch = StringField("Git branch", validators=[Length(max=128)], default="main")
+    branch = SelectField(
+        "Git branch",
+        choices=[],
+        validators=[Optional()],
+        validate_choice=False,
+    )
     next = HiddenField()
     submit = SubmitField("Run Update")
 

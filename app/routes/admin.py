@@ -56,6 +56,7 @@ from ..forms.admin import (
     MigrationRunForm,
     TmuxResyncForm,
 )
+from ..git_info import list_repo_branches
 from ..models import (
     ExternalIssue,
     Project,
@@ -142,6 +143,30 @@ def _current_repo_branch() -> str:
         return repo.active_branch.name
     except Exception:  # noqa: BLE001 - best effort helper
         return "main"
+
+
+def _available_system_branches() -> list[str]:
+    repo_root = Path(current_app.root_path).parent
+    detected = list_repo_branches(repo_root, include_remote=True)
+    branches: list[str] = []
+    current_branch = _current_repo_branch()
+    if current_branch:
+        branches.append(current_branch)
+    for name in detected:
+        if name not in branches:
+            branches.append(name)
+    if not branches:
+        branches.append("main")
+    return branches
+
+
+def _configure_update_branch_field(form: UpdateApplicationForm) -> None:
+    branches = _available_system_branches()
+    form.branch.choices = [(branch, branch) for branch in branches]
+    if not form.branch.data:
+        form.branch.data = branches[0]
+    elif form.branch.data not in {value for value, _ in form.branch.choices}:
+        form.branch.choices.append((form.branch.data, form.branch.data))
 
 
 def _issue_sort_key(issue: ExternalIssue):
@@ -594,8 +619,7 @@ def dashboard():
 def manage_settings():
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.manage_settings")
-    if not update_form.branch.data:
-        update_form.branch.data = _current_repo_branch()
+    _configure_update_branch_field(update_form)
 
     codex_update_form = CodexUpdateForm()
     codex_update_form.next.data = url_for("admin.manage_settings")
@@ -688,6 +712,7 @@ def manage_settings():
 @admin_required
 def run_system_update():
     form = UpdateApplicationForm()
+    _configure_update_branch_field(form)
     if not form.validate_on_submit():
         flash("Invalid update request.", "danger")
         return redirect(url_for("admin.dashboard"))

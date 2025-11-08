@@ -50,7 +50,14 @@ def register_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_csrf_token():
-        branch = detect_repo_branch(Path(app.root_path).parent)
+        marker = Path(app.instance_path) / "current_branch.txt"
+        recorded_branch = None
+        if marker.exists():
+            try:
+                recorded_branch = marker.read_text(encoding="utf-8").strip() or None
+            except OSError:
+                recorded_branch = None
+        branch = recorded_branch or detect_repo_branch(Path(app.root_path).parent)
         return {
             "csrf_token": generate_csrf,
             "app_version": app.config.get("AIOPS_VERSION", __version__),

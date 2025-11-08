@@ -145,6 +145,37 @@ def _current_repo_branch() -> str:
         return "main"
 
 
+def _branch_marker_path() -> Path:
+    marker_dir = Path(current_app.instance_path)
+    marker_dir.mkdir(parents=True, exist_ok=True)
+    return marker_dir / "current_branch.txt"
+
+
+def _load_recorded_branch() -> str | None:
+    marker = _branch_marker_path()
+    if not marker.exists():
+        return None
+    try:
+        value = marker.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    return value or None
+
+
+def _remember_selected_branch(branch: str | None) -> None:
+    marker = _branch_marker_path()
+    if branch:
+        try:
+            marker.write_text(branch.strip(), encoding="utf-8")
+        except OSError:
+            current_app.logger.warning("Unable to record selected branch to %s", marker)
+    else:
+        try:
+            marker.unlink(missing_ok=True)
+        except OSError:
+            current_app.logger.debug("Branch marker removal skipped; file missing.", exc_info=True)
+
+
 def _available_system_branches() -> list[str]:
     repo_root = Path(current_app.root_path).parent
     detected = list_repo_branches(repo_root, include_remote=True)
@@ -162,11 +193,15 @@ def _available_system_branches() -> list[str]:
 
 def _configure_update_branch_field(form: UpdateApplicationForm) -> None:
     branches = _available_system_branches()
-    form.branch.choices = [(branch, branch) for branch in branches]
-    if not form.branch.data:
-        form.branch.data = branches[0]
-    elif form.branch.data not in {value for value, _ in form.branch.choices}:
-        form.branch.choices.append((form.branch.data, form.branch.data))
+    recorded_branch = _load_recorded_branch()
+    choices = [(branch, branch) for branch in branches]
+    if recorded_branch and recorded_branch not in {value for value, _ in choices}:
+        choices.insert(0, (recorded_branch, recorded_branch))
+    form.branch.choices = choices
+    if recorded_branch:
+        form.branch.data = recorded_branch
+    elif not form.branch.data and choices:
+        form.branch.data = choices[0][0]
 
 
 def _issue_sort_key(issue: ExternalIssue):
@@ -722,6 +757,7 @@ def run_system_update():
     env_overrides = {}
     if branch_override:
         env_overrides["AIOPS_UPDATE_BRANCH"] = branch_override
+    _remember_selected_branch(branch_override or _current_repo_branch())
 
     try:
         result = run_update_script(extra_env=env_overrides or None)

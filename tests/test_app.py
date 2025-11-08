@@ -29,6 +29,28 @@ def test_app_factory():
     assert response.status_code == 200
 
 
+def test_branch_badge_uses_recorded_marker(tmp_path):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'branch.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    instance_dir = tmp_path / "instance"
+    app = create_app(TestConfig, instance_path=instance_dir)
+
+    with app.app_context():
+        db.create_all()
+        marker = Path(app.instance_path) / "current_branch.txt"
+        marker.parent.mkdir(parents=True, exist_ok=True)
+        marker.write_text("release-2024-08\n", encoding="utf-8")
+
+    client = app.test_client()
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b"branch: release-2024-08" in resp.data
+
+
 def test_seed_command(tmp_path):
     class TestConfig(Config):
         TESTING = True

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -70,6 +71,32 @@ def test_settings_update_branch_dropdown(client, login_admin, monkeypatch):
     assert resp.status_code == 200
     assert b"git-identities" in resp.data
     assert b"release-2024-08" in resp.data
+
+
+def test_run_system_update_records_branch(app, client, login_admin, monkeypatch):
+    marker_path = Path(app.instance_path) / "current_branch.txt"
+    if marker_path.exists():
+        marker_path.unlink()
+
+    monkeypatch.setattr(
+        "app.routes.admin._available_system_branches",
+        lambda: ["main", "release-2024-08"],
+    )
+
+    def fake_run_update_script(*, extra_env=None):
+        assert extra_env == {"AIOPS_UPDATE_BRANCH": "release-2024-08"}
+        return SimpleNamespace(ok=True, returncode=0, stdout="done", stderr="")
+
+    monkeypatch.setattr("app.routes.admin.run_update_script", fake_run_update_script)
+
+    resp = client.post(
+        "/admin/system/update",
+        data={"branch": "release-2024-08", "submit": "Run Update"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert marker_path.exists()
+    assert marker_path.read_text().strip() == "release-2024-08"
 
 
 def test_create_user_via_settings(app, client, login_admin):

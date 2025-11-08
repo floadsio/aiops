@@ -165,24 +165,27 @@
   .project-branch-form {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.65rem;
   }
   .project-branch-row {
     display: flex;
+    flex-direction: column;
     gap: 0.4rem;
-    flex-wrap: nowrap;
+  }
+  .project-branch-field {
+    display: flex;
+    gap: 0.45rem;
     align-items: center;
   }
-  .project-branch-row input[type="text"] {
+  .project-branch-field input[type="text"],
+  .project-branch-field select {
     min-width: 0;
-    flex: 1 1 10rem;
+    flex: 1 1 auto;
   }
-  .project-branch-row select {
-    min-width: 0;
-    flex: 1 1 8rem;
-  }
-  .project-branch-row button {
+  .project-branch-field button {
     flex: 0 0 auto;
+    padding: 0.3rem 0.65rem;
+    font-size: 0.85rem;
   }
   .dashboard-filter-form {
     display: flex;
@@ -206,11 +209,6 @@
     border-radius: 1rem;
     background: rgba(15, 23, 42, 0.05);
     border: 1px solid rgba(148, 163, 184, 0.3);
-  }
-  @media (max-width: 900px) {
-    .project-branch-row {
-      flex-wrap: wrap;
-    }
   }
   [data-theme="dark"] .issue-overview {
     background: rgba(30, 41, 59, 0.6);
@@ -633,32 +631,40 @@
               {{ branch_form.hidden_tag() }}
               {{ branch_form.project_id() }}
               <div class="project-branch-row">
-                {{ branch_form.branch_name(placeholder="feature/my-work") }}
-                <select name="{{ branch_form.base_branch.name }}" aria-label="Base branch">
-                  {% for branch in card.branch_choices %}
-                    <option value="{{ branch }}" {% if (branch_form.base_branch.data or '') == branch %}selected{% endif %}>
-                      {{ branch }}
-                    </option>
-                  {% endfor %}
-                </select>
-                {{ branch_form.checkout_submit(class="secondary outline") }}
+                <div class="project-branch-field">
+                  {{ branch_form.branch_name(placeholder="feature/my-work") }}
+                </div>
+                <div class="project-branch-field">
+                  <select name="{{ branch_form.base_branch.name }}" aria-label="Base branch">
+                    {% for branch in card.branch_choices %}
+                      <option value="{{ branch }}" {% if (branch_form.base_branch.data or '') == branch %}selected{% endif %}>
+                        {{ branch }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  {{ branch_form.checkout_submit(class="secondary outline") }}
+                </div>
               </div>
               <div class="project-branch-row">
-                <select name="{{ branch_form.merge_source.name }}" aria-label="Source branch">
-                  {% for branch in card.branch_choices %}
-                    <option value="{{ branch }}" {% if (branch_form.merge_source.data or '') == branch %}selected{% endif %}>
-                      {{ branch }}
-                    </option>
-                  {% endfor %}
-                </select>
-                <select name="{{ branch_form.merge_target.name }}" aria-label="Target branch">
-                  {% for branch in card.branch_choices %}
-                    <option value="{{ branch }}" {% if (branch_form.merge_target.data or '') == branch %}selected{% endif %}>
-                      {{ branch }}
-                    </option>
-                  {% endfor %}
-                </select>
-                {{ branch_form.merge_submit(class="secondary outline") }}
+                <div class="project-branch-field">
+                  <select name="{{ branch_form.merge_source.name }}" aria-label="Source branch">
+                    {% for branch in card.branch_choices %}
+                      <option value="{{ branch }}" {% if (branch_form.merge_source.data or '') == branch %}selected{% endif %}>
+                        {{ branch }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="project-branch-field">
+                  <select name="{{ branch_form.merge_target.name }}" aria-label="Target branch">
+                    {% for branch in card.branch_choices %}
+                      <option value="{{ branch }}" {% if (branch_form.merge_target.data or '') == branch %}selected{% endif %}>
+                        {{ branch }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                  {{ branch_form.merge_submit(class="secondary outline") }}
+                </div>
               </div>
             </form>
           </div>

@@ -505,7 +505,13 @@ def dashboard():
         branch_form.merge_source.data = status.get("branch") or project.default_branch
         branch_form.merge_target.data = project.default_branch
         git_refresh_form.branch.data = status.get("branch") or project.default_branch
-        branch_choices = list_project_branches(project)
+        try:
+            branch_choices = list_project_branches(project)
+        except RuntimeError as exc:
+            current_app.logger.warning(
+                "Failed to list branches for project %s: %s", project.name, exc
+            )
+            branch_choices = [project.default_branch] if project.default_branch else []
 
         project_cards.append(
             {

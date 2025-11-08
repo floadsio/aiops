@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import shlex
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Iterable
 
-from ..models import ExternalIssue, Project
+from ..models import ExternalIssue, Project, User
 from .issues.utils import format_issue_datetime, summarize_issue
 
 
@@ -276,8 +277,10 @@ def render_issue_context(
     project: Project,
     primary_issue: ExternalIssue,
     all_issues: Iterable[ExternalIssue],
+    *,
+    identity_user: User | None = None,
 ) -> str:
-    """Build Markdown instructions for the selected issue."""
+    """Build Markdown instructions for the selected issue, optionally including git identity guidance."""
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
     integration = (
         primary_issue.project_integration.integration
@@ -343,6 +346,9 @@ def render_issue_context(
         5. Summarize modifications and verification commands when you finish.
         """
     ).strip()
+    git_identity_section = _render_git_identity_section(identity_user)
+    if git_identity_section:
+        content = f"{content}\n\n{git_identity_section.strip()}"
     return f"{content}\n"
 
 
@@ -363,6 +369,8 @@ def write_local_issue_context(
     primary_issue: ExternalIssue,
     all_issues: Iterable[ExternalIssue],
     filename: str = DEFAULT_CONTEXT_FILENAME,
+    *,
+    identity_user: User | None = None,
 ) -> Path:
     """Alias for tracked issue context writing (kept for compatibility)."""
     return write_tracked_issue_context(
@@ -370,6 +378,7 @@ def write_local_issue_context(
         primary_issue,
         all_issues,
         filename=filename,
+        identity_user=identity_user,
     )
 
 
@@ -378,6 +387,8 @@ def write_tracked_issue_context(
     primary_issue: ExternalIssue,
     all_issues: Iterable[ExternalIssue],
     filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
+    *,
+    identity_user: User | None = None,
 ) -> Path:
     """Update a tracked AGENTS.override.md file with the latest context for the selected issue."""
     repo_path = Path(project.local_path)
@@ -386,7 +397,12 @@ def write_tracked_issue_context(
 
     context_path = repo_path / filename
     base_content = _load_base_instructions(repo_path)
-    issue_content = render_issue_context(project, primary_issue, all_issues).rstrip()
+    issue_content = render_issue_context(
+        project,
+        primary_issue,
+        all_issues,
+        identity_user=identity_user,
+    ).rstrip()
     header_note = "NOTE: Generated issue context. Update before publishing if needed."
     appended_section = (
         f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
@@ -421,6 +437,67 @@ def write_tracked_issue_context(
 
     context_path.write_text(updated.rstrip() + "\n", encoding="utf-8")
     return context_path
+
+
+def _render_git_identity_section(identity_user: User | None) -> str:
+    """Return a Markdown section describing the git identity to use."""
+    if identity_user is None:
+        return ""
+    name = (getattr(identity_user, "name", "") or "").strip()
+    email = (getattr(identity_user, "email", "") or "").strip()
+    if not name and not email:
+        return ""
+
+    details: list[str] = []
+    if name:
+        details.append(f"- Name: {name}")
+    if email:
+        details.append(f"- Email: {email}")
+
+    setup_commands: list[str] = []
+    env_commands: list[str] = []
+    if name:
+        quoted_name = shlex.quote(name)
+        setup_commands.append(f"git config user.name {quoted_name}")
+        env_commands.extend(
+            [
+                f"export GIT_AUTHOR_NAME={quoted_name}",
+                f"export GIT_COMMITTER_NAME={quoted_name}",
+            ]
+        )
+    if email:
+        quoted_email = shlex.quote(email)
+        setup_commands.append(f"git config user.email {quoted_email}")
+        env_commands.extend(
+            [
+                f"export GIT_AUTHOR_EMAIL={quoted_email}",
+                f"export GIT_COMMITTER_EMAIL={quoted_email}",
+            ]
+        )
+
+    commands: list[str] = []
+    if setup_commands:
+        commands.extend(setup_commands)
+    if env_commands:
+        if commands:
+            commands.append("")
+        commands.extend(env_commands)
+
+    command_block = ""
+    if commands:
+        command_block = f"```bash\n" + "\n".join(commands) + "\n```"
+
+    section = dedent(
+        f"""
+        ## Git Identity
+        Use this identity for commits created while working on this issue.
+
+        {'\n'.join(details)}
+
+        {command_block}
+        """
+    ).strip()
+    return section
 
 
 def _remove_existing_issue_context(source: str) -> str:

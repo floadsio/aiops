@@ -13,6 +13,7 @@ from .routes.admin import admin_bp
 from .routes.auth import auth_bp
 from .routes.projects import projects_bp
 from .version import __version__
+from .git_info import detect_repo_branch
 
 
 def create_app(
@@ -37,6 +38,7 @@ def create_app(
     register_cli_commands(app)
 
     app.config.setdefault("AIOPS_VERSION", __version__)
+    app.config.setdefault("AIOPS_GIT_BRANCH", detect_repo_branch())
 
     return app
 
@@ -52,6 +54,7 @@ def register_extensions(app: Flask) -> None:
         return {
             "csrf_token": generate_csrf,
             "app_version": app.config.get("AIOPS_VERSION", __version__),
+            "app_git_branch": app.config.get("AIOPS_GIT_BRANCH"),
             "default_tenant_color": DEFAULT_TENANT_COLOR,
         }
 

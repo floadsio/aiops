@@ -332,6 +332,9 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     local_contents = local_context_path.read_text()
     assert "Sample Issue" in local_contents
     assert "Secondary Issue" in local_contents
+    assert "## Git Identity" in local_contents
+    assert "Owner" in local_contents
+    assert "owner@example.com" in local_contents
 
 
 def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
@@ -433,11 +436,15 @@ def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
     assert "_No content yet._" not in tracked_contents
     assert "<!-- issue-context:start -->" in tracked_contents
     assert "<!-- issue-context:end -->" in tracked_contents
+    assert "## Git Identity" in tracked_contents
+    assert "Owner" in tracked_contents
+    assert "owner@example.com" in tracked_contents
 
     assert local_path.exists()
     local_contents = local_path.read_text()
     assert "Sample Issue" in local_contents
     assert "Secondary Issue" in local_contents
+    assert "## Git Identity" in local_contents
 
 
 def test_agents_editor_save_and_push(tmp_path, monkeypatch):

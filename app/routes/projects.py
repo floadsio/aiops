@@ -575,7 +575,12 @@ def prepare_issue_context(project_id: int, issue_id: int):
     prompt = ""
     agents_path = None
     try:
-        agents_path = write_tracked_issue_context(project, issue, all_issues)
+        agents_path = write_tracked_issue_context(
+            project,
+            issue,
+            all_issues,
+            identity_user=getattr(current_user, "model", None),
+        )
     except OSError as exc:
         current_app.logger.exception("Failed to update agent context for project %s", project.id)
         return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
@@ -617,7 +622,12 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
     )
 
     try:
-        tracked_path = write_tracked_issue_context(project, issue, all_issues)
+        tracked_path = write_tracked_issue_context(
+            project,
+            issue,
+            all_issues,
+            identity_user=getattr(current_user, "model", None),
+        )
     except OSError as exc:
         current_app.logger.exception("Failed to populate agent context for project %s", project.id)
         return jsonify({"error": f"Failed to write agent files: {exc}"}), 500

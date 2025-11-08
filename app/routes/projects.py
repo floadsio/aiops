@@ -37,7 +37,12 @@ from ..services.ansible_runner import (
     SemaphoreConfigError,
     SemaphoreTimeoutError,
 )
-from ..services.git_service import commit_project_files, get_repo_status, run_git_action
+from ..services.git_service import (
+    commit_project_files,
+    get_repo_status,
+    run_git_action,
+    get_project_commit_history,
+)
 from ..services.tmux_service import (
     list_windows_for_aliases,
     TmuxServiceError,
@@ -368,6 +373,22 @@ def project_detail(project_id: int):
             }
         )
 
+    commit_history: list[dict[str, str]] = []
+    commit_history_error: str | None = None
+    try:
+        raw_history = get_project_commit_history(project, limit=8)
+        for entry in raw_history:
+            commit_history.append(
+                {
+                    "short_hash": entry["short_hash"],
+                    "message": entry["message"],
+                    "author": entry["author"],
+                    "date_display": _format_timestamp(entry["date"]),
+                }
+            )
+    except Exception as exc:  # noqa: BLE001
+        commit_history_error = str(exc)
+
     return render_template(
         "projects/detail.html",
         project=project,
@@ -383,6 +404,8 @@ def project_detail(project_id: int):
         issue_status_options=issue_status_options,
         ssh_key_form=ssh_key_form,
         tenant_default_key=tenant_default_key,
+        commit_history=commit_history,
+        commit_history_error=commit_history_error,
     )
 
 

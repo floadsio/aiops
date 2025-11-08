@@ -1,5 +1,37 @@
 {% extends "base.html" %}
 {% block title %}{{ project.name }} | Projects{% endblock %}
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .git-history-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+    .git-history-list li {
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 0.75rem;
+      padding: 0.65rem 0.85rem;
+      background: rgba(15, 23, 42, 0.02);
+    }
+    [data-theme="dark"] .git-history-list li {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+    .git-history-list code {
+      font-size: 0.85rem;
+    }
+    .git-history-list small {
+      color: #475569;
+    }
+    [data-theme="dark"] .git-history-list small {
+      color: rgba(226, 232, 240, 0.7);
+    }
+  </style>
+{% endblock %}
 {% block content %}
 <h1>{{ project.name }}</h1>
 <p>
@@ -56,6 +88,27 @@
         {% endfor %}
       </ul>
     </details>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Recent Git History</h2>
+  {% if commit_history %}
+    <ul class="git-history-list">
+      {% for commit in commit_history %}
+        <li>
+          <div>
+            <code>{{ commit.short_hash }}</code>
+            — {{ commit.message }}
+          </div>
+          <small>{{ commit.author }} • {{ commit.date_display }}</small>
+        </li>
+      {% endfor %}
+    </ul>
+  {% elif commit_history_error %}
+    <p class="warning-note">Git history unavailable: {{ commit_history_error }}</p>
+  {% else %}
+    <p class="text-muted">No commits recorded yet.</p>
   {% endif %}
 </section>
 

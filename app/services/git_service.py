@@ -421,6 +421,31 @@ def list_project_branches(project: Project, *, include_remote: bool = False) -> 
     return ordered
 
 
+def get_project_commit_history(project: Project, limit: int = 10) -> list[dict[str, Any]]:
+    repo = ensure_repo_checkout(project)
+    history: list[dict[str, Any]] = []
+    try:
+        commits = repo.iter_commits(max_count=limit)
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"Unable to read commit history: {exc}") from exc
+
+    for commit in commits:
+        committed_at = commit.committed_datetime
+        if committed_at.tzinfo is None:
+            committed_at = committed_at.replace(tzinfo=timezone.utc)
+        history.append(
+            {
+                "hash": commit.hexsha,
+                "short_hash": commit.hexsha[:7],
+                "author": getattr(commit.author, "name", None) or "unknown",
+                "email": getattr(commit.author, "email", None),
+                "date": committed_at,
+                "message": (commit.message or "").splitlines()[0],
+            }
+        )
+    return history
+
+
 def delete_project_branch(project: Project, branch: str, *, force: bool = False) -> None:
     branch = (branch or "").strip()
     if not branch:

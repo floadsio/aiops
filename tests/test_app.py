@@ -17,6 +17,7 @@ from app.security import hash_password
 from app.services.ansible_runner import run_ansible_playbook
 from app.services.key_service import resolve_private_key_path
 from app.services.issues import IssuePayload
+from git import Repo
 
 
 def test_app_factory():
@@ -163,11 +164,22 @@ def test_project_consoles(tmp_path):
             is_admin=True,
         )
         tenant = Tenant(name="demo", description="Demo tenant")
+        repo_path = tmp_path / "repos" / "demo-project"
+        repo_path.mkdir(parents=True, exist_ok=True)
+        repo = Repo.init(repo_path)
+        (repo_path / "README.md").write_text("demo", encoding="utf-8")
+        repo.index.add(["README.md"])
+        repo.index.commit("Initial commit")
+        repo.git.branch("-M", "main")
+        (repo_path / "notes.md").write_text("notes", encoding="utf-8")
+        repo.index.add(["notes.md"])
+        repo.index.commit("Add notes")
+
         project = Project(
             name="demo-project",
             repo_url="git@example.com/demo.git",
             default_branch="main",
-            local_path=str(tmp_path / "repos" / "demo-project"),
+            local_path=str(repo_path),
             tenant=tenant,
             owner=user,
         )
@@ -211,11 +223,21 @@ def test_project_detail_shows_external_issues(tmp_path):
             is_admin=True,
         )
         tenant = Tenant(name="demo", description="Demo tenant")
+        repo_path = tmp_path / "repos" / "demo-project"
+        repo_path.mkdir(parents=True, exist_ok=True)
+        repo = Repo.init(repo_path)
+        (repo_path / "README.md").write_text("demo", encoding="utf-8")
+        repo.index.add(["README.md"])
+        repo.index.commit("Initial commit")
+        repo.git.branch("-M", "main")
+        (repo_path / "notes.md").write_text("notes", encoding="utf-8")
+        repo.index.add(["notes.md"])
+        repo.index.commit("Add notes")
         project = Project(
             name="demo-project",
             repo_url="git@example.com/demo.git",
             default_branch="main",
-            local_path=str(tmp_path / "repos" / "demo-project"),
+            local_path=str(repo_path),
             tenant=tenant,
             owner=user,
         )
@@ -267,6 +289,8 @@ def test_project_detail_shows_external_issues(tmp_path):
     assert "GitLab Cloud" in body
     assert "group/demo" in body
     assert "Start Codex Session" in body
+    assert "Recent Git History" in body
+    assert "Initial commit" in body
 
 
 def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):

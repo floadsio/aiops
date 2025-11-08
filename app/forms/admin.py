@@ -183,12 +183,14 @@ class ProjectIssueSyncForm(FlaskForm):
 
 class ProjectGitRefreshForm(FlaskForm):
     project_id = HiddenField(validators=[DataRequired()])
+    branch = StringField("Branch", validators=[Length(max=128)])
     submit = SubmitField("Pull Latest")
     clean_submit = SubmitField("Clean Pull")
 
 
 class UpdateApplicationForm(FlaskForm):
     restart = BooleanField("Restart application after update")
+    branch = StringField("Git branch", validators=[Length(max=128)], default="main")
     next = HiddenField()
     submit = SubmitField("Run Update")
 
@@ -206,6 +208,16 @@ class MigrationRunForm(FlaskForm):
 class TmuxResyncForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Resync tmux")
+
+
+class ProjectBranchForm(FlaskForm):
+    project_id = HiddenField(validators=[DataRequired()])
+    branch_name = StringField("Branch", validators=[Length(max=128)])
+    base_branch = StringField("Base Branch", validators=[Length(max=128)])
+    merge_source = StringField("Source Branch", validators=[Length(max=128)])
+    merge_target = StringField("Target Branch", validators=[Length(max=128)])
+    checkout_submit = SubmitField("Checkout/Create")
+    merge_submit = SubmitField("Merge Branch")
 
 
 class CreateUserForm(FlaskForm):

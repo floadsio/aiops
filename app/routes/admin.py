@@ -23,6 +23,7 @@ from flask import (
 )
 from markupsafe import Markup, escape
 from flask_login import current_user, login_required
+from git import Repo
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -36,6 +37,7 @@ from ..forms.admin import (
     ProjectIntegrationUpdateForm,
     ProjectIssueSyncForm,
     ProjectGitRefreshForm,
+    ProjectBranchForm,
     ProjectDeleteForm,
     UpdateApplicationForm,
     CreateUserForm,
@@ -63,7 +65,14 @@ from ..models import (
     TenantIntegration,
     User,
 )
-from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
+from ..services.git_service import (
+    ensure_repo_checkout,
+    get_repo_status,
+    run_git_action,
+    checkout_or_create_branch,
+    merge_branch,
+    list_project_branches,
+)
 from ..services.issues import (
     ISSUE_STATUS_MAX_LENGTH,
     IssueSyncError,
@@ -122,6 +131,17 @@ def _truncate_output(text: str, limit: int = 4000) -> str:
     if len(text) <= limit:
         return text
     return text[:limit] + "\n… (truncated)"
+
+
+def _current_repo_branch() -> str:
+    repo_root = Path(current_app.root_path).parent
+    try:
+        repo = Repo(repo_root)
+        if repo.head.is_detached:
+            return repo.head.commit.hexsha[:7]
+        return repo.active_branch.name
+    except Exception:  # noqa: BLE001 - best effort helper
+        return "main"
 
 
 def _issue_sort_key(issue: ExternalIssue):
@@ -275,7 +295,7 @@ def dashboard():
             return False
         return search_lower in (value or "").lower()
 
-    def _project_matches_query(project: Project) -> bool:
+    def _project_matches_query(project: Project, windows: list[dict[str, Any]]) -> bool:
         return any(
             _contains_query(field)
             for field in (
@@ -284,7 +304,7 @@ def dashboard():
                 project.repo_url,
                 project.tenant.name if project.tenant else None,
             )
-        )
+        ) or _tmux_windows_match(windows)
 
     def _tmux_windows_match(windows: list[dict[str, Any]]) -> bool:
         return any(
@@ -474,10 +494,18 @@ def dashboard():
                 }
             )
 
-        matches_query = _project_matches_query(project) if search_query else True
-        tmux_matches_query = _tmux_windows_match(tmux_windows) if search_query else False
-        if search_query and not (matches_query or tmux_matches_query):
+        matches_query = _project_matches_query(project, tmux_windows) if search_query else True
+        if search_query and not matches_query:
             continue
+
+        branch_form = ProjectBranchForm(formdata=None)
+        branch_form.project_id.data = str(project.id)
+        branch_form.branch_name.data = status.get("branch") or project.default_branch
+        branch_form.base_branch.data = project.default_branch
+        branch_form.merge_source.data = status.get("branch") or project.default_branch
+        branch_form.merge_target.data = project.default_branch
+        git_refresh_form.branch.data = status.get("branch") or project.default_branch
+        branch_choices = list_project_branches(project)
 
         project_cards.append(
             {
@@ -492,6 +520,8 @@ def dashboard():
                 },
                 "issue_sync_form": issue_sync_form,
                 "git_refresh_form": git_refresh_form,
+                "branch_form": branch_form,
+                "branch_choices": branch_choices,
                 "last_activity": last_activity or datetime.min.replace(tzinfo=timezone.utc),
             }
         )
@@ -558,6 +588,8 @@ def dashboard():
 def manage_settings():
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.manage_settings")
+    if not update_form.branch.data:
+        update_form.branch.data = _current_repo_branch()
 
     codex_update_form = CodexUpdateForm()
     codex_update_form.next.data = url_for("admin.manage_settings")
@@ -655,9 +687,13 @@ def run_system_update():
         return redirect(url_for("admin.dashboard"))
 
     restart_requested = bool(form.restart.data)
+    branch_override = (form.branch.data or "").strip()
+    env_overrides = {}
+    if branch_override:
+        env_overrides["AIOPS_UPDATE_BRANCH"] = branch_override
 
     try:
-        result = run_update_script()
+        result = run_update_script(extra_env=env_overrides or None)
     except UpdateError as exc:
         current_app.logger.exception("Application update failed to start.")
         flash(str(exc), "danger")
@@ -990,8 +1026,9 @@ def refresh_project_git(project_id: int):
 
     project = Project.query.get_or_404(project_id)
     clean_requested = bool(form.clean_submit.data)
+    branch_name = (form.branch.data or "").strip() or None
     try:
-        output = run_git_action(project, "pull", clean=clean_requested)
+        output = run_git_action(project, "pull", ref=branch_name, clean=clean_requested)
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("Git pull failed for project_id=%s", project_id)
         flash(f"Git pull failed: {exc}", "danger")
@@ -999,10 +1036,53 @@ def refresh_project_git(project_id: int):
         if clean_requested:
             flash(f"Clean pull completed for {project.name}.", "success")
         else:
-            flash(f"Pulled latest changes for {project.name}.", "success")
+            branch_label = branch_name or project.default_branch
+            flash(f"Pulled latest changes for {project.name} ({branch_label}).", "success")
         current_app.logger.info(
             "Git pull for project %s (clean=%s): %s", project.name, clean_requested, output
         )
+    return redirect(url_for("admin.dashboard"))
+
+
+@admin_bp.route("/projects/<int:project_id>/branch/manage", methods=["POST"])
+@admin_required
+def manage_project_branch(project_id: int):
+    form = ProjectBranchForm()
+    if not form.validate_on_submit() or str(project_id) != (form.project_id.data or ""):
+        flash("Invalid branch request.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    project = Project.query.get_or_404(project_id)
+    if form.checkout_submit.data:
+        branch_name = (form.branch_name.data or "").strip()
+        base_branch = (form.base_branch.data or project.default_branch or "").strip()
+        if not branch_name:
+            flash("Branch name is required.", "danger")
+            return redirect(url_for("admin.dashboard"))
+        try:
+            created = checkout_or_create_branch(project, branch_name, base_branch)
+        except RuntimeError as exc:
+            flash(str(exc), "danger")
+        else:
+            action = "Created" if created else "Checked out"
+            flash(f"{action} branch {branch_name} for {project.name}.", "success")
+        return redirect(url_for("admin.dashboard"))
+
+    if form.merge_submit.data:
+        source_branch = (form.merge_source.data or "").strip()
+        target_branch = (form.merge_target.data or project.default_branch or "").strip()
+        if not source_branch or not target_branch:
+            flash("Source and target branches are required to merge.", "danger")
+            return redirect(url_for("admin.dashboard"))
+        try:
+            merge_branch(project, source_branch, target_branch)
+        except RuntimeError as exc:
+            flash(str(exc), "danger")
+        else:
+            flash(f"Merged {source_branch} into {target_branch} for {project.name}.", "success")
+        return redirect(url_for("admin.dashboard"))
+
+    flash("Select a branch action.", "warning")
     return redirect(url_for("admin.dashboard"))
 
 

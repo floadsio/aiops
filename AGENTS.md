@@ -23,6 +23,8 @@ live under `ansible/`.
   when needed.
 - Use the Admin → Settings “tmux Sessions” card to resync tmux windows with DB projects after DB
   restores; it recreates missing windows and prunes orphaned `-p<ID>` sessions.
+- Dashboard project cards include branch-aware git controls plus inline forms to checkout/create or
+  merge branches; prefer these tools when testing feature branches.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

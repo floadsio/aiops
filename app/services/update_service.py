@@ -34,6 +34,7 @@ def run_update_script(
     script_path: Optional[str | Path] = None,
     *,
     timeout: int = 900,
+    extra_env: Optional[dict[str, str]] = None,
 ) -> UpdateResult:
     """
     Execute the repository update script and capture output for display.
@@ -68,6 +69,8 @@ def run_update_script(
     path_parts = [str(path) for path in bin_candidates if path.exists()]
     if path_parts:
         env["PATH"] = os.pathsep.join(path_parts + [env.get("PATH", "")])
+    if extra_env:
+        env.update({key: str(value) for key, value in extra_env.items() if value is not None})
 
     try:
         completed = subprocess.run(

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from pathlib import Path
+
+from git import Repo
+from git.exc import GitCommandError
 
 import pytest
 
@@ -11,6 +15,7 @@ from app.security import hash_password
 from app.services.key_service import resolve_private_key_path
 from app.services.update_service import UpdateError
 from app.services.tmux_service import TmuxServiceError
+from app.services.git_service import checkout_or_create_branch
 from app.services.migration_service import MigrationError
 
 
@@ -53,6 +58,43 @@ def login_admin(client):
         follow_redirects=True,
     )
     assert response.status_code == 200
+
+
+def _create_project(app, name="demo-branch"):
+    with app.app_context():
+        tenant = Tenant.query.filter_by(name="tenant-one").first()
+        user = User.query.filter_by(email="admin@example.com").first()
+        assert tenant is not None and user is not None
+        repo_dir = Path(app.config["REPO_STORAGE_PATH"]) / name
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        repo = Repo.init(repo_dir)
+        readme = repo_dir / "README.md"
+        readme.write_text("demo", encoding="utf-8")
+        repo.index.add([str(readme)])
+        repo.index.commit("init")
+        current_branch = None
+        try:
+            current_branch = repo.active_branch.name
+        except TypeError:
+            current_branch = None
+        if current_branch != "main":
+            try:
+                repo.git.checkout("-b", "main")
+            except GitCommandError:
+                repo.git.checkout("main")
+        repo.git.branch("feature/demo")
+
+        project = Project(
+            name=name,
+            repo_url="git@example.com/demo.git",
+            default_branch="main",
+            tenant=tenant,
+            owner=user,
+            local_path=str(repo_dir),
+        )
+        db.session.add(project)
+        db.session.commit()
+        return project.id
 
 
 def test_can_create_tenant_integration(app, client, login_admin):
@@ -372,6 +414,63 @@ def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"tmux unavailable" in response.data
+
+
+def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):
+    project_id = _create_project(app)
+    calls = {}
+
+    def fake_checkout(project, branch, base):
+        calls["project"] = project.id
+        calls["branch"] = branch
+        calls["base"] = base
+        return True
+
+    monkeypatch.setattr("app.routes.admin.checkout_or_create_branch", fake_checkout)
+
+    response = client.post(
+        f"/admin/projects/{project_id}/branch/manage",
+        data={
+            "project_id": str(project_id),
+            "branch_name": "feature/demo",
+            "base_branch": "main",
+            "checkout_submit": "Checkout/Create",
+        },
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert calls["project"] == project_id
+    assert calls["branch"] == "feature/demo"
+    assert calls["base"] == "main"
+    assert b"Created branch feature/demo" in response.data
+
+
+def test_admin_project_branch_merge(app, client, login_admin, monkeypatch):
+    project_id = _create_project(app, name="demo-merge")
+    calls = {}
+
+    def fake_merge(project, source, target):
+        calls["project"] = project.id
+        calls["source"] = source
+        calls["target"] = target
+
+    monkeypatch.setattr("app.routes.admin.merge_branch", fake_merge)
+
+    response = client.post(
+        f"/admin/projects/{project_id}/branch/manage",
+        data={
+            "project_id": str(project_id),
+            "merge_source": "feature/demo",
+            "merge_target": "main",
+            "merge_submit": "Merge Branch",
+        },
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert calls["project"] == project_id
+    assert calls["source"] == "feature/demo"
+    assert calls["target"] == "main"
+    assert b"Merged feature/demo into main" in response.data
 
 
 def test_can_delete_tenant(app, client, login_admin):

@@ -117,12 +117,16 @@
     <form method="post" action="{{ url_for('admin.run_system_update') }}">
       {{ update_form.hidden_tag() }}
       <div class="settings-actions">
+        <label>
+          {{ update_form.branch.label }}
+          {{ update_form.branch(placeholder="main") }}
+        </label>
         <label class="checkbox-inline">
           {{ update_form.restart() }}
           <span>Restart application after update</span>
         </label>
         <button type="submit" class="secondary">Run update script</button>
-        <span class="text-muted form-helper">Output appears as a flash message below.</span>
+        <span class="text-muted form-helper">Set AIOPS_UPDATE_BRANCH for this run (default matches current branch).</span>
       </div>
     </form>
   </article>

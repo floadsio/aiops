@@ -61,6 +61,8 @@ to restart the service automatically after a successful update.
 - `make test` – execute Pytest suite.
 - `make check` – run linting, typing, and tests.
 - `make start|stop|restart|status` – manage the aiops development server (logs in `/tmp/aiops.log`).
+- Dashboard project cards include branch-aware git controls; use the inline branch forms to
+  checkout/create feature branches or merge them back into your default branch without leaving aiops.
 
 ## AI Console
 

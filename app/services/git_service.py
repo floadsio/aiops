@@ -5,7 +5,7 @@ import os
 import shlex
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 from datetime import datetime, timezone
 
@@ -402,6 +402,73 @@ def run_git_action(
                 continue
             log.exception("Git action %s failed for %s", action, project.name)
             raise RuntimeError(f"Git action failed: {err}") from err
+
+
+def list_project_branches(project: Project, *, include_remote: bool = False) -> list[str]:
+    repo = ensure_repo_checkout(project)
+    branches: set[str] = set(head.name for head in repo.heads)
+    if include_remote:
+        for remote in repo.remotes:
+            for ref in remote.refs:
+                remote_head = getattr(ref, "remote_head", None)
+                if remote_head:
+                    branches.add(remote_head)
+    default_branch = getattr(project, "default_branch", None)
+    ordered = sorted(branches)
+    if default_branch and default_branch in ordered:
+        ordered.remove(default_branch)
+        ordered.insert(0, default_branch)
+    return ordered
+
+
+def checkout_or_create_branch(project: Project, branch: str, base: Optional[str] = None) -> bool:
+    branch = (branch or "").strip()
+    if not branch:
+        raise RuntimeError("Branch name is required.")
+    repo = ensure_repo_checkout(project)
+    env = build_project_git_env(project)
+    context = repo.git.custom_environment(**env) if env else nullcontext()
+    with context:
+        repo.git.fetch("--all")
+        existing_branches = [head.name for head in repo.heads]
+        if branch in existing_branches:
+            repo.git.checkout(branch)
+            return False
+        remote = _select_remote(repo)
+        remote_ref = f"{remote.name}/{branch}"
+        remote_names = [ref.name for ref in remote.refs]
+        if remote_ref in remote_names:
+            repo.git.checkout("-b", branch, remote_ref)
+            return True
+        base_branch = (base or project.default_branch or "").strip()
+        if not base_branch:
+            raise RuntimeError("Base branch could not be determined.")
+        if base_branch not in existing_branches:
+            try:
+                repo.git.checkout(base_branch)
+            except GitCommandError:
+                repo.git.checkout("-b", base_branch, f"{remote.name}/{base_branch}")
+        else:
+            repo.git.checkout(base_branch)
+        repo.git.checkout("-b", branch)
+        return True
+
+
+def merge_branch(project: Project, source_branch: str, target_branch: str) -> None:
+    source_branch = (source_branch or "").strip()
+    target_branch = (target_branch or "").strip()
+    if not source_branch or not target_branch:
+        raise RuntimeError("Source and target branches are required.")
+    repo = ensure_repo_checkout(project)
+    env = build_project_git_env(project)
+    context = repo.git.custom_environment(**env) if env else nullcontext()
+    with context:
+        repo.git.fetch("--all")
+        repo.git.checkout(target_branch)
+        try:
+            repo.git.merge(source_branch)
+        except GitCommandError as exc:
+            raise RuntimeError(f"Merge failed: {exc}") from exc
 
 
 def get_repo_status(project: Project) -> dict[str, Any]:

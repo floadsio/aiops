@@ -74,6 +74,8 @@ def configure_branch_form(form) -> None:
     if recorded and recorded not in [value for value, _ in choices]:
         choices.insert(0, (recorded, recorded))
     form.branch.choices = choices
+    if form.is_submitted():
+        return
     if recorded:
         form.branch.data = recorded
     elif not form.branch.data and choices:

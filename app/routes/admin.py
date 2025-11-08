@@ -434,6 +434,9 @@ def dashboard():
         tmux_windows: list[dict[str, Any]] = []
         tmux_error: str | None = None
         try:
+            tenant = project.tenant
+            tenant_name = tenant.name if tenant else "Unassigned"
+            tenant_color = tenant.color if tenant and tenant.color else DEFAULT_TENANT_COLOR
             windows = list_windows_for_aliases(
                 "",
                 project_local_path=project.local_path,
@@ -462,6 +465,8 @@ def dashboard():
                         ),
                         "project_id": project.id,
                         "project_name": project.name,
+                        "tenant_name": tenant_name,
+                        "tenant_color": tenant_color,
                     }
                 )
                 window_project_map.setdefault(
@@ -469,6 +474,8 @@ def dashboard():
                     {
                         "project_id": project.id,
                         "project_name": project.name,
+                        "tenant_name": tenant_name,
+                        "tenant_color": tenant_color,
                     },
                 )
         except TmuxServiceError as exc:

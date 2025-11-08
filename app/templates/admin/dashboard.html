@@ -289,6 +289,15 @@
   [data-theme="dark"] .warning-note {
     color: #facc15;
   }
+  .tenant-badge.tenant-badge--tiny {
+    font-size: 0.7rem;
+    padding: 0.1rem 0.4rem;
+    gap: 0.25rem;
+  }
+  .tenant-badge.tenant-badge--tiny .tenant-badge__swatch {
+    width: 0.55rem;
+    height: 0.55rem;
+  }
   .tmux-session-panel {
     margin-top: 1.1rem;
     padding: 1rem 1.2rem;
@@ -509,6 +518,15 @@
         <article class="tmux-recent-card">
           <div class="tmux-recent-meta">
             <span class="tmux-chip">{{ window.window }}</span>
+            {% if window.project %}
+              <span
+                class="tenant-badge tenant-badge--tiny"
+                style="--tenant-color: {{ window.project.tenant_color or default_tenant_color }}"
+              >
+                <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                {{ window.project.tenant_name }}
+              </span>
+            {% endif %}
             <span class="tmux-meta">
               {{ window.session }}
               {% if window.project %}
@@ -726,6 +744,15 @@
                   <div class="tmux-session-row">
                     <div class="tmux-session-meta">
                       <span class="tmux-chip">{{ session.window }}</span>
+                      {% if project.tenant %}
+                        <span
+                          class="tenant-badge tenant-badge--tiny"
+                          style="--tenant-color: {{ project.tenant.color or default_tenant_color }}"
+                        >
+                          <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                          {{ project.tenant.name }}
+                        </span>
+                      {% endif %}
                       <span class="tmux-meta">
                         {{ session.session }}
                         / {{ project.name }}

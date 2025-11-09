@@ -708,6 +708,17 @@
               >
                 Reattach
               </a>
+              <form
+                method="post"
+                action="{{ url_for('projects.close_tmux_window', project_id=window.project.project_id) }}"
+                style="margin:0;"
+                onsubmit="return confirm('Close tmux window {{ window.window }}?')"
+              >
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="tmux_target" value="{{ window.target }}">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <button type="submit" class="secondary danger">Close</button>
+              </form>
             {% endif %}
           </div>
         </article>

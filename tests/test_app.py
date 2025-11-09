@@ -978,6 +978,62 @@ def test_assign_issue_route_updates_assignee(tmp_path, monkeypatch):
         assert updated_issue.assignee == "octocat"
 
 
+def test_close_tmux_window_route(tmp_path, monkeypatch):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'close_tmux.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig)
+
+    with app.app_context():
+        db.create_all()
+        user = User(
+            email="close@example.com",
+            name="Closer",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        tenant = Tenant(name="close-tenant", description="Demo tenant")
+        repo_path = tmp_path / "repos" / "close-project"
+        repo_path.mkdir(parents=True, exist_ok=True)
+        project = Project(
+            name="close-project",
+            repo_url="git@example.com/close.git",
+            default_branch="main",
+            local_path=str(repo_path),
+            tenant=tenant,
+            owner=user,
+        )
+        db.session.add_all([user, tenant, project])
+        db.session.commit()
+        project_id = project.id
+
+    client = app.test_client()
+    login_resp = client.post(
+        "/login",
+        data={"email": "close@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    recorded = {}
+
+    def fake_close(target):
+        recorded["target"] = target
+
+    monkeypatch.setattr("app.routes.projects.close_tmux_target", fake_close)
+
+    response = client.post(
+        f"/projects/{project_id}/tmux/close",
+        data={"tmux_target": "demo:window", "next": "/admin/"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert recorded.get("target") == "demo:window"
+
+
 def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
     class TestConfig(Config):
         TESTING = True

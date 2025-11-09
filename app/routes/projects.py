@@ -48,6 +48,7 @@ from ..services.tmux_service import (
     TmuxServiceError,
     get_or_create_window_for_project,
     session_name_for_user,
+    close_tmux_target,
 )
 from ..services.agent_context import write_tracked_issue_context
 from ..services.issues import (
@@ -850,6 +851,29 @@ def stop_ai_session(project_id: int, session_id: str):
     session = _get_authorized_session(project_id, session_id)
     close_session(session)
     return ("", 204)
+
+
+@projects_bp.route("/<int:project_id>/tmux/close", methods=["POST"])
+@login_required
+def close_tmux_window(project_id: int):
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(request.form.get("next") or url_for("admin.dashboard"))
+
+    tmux_target = (request.form.get("tmux_target") or "").strip()
+    redirect_target = request.form.get("next") or url_for("admin.dashboard")
+    if not tmux_target:
+        flash("Invalid tmux target.", "warning")
+        return redirect(redirect_target)
+
+    try:
+        close_tmux_target(tmux_target)
+    except TmuxServiceError as exc:
+        flash(str(exc), "danger")
+    else:
+        flash(f"Closed tmux window {tmux_target}.", "success")
+    return redirect(redirect_target)
 
 
 @projects_bp.route("/<int:project_id>/ansible", methods=["GET", "POST"])

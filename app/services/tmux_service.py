@@ -283,6 +283,32 @@ def sync_project_windows(projects: Sequence[object], *, session_name: Optional[s
     return TmuxSyncResult(created=created, removed=removed, total_managed=len(desired_names))
 
 
+def close_tmux_target(target: str) -> None:
+    """
+    Close a tmux window given a session:window target string.
+    """
+    if not target or ":" not in target:
+        raise TmuxServiceError("Invalid tmux target.")
+    session_name, _, window_name = target.partition(":")
+    server = _get_server()
+    session = next(
+        (item for item in server.sessions if item.get("session_name") == session_name),
+        None,
+    )
+    if session is None:
+        raise TmuxServiceError(f"Session {session_name!r} not found.")
+    window = next(
+        (item for item in session.windows if item.get("window_name") == window_name),
+        None,
+    )
+    if window is None:
+        raise TmuxServiceError(f"Window {window_name!r} not found in session {session_name!r}.")
+    try:
+        window.kill_window()
+    except Exception as exc:  # noqa: BLE001 - best effort
+        raise TmuxServiceError(f"Unable to close tmux window {target}: {exc}") from exc
+
+
 __all__ = [
     "TmuxWindow",
     "TmuxServiceError",
@@ -293,4 +319,5 @@ __all__ = [
     "sync_project_windows",
     "TmuxSyncResult",
     "session_name_for_user",
+    "close_tmux_target",
 ]

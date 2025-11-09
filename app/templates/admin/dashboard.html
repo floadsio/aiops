@@ -508,11 +508,16 @@
   }
   .tmux-session-actions {
     display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
     width: 100%;
   }
-  .tmux-session-actions a {
-    flex: 1 1 auto;
-    justify-content: center;
+  .tmux-session-actions a,
+  .tmux-session-actions form {
+    flex: 0 0 auto;
+  }
+  .tmux-session-actions form {
+    margin: 0;
   }
   .tmux-recent-grid {
     display: grid;
@@ -582,6 +587,10 @@
     align-items: center;
     gap: 0.4rem;
     flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .tmux-recent-actions form {
+    margin: 0;
   }
   @media (max-width: 640px) {
     .tmux-recent-card {
@@ -591,11 +600,6 @@
     .tmux-recent-actions {
       width: 100%;
       justify-content: flex-start;
-      flex-wrap: wrap;
-    }
-    .tmux-recent-actions a,
-    .tmux-recent-actions button {
-      flex: 1 1 auto;
     }
   }
   .update-form {
@@ -717,7 +721,7 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="tmux_target" value="{{ window.target }}">
                 <input type="hidden" name="next" value="{{ request.full_path }}">
-                <button type="submit" class="secondary danger">Close</button>
+                <button type="submit" class="secondary outline">Close</button>
               </form>
             {% endif %}
           </div>
@@ -905,7 +909,7 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="tmux_target" value="{{ session.target }}">
                         <input type="hidden" name="next" value="{{ request.full_path }}">
-                        <button type="submit" class="secondary danger">Close</button>
+                        <button type="submit" class="secondary outline">Close</button>
                       </form>
                     </div>
                   </div>

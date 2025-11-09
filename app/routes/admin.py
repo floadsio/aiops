@@ -384,13 +384,17 @@ def dashboard():
                 reverse=True,
             )
             for window in windows:
+                window_name = (getattr(window, "window_name", "") or "").strip()
+                if window_name.lower() == "zsh":
+                    continue
+                session_name = (getattr(window, "session_name", "") or "").strip()
                 window_created = _coerce_timestamp(window.created)
                 if window_created and (last_activity is None or window_created > last_activity):
                     last_activity = window_created
                 tmux_windows.append(
                     {
                         "session": window.session_name,
-                        "window": window.window_name,
+                        "window": window_name,
                         "target": window.target,
                         "panes": window.panes,
                         "created": window.created,
@@ -545,6 +549,9 @@ def dashboard():
         )
         max_windows = current_app.config.get("TMUX_RECENT_WINDOW_LIMIT", 8)
         for window in all_windows[:max_windows]:
+            window_name = (getattr(window, "window_name", "") or "").strip()
+            if window_name.lower() == "zsh":
+                continue
             created_display = (
                 window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
                 if window.created
@@ -553,7 +560,7 @@ def dashboard():
             recent_tmux_windows.append(
                 {
                     "session": window.session_name,
-                    "window": window.window_name,
+                    "window": window_name,
                     "target": window.target,
                     "panes": window.panes,
                     "created": window.created,

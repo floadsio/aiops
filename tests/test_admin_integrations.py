@@ -16,6 +16,7 @@ from app.services.key_service import resolve_private_key_path
 from app.services.update_service import UpdateError
 from app.services.tmux_service import TmuxServiceError
 from app.services.gemini_update_service import GeminiUpdateError
+from app.services.gemini_config_service import GeminiConfigError
 from app.services.git_service import checkout_or_create_branch
 from app.services.migration_service import MigrationError
 
@@ -59,6 +60,14 @@ def login_admin(client):
         follow_redirects=True,
     )
     assert response.status_code == 200
+
+
+@pytest.fixture()
+def admin_user_id(app):
+    with app.app_context():
+        user = User.query.filter_by(email="admin@example.com").first()
+        assert user is not None
+        return user.id
 
 
 def _create_project(app, name="demo-branch"):
@@ -267,7 +276,7 @@ def test_admin_can_trigger_update(app, client, login_admin, monkeypatch):
 
     calls = {}
 
-    def fake_run_update():
+    def fake_run_update(**kwargs):
         calls["invoked"] = True
         return DummyResult()
 
@@ -296,7 +305,7 @@ def test_admin_can_trigger_update(app, client, login_admin, monkeypatch):
 
 
 def test_admin_update_handles_error(app, client, login_admin, monkeypatch):
-    def fake_run_update():
+    def fake_run_update(**kwargs):
         raise UpdateError("script missing")
 
     monkeypatch.setattr("app.routes.admin.run_update_script", fake_run_update)
@@ -321,7 +330,7 @@ def test_admin_update_restart_failure(app, client, login_admin, monkeypatch):
         def ok(self):
             return True
 
-    monkeypatch.setattr("app.routes.admin.run_update_script", lambda: DummyResult())
+    monkeypatch.setattr("app.routes.admin.run_update_script", lambda **_: DummyResult())
     monkeypatch.setattr("app.routes.admin._trigger_restart", lambda cmd: (False, "Restart failed"))
 
     response = client.post(
@@ -452,6 +461,74 @@ def test_admin_gemini_update_failure(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"npm missing" in response.data
+
+
+def test_admin_gemini_accounts_save(app, client, login_admin, admin_user_id, monkeypatch):
+    saved = {}
+
+    def fake_save(payload, *, user_id=None):
+        saved["payload"] = payload
+        saved["user_id"] = user_id
+
+    monkeypatch.setattr("app.routes.admin.save_google_accounts", fake_save)
+
+    response = client.post(
+        "/admin/settings/gemini/accounts",
+        data={"payload": "{}", "user_id": str(admin_user_id), "next": "/admin/settings"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert saved["payload"] == "{}"
+    assert saved["user_id"] == admin_user_id
+
+
+def test_admin_gemini_accounts_error(app, client, login_admin, admin_user_id, monkeypatch):
+    def fake_save(payload, *, user_id=None):
+        raise GeminiConfigError("bad json")
+
+    monkeypatch.setattr("app.routes.admin.save_google_accounts", fake_save)
+
+    response = client.post(
+        "/admin/settings/gemini/accounts",
+        data={"payload": "{}", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"bad json" in response.data
+
+
+def test_admin_gemini_oauth_save(app, client, login_admin, admin_user_id, monkeypatch):
+    saved = {}
+
+    def fake_save(payload, *, user_id=None):
+        saved["payload"] = payload
+        saved["user_id"] = user_id
+
+    monkeypatch.setattr("app.routes.admin.save_oauth_creds", fake_save)
+
+    response = client.post(
+        "/admin/settings/gemini/oauth",
+        data={"payload": "{}", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert saved["payload"] == "{}"
+    assert saved["user_id"] == admin_user_id
+
+
+def test_admin_gemini_oauth_error(app, client, login_admin, admin_user_id, monkeypatch):
+    def fake_save(payload, *, user_id=None):
+        raise GeminiConfigError("invalid")
+
+    monkeypatch.setattr("app.routes.admin.save_oauth_creds", fake_save)
+
+    response = client.post(
+        "/admin/settings/gemini/oauth",
+        data={"payload": "{}", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"invalid" in response.data
 
 
 def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):
@@ -700,7 +777,7 @@ def test_dashboard_refresh_project_issues(app, client, login_admin, monkeypatch,
 
     captured = {}
 
-    def fake_sync(link):
+    def fake_sync(link, **kwargs):
         captured.setdefault("links", []).append(link.id)
         return [object()]
 

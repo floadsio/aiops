@@ -149,10 +149,44 @@
   const aiToolSelect = document.getElementById('ai_tool');
   const commandInput = document.getElementById('command');
   const promptInput = document.getElementById('initial_prompt');
+  const aiToolCommands = {{ ai_tool_commands|tojson }};
   const sessionStorageKey = `aiops-session-context-${projectId}`;
   let storedSessionContext = null;
   let plannedPrompt = '';
   let pendingPrompt = false;
+  let commandAutofill = true;
+
+  function applyToolDefault(toolValue, { force = false } = {}) {
+    if (!commandInput || !toolValue) {
+      return;
+    }
+    const targetCommand = aiToolCommands && aiToolCommands[toolValue];
+    if (!targetCommand) {
+      return;
+    }
+    const currentValue = (commandInput.value || '').trim();
+    if (force || commandAutofill || !currentValue) {
+      commandInput.value = targetCommand;
+      commandAutofill = true;
+    }
+  }
+
+  if (commandInput) {
+    commandInput.addEventListener('input', () => {
+      commandAutofill = false;
+    });
+  }
+
+  if (aiToolSelect) {
+    aiToolSelect.addEventListener('change', event => {
+      const value = event.target.value;
+      if (!value) {
+        commandAutofill = false;
+        return;
+      }
+      applyToolDefault(value);
+    });
+  }
 
   function consumeStoredContext() {
     try {
@@ -180,6 +214,7 @@
     }
     if (context.command && commandInput) {
       commandInput.value = context.command;
+      commandAutofill = false;
     }
     if (typeof context.prompt === 'string') {
       plannedPrompt = context.prompt;
@@ -477,6 +512,7 @@
       }
       if (commandInput) {
         commandInput.value = '';
+        commandAutofill = false;
       }
       term.write(`\n[Attaching to tmux target ${selectedTmuxTarget}]\n`);
     } else if (selectedTmuxTarget && tmuxTargetInput) {

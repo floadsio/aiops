@@ -221,6 +221,20 @@ class GeminiUpdateForm(FlaskForm):
     submit = SubmitField("Update Gemini CLI")
 
 
+class GeminiAccountsForm(FlaskForm):
+    payload = TextAreaField("google_accounts.json", validators=[DataRequired()], render_kw={"rows": 6})
+    user_id = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Save google_accounts.json")
+
+
+class GeminiOAuthForm(FlaskForm):
+    payload = TextAreaField("oauth_creds.json", validators=[DataRequired()], render_kw={"rows": 6})
+    user_id = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Save oauth_creds.json")
+
+
 class MigrationRunForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Run Database Migrations")

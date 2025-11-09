@@ -18,6 +18,11 @@ from typing import Optional
 from flask import current_app
 from .services.tmux_service import ensure_project_window
 from .services.git_service import build_project_git_env
+from .services.gemini_config_service import (
+    ensure_user_config,
+    get_config_dir,
+    get_user_payload_paths,
+)
 
 
 class AISession:
@@ -90,6 +95,26 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
         return command_str
 
     return fallback_shell
+
+
+def _first_command_token(command: str | None) -> str | None:
+    if not command:
+        return None
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return None
+    return tokens[0] if tokens else None
+
+
+def _uses_gemini(command_str: str, tool: str | None) -> bool:
+    tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+    configured = tool_commands.get("gemini")
+    if tool == "gemini":
+        return True
+    configured_token = _first_command_token(configured)
+    command_token = _first_command_token(command_str)
+    return bool(configured_token and command_token and configured_token == command_token)
 
 
 def _resolve_tmux_window(
@@ -174,6 +199,16 @@ def create_session(
     tmux_session_name: str | None = None,
 ) -> AISession:
     command_str = _resolve_command(tool, command)
+    uses_gemini = _uses_gemini(command_str, tool)
+    gemini_config_dir = None
+    gemini_accounts_path = None
+    gemini_oauth_path = None
+    if uses_gemini:
+        gemini_dir = ensure_user_config(user_id)
+        gemini_config_dir = str(gemini_dir.expanduser())
+        accounts_path, oauth_path = get_user_payload_paths(user_id)
+        gemini_accounts_path = str(accounts_path) if accounts_path else None
+        gemini_oauth_path = str(oauth_path) if oauth_path else None
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)
@@ -244,6 +279,19 @@ def create_session(
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
                 current_app.logger.debug("Unable to set GIT_SSH_COMMAND for %s", window_name)
+        if gemini_config_dir:
+            exports = [
+                f"export GEMINI_CONFIG_DIR={shlex.quote(gemini_config_dir)}",
+            ]
+            if gemini_accounts_path:
+                exports.append(f"export GEMINI_ACCOUNTS_FILE={shlex.quote(gemini_accounts_path)}")
+            if gemini_oauth_path:
+                exports.append(f"export GEMINI_OAUTH_FILE={shlex.quote(gemini_oauth_path)}")
+            for export_cmd in exports:
+                try:
+                    pane.send_keys(export_cmd, enter=True)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.debug("Unable to set Gemini env for %s", window_name)
         try:
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001

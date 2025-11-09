@@ -71,3 +71,4 @@ class Config:
         "LOG_FILE",
         str((BASE_DIR / "logs" / "aiops.log").resolve()),
     )
+    GEMINI_CONFIG_DIR = os.getenv("GEMINI_CONFIG_DIR", str((Path.home() / ".gemini")))

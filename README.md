@@ -74,6 +74,7 @@ to restart the service automatically after a successful update.
 - When tmux is installed, terminals attach to a per-tenant session (`<tenant>-shell`), reusing the same workspace on subsequent launches.
 - Configure defaults with `DEFAULT_AI_TOOL` and `DEFAULT_AI_SHELL` in `.env`; toggle multiplexing with `USE_TMUX_FOR_AI_SESSIONS`.
 - Use the admin settings cards to install or update Codex (`CODEX_UPDATE_COMMAND`) and Gemini (`GEMINI_UPDATE_COMMAND`) CLIs via npm.
+- Paste the required `google_accounts.json` / `oauth_creds.json` payloads into Admin → Settings for each user via the Gemini credentials dropdown; aiops stores the JSON per user under `instance/gemini/user-<id>/` and writes it into their CLI directory (`GEMINI_CONFIG_DIR/user-<id>`, default `~/.gemini/user-<id>`) whenever they save or launch a Gemini session, so authentication persists automatically.
 
 ## Semaphore Integration
 

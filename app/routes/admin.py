@@ -4,6 +4,7 @@ import os
 import shutil
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 from typing import Any
 import subprocess
@@ -54,6 +55,8 @@ from ..forms.admin import (
     TenantIntegrationDeleteForm,
     CodexUpdateForm,
     GeminiUpdateForm,
+    GeminiAccountsForm,
+    GeminiOAuthForm,
     MigrationRunForm,
     TmuxResyncForm,
 )
@@ -107,6 +110,14 @@ from ..services.gemini_update_service import (
     GeminiUpdateError,
     get_gemini_status,
     install_latest_gemini,
+)
+from ..services.gemini_config_service import (
+    GeminiConfigError,
+    get_config_dir,
+    load_google_accounts,
+    load_oauth_creds,
+    save_google_accounts,
+    save_oauth_creds,
 )
 from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
@@ -340,6 +351,22 @@ def dashboard():
         )
     tenants = tenant_query.order_by(Tenant.name).all()
 
+    tenant_filter_raw = (request.args.get("tenant") or "").strip()
+    tenant_filter_active = bool(tenant_filter_raw and tenant_filter_raw.lower() != "all")
+    tenant_filter_label: str | None = None
+    tenant_filter_id: int | None = None
+    if tenant_filter_active:
+        try:
+            tenant_filter_id = int(tenant_filter_raw)
+        except ValueError:
+            tenant_filter_id = None
+        if tenant_filter_id is not None:
+            tenant_obj = Tenant.query.get(tenant_filter_id)
+            if tenant_obj:
+                tenant_filter_label = tenant_obj.name
+        if tenant_filter_label is None:
+            tenant_filter_label = "Selected tenant"
+
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.dashboard")
     tmux_scope = (request.args.get("tmux_scope") or "mine").strip().lower()
@@ -363,6 +390,8 @@ def dashboard():
         selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
         selectinload(Project.issue_integrations).selectinload(ProjectIntegration.issues),
     )
+    if tenant_filter_id is not None:
+        project_query = project_query.filter(Project.tenant_id == tenant_filter_id)
     project_limit_default = current_app.config.get("DASHBOARD_PROJECT_LIMIT", 10)
     project_limit_search = current_app.config.get("DASHBOARD_SEARCH_PROJECT_LIMIT", 25)
     project_limit = project_limit_search if search_query else project_limit_default
@@ -641,12 +670,58 @@ def dashboard():
         tmux_scope_toggle_url=tmux_scope_toggle_url,
         tmux_scope_toggle_label=tmux_scope_toggle_label,
         dashboard_search_endpoint=dashboard_search_endpoint,
+        tenant_filter_active=tenant_filter_active,
+        tenant_filter_label=tenant_filter_label,
+        tenant_filter_value=tenant_filter_raw,
     )
 
 
 @admin_bp.route("/settings", methods=["GET", "POST"])
 @admin_required
 def manage_settings():
+    def _load_gemini_payload(loader, user_id: int | None) -> str:
+        if not user_id:
+            return ""
+        try:
+            return loader(user_id=user_id)
+        except GeminiConfigError:
+            return ""
+
+    def _format_expiry(payload: str) -> str | None:
+        try:
+            data = json.loads(payload or "{}")
+            expiry = data.get("expiry_date")
+            if not expiry:
+                return None
+            timestamp = int(expiry)
+            if timestamp > 10**12:  # milliseconds
+                timestamp /= 1000
+            dt = datetime.fromtimestamp(timestamp, tz=timezone.utc).astimezone()
+            return dt.strftime("%b %d, %Y • %H:%M %Z")
+        except (ValueError, json.JSONDecodeError):
+            return None
+
+    gemini_users = User.query.order_by(User.name.asc()).all()
+    requested_user_id = request.args.get("gemini_user_id", type=int)
+    default_user_id = None
+    if getattr(current_user, "is_authenticated", False):
+        default_user_id = getattr(getattr(current_user, "model", current_user), "id", None)
+
+    gemini_selected_user = None
+    if requested_user_id:
+        gemini_selected_user = next((user for user in gemini_users if user.id == requested_user_id), None)
+    if gemini_selected_user is None and default_user_id:
+        gemini_selected_user = next((user for user in gemini_users if user.id == default_user_id), None)
+    if gemini_selected_user is None and gemini_users:
+        gemini_selected_user = gemini_users[0]
+
+    gemini_selected_user_id = gemini_selected_user.id if gemini_selected_user else None
+    gemini_selected_config_dir = (
+        str(get_config_dir(gemini_selected_user_id).expanduser())
+        if gemini_selected_user_id is not None
+        else current_app.config.get("GEMINI_CONFIG_DIR")
+    )
+
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.manage_settings")
     current_branch = current_repo_branch()
@@ -657,6 +732,37 @@ def manage_settings():
 
     gemini_update_form = GeminiUpdateForm()
     gemini_update_form.next.data = url_for("admin.manage_settings")
+
+    if gemini_selected_user_id is not None:
+        gemini_form_redirect = url_for(
+            "admin.manage_settings",
+            gemini_user_id=gemini_selected_user_id,
+        )
+    else:
+        gemini_form_redirect = url_for("admin.manage_settings")
+
+    gemini_accounts_form = GeminiAccountsForm()
+    gemini_accounts_form.user_id.data = (
+        str(gemini_selected_user_id) if gemini_selected_user_id is not None else ""
+    )
+    gemini_accounts_form.next.data = gemini_form_redirect
+    if not gemini_accounts_form.payload.data:
+        gemini_accounts_form.payload.data = _load_gemini_payload(
+            load_google_accounts,
+            gemini_selected_user_id,
+        )
+
+    gemini_oauth_form = GeminiOAuthForm()
+    gemini_oauth_form.user_id.data = (
+        str(gemini_selected_user_id) if gemini_selected_user_id is not None else ""
+    )
+    gemini_oauth_form.next.data = gemini_form_redirect
+    if not gemini_oauth_form.payload.data:
+        gemini_oauth_form.payload.data = _load_gemini_payload(
+            load_oauth_creds,
+            gemini_selected_user_id,
+        )
+    gemini_oauth_expiry = _format_expiry(gemini_oauth_form.payload.data or "")
 
     migration_form = MigrationRunForm()
     migration_form.next.data = url_for("admin.manage_settings")
@@ -756,6 +862,12 @@ def manage_settings():
         gemini_status=gemini_status,
         gemini_update_form=gemini_update_form,
         quick_branch_form=quick_branch_form,
+        gemini_accounts_form=gemini_accounts_form,
+        gemini_oauth_form=gemini_oauth_form,
+        gemini_oauth_expiry=gemini_oauth_expiry,
+        gemini_config_path=gemini_selected_config_dir,
+        gemini_users=gemini_users,
+        gemini_selected_user=gemini_selected_user,
     )
 
 
@@ -1003,6 +1115,64 @@ def update_gemini_cli():
             flash(message, category)
 
     redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/gemini/accounts", methods=["POST"])
+@admin_required
+def save_gemini_accounts():
+    form = GeminiAccountsForm()
+    if not form.validate_on_submit():
+        flash("Invalid google_accounts payload.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        user_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Select a user for Gemini credentials.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+    user_exists = User.query.get(user_id)
+    if user_exists is None:
+        flash("Selected user for Gemini credentials was not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        save_google_accounts(form.payload.data, user_id=user_id)
+    except GeminiConfigError as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Saved google_accounts.json for Gemini CLI.", "success")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/gemini/oauth", methods=["POST"])
+@admin_required
+def save_gemini_oauth():
+    form = GeminiOAuthForm()
+    if not form.validate_on_submit():
+        flash("Invalid oauth_creds payload.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        user_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Select a user for Gemini credentials.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+    user_exists = User.query.get(user_id)
+    if user_exists is None:
+        flash("Selected user for Gemini credentials was not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        save_oauth_creds(form.payload.data, user_id=user_id)
+    except GeminiConfigError as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Saved oauth_creds.json for Gemini CLI.", "success")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
     return redirect(redirect_target)
 
 

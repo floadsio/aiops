@@ -573,6 +573,8 @@ def project_ai_console(project_id: int):
         "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
     )
 
+    ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+
     return render_template(
         "projects/ai_console.html",
         project=project,
@@ -581,6 +583,7 @@ def project_ai_console(project_id: int):
         tmux_error=tmux_error,
         requested_tmux_target=requested_target,
         default_codex_command=default_codex_command,
+        ai_tool_commands=ai_tool_commands,
     )
 
 

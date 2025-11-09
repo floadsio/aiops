@@ -481,6 +481,17 @@
     background: rgba(96, 165, 250, 0.25);
     color: #bfdbfe;
   }
+  .dashboard-filter-note {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+    font-size: 0.9rem;
+  }
+  .dashboard-filter-note .inline-link {
+    font-weight: 600;
+  }
   .tmux-session-list {
     display: flex;
     flex-direction: column;
@@ -770,6 +781,14 @@
       {% endif %}
     </div>
   </header>
+  {% if tenant_filter_active %}
+    <div class="dashboard-filter-note">
+      <small class="text-muted">
+        Filtered by {{ tenant_filter_label or 'Selected tenant' }}
+      </small>
+      <a class="inline-link" href="{{ url_for('admin.dashboard') }}">Clear filter</a>
+    </div>
+  {% endif %}
   {% if project_cards %}
     <div class="dashboard-grid">
       {% for card in project_cards %}
@@ -1033,7 +1052,10 @@
     </div>
   {% else %}
     <div class="empty-state">
-      {% if dashboard_query %}
+      {% if tenant_filter_active %}
+        <p>No projects match the selected tenant.</p>
+        <a role="button" href="{{ url_for('admin.dashboard') }}">Clear filter</a>
+      {% elif dashboard_query %}
         <p>No projects match “{{ dashboard_query }}”.</p>
         <a role="button" href="{{ url_for('admin.dashboard') }}">Clear filter</a>
       {% else %}

@@ -584,9 +584,10 @@
             {% endif %}
             <span class="tmux-chip">{{ window.window }}</span>
             <span class="tmux-meta">
-              {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
               {% if window.created_display %}
-                • {{ window.created_display }}
+                {{ window.created_display }}
+              {% else %}
+                Active
               {% endif %}
             </span>
           </div>
@@ -755,9 +756,10 @@
                       {% endif %}
                       <span class="tmux-chip">{{ session.window }}</span>
                       <span class="tmux-meta">
-                        {{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}
                         {% if session.created_display %}
-                          • {{ session.created_display }}
+                          {{ session.created_display }}
+                        {% else %}
+                          Active
                         {% endif %}
                       </span>
                     </div>

@@ -3,8 +3,18 @@
 {% block extra_head %}
   {{ super() }}
   <style>
+    .tenants-layout {
+      display: grid;
+      gap: 2rem;
+    }
+    .tenants-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
     .tenant-color-select {
-      min-width: 10rem;
+      min-width: 8rem;
+      max-width: 100%;
     }
     .tenant-color-form {
       display: flex;
@@ -16,87 +26,223 @@
     .tenant-color-form button {
       padding: 0.25rem 0.75rem;
     }
+    .tenants-card-list {
+      display: none;
+      gap: 1rem;
+      margin-top: 1rem;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .tenant-card {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 1rem;
+      padding: 1rem 1.2rem;
+      background: rgba(255, 255, 255, 0.86);
+    }
+    [data-theme="dark"] .tenant-card {
+      background: rgba(15, 23, 42, 0.65);
+      border-color: rgba(148, 163, 184, 0.4);
+    }
+    .tenant-card__header {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.8rem;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .tenant-card__projects {
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: rgba(15, 23, 42, 0.8);
+    }
+    [data-theme="dark"] .tenant-card__projects {
+      color: rgba(226, 232, 240, 0.84);
+    }
+    .tenant-card__meta {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.75rem 1rem;
+      margin: 1rem 0 0;
+      padding: 0;
+    }
+    .tenant-card__meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .tenant-card__meta dt {
+      margin: 0;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(71, 85, 105, 0.85);
+    }
+    [data-theme="dark"] .tenant-card__meta dt {
+      color: rgba(226, 232, 240, 0.72);
+    }
+    .tenant-card__meta dd {
+      margin: 0;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .tenant-card__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      align-items: center;
+    }
+    @media (max-width: 720px) {
+      .table-scroll.tenants-table {
+        display: none;
+      }
+      .tenants-card-list {
+        display: grid;
+      }
+    }
   </style>
 {% endblock %}
 {% block content %}
-<h1>Tenants</h1>
+<div class="tenants-layout">
+  <section class="tenants-section">
+    <div>
+      <h1>Tenants</h1>
+      <p class="text-muted">Review existing tenants and adjust their branding colors.</p>
+    </div>
 
-<h2>Existing Tenants</h2>
-<div class="table-scroll">
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Description</th>
-        <th>Projects</th>
-        <th>Color</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
+    <h2>Existing Tenants</h2>
+    <div class="table-scroll tenants-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Projects</th>
+            <th>Color</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for tenant, color_form in tenant_rows %}
+          <tr id="tenant-{{ tenant.id }}">
+            <td>
+              <span class="tenant-badge" style="--tenant-color: {{ tenant.color or default_tenant_color }}">
+                <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                {{ tenant.name }}
+              </span>
+            </td>
+            <td>{{ tenant.description or "—" }}</td>
+            <td>{{ tenant.projects|length }}</td>
+            <td>
+              <form method="post" class="tenant-color-form">
+                {{ color_form.hidden_tag() }}
+                {{ color_form.tenant_id(value=tenant.id) }}
+                {{ color_form.color(class_="tenant-color-select") }}
+                {{ color_form.save(class_="secondary outline") }}
+              </form>
+            </td>
+            <td>
+              <form method="post" class="inline-form">
+                {{ delete_form.csrf_token }}
+                {{ delete_form.tenant_id(value=tenant.id) }}
+                {{ delete_form.submit(
+                  class_="link-button danger",
+                  value="Remove",
+                  onclick="return confirm('Remove tenant {{ tenant.name }} and all related data?')"
+                ) }}
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="5">No tenants yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="tenants-card-list">
       {% for tenant, color_form in tenant_rows %}
-      <tr id="tenant-{{ tenant.id }}">
-        <td>
-          <span class="tenant-badge" style="--tenant-color: {{ tenant.color or default_tenant_color }}">
-            <span class="tenant-badge__swatch" aria-hidden="true"></span>
-            {{ tenant.name }}
-          </span>
-        </td>
-        <td>{{ tenant.description or "—" }}</td>
-        <td>{{ tenant.projects|length }}</td>
-        <td>
-          <form method="post" class="tenant-color-form">
-            {{ color_form.hidden_tag() }}
-            {{ color_form.tenant_id(value=tenant.id) }}
-            {{ color_form.color(class_="tenant-color-select") }}
-            {{ color_form.save(class_="secondary outline") }}
-          </form>
-        </td>
-        <td>
-          <form method="post" class="inline-form">
-            {{ delete_form.csrf_token }}
-            {{ delete_form.tenant_id(value=tenant.id) }}
-            {{ delete_form.submit(
-              class_="link-button danger",
-              value="Remove",
-              onclick="return confirm('Remove tenant {{ tenant.name }} and all related data?')"
-            ) }}
-          </form>
-        </td>
-      </tr>
+        {% set tenant_color = tenant.color or default_tenant_color %}
+        <article
+          class="tenant-card tenant-accent"
+          style="
+            --tenant-color: {{ tenant_color }};
+            --tenant-color-bg: {{ tenant_color }}12;
+            --tenant-color-bg-dark: {{ tenant_color }}28;
+          "
+          id="tenant-card-{{ tenant.id }}"
+        >
+          <header class="tenant-card__header">
+            <span class="tenant-badge" style="--tenant-color: {{ tenant_color }}">
+              <span class="tenant-badge__swatch" aria-hidden="true"></span>
+              {{ tenant.name }}
+            </span>
+            <span class="tenant-card__projects">
+              {{ tenant.projects|length }} project{{ '' if tenant.projects|length == 1 else 's' }}
+            </span>
+          </header>
+          <dl class="tenant-card__meta">
+            <div class="tenant-card__meta-item">
+              <dt>Description</dt>
+              <dd>{{ tenant.description or "—" }}</dd>
+            </div>
+            <div class="tenant-card__meta-item">
+              <dt>Color</dt>
+              <dd>{{ tenant_color }}</dd>
+            </div>
+          </dl>
+          <div class="tenant-card__actions">
+            <form method="post" class="tenant-color-form">
+              {{ color_form.hidden_tag() }}
+              {{ color_form.tenant_id(value=tenant.id) }}
+              {{ color_form.color(class_="tenant-color-select") }}
+              {{ color_form.save(class_="secondary outline") }}
+            </form>
+            <form method="post" class="inline-form">
+              {{ delete_form.csrf_token }}
+              {{ delete_form.tenant_id(value=tenant.id) }}
+              {{ delete_form.submit(
+                class_="link-button danger",
+                value="Remove",
+                onclick="return confirm('Remove tenant {{ tenant.name }} and all related data?')"
+              ) }}
+            </form>
+          </div>
+        </article>
       {% else %}
-      <tr>
-        <td colspan="5">No tenants yet.</td>
-      </tr>
+        <p class="text-muted">No tenants yet.</p>
       {% endfor %}
-    </tbody>
-  </table>
-</div>
+    </div>
+  </section>
 
-<h2>Add Tenant</h2>
-<form method="post">
-  {{ form.hidden_tag() }}
-  <label>
-    {{ form.name.label }}
-    {{ form.name() }}
-    {% for error in form.name.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.description.label }}
-    {{ form.description(rows=3) }}
-    {% for error in form.description.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <label>
-    {{ form.color.label }}
-    {{ form.color(class_="tenant-color-select") }}
-    {% for error in form.color.errors %}
-      <span class="error">{{ error }}</span>
-    {% endfor %}
-  </label>
-  <button type="submit">Add Tenant</button>
-</form>
+  <section class="tenants-section">
+    <h2>Add Tenant</h2>
+    <form method="post">
+      {{ form.hidden_tag() }}
+      <label>
+        {{ form.name.label }}
+        {{ form.name() }}
+        {% for error in form.name.errors %}
+          <span class="error">{{ error }}</span>
+        {% endfor %}
+      </label>
+      <label>
+        {{ form.description.label }}
+        {{ form.description(rows=3) }}
+        {% for error in form.description.errors %}
+          <span class="error">{{ error }}</span>
+        {% endfor %}
+      </label>
+      <label>
+        {{ form.color.label }}
+        {{ form.color(class_="tenant-color-select") }}
+        {% for error in form.color.errors %}
+          <span class="error">{{ error }}</span>
+        {% endfor %}
+      </label>
+      <button type="submit">Add Tenant</button>
+    </form>
+  </section>
+</div>
 {% endblock %}

@@ -26,12 +26,14 @@
       display: none;
       gap: 1rem;
       margin-top: 1.25rem;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
     .project-card {
       border: 1px solid rgba(148, 163, 184, 0.3);
       border-radius: 1rem;
       padding: 1rem 1.2rem;
       background: rgba(255, 255, 255, 0.86);
+      width: 100%;
     }
     [data-theme="dark"] .project-card {
       background: rgba(15, 23, 42, 0.65);

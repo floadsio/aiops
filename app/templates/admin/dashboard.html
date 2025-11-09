@@ -656,13 +656,10 @@
                 {{ window.project.tenant_name }}
               </a>
             {% endif %}
-            <span class="tmux-chip">{{ window.window }}</span>
             <span class="tmux-meta">
-              {{ window.session }}
-              {% if window.project %}
-                / {{ window.project.project_name }}
-              {% endif %}
+              <strong>Session:</strong> {{ window.session }}
             </span>
+            <span class="tmux-chip">{{ window.window }}</span>
             <span class="tmux-meta">
               {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
               {% if window.created_display %}
@@ -833,11 +830,10 @@
                           {{ project.tenant.name }}
                         </a>
                       {% endif %}
-                      <span class="tmux-chip">{{ session.window }}</span>
                       <span class="tmux-meta">
-                        {{ session.session }}
-                        / {{ project.name }}
+                        <strong>Session:</strong> {{ session.session }}
                       </span>
+                      <span class="tmux-chip">{{ session.window }}</span>
                       <span class="tmux-meta">
                         {{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}
                         {% if session.created_display %}

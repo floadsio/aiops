@@ -9,14 +9,14 @@
     width: 100%;
     padding: 0 0.75rem;
     box-sizing: border-box;
+    justify-items: center;
   }
   .settings-card {
     padding: 1.5rem;
     border-radius: 1.2rem;
     border: 1px solid rgba(148, 163, 184, 0.3);
     background: rgba(255, 255, 255, 0.92);
-    width: 100%;
-    max-width: calc(100vw - 1.5rem);
+    width: min(100%, 640px);
     box-sizing: border-box;
     margin: 0 auto;
   }
@@ -125,6 +125,7 @@
     .settings-grid {
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       padding: 0 1.5rem;
+      justify-items: stretch;
     }
   }
   @media (max-width: 900px) {

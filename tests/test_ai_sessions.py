@@ -73,7 +73,10 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         window._pane = pane
         session_obj = FakeSession("aiops", window)
 
-        monkeypatch.setattr("app.ai_sessions.ensure_project_window", lambda project, window_name=None: (session_obj, window, True))
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None, session_name=None: (session_obj, window, True),
+        )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (1234, 56))
         monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
@@ -132,7 +135,7 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
 
         captured: dict[str, str] = {}
 
-        def fake_ensure(project, window_name=None):
+        def fake_ensure(project, window_name=None, session_name=None):
             captured["window_name"] = window_name
             pane = FakePane()
             window = FakeWindow(window_name or "demo-project-p2")
@@ -190,7 +193,7 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None: (session_obj, window, False),
+            lambda project, window_name=None, session_name=None: (session_obj, window, False),
         )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (9876, 54))

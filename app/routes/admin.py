@@ -90,6 +90,7 @@ from ..services.tmux_service import (
     list_windows_for_aliases,
     sync_project_windows,
     TmuxSyncResult,
+    session_name_for_user,
 )
 from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
 from ..services.update_service import run_update_script, UpdateError
@@ -274,6 +275,13 @@ def _coerce_timestamp(value: Any) -> datetime | None:
     return None
 
 
+def _current_tmux_session_name() -> str:
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    return session_name_for_user(user_obj)
+
+
 @admin_bp.route("/")
 @admin_required
 def dashboard():
@@ -325,6 +333,22 @@ def dashboard():
 
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.dashboard")
+    tmux_scope = (request.args.get("tmux_scope") or "mine").strip().lower()
+    tmux_scope_show_all = tmux_scope == "all"
+    tmux_scope_label = "All users" if tmux_scope_show_all else "My sessions"
+    toggle_params = request.args.to_dict(flat=True)
+    if tmux_scope_show_all:
+        toggle_params.pop("tmux_scope", None)
+        tmux_scope_toggle_label = "Show only my sessions"
+    else:
+        toggle_params["tmux_scope"] = "all"
+        tmux_scope_toggle_label = "Show all users"
+    tmux_scope_toggle_url = url_for("admin.dashboard", **toggle_params)
+    search_endpoint_kwargs: dict[str, str] = {}
+    if tmux_scope_show_all:
+        search_endpoint_kwargs["tmux_scope"] = "all"
+    dashboard_search_endpoint = url_for("admin.dashboard", **search_endpoint_kwargs)
+
     project_query = Project.query.options(
         selectinload(Project.tenant),
         selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
@@ -338,6 +362,7 @@ def dashboard():
     recent_tmux_windows: list[dict[str, Any]] = []
     recent_tmux_error: str | None = None
     window_project_map: dict[str, dict[str, Any]] = {}
+    tmux_session_name = _current_tmux_session_name()
 
     def _status_sort_key(item: tuple[str, str]) -> tuple[int, str]:
         key, label = item
@@ -377,6 +402,8 @@ def dashboard():
                 "",
                 project_local_path=project.local_path,
                 extra_aliases=(project.name, getattr(project, "slug", None)),
+                session_name=tmux_session_name,
+                include_all_sessions=tmux_scope_show_all,
             )
             windows = sorted(
                 windows,
@@ -541,7 +568,11 @@ def dashboard():
     project_cards.sort(key=lambda card: card.get("last_activity") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
 
     try:
-        all_windows = list_windows_for_aliases("")
+        all_windows = list_windows_for_aliases(
+            "",
+            session_name=tmux_session_name,
+            include_all_sessions=tmux_scope_show_all,
+        )
         all_windows = sorted(
             all_windows,
             key=lambda window: window.created or datetime.min.replace(tzinfo=timezone.utc),
@@ -596,6 +627,11 @@ def dashboard():
         recent_tmux_error=recent_tmux_error,
         update_form=update_form,
         dashboard_query=search_query,
+        tmux_scope_show_all=tmux_scope_show_all,
+        tmux_scope_label=tmux_scope_label,
+        tmux_scope_toggle_url=tmux_scope_toggle_url,
+        tmux_scope_toggle_label=tmux_scope_toggle_label,
+        dashboard_search_endpoint=dashboard_search_endpoint,
     )
 
 
@@ -860,7 +896,10 @@ def resync_tmux_sessions():
 
     try:
         projects = Project.query.options(selectinload(Project.tenant)).all()
-        result = sync_project_windows(projects)
+        result = sync_project_windows(
+            projects,
+            session_name=_current_tmux_session_name(),
+        )
     except TmuxServiceError as exc:
         current_app.logger.exception("Failed to resync tmux sessions.")
         flash(str(exc), "danger")

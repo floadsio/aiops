@@ -41,8 +41,31 @@ def _slugify(value: str) -> str:
     return slug or "session"
 
 
-def _shared_session_name() -> str:
+def _default_session_name() -> str:
     return current_app.config.get("TMUX_SHARED_SESSION_NAME", "aiops")
+
+
+def _normalize_session_name(session_name: Optional[str]) -> str:
+    base = session_name or _default_session_name()
+    slug = _slugify(str(base))
+    return slug or "session"
+
+
+def session_name_for_user(user: Optional[object]) -> str:
+    """
+    Derive a tmux session name for the given user object.
+
+    We favor the user's configured name, then username/email, falling back to an ID.
+    """
+    if user is not None:
+        for attr in ("name", "username", "email"):
+            value = getattr(user, attr, None)
+            if value:
+                return _normalize_session_name(str(value))
+        identifier = getattr(user, "id", None)
+        if identifier is not None:
+            return _normalize_session_name(str(identifier))
+    return _normalize_session_name(None)
 
 
 def _project_window_name(project) -> str:
@@ -74,11 +97,11 @@ def _get_server():
         raise TmuxServiceError(f"Unable to initialize tmux server: {exc}") from exc
 
 
-def _ensure_shared_session(create: bool = True):
+def _ensure_session(*, session_name: Optional[str] = None, create: bool = True):
     server = _get_server()
-    session_name = _shared_session_name()
+    resolved_name = _normalize_session_name(session_name)
     session = next(
-        (item for item in server.sessions if item.get("session_name") == session_name),
+        (item for item in server.sessions if item.get("session_name") == resolved_name),
         None,
     )
     if session is None and create:
@@ -87,21 +110,26 @@ def _ensure_shared_session(create: bool = True):
             start_directory = current_app.instance_path
         try:
             session = server.new_session(
-                session_name=session_name,
+                session_name=resolved_name,
                 start_directory=start_directory,
                 attach=False,
             )
         except Exception as exc:
-            raise TmuxServiceError(f"Unable to create tmux session {session_name!r}: {exc}") from exc
+            raise TmuxServiceError(f"Unable to create tmux session {resolved_name!r}: {exc}") from exc
         try:
             session.set_option("mouse", "off")
         except Exception:  # noqa: BLE001 - best effort
-            current_app.logger.debug("Unable to set tmux session options for %s", session_name)
+            current_app.logger.debug("Unable to set tmux session options for %s", resolved_name)
     return session
 
 
-def ensure_project_window(project, *, window_name: Optional[str] = None):
-    session = _ensure_shared_session()
+def ensure_project_window(
+    project,
+    *,
+    window_name: Optional[str] = None,
+    session_name: Optional[str] = None,
+):
+    session = _ensure_session(session_name=session_name)
     if session is None:
         raise TmuxServiceError("Unable to create shared tmux session.")
     window_name = window_name or _project_window_name(project)
@@ -147,9 +175,19 @@ def list_windows_for_aliases(
     project_local_path: Optional[str] = None,
     *,
     extra_aliases: Optional[Iterable[str]] = None,
+    session_name: Optional[str] = None,
+    include_all_sessions: bool = False,
 ) -> List[TmuxWindow]:
-    session = _ensure_shared_session(create=False)
-    if session is None:
+    sessions: list = []
+    if include_all_sessions:
+        server = _get_server()
+        sessions = list(server.sessions)
+    else:
+        session = _ensure_session(session_name=session_name, create=False)
+        if session is None:
+            return []
+        sessions = [session]
+    if not sessions:
         return []
 
     aliases: set[str] = set()
@@ -163,24 +201,26 @@ def list_windows_for_aliases(
     if not aliases:
         return [
             _window_info(session, window)
+            for session in sessions
             for window in session.windows
         ]
 
     matches: List[TmuxWindow] = []
-    for window in session.windows:
-        name = window.get("window_name", "").lower()
-        if any(alias for alias in aliases if alias and alias in name):
-            matches.append(_window_info(session, window))
+    for session in sessions:
+        for window in session.windows:
+            name = window.get("window_name", "").lower()
+            if any(alias for alias in aliases if alias and alias in name):
+                matches.append(_window_info(session, window))
     return matches
 
 
-def get_or_create_window_for_project(project) -> TmuxWindow:
-    session, window, _ = ensure_project_window(project)
+def get_or_create_window_for_project(project, *, session_name: Optional[str] = None) -> TmuxWindow:
+    session, window, _ = ensure_project_window(project, session_name=session_name)
     return _window_info(session, window)
 
 
-def find_window_for_project(project) -> Optional[TmuxWindow]:
-    session = _ensure_shared_session(create=False)
+def find_window_for_project(project, *, session_name: Optional[str] = None) -> Optional[TmuxWindow]:
+    session = _ensure_session(session_name=session_name, create=False)
     if session is None:
         return None
     window = next(
@@ -205,12 +245,12 @@ def _is_managed_window_name(window_name: str) -> bool:
     return True
 
 
-def sync_project_windows(projects: Sequence[object]) -> TmuxSyncResult:
+def sync_project_windows(projects: Sequence[object], *, session_name: Optional[str] = None) -> TmuxSyncResult:
     """
     Ensure every project has a tmux window and prune orphaned project windows.
     """
 
-    session = _ensure_shared_session()
+    session = _ensure_session(session_name=session_name)
     existing = {window.get("window_name"): window for window in session.windows}
 
     desired_names: set[str] = set()
@@ -220,7 +260,7 @@ def sync_project_windows(projects: Sequence[object]) -> TmuxSyncResult:
         desired_names.add(window_name)
         if window_name not in existing:
             try:
-                ensure_project_window(project, window_name=window_name)
+                ensure_project_window(project, window_name=window_name, session_name=session_name)
             except TmuxServiceError:
                 raise
             except Exception as exc:  # pragma: no cover - libtmux raise
@@ -252,4 +292,5 @@ __all__ = [
     "list_windows_for_aliases",
     "sync_project_windows",
     "TmuxSyncResult",
+    "session_name_for_user",
 ]

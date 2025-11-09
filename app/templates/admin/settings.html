@@ -5,20 +5,25 @@
   .settings-grid {
     display: grid;
     gap: 1.25rem;
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: 1fr;
     width: 100%;
-    padding: 0 0.75rem;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 1rem;
     box-sizing: border-box;
-    justify-items: center;
   }
   .settings-card {
     padding: 1.5rem;
     border-radius: 1.2rem;
     border: 1px solid rgba(148, 163, 184, 0.3);
     background: rgba(255, 255, 255, 0.92);
-    width: min(100%, 640px);
+    width: 100%;
     box-sizing: border-box;
-    margin: 0 auto;
+  }
+  @media (min-width: 720px) {
+    .settings-grid {
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    }
   }
   [data-theme="dark"] .settings-card {
     background: rgba(15, 23, 42, 0.6);

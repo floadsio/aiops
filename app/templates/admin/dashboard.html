@@ -83,27 +83,39 @@
   gap: 0.55rem;
   flex-wrap: wrap;
 }
-.project-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0 0;
-  align-items: center;
-}
-.project-actions form {
-  margin: 0;
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.project-actions input[type="text"],
-.project-actions input[type="search"] {
-  width: 9rem;
-}
-.project-actions button {
-  min-width: 0;
-  justify-content: center;
-}
+  .project-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    align-items: stretch;
+  }
+  .project-actions form {
+    margin: 0;
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+    flex: 1 1 280px;
+  }
+  .project-actions select,
+  .project-actions input {
+    flex: 1 1 auto;
+    min-width: 140px;
+  }
+  .project-actions button {
+    flex: 1 1 auto;
+    min-width: 120px;
+  }
+  @media (max-width: 900px) {
+    .project-actions form {
+      flex-direction: column;
+    }
+    .project-actions button,
+    .project-actions select,
+    .project-actions input {
+      width: 100%;
+    }
+  }
 .project-branch-tools {
   margin-top: 0.65rem;
   border: 1px dashed rgba(15, 23, 42, 0.15);
@@ -560,17 +572,18 @@
     justify-content: space-between;
     gap: 0.75rem;
     flex-wrap: wrap;
+    min-height: 200px;
   }
   [data-theme="dark"] .tmux-recent-card {
     border-color: rgba(148, 163, 184, 0.25);
     background: rgba(30, 41, 59, 0.55);
   }
   .tmux-recent-meta {
+    flex: 1 1 100%;
     display: flex;
-    flex: 1 1 auto;
     flex-wrap: wrap;
-    align-items: center;
     gap: 0.4rem;
+    align-items: center;
     font-size: 0.9rem;
     color: #475569;
   }
@@ -584,13 +597,24 @@
   }
   .tmux-recent-actions {
     display: flex;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-    flex-wrap: wrap;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .tmux-recent-actions .tmux-action {
+    flex: 1 1 0;
+    display: flex;
   }
   .tmux-recent-actions form {
     margin: 0;
+    width: 100%;
+  }
+  .tmux-recent-actions .tmux-action-btn {
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    display: inline-flex;
+    padding: 0.4rem 0.65rem;
+    min-height: 2.5rem;
   }
   @media (max-width: 640px) {
     .tmux-recent-card {
@@ -598,8 +622,7 @@
       align-items: flex-start;
     }
     .tmux-recent-actions {
-      width: 100%;
-      justify-content: flex-start;
+      flex-direction: column;
     }
   }
   .update-form {
@@ -705,24 +728,28 @@
           </div>
           <div class="tmux-recent-actions">
             {% if window.project %}
-              <a
-                role="button"
-                class="secondary outline"
-                href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
-              >
-                Reattach
-              </a>
-              <form
-                method="post"
-                action="{{ url_for('projects.close_tmux_window', project_id=window.project.project_id) }}"
-                style="margin:0;"
-                onsubmit="return confirm('Close tmux window {{ window.window }}?')"
-              >
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="tmux_target" value="{{ window.target }}">
-                <input type="hidden" name="next" value="{{ request.full_path }}">
-                <button type="submit" class="secondary outline">Close</button>
-              </form>
+              <div class="tmux-action">
+                <a
+                  role="button"
+                  class="secondary outline tmux-action-btn"
+                  href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
+                >
+                  Reattach
+                </a>
+              </div>
+              <div class="tmux-action">
+                <form
+                  method="post"
+                  action="{{ url_for('projects.close_tmux_window', project_id=window.project.project_id) }}"
+                  style="margin:0;"
+                  onsubmit="return confirm('Close tmux window {{ window.window }}?')"
+                >
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="tmux_target" value="{{ window.target }}">
+                  <input type="hidden" name="next" value="{{ request.full_path }}">
+                  <button type="submit" class="secondary outline tmux-action-btn">Close</button>
+                </form>
+              </div>
             {% endif %}
           </div>
         </article>

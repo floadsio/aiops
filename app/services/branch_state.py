@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import subprocess
 from pathlib import Path
 
 from flask import current_app
-from git import Repo
+from git import Repo, GitCommandError
 
 from ..git_info import list_repo_branches
 
@@ -67,16 +68,40 @@ def available_branches() -> list[str]:
     return branches
 
 
-def configure_branch_form(form) -> None:
+def configure_branch_form(form, *, current_branch: str | None = None) -> None:
     branches = available_branches()
     recorded = load_recorded_branch()
     choices = [(branch, branch) for branch in branches]
+    if current_branch and current_branch not in [value for value, _ in choices]:
+        choices.insert(0, (current_branch, current_branch))
     if recorded and recorded not in [value for value, _ in choices]:
         choices.insert(0, (recorded, recorded))
     form.branch.choices = choices
     if form.is_submitted():
         return
-    if recorded:
-        form.branch.data = recorded
+    default_branch = recorded or current_branch
+    if default_branch:
+        form.branch.data = default_branch
     elif not form.branch.data and choices:
         form.branch.data = choices[0][0]
+
+
+class BranchSwitchError(RuntimeError):
+    """Raised when git branch switch fails."""
+
+
+def switch_repo_branch(target_branch: str) -> None:
+    repo_root = Path(current_app.root_path).parent
+    try:
+        repo = Repo(repo_root)
+    except Exception as exc:  # noqa: BLE001
+        raise BranchSwitchError(f"Unable to open repository at {repo_root}: {exc}") from exc
+
+    cleaned = (target_branch or "").strip()
+    if not cleaned:
+        raise BranchSwitchError("Branch name is required.")
+
+    try:
+        repo.git.checkout(cleaned)
+    except GitCommandError as exc:
+        raise BranchSwitchError(f"git checkout {cleaned} failed: {exc}") from exc

@@ -297,6 +297,66 @@
   </article>
 
   <article class="settings-card">
+    <h2>Gemini CLI Updates</h2>
+    <p>Install or upgrade the <code>gemini-cli</code> tool from Google to run AI assistants locally.</p>
+    <p class="text-muted">Runs <code>sudo npm install -g @google/gemini-cli</code>; ensure the service user can run npm with sudo.</p>
+    <div>
+      <p><strong>Installed version:</strong>
+        {% if gemini_status.installed_version %}
+          <code>{{ gemini_status.installed_version }}</code>
+        {% else %}
+          <span class="text-muted">Unknown</span>
+        {% endif %}
+      </p>
+      <p><strong>Latest release:</strong>
+        {% if gemini_status.latest_version %}
+          <code>{{ gemini_status.latest_version }}</code>
+        {% else %}
+          <span class="text-muted">Unknown</span>
+        {% endif %}
+      </p>
+      <p>
+        {% if gemini_status.errors %}
+          <span class="badge danger">Status unavailable</span>
+        {% elif gemini_status.update_available %}
+          <span class="badge warning">Update available</span>
+        {% else %}
+          <span class="badge success">Up to date</span>
+        {% endif %}
+      </p>
+    </div>
+    {% if gemini_status.errors %}
+      <div class="critical-note">
+        <p>Unable to determine Gemini CLI status:</p>
+        <ul>
+          {% for message in gemini_status.errors %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin.update_gemini_cli') }}">
+      {{ gemini_update_form.hidden_tag() }}
+      {% set disable_gemini = gemini_status.errors or (not gemini_status.update_available) %}
+      <div class="settings-actions">
+        <button type="submit" class="secondary"
+                {% if disable_gemini %}disabled aria-disabled="true"{% endif %}
+                {% if disable_gemini %}title="Gemini CLI must need an update and report healthy status to proceed."{% endif %}>
+          Install latest Gemini
+        </button>
+        <span class="text-muted form-helper">Installs the npm-based Gemini CLI globally.</span>
+      </div>
+    </form>
+    {% if gemini_status.errors %}
+      <p class="text-muted">Resolve the issues above before retrying.</p>
+    {% elif gemini_status.update_available %}
+      <p class="text-muted">A newer Gemini release is available. Installation may take a couple of minutes.</p>
+    {% else %}
+      <p class="text-muted">Gemini CLI is up to date. Refresh to check again.</p>
+    {% endif %}
+  </article>
+
+  <article class="settings-card">
     <h2>User Accounts</h2>
     <p>Create and manage application users. Promote additional administrators so critical tasks are not blocked on a single account.</p>
     <details>

@@ -15,6 +15,7 @@ from app.security import hash_password
 from app.services.key_service import resolve_private_key_path
 from app.services.update_service import UpdateError
 from app.services.tmux_service import TmuxServiceError
+from app.services.gemini_update_service import GeminiUpdateError
 from app.services.git_service import checkout_or_create_branch
 from app.services.migration_service import MigrationError
 
@@ -414,6 +415,43 @@ def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"tmux unavailable" in response.data
+
+
+def test_admin_gemini_update_success(app, client, login_admin, monkeypatch):
+    class DummyResult:
+        command = "sudo npm install -g @google/gemini-cli"
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+        @property
+        def ok(self):
+            return True
+
+    monkeypatch.setattr("app.routes.admin.install_latest_gemini", lambda: DummyResult())
+
+    response = client.post(
+        "/admin/settings/gemini/update",
+        data={"submit": "Install latest Gemini"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"Gemini CLI update succeeded" in response.data
+
+
+def test_admin_gemini_update_failure(app, client, login_admin, monkeypatch):
+    def fake_update():
+        raise GeminiUpdateError("npm missing")
+
+    monkeypatch.setattr("app.routes.admin.install_latest_gemini", fake_update)
+
+    response = client.post(
+        "/admin/settings/gemini/update",
+        data={"submit": "Install latest Gemini"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"npm missing" in response.data
 
 
 def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):

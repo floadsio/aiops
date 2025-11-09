@@ -9,6 +9,7 @@ This project provides a Flask-based web UI that orchestrates multi-tenant source
 - Register SSH keys per user to authenticate against remote Git repositories.
 - Clone, update, and push Git repositories through the web UI.
 - Trigger AI assistants (Codex or Aider) against checked-out code via task runners.
+- Install and upgrade AI CLIs (Codex, Gemini) without shell access via the admin settings.
 - Run Ansible jobs via Semaphore to provision remote environments after code updates.
 - Launch browser terminals that default to the Codex CLI and reuse tmux sessions per tenant for continuity.
 
@@ -69,8 +70,10 @@ to restart the service automatically after a successful update.
 ## AI Console
 
 - Browser sessions default to the `codex` CLI when no tool is selected, falling back to `DEFAULT_AI_SHELL` only if the Codex command is unavailable.
+- Add Gemini (`gemini-cli`) to `ALLOWED_AI_TOOLS` automatically by setting `GEMINI_COMMAND` (defaults to `gemini`).
 - When tmux is installed, terminals attach to a per-tenant session (`<tenant>-shell`), reusing the same workspace on subsequent launches.
 - Configure defaults with `DEFAULT_AI_TOOL` and `DEFAULT_AI_SHELL` in `.env`; toggle multiplexing with `USE_TMUX_FOR_AI_SESSIONS`.
+- Use the admin settings cards to install or update Codex (`CODEX_UPDATE_COMMAND`) and Gemini (`GEMINI_UPDATE_COMMAND`) CLIs via npm.
 
 ## Semaphore Integration
 

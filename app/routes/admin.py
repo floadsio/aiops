@@ -53,6 +53,7 @@ from ..forms.admin import (
     TenantIntegrationForm,
     TenantIntegrationDeleteForm,
     CodexUpdateForm,
+    GeminiUpdateForm,
     MigrationRunForm,
     TmuxResyncForm,
 )
@@ -101,6 +102,12 @@ from ..services.codex_update_service import (
     get_codex_status,
     install_latest_codex,
 )
+from ..services.gemini_update_service import (
+    GeminiStatus,
+    GeminiUpdateError,
+    get_gemini_status,
+    install_latest_gemini,
+)
 from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
     extract_issue_description,
@@ -110,6 +117,8 @@ from ..services.branch_state import (
     configure_branch_form,
     remember_branch,
     current_repo_branch,
+    switch_repo_branch,
+    BranchSwitchError,
 )
 from ..security import hash_password
 
@@ -640,10 +649,14 @@ def dashboard():
 def manage_settings():
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.manage_settings")
-    configure_branch_form(update_form)
+    current_branch = current_repo_branch()
+    configure_branch_form(update_form, current_branch=current_branch)
 
     codex_update_form = CodexUpdateForm()
     codex_update_form.next.data = url_for("admin.manage_settings")
+
+    gemini_update_form = GeminiUpdateForm()
+    gemini_update_form.next.data = url_for("admin.manage_settings")
 
     migration_form = MigrationRunForm()
     migration_form.next.data = url_for("admin.manage_settings")
@@ -661,10 +674,20 @@ def manage_settings():
             update_available=False,
             errors=(f"Unable to determine Codex status: {exc}",),
         )
+    try:
+        gemini_status = get_gemini_status()
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.exception("Unable to determine Gemini CLI status.")
+        gemini_status = GeminiStatus(
+            installed_version=None,
+            latest_version=None,
+            update_available=False,
+            errors=(f"Unable to determine Gemini status: {exc}",),
+        )
 
     quick_branch_form = QuickBranchSwitchForm()
     quick_branch_form.next.data = url_for("admin.manage_settings")
-    configure_branch_form(quick_branch_form)
+    configure_branch_form(quick_branch_form, current_branch=current_branch)
 
     create_user_form = CreateUserForm()
     if create_user_form.submit.data:
@@ -730,6 +753,8 @@ def manage_settings():
         log_file=current_app.config.get("LOG_FILE"),
         codex_status=codex_status,
         codex_update_form=codex_update_form,
+        gemini_status=gemini_status,
+        gemini_update_form=gemini_update_form,
         quick_branch_form=quick_branch_form,
     )
 
@@ -738,7 +763,7 @@ def manage_settings():
 @admin_required
 def run_system_update():
     form = UpdateApplicationForm()
-    configure_branch_form(form)
+    configure_branch_form(form, current_branch=current_repo_branch())
     if not form.validate_on_submit():
         flash("Invalid update request.", "danger")
         return redirect(url_for("admin.dashboard"))
@@ -795,7 +820,7 @@ def run_system_update():
 @admin_required
 def quick_branch_switch():
     form = QuickBranchSwitchForm()
-    configure_branch_form(form)
+    configure_branch_form(form, current_branch=current_repo_branch())
     if not form.validate_on_submit():
         flash("Invalid branch switch request.", "danger")
         return redirect(form.next.data or url_for("admin.dashboard"))
@@ -805,40 +830,21 @@ def quick_branch_switch():
         flash("Select a branch to switch to.", "warning")
         return redirect(form.next.data or url_for("admin.dashboard"))
 
-    env_overrides = {"AIOPS_UPDATE_BRANCH": branch}
-    remember_branch(branch)
-
     try:
-        result = run_update_script(extra_env=env_overrides)
-    except UpdateError as exc:
-        current_app.logger.exception("Quick branch switch failed to start.")
+        switch_repo_branch(branch)
+    except BranchSwitchError as exc:
         flash(str(exc), "danger")
         return redirect(form.next.data or url_for("admin.dashboard"))
 
-    combined_output = "\n".join(
-        part for part in [result.stdout.strip(), result.stderr.strip()] if part
-    )
-    truncated = _truncate_output(combined_output)
-    message = (
-        f"Switched to {branch} (exit {result.returncode})."
-        if result.ok
-        else f"Branch switch failed (exit {result.returncode})."
-    )
-    category = "success" if result.ok else "danger"
-    if combined_output:
-        current_app.logger.info("Quick branch switch output: %s", combined_output)
-    if truncated:
-        flash(
-            Markup(f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"),
-            category,
-        )
-    else:
-        flash(message, category)
+    remember_branch(branch)
+    flash(f"Checked out branch {branch}.", "success")
 
     restart_command = current_app.config.get("UPDATE_RESTART_COMMAND")
-    if result.ok and restart_command:
+    if restart_command:
         success, restart_message = _trigger_restart(restart_command)
         flash(restart_message, "info" if success else "danger")
+    else:
+        flash("Branch switched. Restart manually to apply changes.", "warning")
 
     return redirect(form.next.data or url_for("admin.dashboard"))
 
@@ -939,6 +945,49 @@ def update_codex_cli():
         )
         category = "success" if result.ok else "danger"
         log_message = f"Codex CLI update command finished with exit {result.returncode}"
+        if combined_output:
+            current_app.logger.info("%s; output: %s", log_message, combined_output)
+        else:
+            current_app.logger.info(log_message)
+        if truncated:
+            flash(
+                Markup(
+                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                ),
+                category,
+            )
+        else:
+            flash(message, category)
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/gemini/update", methods=["POST"])
+@admin_required
+def update_gemini_cli():
+    form = GeminiUpdateForm()
+    if not form.validate_on_submit():
+        flash("Invalid Gemini update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        result = install_latest_gemini()
+    except GeminiUpdateError as exc:
+        current_app.logger.exception("Failed to run Gemini CLI update.")
+        flash(str(exc), "danger")
+    else:
+        combined_output = "\n".join(
+            part for part in [result.stdout.strip(), result.stderr.strip()] if part
+        )
+        truncated = _truncate_output(combined_output)
+        message = (
+            f"Gemini CLI update succeeded (exit {result.returncode})."
+            if result.ok
+            else f"Gemini CLI update failed (exit {result.returncode})."
+        )
+        category = "success" if result.ok else "danger"
+        log_message = f"Gemini CLI update command finished with exit {result.returncode}"
         if combined_output:
             current_app.logger.info("%s; output: %s", log_message, combined_output)
         else:

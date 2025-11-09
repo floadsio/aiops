@@ -25,6 +25,8 @@ live under `ansible/`.
   restores; it recreates missing windows and prunes orphaned `-p<ID>` sessions.
 - Dashboard project cards include branch-aware git controls plus inline forms to checkout/create or
   merge branches; prefer these tools when testing feature branches.
+- Admin → Settings now has Codex and Gemini CLI cards; use them to install/upgrade `codex` or
+  `gemini-cli` instead of running npm manually.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

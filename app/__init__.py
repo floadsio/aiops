@@ -53,16 +53,16 @@ def register_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_csrf_token():
+        repo_branch = detect_repo_branch(Path(app.root_path).parent)
         recorded_branch = load_recorded_branch()
-        branch = recorded_branch or detect_repo_branch(Path(app.root_path).parent)
         branch_switch_form = QuickBranchSwitchForm()
-        configure_branch_form(branch_switch_form)
+        configure_branch_form(branch_switch_form, current_branch=repo_branch)
         if request:
             branch_switch_form.next.data = request.full_path or request.path
         return {
             "csrf_token": generate_csrf,
             "app_version": app.config.get("AIOPS_VERSION", __version__),
-            "app_git_branch": branch or "unknown",
+            "app_git_branch": repo_branch or "unknown",
             "default_tenant_color": DEFAULT_TENANT_COLOR,
             "branch_switch_form": branch_switch_form,
         }

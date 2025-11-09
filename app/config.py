@@ -21,6 +21,7 @@ class Config:
     ALLOWED_AI_TOOLS = {
         "codex": os.getenv("CODEX_COMMAND", "codex"),
         "aider": os.getenv("AIDER_COMMAND", "aider"),
+        "gemini": os.getenv("GEMINI_COMMAND", "gemini"),
     }
     DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "codex")
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")

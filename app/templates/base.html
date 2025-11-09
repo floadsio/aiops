@@ -182,28 +182,28 @@
         background: rgba(45, 212, 191, 0.25);
         color: rgba(167, 243, 208, 0.95);
       }
-      .branch-switcher {
+      details.branch-switcher {
         position: relative;
         display: inline-flex;
         align-items: center;
         margin: 0;
       }
-      .branch-switcher summary {
+      details.branch-switcher summary {
         list-style: none;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         margin: 0;
       }
-      .branch-switcher summary::marker,
-      .branch-switcher summary::-webkit-details-marker {
+      details.branch-switcher summary::marker,
+      details.branch-switcher summary::-webkit-details-marker {
         display: none;
       }
-      .branch-switcher[open] summary::marker,
-      .branch-switcher summary::-webkit-details-marker {
+      details.branch-switcher[open] summary::marker,
+      details.branch-switcher[open] summary::-webkit-details-marker {
         display: none;
       }
-      .branch-switcher__panel {
+      details.branch-switcher .branch-switcher__panel {
         position: absolute;
         top: calc(100% + 0.4rem);
         right: 0;
@@ -215,11 +215,11 @@
         box-shadow: 0 10px 25px rgba(15, 23, 42, 0.15);
         z-index: 50;
       }
-      [data-theme="dark"] .branch-switcher__panel {
+      [data-theme="dark"] details.branch-switcher .branch-switcher__panel {
         background: rgba(15, 23, 42, 0.92);
         border-color: rgba(148, 163, 184, 0.4);
       }
-      .branch-switcher__panel form {
+      details.branch-switcher .branch-switcher__panel form {
         display: flex;
         flex-direction: column;
         gap: 0.45rem;
@@ -386,13 +386,13 @@
                       {{ branch_switch_form.next }}
                       <label>
                         <span style="font-size:0.85rem;font-weight:600;">Run branch</span>
-                        {{ branch_switch_form.branch() }}
-                      </label>
-                      {{ branch_switch_form.submit(class="secondary outline") }}
-                      <small class="text-muted">Runs update script and restart.</small>
-                    </form>
-                  </div>
-                </details>
+                      {{ branch_switch_form.branch() }}
+                    </label>
+                    {{ branch_switch_form.submit(class="secondary outline") }}
+                    <small class="text-muted">Switches the git branch and restarts aiops.</small>
+                  </form>
+                </div>
+              </details>
               {% else %}
                 <span class="branch-badge" title="Current git branch">branch: {{ app_git_branch }}</span>
               {% endif %}

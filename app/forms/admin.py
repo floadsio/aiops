@@ -216,6 +216,11 @@ class CodexUpdateForm(FlaskForm):
     submit = SubmitField("Update Codex CLI")
 
 
+class GeminiUpdateForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Update Gemini CLI")
+
+
 class MigrationRunForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Run Database Migrations")

@@ -3,11 +3,10 @@
 {% block extra_head %}
 <style>
   .settings-grid {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     gap: 1.25rem;
-    grid-template-columns: 1fr;
-    width: 100%;
-    max-width: 960px;
+    width: min(960px, 100%);
     margin: 0 auto;
     padding: 0 1rem;
     box-sizing: border-box;
@@ -22,6 +21,7 @@
   }
   @media (min-width: 720px) {
     .settings-grid {
+      display: grid;
       grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     }
   }

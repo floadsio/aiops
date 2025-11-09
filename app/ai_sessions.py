@@ -92,7 +92,12 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
     return fallback_shell
 
 
-def _resolve_tmux_window(project, tmux_target: Optional[str] = None):
+def _resolve_tmux_window(
+    project,
+    tmux_target: Optional[str] = None,
+    *,
+    session_name: Optional[str] = None,
+):
     window_name = None
     if tmux_target:
         if ":" in tmux_target:
@@ -102,7 +107,11 @@ def _resolve_tmux_window(project, tmux_target: Optional[str] = None):
             window_name = tmux_target
 
     try:
-        session, window, created = ensure_project_window(project, window_name=window_name)
+        session, window, created = ensure_project_window(
+            project,
+            window_name=window_name,
+            session_name=session_name,
+        )
     except ValueError as exc:
         current_app.logger.warning(
             "Unable to open tmux window %s for project %s: %s. Falling back to default window.",
@@ -110,7 +119,7 @@ def _resolve_tmux_window(project, tmux_target: Optional[str] = None):
             getattr(project, "id", "unknown"),
             exc,
         )
-        session, window, created = ensure_project_window(project)
+        session, window, created = ensure_project_window(project, session_name=session_name)
     try:
         window.select_window()
     except Exception:  # noqa: BLE001 - best effort
@@ -162,6 +171,7 @@ def create_session(
     rows: int | None = None,
     cols: int | None = None,
     tmux_target: str | None = None,
+    tmux_session_name: str | None = None,
 ) -> AISession:
     command_str = _resolve_command(tool, command)
 
@@ -174,7 +184,11 @@ def create_session(
     if not tmux_path:
         raise RuntimeError("tmux binary not found. Install tmux or disable tmux integration.")
 
-    session, window, created = _resolve_tmux_window(project, tmux_target)
+    session, window, created = _resolve_tmux_window(
+        project,
+        tmux_target,
+        session_name=tmux_session_name,
+    )
     session_name = session.get("session_name")
     window_name = window.get("window_name")
     pane = window.attached_pane or (window.panes[0] if window.panes else None)

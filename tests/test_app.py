@@ -362,7 +362,7 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
 
     monkeypatch.setattr(
         "app.routes.projects.get_or_create_window_for_project",
-        lambda project: SimpleNamespace(target="aiops:demo-window"),
+        lambda project, session_name=None: SimpleNamespace(target="aiops:demo-window"),
     )
 
     response = client.post(f"/projects/{project_id}/issues/{issue_id}/prepare")

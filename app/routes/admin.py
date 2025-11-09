@@ -90,6 +90,7 @@ from ..services.tmux_service import (
     list_windows_for_aliases,
     sync_project_windows,
     TmuxSyncResult,
+    session_name_for_user,
 )
 from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
 from ..services.update_service import run_update_script, UpdateError
@@ -274,6 +275,13 @@ def _coerce_timestamp(value: Any) -> datetime | None:
     return None
 
 
+def _current_tmux_session_name() -> str:
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    return session_name_for_user(user_obj)
+
+
 @admin_bp.route("/")
 @admin_required
 def dashboard():
@@ -338,6 +346,7 @@ def dashboard():
     recent_tmux_windows: list[dict[str, Any]] = []
     recent_tmux_error: str | None = None
     window_project_map: dict[str, dict[str, Any]] = {}
+    tmux_session_name = _current_tmux_session_name()
 
     def _status_sort_key(item: tuple[str, str]) -> tuple[int, str]:
         key, label = item
@@ -377,6 +386,7 @@ def dashboard():
                 "",
                 project_local_path=project.local_path,
                 extra_aliases=(project.name, getattr(project, "slug", None)),
+                session_name=tmux_session_name,
             )
             windows = sorted(
                 windows,
@@ -541,7 +551,7 @@ def dashboard():
     project_cards.sort(key=lambda card: card.get("last_activity") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
 
     try:
-        all_windows = list_windows_for_aliases("")
+        all_windows = list_windows_for_aliases("", session_name=tmux_session_name)
         all_windows = sorted(
             all_windows,
             key=lambda window: window.created or datetime.min.replace(tzinfo=timezone.utc),
@@ -860,7 +870,10 @@ def resync_tmux_sessions():
 
     try:
         projects = Project.query.options(selectinload(Project.tenant)).all()
-        result = sync_project_windows(projects)
+        result = sync_project_windows(
+            projects,
+            session_name=_current_tmux_session_name(),
+        )
     except TmuxServiceError as exc:
         current_app.logger.exception("Failed to resync tmux sessions.")
         flash(str(exc), "danger")

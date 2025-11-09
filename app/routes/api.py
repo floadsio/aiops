@@ -12,6 +12,7 @@ from ..ai_sessions import close_session, create_session, get_session, resize_ses
 from ..extensions import csrf, db
 from ..models import Project, Tenant, User
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
+from ..services.tmux_service import session_name_for_user
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -226,6 +227,9 @@ def start_project_ai_session(project_id: int):
         except (TypeError, ValueError):
             return jsonify({"error": "Unable to resolve current user."}), 400
 
+    session_user = _resolve_project_owner(user_id) or getattr(current_user, "model", None)
+    tmux_session_name = session_name_for_user(session_user)
+
     try:
         session = create_session(
             project,
@@ -235,6 +239,7 @@ def start_project_ai_session(project_id: int):
             rows=rows if isinstance(rows, int) else None,
             cols=cols if isinstance(cols, int) else None,
             tmux_target=tmux_target,
+            tmux_session_name=tmux_session_name,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400

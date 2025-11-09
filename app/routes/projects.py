@@ -47,6 +47,7 @@ from ..services.tmux_service import (
     list_windows_for_aliases,
     TmuxServiceError,
     get_or_create_window_for_project,
+    session_name_for_user,
 )
 from ..services.agent_context import write_tracked_issue_context
 from ..services.issues import (
@@ -78,6 +79,13 @@ def _authorize(project: Project) -> bool:
     if current_user.is_admin:
         return True
     return project.owner_id == current_user.model.id
+
+
+def _current_tmux_session_name() -> str:
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    return session_name_for_user(user_obj)
 
 
 def _issue_sort_key(issue: ExternalIssue):
@@ -498,6 +506,7 @@ def project_ai_console(project_id: int):
     if not _authorize(project):
         flash("You do not have access to this project.", "danger")
         return redirect(url_for("admin.dashboard"))
+    tmux_session_name = _current_tmux_session_name()
 
     form = AIRunForm()
     choices = [
@@ -513,7 +522,7 @@ def project_ai_console(project_id: int):
     tenant_name = tenant.name if tenant else ""
     try:
         # Ensure a window exists for this project so users can attach immediately
-        project_window = get_or_create_window_for_project(project)
+        project_window = get_or_create_window_for_project(project, session_name=tmux_session_name)
         created_display = (
             project_window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
             if project_window.created
@@ -534,6 +543,7 @@ def project_ai_console(project_id: int):
             tenant_name,
             project_local_path=project.local_path,
             extra_aliases=(project.name, getattr(project, "slug", None)),
+            session_name=tmux_session_name,
         )
         for window in extra_windows:
             if window.target == project_window.target:
@@ -613,12 +623,17 @@ def prepare_issue_context(project_id: int, issue_id: int):
     )
     command = codex_command
 
+    tmux_session_name = _current_tmux_session_name()
+
     return jsonify({
         "prompt": prompt,
         "command": command,
         "tool": "codex",
         "agent_path": str(agents_path) if agents_path else None,
-        "tmux_target": get_or_create_window_for_project(project).target,
+        "tmux_target": get_or_create_window_for_project(
+            project,
+            session_name=tmux_session_name,
+        ).target,
     })
 
 
@@ -757,6 +772,7 @@ def start_ai_session(project_id: int):
 
     rows = rows if isinstance(rows, int) and rows > 0 else None
     cols = cols if isinstance(cols, int) and cols > 0 else None
+    tmux_session_name = _current_tmux_session_name()
 
     try:
         session = create_session(
@@ -767,6 +783,7 @@ def start_ai_session(project_id: int):
             rows=rows,
             cols=cols,
             tmux_target=tmux_target,
+            tmux_session_name=tmux_session_name,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400

@@ -385,7 +385,7 @@ def test_admin_tmux_resync_success(app, client, login_admin, monkeypatch):
 
     calls = {}
 
-    def fake_sync(projects):
+    def fake_sync(projects, session_name=None):
         calls["count"] = len(projects)
         return DummyResult()
 
@@ -402,7 +402,7 @@ def test_admin_tmux_resync_success(app, client, login_admin, monkeypatch):
 
 
 def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
-    def fake_sync(projects):
+    def fake_sync(projects, session_name=None):
         raise TmuxServiceError("tmux unavailable")
 
     monkeypatch.setattr("app.routes.admin.sync_project_windows", fake_sync)

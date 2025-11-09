@@ -5,6 +5,7 @@
   .settings-grid {
     display: grid;
     gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   }
   .settings-card {
     padding: 1.5rem;
@@ -32,6 +33,18 @@
     gap: 0.75rem;
     flex-wrap: wrap;
     align-items: center;
+  }
+  .settings-actions label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 220px;
+  }
+  .settings-actions select,
+  .settings-actions input[type="text"],
+  .settings-actions input[type="number"],
+  .settings-actions input[type="password"] {
+    width: 100%;
   }
   .settings-actions .checkbox-inline {
     display: flex;
@@ -99,6 +112,33 @@
   [data-theme="dark"] .log-output {
     background: rgba(30, 41, 59, 0.6);
     border-color: rgba(148, 163, 184, 0.25);
+  }
+  @media (max-width: 768px) {
+    .settings-card {
+      padding: 1.1rem;
+    }
+    .settings-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .settings-actions label,
+    .settings-actions .checkbox-inline {
+      width: 100%;
+    }
+    .settings-actions button {
+      width: 100%;
+      justify-content: center;
+    }
+    .settings-actions .form-helper {
+      width: 100%;
+    }
+    .log-output {
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .settings-grid {
+      grid-template-columns: 1fr;
+    }
   }
 </style>
 {% endblock %}

@@ -519,6 +519,32 @@
     gap: 0.85rem;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   }
+  .tmux-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .tmux-scope-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .tmux-scope-pill {
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 999px;
+    padding: 0.2rem 0.8rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  [data-theme="dark"] .tmux-scope-pill {
+    background: rgba(148, 163, 184, 0.35);
+    color: rgba(15, 23, 42, 0.9);
+  }
   .tmux-recent-card {
     padding: 0.85rem 1rem;
     border-radius: 0.85rem;
@@ -625,18 +651,24 @@
     value="{{ dashboard_query }}"
     placeholder="Search tenants or projects…"
     autocomplete="off"
-    data-search-endpoint="{{ url_for('admin.dashboard') }}"
+    data-search-endpoint="{{ dashboard_search_endpoint }}"
   >
 </section>
 
 <section class="dashboard-section">
-  <header>
-    <h2>
-      tmux Sessions
-      <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
-        <strong style="margin:0;font-size:1rem;">{{ recent_tmux_windows|length }}</strong>
-      </span>
-    </h2>
+  <header class="tmux-section-header">
+    <div>
+      <h2>
+        tmux Sessions
+        <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
+          <strong style="margin:0;font-size:1rem;">{{ recent_tmux_windows|length }}</strong>
+        </span>
+      </h2>
+    </div>
+    <div class="tmux-scope-controls">
+      <span class="tmux-scope-pill">Scope: {{ tmux_scope_label }}</span>
+      <a class="tertiary" href="{{ tmux_scope_toggle_url }}">{{ tmux_scope_toggle_label }}</a>
+    </div>
   </header>
   {% if recent_tmux_error %}
     <p class="warning-note">tmux unavailable: {{ recent_tmux_error }}</p>
@@ -682,7 +714,7 @@
       {% endfor %}
     </div>
   {% else %}
-    <p class="text-muted">No tmux windows detected yet.</p>
+    <p class="text-muted">No tmux windows detected for this scope.</p>
   {% endif %}
 </section>
 

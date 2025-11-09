@@ -176,9 +176,18 @@ def list_windows_for_aliases(
     *,
     extra_aliases: Optional[Iterable[str]] = None,
     session_name: Optional[str] = None,
+    include_all_sessions: bool = False,
 ) -> List[TmuxWindow]:
-    session = _ensure_session(session_name=session_name, create=False)
-    if session is None:
+    sessions: list = []
+    if include_all_sessions:
+        server = _get_server()
+        sessions = list(server.sessions)
+    else:
+        session = _ensure_session(session_name=session_name, create=False)
+        if session is None:
+            return []
+        sessions = [session]
+    if not sessions:
         return []
 
     aliases: set[str] = set()
@@ -192,14 +201,16 @@ def list_windows_for_aliases(
     if not aliases:
         return [
             _window_info(session, window)
+            for session in sessions
             for window in session.windows
         ]
 
     matches: List[TmuxWindow] = []
-    for window in session.windows:
-        name = window.get("window_name", "").lower()
-        if any(alias for alias in aliases if alias and alias in name):
-            matches.append(_window_info(session, window))
+    for session in sessions:
+        for window in session.windows:
+            name = window.get("window_name", "").lower()
+            if any(alias for alias in aliases if alias and alias in name):
+                matches.append(_window_info(session, window))
     return matches
 
 

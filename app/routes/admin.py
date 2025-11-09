@@ -333,6 +333,22 @@ def dashboard():
 
     update_form = UpdateApplicationForm()
     update_form.next.data = url_for("admin.dashboard")
+    tmux_scope = (request.args.get("tmux_scope") or "mine").strip().lower()
+    tmux_scope_show_all = tmux_scope == "all"
+    tmux_scope_label = "All users" if tmux_scope_show_all else "My sessions"
+    toggle_params = request.args.to_dict(flat=True)
+    if tmux_scope_show_all:
+        toggle_params.pop("tmux_scope", None)
+        tmux_scope_toggle_label = "Show only my sessions"
+    else:
+        toggle_params["tmux_scope"] = "all"
+        tmux_scope_toggle_label = "Show all users"
+    tmux_scope_toggle_url = url_for("admin.dashboard", **toggle_params)
+    search_endpoint_kwargs: dict[str, str] = {}
+    if tmux_scope_show_all:
+        search_endpoint_kwargs["tmux_scope"] = "all"
+    dashboard_search_endpoint = url_for("admin.dashboard", **search_endpoint_kwargs)
+
     project_query = Project.query.options(
         selectinload(Project.tenant),
         selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
@@ -387,6 +403,7 @@ def dashboard():
                 project_local_path=project.local_path,
                 extra_aliases=(project.name, getattr(project, "slug", None)),
                 session_name=tmux_session_name,
+                include_all_sessions=tmux_scope_show_all,
             )
             windows = sorted(
                 windows,
@@ -551,7 +568,11 @@ def dashboard():
     project_cards.sort(key=lambda card: card.get("last_activity") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
 
     try:
-        all_windows = list_windows_for_aliases("", session_name=tmux_session_name)
+        all_windows = list_windows_for_aliases(
+            "",
+            session_name=tmux_session_name,
+            include_all_sessions=tmux_scope_show_all,
+        )
         all_windows = sorted(
             all_windows,
             key=lambda window: window.created or datetime.min.replace(tzinfo=timezone.utc),
@@ -606,6 +627,11 @@ def dashboard():
         recent_tmux_error=recent_tmux_error,
         update_form=update_form,
         dashboard_query=search_query,
+        tmux_scope_show_all=tmux_scope_show_all,
+        tmux_scope_label=tmux_scope_label,
+        tmux_scope_toggle_url=tmux_scope_toggle_url,
+        tmux_scope_toggle_label=tmux_scope_toggle_label,
+        dashboard_search_endpoint=dashboard_search_endpoint,
     )
 
 

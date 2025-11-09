@@ -1345,6 +1345,11 @@ def manage_issues():
         choices = provider_status_choices.get(entry["provider_key"], [])
         entry["status_choices"] = choices
     total_issue_full_count = len(issue_entries)
+
+    # Ensure we always expose an "Open" filter option so the default view can target it
+    status_labels.setdefault("open", "Open")
+    status_counts.setdefault("open", 0)
+
     raw_filter = (request.args.get("status") or "").strip().lower()
     tenant_raw_filter = (request.args.get("tenant") or "").strip()
     raw_sort = (request.args.get("sort") or "").strip().lower()
@@ -1355,8 +1360,7 @@ def manage_issues():
     else:
         sort_direction = raw_direction
 
-    has_open = status_counts.get("open", 0) > 0
-    default_filter = "open" if has_open else "all"
+    default_filter = "open"
 
     if raw_filter == "all":
         status_filter = "all"
@@ -1366,13 +1370,6 @@ def manage_issues():
         status_filter = "__none__"
     else:
         status_filter = default_filter
-
-    if (
-        status_filter == "open"
-        and status_counts.get("open", 0) == 0
-        and total_issue_full_count
-    ):
-        status_filter = "all"
 
     if tenant_raw_filter and tenant_raw_filter.lower() != "all":
         if tenant_raw_filter in tenant_labels:

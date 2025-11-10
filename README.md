@@ -76,6 +76,7 @@ to restart the service automatically after a successful update.
 - Use the admin settings cards to install or update Codex (`CODEX_UPDATE_COMMAND`) and Gemini (`GEMINI_UPDATE_COMMAND`) CLIs via npm.
 - Paste the required `google_accounts.json` / `oauth_creds.json` payloads into Admin → Settings for each user via the Gemini credentials dropdown; aiops stores the JSON per user under `instance/gemini/user-<id>/` and writes it into their CLI directory (`GEMINI_CONFIG_DIR/user-<id>`, default `~/.gemini/user-<id>`) whenever they save or launch a Gemini session, so authentication persists automatically.
 - Customize each user's Gemini CLI behavior (default model, UI theme, sandboxing) by editing `settings.json` in the same admin card; aiops mirrors it into `GEMINI_CONFIG_DIR/user-<id>/settings.json` per the [Gemini CLI configuration guide](https://geminicli.com/docs/get-started/configuration/).
+- When a tmux window launches with Gemini selected, aiops also copies that user's `google_accounts.json` / `oauth_creds.json` into the live CLI directory (`~/.gemini`) before running the command so the official CLI picks them up even if it ignores environment overrides.
 
 ## Semaphore Integration
 

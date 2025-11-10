@@ -161,6 +161,30 @@ def load_oauth_creds(*, user_id: Optional[int] = None) -> str:
     return _load_from_cli_dir("oauth_creds.json", user_id)
 
 
+def sync_credentials_to_cli_home(user_id: int) -> Path:
+    """Copy the user's credential files into the CLI home (typically ~/.gemini)."""
+    if user_id is None:
+        raise GeminiConfigError("User identifier is required for Gemini credentials.")
+    cli_home = _base_config_dir()
+    cli_home.mkdir(parents=True, exist_ok=True)
+    _safe_chmod(cli_home, 0o700)
+    for name in ("google_accounts.json", "oauth_creds.json"):
+        payload = _stored_payload(name, user_id)
+        destination = cli_home / name
+        if payload:
+            try:
+                destination.write_text(payload.strip() + "\n", encoding="utf-8")
+                _safe_chmod(destination, 0o600)
+            except OSError as exc:  # pragma: no cover - filesystem error path
+                raise GeminiConfigError(f"Failed to copy {name} into {cli_home}: {exc}") from exc
+        elif destination.exists():
+            try:
+                destination.unlink()
+            except OSError:
+                current_app.logger.debug("Unable to remove stale %s from %s", name, cli_home)
+    return cli_home
+
+
 def save_settings_json(raw_json: str, *, user_id: Optional[int] = None) -> None:
     try:
         parsed = json.loads(raw_json)
@@ -215,6 +239,7 @@ __all__ = [
     "load_google_accounts",
     "load_oauth_creds",
     "load_settings_json",
+    "sync_credentials_to_cli_home",
     "get_config_dir",
     "ensure_user_config",
     "GeminiConfigError",

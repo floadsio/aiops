@@ -21,7 +21,7 @@ from .services.git_service import build_project_git_env
 from .services.gemini_config_service import (
     ensure_user_config,
     get_config_dir,
-    get_user_payload_paths,
+    sync_credentials_to_cli_home,
 )
 
 
@@ -204,11 +204,13 @@ def create_session(
     gemini_accounts_path = None
     gemini_oauth_path = None
     if uses_gemini:
-        gemini_dir = ensure_user_config(user_id)
-        gemini_config_dir = str(gemini_dir.expanduser())
-        accounts_path, oauth_path = get_user_payload_paths(user_id)
-        gemini_accounts_path = str(accounts_path) if accounts_path else None
-        gemini_oauth_path = str(oauth_path) if oauth_path else None
+        ensure_user_config(user_id)
+        cli_home = sync_credentials_to_cli_home(user_id)
+        gemini_config_dir = str(cli_home.expanduser())
+        accounts_file = cli_home / "google_accounts.json"
+        oauth_file = cli_home / "oauth_creds.json"
+        gemini_accounts_path = str(accounts_file) if accounts_file.exists() else None
+        gemini_oauth_path = str(oauth_file) if oauth_file.exists() else None
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)

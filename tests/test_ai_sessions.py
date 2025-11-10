@@ -284,9 +284,10 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         assert session.command == expected_command
         git_env = build_project_git_env(project)
         expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
-        expected_gemini = f"export GEMINI_CONFIG_DIR={shlex.quote(str(tmp_path / '.gemini' / 'user-303'))}"
-        expected_accounts = f"export GEMINI_ACCOUNTS_FILE={shlex.quote(str(tmp_path / 'instance' / 'gemini' / 'user-303' / 'google_accounts.json'))}"
-        expected_oauth = f"export GEMINI_OAUTH_FILE={shlex.quote(str(tmp_path / 'instance' / 'gemini' / 'user-303' / 'oauth_creds.json'))}"
+        cli_home = tmp_path / ".gemini"
+        expected_gemini = f"export GEMINI_CONFIG_DIR={shlex.quote(str(cli_home))}"
+        expected_accounts = f"export GEMINI_ACCOUNTS_FILE={shlex.quote(str(cli_home / 'google_accounts.json'))}"
+        expected_oauth = f"export GEMINI_OAUTH_FILE={shlex.quote(str(cli_home / 'oauth_creds.json'))}"
 
         assert pane.commands[0] == (expected_git, True)
         assert pane.commands[1] == (expected_gemini, True)
@@ -296,3 +297,5 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         assert pane.commands[5] == (expected_command, True)
         settings_path = tmp_path / ".gemini" / "user-303" / "settings.json"
         assert json.loads(settings_path.read_text())["model"] == "gemini-2.5-flash"
+        assert json.loads((cli_home / "google_accounts.json").read_text()) == {"accounts": []}
+        assert json.loads((cli_home / "oauth_creds.json").read_text()) == {"token": "demo"}

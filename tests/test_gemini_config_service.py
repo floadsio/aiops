@@ -17,6 +17,7 @@ from app.services.gemini_config_service import (
     load_google_accounts,
     load_oauth_creds,
     load_settings_json,
+    sync_credentials_to_cli_home,
 )
 
 
@@ -114,3 +115,35 @@ def test_ensure_user_config_seeds_from_shared(app):
         assert "accounts" in accounts
         assert oauth["token"] == "t"
         assert settings["model"] == "gemini-2.5-flash"
+
+
+def test_sync_credentials_to_cli_home(app):
+    with app.app_context():
+        save_google_accounts(json.dumps({"accounts": [{"name": "demo"}]}), user_id=9)
+        save_oauth_creds(json.dumps({"token": "abc"}), user_id=9)
+        cli_home = sync_credentials_to_cli_home(9)
+        assert json.loads((cli_home / "google_accounts.json").read_text())["accounts"][0]["name"] == "demo"
+        assert json.loads((cli_home / "oauth_creds.json").read_text())["token"] == "abc"
+
+
+def test_sync_credentials_removes_stale_files(app):
+    with app.app_context():
+        cli_home = sync_credentials_to_cli_home(1)
+        # seed stale files
+        (cli_home / "google_accounts.json").write_text("{}", encoding="utf-8")
+        (cli_home / "oauth_creds.json").write_text("{}", encoding="utf-8")
+        save_google_accounts(json.dumps({"accounts": []}), user_id=1)
+        sync_credentials_to_cli_home(1)
+        assert (cli_home / "google_accounts.json").exists()
+        save_google_accounts("{}", user_id=1)
+        # Remove payload and ensure file disappears
+        storage_dir = Path(app.instance_path) / "gemini" / "user-1"
+        storage_file = storage_dir / "google_accounts.json"
+        if storage_file.exists():
+            storage_file.unlink()
+        user_dir = Path(app.config["GEMINI_CONFIG_DIR"]) / "user-1"
+        user_file = user_dir / "google_accounts.json"
+        if user_file.exists():
+            user_file.unlink()
+        sync_credentials_to_cli_home(1)
+        assert not (cli_home / "google_accounts.json").exists()

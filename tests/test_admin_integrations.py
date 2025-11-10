@@ -531,6 +531,40 @@ def test_admin_gemini_oauth_error(app, client, login_admin, admin_user_id, monke
     assert b"invalid" in response.data
 
 
+def test_admin_gemini_settings_save(app, client, login_admin, admin_user_id, monkeypatch):
+    saved = {}
+
+    def fake_save(payload, *, user_id=None):
+        saved["payload"] = payload
+        saved["user_id"] = user_id
+
+    monkeypatch.setattr("app.routes.admin.save_settings_json", fake_save)
+
+    response = client.post(
+        "/admin/settings/gemini/settings",
+        data={"payload": "{}", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert saved["payload"] == "{}"
+    assert saved["user_id"] == admin_user_id
+
+
+def test_admin_gemini_settings_error(app, client, login_admin, admin_user_id, monkeypatch):
+    def fake_save(payload, *, user_id=None):
+        raise GeminiConfigError("broken settings")
+
+    monkeypatch.setattr("app.routes.admin.save_settings_json", fake_save)
+
+    response = client.post(
+        "/admin/settings/gemini/settings",
+        data={"payload": "{}", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"broken settings" in response.data
+
+
 def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):
     project_id = _create_project(app)
     calls = {}

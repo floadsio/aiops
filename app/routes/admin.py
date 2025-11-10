@@ -57,6 +57,7 @@ from ..forms.admin import (
     GeminiUpdateForm,
     GeminiAccountsForm,
     GeminiOAuthForm,
+    GeminiSettingsForm,
     MigrationRunForm,
     TmuxResyncForm,
 )
@@ -116,8 +117,10 @@ from ..services.gemini_config_service import (
     get_config_dir,
     load_google_accounts,
     load_oauth_creds,
+    load_settings_json,
     save_google_accounts,
     save_oauth_creds,
+    save_settings_json,
 )
 from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
@@ -764,6 +767,17 @@ def manage_settings():
         )
     gemini_oauth_expiry = _format_expiry(gemini_oauth_form.payload.data or "")
 
+    gemini_settings_form = GeminiSettingsForm()
+    gemini_settings_form.user_id.data = (
+        str(gemini_selected_user_id) if gemini_selected_user_id is not None else ""
+    )
+    gemini_settings_form.next.data = gemini_form_redirect
+    if not gemini_settings_form.payload.data:
+        gemini_settings_form.payload.data = _load_gemini_payload(
+            load_settings_json,
+            gemini_selected_user_id,
+        )
+
     migration_form = MigrationRunForm()
     migration_form.next.data = url_for("admin.manage_settings")
 
@@ -865,6 +879,7 @@ def manage_settings():
         gemini_accounts_form=gemini_accounts_form,
         gemini_oauth_form=gemini_oauth_form,
         gemini_oauth_expiry=gemini_oauth_expiry,
+        gemini_settings_form=gemini_settings_form,
         gemini_config_path=gemini_selected_config_dir,
         gemini_users=gemini_users,
         gemini_selected_user=gemini_selected_user,
@@ -1171,6 +1186,35 @@ def save_gemini_oauth():
         flash(str(exc), "danger")
     else:
         flash("Saved oauth_creds.json for Gemini CLI.", "success")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/gemini/settings", methods=["POST"])
+@admin_required
+def save_gemini_settings():
+    form = GeminiSettingsForm()
+    if not form.validate_on_submit():
+        flash("Invalid settings.json payload.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        user_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Select a user for Gemini settings.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+    user_exists = User.query.get(user_id)
+    if user_exists is None:
+        flash("Selected user for Gemini settings was not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        save_settings_json(form.payload.data, user_id=user_id)
+    except GeminiConfigError as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Saved settings.json for Gemini CLI.", "success")
 
     redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
     return redirect(redirect_target)

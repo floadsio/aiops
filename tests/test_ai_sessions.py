@@ -6,7 +6,11 @@ from app import create_app
 from app.config import Config
 from app.ai_sessions import create_session
 from app.services.git_service import build_project_git_env
-from app.services.gemini_config_service import save_google_accounts, save_oauth_creds
+from app.services.gemini_config_service import (
+    save_google_accounts,
+    save_oauth_creds,
+    save_settings_json,
+)
 
 
 class FakePane:
@@ -272,6 +276,7 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
 
         save_google_accounts(json.dumps({"accounts": []}), user_id=303)
         save_oauth_creds(json.dumps({"token": "demo"}), user_id=303)
+        save_settings_json(json.dumps({"model": "gemini-2.5-flash"}), user_id=303)
 
         session = create_session(project, user_id=303, tool="gemini")
 
@@ -289,3 +294,5 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         assert pane.commands[3] == (expected_oauth, True)
         assert pane.commands[4] == ("clear", True)
         assert pane.commands[5] == (expected_command, True)
+        settings_path = tmp_path / ".gemini" / "user-303" / "settings.json"
+        assert json.loads(settings_path.read_text())["model"] == "gemini-2.5-flash"

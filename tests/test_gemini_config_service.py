@@ -13,8 +13,10 @@ from app.services.gemini_config_service import (
     get_config_dir,
     save_google_accounts,
     save_oauth_creds,
+    save_settings_json,
     load_google_accounts,
     load_oauth_creds,
+    load_settings_json,
 )
 
 
@@ -71,6 +73,23 @@ def test_load_uses_shared_fallback(app):
         assert json.loads(load_oauth_creds(user_id=99)) == shared_payload
 
 
+def test_save_settings_json_roundtrip(app):
+    payload = {"ui": {"theme": "midnight"}, "model": "gemini-1.5-pro"}
+    with app.app_context():
+        save_settings_json(json.dumps(payload), user_id=5)
+        config_dir = get_config_dir(user_id=5)
+        storage_dir = Path(app.instance_path) / "gemini" / "user-5"
+        assert json.loads((config_dir / "settings.json").read_text()) == payload
+        assert json.loads((storage_dir / "settings.json").read_text()) == payload
+        assert json.loads(load_settings_json(user_id=5)) == payload
+
+
+def test_save_settings_json_validation(app):
+    with app.app_context():
+        with pytest.raises(GeminiConfigError):
+            save_settings_json("not-json", user_id=1)
+
+
 def test_ensure_user_config_seeds_from_stored_payload(app, tmp_path):
     with app.app_context():
         payload = {"token": "persisted"}
@@ -87,8 +106,11 @@ def test_ensure_user_config_seeds_from_shared(app):
     with app.app_context():
         save_google_accounts(json.dumps({"accounts": []}), user_id=42)
         save_oauth_creds(json.dumps({"token": "t"}), user_id=42)
+        save_settings_json(json.dumps({"model": "gemini-2.5-flash"}), user_id=42)
         user_dir = ensure_user_config(42)
         accounts = json.loads((user_dir / "google_accounts.json").read_text())
         oauth = json.loads((user_dir / "oauth_creds.json").read_text())
+        settings = json.loads((user_dir / "settings.json").read_text())
         assert "accounts" in accounts
         assert oauth["token"] == "t"
+        assert settings["model"] == "gemini-2.5-flash"

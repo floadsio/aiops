@@ -161,12 +161,31 @@ def load_oauth_creds(*, user_id: Optional[int] = None) -> str:
     return _load_from_cli_dir("oauth_creds.json", user_id)
 
 
+def save_settings_json(raw_json: str, *, user_id: Optional[int] = None) -> None:
+    try:
+        parsed = json.loads(raw_json)
+    except json.JSONDecodeError as exc:
+        raise GeminiConfigError(f"settings.json is not valid JSON: {exc}") from exc
+    formatted = json.dumps(parsed, indent=2)
+    if user_id is None:
+        raise GeminiConfigError("User identifier is required when saving Gemini settings.")
+    _store_payload("settings.json", formatted, user_id=user_id)
+    ensure_user_config(user_id)
+
+
+def load_settings_json(*, user_id: Optional[int] = None) -> str:
+    stored = _stored_payload("settings.json", user_id)
+    if stored:
+        return stored
+    return _load_from_cli_dir("settings.json", user_id)
+
+
 def ensure_user_config(user_id: int) -> Path:
     """Ensure a user's Gemini config dir contains required files, seeding from stored data."""
     if user_id is None:
         raise GeminiConfigError("User identifier is required for Gemini credentials.")
     user_dir = _cli_user_dir(user_id)
-    for name in ("google_accounts.json", "oauth_creds.json"):
+    for name in ("google_accounts.json", "oauth_creds.json", "settings.json"):
         payload = _stored_payload(name, user_id)
         if not payload:
             continue
@@ -192,8 +211,10 @@ def get_user_payload_paths(user_id: int) -> Tuple[Optional[Path], Optional[Path]
 __all__ = [
     "save_google_accounts",
     "save_oauth_creds",
+    "save_settings_json",
     "load_google_accounts",
     "load_oauth_creds",
+    "load_settings_json",
     "get_config_dir",
     "ensure_user_config",
     "GeminiConfigError",

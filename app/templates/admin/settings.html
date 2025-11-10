@@ -402,6 +402,21 @@
         {% endif %}
         <button type="submit" class="secondary">{{ gemini_oauth_form.submit.label.text }}</button>
       </form>
+      <hr>
+      <form method="post" action="{{ url_for('admin.save_gemini_settings') }}">
+        {{ gemini_settings_form.hidden_tag() }}
+        {{ gemini_settings_form.user_id() }}
+        <label>
+          {{ gemini_settings_form.payload.label }}
+          {{ gemini_settings_form.payload() }}
+        </label>
+        <p class="text-muted">
+          Gemini CLI reads this file from <code>{{ gemini_config_path }}/settings.json</code>. See
+          <a href="https://geminicli.com/docs/get-started/configuration/" rel="noreferrer noopener" target="_blank">Gemini CLI configuration docs</a>
+          for supported options.
+        </p>
+        <button type="submit" class="secondary">{{ gemini_settings_form.submit.label.text }}</button>
+      </form>
     {% endif %}
   </article>
 

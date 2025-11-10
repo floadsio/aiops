@@ -235,6 +235,13 @@ class GeminiOAuthForm(FlaskForm):
     submit = SubmitField("Save oauth_creds.json")
 
 
+class GeminiSettingsForm(FlaskForm):
+    payload = TextAreaField("settings.json", validators=[DataRequired()], render_kw={"rows": 8})
+    user_id = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Save settings.json")
+
+
 class MigrationRunForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Run Database Migrations")

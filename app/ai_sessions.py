@@ -200,17 +200,9 @@ def create_session(
 ) -> AISession:
     command_str = _resolve_command(tool, command)
     uses_gemini = _uses_gemini(command_str, tool)
-    gemini_config_dir = None
-    gemini_accounts_path = None
-    gemini_oauth_path = None
     if uses_gemini:
         ensure_user_config(user_id)
         cli_home = sync_credentials_to_cli_home(user_id)
-        gemini_config_dir = str(cli_home.expanduser())
-        accounts_file = cli_home / "google_accounts.json"
-        oauth_file = cli_home / "oauth_creds.json"
-        gemini_accounts_path = str(accounts_file) if accounts_file.exists() else None
-        gemini_oauth_path = str(oauth_file) if oauth_file.exists() else None
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)
@@ -281,19 +273,6 @@ def create_session(
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
                 current_app.logger.debug("Unable to set GIT_SSH_COMMAND for %s", window_name)
-        if gemini_config_dir:
-            exports = [
-                f"export GEMINI_CONFIG_DIR={shlex.quote(gemini_config_dir)}",
-            ]
-            if gemini_accounts_path:
-                exports.append(f"export GEMINI_ACCOUNTS_FILE={shlex.quote(gemini_accounts_path)}")
-            if gemini_oauth_path:
-                exports.append(f"export GEMINI_OAUTH_FILE={shlex.quote(gemini_oauth_path)}")
-            for export_cmd in exports:
-                try:
-                    pane.send_keys(export_cmd, enter=True)
-                except Exception:  # noqa: BLE001
-                    current_app.logger.debug("Unable to set Gemini env for %s", window_name)
         try:
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001

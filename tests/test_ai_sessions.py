@@ -297,5 +297,7 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         assert pane.commands[5] == (expected_command, True)
         settings_path = tmp_path / ".gemini" / "user-303" / "settings.json"
         assert json.loads(settings_path.read_text())["model"] == "gemini-2.5-flash"
+        home_settings = json.loads((cli_home / "settings.json").read_text())
+        assert home_settings.get("model") == "gemini-2.5-flash"
         assert json.loads((cli_home / "google_accounts.json").read_text()) == {"accounts": []}
         assert json.loads((cli_home / "oauth_creds.json").read_text()) == {"token": "demo"}

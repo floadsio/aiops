@@ -7,6 +7,11 @@ from typing import Optional, Tuple
 
 from flask import current_app
 
+DEFAULT_SETTINGS_PAYLOAD = json.dumps(
+    {"security": {"auth": {"selectedType": "oauth-personal"}}},
+    indent=2,
+)
+
 
 class GeminiConfigError(RuntimeError):
     """Raised when Gemini CLI configuration cannot be updated."""
@@ -182,6 +187,13 @@ def sync_credentials_to_cli_home(user_id: int) -> Path:
                 destination.unlink()
             except OSError:
                 current_app.logger.debug("Unable to remove stale %s from %s", name, cli_home)
+    settings_payload = _stored_payload("settings.json", user_id) or DEFAULT_SETTINGS_PAYLOAD
+    settings_path = cli_home / "settings.json"
+    try:
+        settings_path.write_text(settings_payload.strip() + "\n", encoding="utf-8")
+        _safe_chmod(settings_path, 0o600)
+    except OSError as exc:  # pragma: no cover - filesystem error path
+        raise GeminiConfigError(f"Failed to copy settings.json into {cli_home}: {exc}") from exc
     return cli_home
 
 

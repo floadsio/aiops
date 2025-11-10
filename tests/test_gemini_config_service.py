@@ -121,9 +121,11 @@ def test_sync_credentials_to_cli_home(app):
     with app.app_context():
         save_google_accounts(json.dumps({"accounts": [{"name": "demo"}]}), user_id=9)
         save_oauth_creds(json.dumps({"token": "abc"}), user_id=9)
+        save_settings_json(json.dumps({"security": {"auth": {"selectedType": "sso"}}}), user_id=9)
         cli_home = sync_credentials_to_cli_home(9)
         assert json.loads((cli_home / "google_accounts.json").read_text())["accounts"][0]["name"] == "demo"
         assert json.loads((cli_home / "oauth_creds.json").read_text())["token"] == "abc"
+        assert json.loads((cli_home / "settings.json").read_text())["security"]["auth"]["selectedType"] == "sso"
 
 
 def test_sync_credentials_removes_stale_files(app):
@@ -147,3 +149,11 @@ def test_sync_credentials_removes_stale_files(app):
             user_file.unlink()
         sync_credentials_to_cli_home(1)
         assert not (cli_home / "google_accounts.json").exists()
+        assert (cli_home / "settings.json").exists()
+
+
+def test_sync_credentials_writes_default_settings(app):
+    with app.app_context():
+        cli_home = sync_credentials_to_cli_home(55)
+        contents = json.loads((cli_home / "settings.json").read_text())
+        assert contents["security"]["auth"]["selectedType"] == "oauth-personal"

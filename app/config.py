@@ -1,10 +1,24 @@
 import os
+import shlex
 from pathlib import Path
 
 from .version import get_version
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 INSTANCE_DIR = BASE_DIR / "instance"
+
+
+def _ensure_gemini_approval_mode(command: str, mode: str | None) -> str:
+    if not mode:
+        return command
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return command
+    for token in tokens:
+        if token.startswith("--approval-mode"):
+            return command
+    return f"{command} --approval-mode {mode}"
 
 
 class Config:
@@ -18,10 +32,15 @@ class Config:
     REPO_STORAGE_PATH = os.getenv(
         "REPO_STORAGE_PATH", str((INSTANCE_DIR / "repos").resolve())
     )
+    GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "yolo")
+    _GEMINI_COMMAND = _ensure_gemini_approval_mode(
+        os.getenv("GEMINI_COMMAND", "gemini"),
+        GEMINI_APPROVAL_MODE,
+    )
     ALLOWED_AI_TOOLS = {
         "codex": os.getenv("CODEX_COMMAND", "codex"),
         "aider": os.getenv("AIDER_COMMAND", "aider"),
-        "gemini": os.getenv("GEMINI_COMMAND", "gemini"),
+        "gemini": _GEMINI_COMMAND,
     }
     DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "codex")
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")

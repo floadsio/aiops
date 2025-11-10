@@ -281,6 +281,7 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         session = create_session(project, user_id=303, tool="gemini")
 
         expected_command = app.config["ALLOWED_AI_TOOLS"]["gemini"]
+        assert "--approval-mode yolo" in expected_command
         assert session.command == expected_command
         git_env = build_project_git_env(project)
         expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"

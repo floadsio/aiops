@@ -26,11 +26,11 @@ live under `ansible/`.
 - Dashboard project cards include branch-aware git controls plus inline forms to checkout/create or
   merge branches; prefer these tools when testing feature branches.
 - Admin → Settings now has Codex and Gemini CLI cards; use them to install/upgrade `codex` or
-  `gemini-cli` instead of running npm manually. Select a user in the Gemini credentials card before
-  pasting `google_accounts.json` / `oauth_creds.json`; aiops stores each user's files under
-  `instance/gemini/user-<id>/` and mirrors them into `GEMINI_CONFIG_DIR/user-<id>` (default
-  `~/.gemini/user-<id>`) whenever they save or launch a Gemini session so credentials stay isolated
-  without manual copies.
+  `gemini-cli` instead of running npm manually. Select a user before pasting Codex `auth.json` or
+  Gemini `google_accounts.json` / `oauth_creds.json`; aiops stores each user's files under
+  `instance/<tool>/user-<id>/` and mirrors them into the corresponding CLI directories
+  (`CODEX_CONFIG_DIR/auth.json` for Codex, `GEMINI_CONFIG_DIR/user-<id>/...` for Gemini) whenever
+  they save or launch a session so credentials stay isolated without manual copies.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

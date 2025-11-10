@@ -38,7 +38,7 @@ class Config:
         GEMINI_APPROVAL_MODE,
     )
     ALLOWED_AI_TOOLS = {
-        "codex": os.getenv("CODEX_COMMAND", "codex"),
+        "codex": os.getenv("CODEX_COMMAND", "codex -a on-failure"),
         "aider": os.getenv("AIDER_COMMAND", "aider"),
         "gemini": _GEMINI_COMMAND,
     }
@@ -91,3 +91,4 @@ class Config:
         str((BASE_DIR / "logs" / "aiops.log").resolve()),
     )
     GEMINI_CONFIG_DIR = os.getenv("GEMINI_CONFIG_DIR", str((Path.home() / ".gemini")))
+    CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))

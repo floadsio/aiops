@@ -235,6 +235,13 @@ class GeminiOAuthForm(FlaskForm):
     submit = SubmitField("Save oauth_creds.json")
 
 
+class CodexAuthForm(FlaskForm):
+    payload = TextAreaField("Codex auth.json", validators=[DataRequired()], render_kw={"rows": 6})
+    user_id = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Save Codex auth.json")
+
+
 class GeminiSettingsForm(FlaskForm):
     payload = TextAreaField("settings.json", validators=[DataRequired()], render_kw={"rows": 8})
     user_id = HiddenField(validators=[DataRequired()])

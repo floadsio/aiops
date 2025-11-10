@@ -20,9 +20,13 @@ from .services.tmux_service import ensure_project_window
 from .services.git_service import build_project_git_env
 from .services.gemini_config_service import (
     ensure_user_config,
-    get_config_dir,
     sync_credentials_to_cli_home,
 )
+from .services.codex_config_service import (
+    CodexConfigError,
+    ensure_codex_auth,
+)
+from .services.tmux_metadata import record_tmux_tool
 
 
 class AISession:
@@ -117,6 +121,16 @@ def _uses_gemini(command_str: str, tool: str | None) -> bool:
     return bool(configured_token and command_token and configured_token == command_token)
 
 
+def _uses_codex(command_str: str, tool: str | None) -> bool:
+    tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+    configured = tool_commands.get("codex")
+    if tool == "codex":
+        return True
+    configured_token = _first_command_token(configured)
+    command_token = _first_command_token(command_str)
+    return bool(configured_token and command_token and configured_token == command_token)
+
+
 def _resolve_tmux_window(
     project,
     tmux_target: Optional[str] = None,
@@ -202,7 +216,17 @@ def create_session(
     uses_gemini = _uses_gemini(command_str, tool)
     if uses_gemini:
         ensure_user_config(user_id)
-        cli_home = sync_credentials_to_cli_home(user_id)
+        sync_credentials_to_cli_home(user_id)
+    uses_codex = _uses_codex(command_str, tool)
+    codex_env_exports: list[str] = []
+    if uses_codex:
+        try:
+            cli_auth_path = ensure_codex_auth(user_id)
+        except CodexConfigError as exc:
+            current_app.logger.warning("Codex credentials unavailable for user %s: %s", user_id, exc)
+        else:
+            codex_env_exports.append(f"export CODEX_CONFIG_DIR={shlex.quote(str(cli_auth_path.parent))}")
+            codex_env_exports.append(f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}")
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)
@@ -273,6 +297,11 @@ def create_session(
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
                 current_app.logger.debug("Unable to set GIT_SSH_COMMAND for %s", window_name)
+        for export_command in codex_env_exports:
+            try:
+                pane.send_keys(export_command, enter=True)
+            except Exception:  # noqa: BLE001
+                current_app.logger.debug("Unable to set Codex environment for %s", window_name)
         try:
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001
@@ -282,6 +311,8 @@ def create_session(
         except Exception as exc:  # noqa: BLE001
             current_app.logger.warning("Failed to start command in tmux window %s: %s", window_name, exc)
 
+    if tool:
+        record_tmux_tool(session_record.tmux_target, tool)
     threading.Thread(target=_reader_loop, args=(session_record,), daemon=True).start()
     return session_record
 

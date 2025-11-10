@@ -57,6 +57,7 @@ from ..forms.admin import (
     GeminiUpdateForm,
     GeminiAccountsForm,
     GeminiOAuthForm,
+    CodexAuthForm,
     GeminiSettingsForm,
     MigrationRunForm,
     TmuxResyncForm,
@@ -122,6 +123,13 @@ from ..services.gemini_config_service import (
     save_oauth_creds,
     save_settings_json,
 )
+from ..services.codex_config_service import (
+    CodexConfigError,
+    load_codex_auth,
+    save_codex_auth,
+    get_user_auth_paths,
+)
+from ..services.tmux_metadata import get_tmux_tool, prune_tmux_tools
 from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
     extract_issue_description,
@@ -400,6 +408,7 @@ def dashboard():
     project_limit = project_limit_search if search_query else project_limit_default
     projects = project_query.order_by(Project.created_at.desc()).limit(project_limit).all()
     project_cards: list[dict[str, Any]] = []
+    tracked_tmux_targets: set[str] = set()
     recent_tmux_windows: list[dict[str, Any]] = []
     recent_tmux_error: str | None = None
     window_project_map: dict[str, dict[str, Any]] = {}
@@ -459,6 +468,7 @@ def dashboard():
                 window_created = _coerce_timestamp(window.created)
                 if window_created and (last_activity is None or window_created > last_activity):
                     last_activity = window_created
+                tool_label = get_tmux_tool(window.target)
                 tmux_windows.append(
                     {
                         "session": window.session_name,
@@ -475,8 +485,11 @@ def dashboard():
                         "project_name": project.name,
                         "tenant_name": tenant_name,
                         "tenant_color": tenant_color,
+                        "tool": tool_label,
                     }
                 )
+                if window.target:
+                    tracked_tmux_targets.add(window.target)
                 window_project_map.setdefault(
                     window.target,
                     {
@@ -637,9 +650,12 @@ def dashboard():
                     "panes": window.panes,
                     "created": window.created,
                     "created_display": created_display,
+                    "tool": get_tmux_tool(window.target),
                     "project": window_project_map.get(window.target),
                 }
             )
+            if window.target:
+                tracked_tmux_targets.add(window.target)
     except TmuxServiceError as exc:
         recent_tmux_error = str(exc)
 
@@ -658,6 +674,7 @@ def dashboard():
         recent_tmux_windows = [entry for entry in recent_tmux_windows if _recent_tmux_matches(entry)]
 
     pending_tasks = sum(p for p in [0])  # placeholder for task count
+    prune_tmux_tools(tracked_tmux_targets)
     return render_template(
         "admin/dashboard.html",
         tenants=tenants,
@@ -688,6 +705,14 @@ def manage_settings():
         try:
             return loader(user_id=user_id)
         except GeminiConfigError:
+            return ""
+
+    def _load_codex_payload(user_id: int | None) -> str:
+        if not user_id:
+            return ""
+        try:
+            return load_codex_auth(user_id=user_id)
+        except CodexConfigError:
             return ""
 
     def _format_expiry(payload: str) -> str | None:
@@ -777,6 +802,37 @@ def manage_settings():
             load_settings_json,
             gemini_selected_user_id,
         )
+
+    codex_users = gemini_users
+    requested_codex_user_id = request.args.get("codex_user_id", type=int)
+    codex_selected_user = None
+    if requested_codex_user_id:
+        codex_selected_user = next((user for user in codex_users if user.id == requested_codex_user_id), None)
+    if codex_selected_user is None and default_user_id:
+        codex_selected_user = next((user for user in codex_users if user.id == default_user_id), None)
+    if codex_selected_user is None and codex_users:
+        codex_selected_user = codex_users[0]
+    codex_selected_user_id = codex_selected_user.id if codex_selected_user else None
+    codex_form_redirect = (
+        url_for("admin.manage_settings", codex_user_id=codex_selected_user_id)
+        if codex_selected_user_id is not None
+        else url_for("admin.manage_settings")
+    )
+    codex_auth_form = CodexAuthForm()
+    codex_auth_form.user_id.data = (
+        str(codex_selected_user_id) if codex_selected_user_id is not None else ""
+    )
+    codex_auth_form.next.data = codex_form_redirect
+    if not codex_auth_form.payload.data:
+        codex_auth_form.payload.data = _load_codex_payload(codex_selected_user_id)
+    codex_cli_auth_path = None
+    codex_storage_auth_path = None
+    if codex_selected_user_id is not None:
+        cli_path, storage_path = get_user_auth_paths(codex_selected_user_id)
+        codex_cli_auth_path = str(cli_path)
+        codex_storage_auth_path = str(storage_path)
+    else:
+        codex_cli_auth_path = str(Path(current_app.config.get("CODEX_CONFIG_DIR")).expanduser() / "auth.json")
 
     migration_form = MigrationRunForm()
     migration_form.next.data = url_for("admin.manage_settings")
@@ -883,6 +939,11 @@ def manage_settings():
         gemini_config_path=gemini_selected_config_dir,
         gemini_users=gemini_users,
         gemini_selected_user=gemini_selected_user,
+        codex_auth_form=codex_auth_form,
+        codex_users=codex_users,
+        codex_selected_user=codex_selected_user,
+        codex_cli_auth_path=codex_cli_auth_path,
+        codex_storage_auth_path=codex_storage_auth_path,
     )
 
 
@@ -1188,6 +1249,36 @@ def save_gemini_oauth():
         flash("Saved oauth_creds.json for Gemini CLI.", "success")
 
     redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/codex/auth", methods=["POST"])
+@admin_required
+def save_codex_auth_payload():
+    form = CodexAuthForm()
+    if not form.validate_on_submit():
+        flash("Invalid Codex auth payload.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        user_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Select a user for Codex credentials.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user_exists = User.query.get(user_id)
+    if user_exists is None:
+        flash("Selected user for Codex credentials was not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        save_codex_auth(form.payload.data, user_id=user_id)
+    except CodexConfigError as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Saved Codex auth.json.", "success")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings", codex_user_id=user_id)
     return redirect(redirect_target)
 
 

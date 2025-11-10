@@ -421,6 +421,42 @@
   </article>
 
   <article class="settings-card">
+    <h2>Codex Credentials</h2>
+    {% if not codex_users %}
+      <p class="text-muted">Create at least one user to manage Codex credentials.</p>
+    {% else %}
+      <form method="get" action="{{ url_for('admin.manage_settings') }}" class="stacked-form slim" autocomplete="off">
+        <label>
+          <span>Codex user</span>
+          <select name="codex_user_id" onchange="this.form.submit()">
+            {% for user in codex_users %}
+              <option value="{{ user.id }}" {% if codex_selected_user and codex_selected_user.id == user.id %}selected{% endif %}>
+                {{ user.name }} ({{ user.email }})
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <noscript>
+          <button type="submit" class="secondary">Switch user</button>
+        </noscript>
+      </form>
+      {% if codex_selected_user %}
+        <p>Editing credentials for <strong>{{ codex_selected_user.name }}</strong> (<code>{{ codex_selected_user.email }}</code>).
+          CLI auth lives at <code>{{ codex_cli_auth_path }}</code>; stored copy at <code>{{ codex_storage_auth_path }}</code>.</p>
+      {% endif %}
+      <form method="post" action="{{ url_for('admin.save_codex_auth_payload') }}">
+        {{ codex_auth_form.hidden_tag() }}
+        {{ codex_auth_form.user_id() }}
+        <label>
+          {{ codex_auth_form.payload.label }}
+          {{ codex_auth_form.payload() }}
+        </label>
+        <button type="submit" class="secondary">{{ codex_auth_form.submit.label.text }}</button>
+      </form>
+    {% endif %}
+  </article>
+
+  <article class="settings-card">
     <h2>User Accounts</h2>
     <p>Create and manage application users. Promote additional administrators so critical tasks are not blocked on a single account.</p>
     <details>

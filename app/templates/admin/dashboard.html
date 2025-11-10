@@ -504,6 +504,8 @@
     padding: 0.75rem 0.9rem;
     border-radius: 0.75rem;
     background: rgba(148, 163, 184, 0.12);
+    width: 100%;
+    word-break: break-word;
   }
   [data-theme="dark"] .tmux-session-row {
     background: rgba(148, 163, 184, 0.16);
@@ -513,6 +515,19 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 0.4rem;
+    width: 100%;
+    min-width: 0;
+  }
+  .tmux-recent-card {
+    min-width: 0;
+    width: 100%;
+  }
+  .tmux-recent-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
   }
   .tmux-chip {
     display: inline-flex;
@@ -524,10 +539,23 @@
     font-weight: 600;
     background: rgba(59, 130, 246, 0.15);
     color: #1d4ed8;
+    min-width: 0;
+  }
+  .tmux-meta {
+    flex: 0 1 auto;
+    min-width: 0;
   }
   [data-theme="dark"] .tmux-chip {
     background: rgba(96, 165, 250, 0.2);
     color: #bfdbfe;
+  }
+  .tmux-chip--tool {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
+  }
+  [data-theme="dark"] .tmux-chip--tool {
+    background: rgba(16, 185, 129, 0.3);
+    color: #bbf7d0;
   }
   .tmux-session-actions {
     display: flex;
@@ -541,6 +569,17 @@
   }
   .tmux-session-actions form {
     margin: 0;
+  }
+  @media (max-width: 640px) {
+    .tmux-session-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .tmux-session-actions a,
+    .tmux-session-actions form,
+    .tmux-session-actions button {
+      width: 100%;
+    }
   }
   .tmux-recent-grid {
     display: grid;
@@ -730,6 +769,9 @@
               <strong>Session:</strong> {{ window.session }}
             </span>
             <span class="tmux-chip">{{ window.window }}</span>
+            {% if window.tool %}
+              <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>
+            {% endif %}
             <span class="tmux-meta">
               {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
               {% if window.created_display %}
@@ -927,6 +969,9 @@
                         <strong>Session:</strong> {{ session.session }}
                       </span>
                       <span class="tmux-chip">{{ session.window }}</span>
+                      {% if session.tool %}
+                        <span class="tmux-chip tmux-chip--tool">{{ session.tool }}</span>
+                      {% endif %}
                       <span class="tmux-meta">
                         {{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}
                         {% if session.created_display %}

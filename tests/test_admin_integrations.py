@@ -17,6 +17,7 @@ from app.services.update_service import UpdateError
 from app.services.tmux_service import TmuxServiceError
 from app.services.gemini_update_service import GeminiUpdateError
 from app.services.gemini_config_service import GeminiConfigError
+from app.services.codex_config_service import CodexConfigError
 from app.services.git_service import checkout_or_create_branch
 from app.services.migration_service import MigrationError
 
@@ -563,6 +564,40 @@ def test_admin_gemini_settings_error(app, client, login_admin, admin_user_id, mo
     )
     assert response.status_code == 200
     assert b"broken settings" in response.data
+
+
+def test_admin_codex_auth_save(app, client, login_admin, admin_user_id, monkeypatch):
+    captured = {}
+
+    def fake_save(payload, user_id=None):
+        captured["payload"] = payload
+        captured["user_id"] = user_id
+
+    monkeypatch.setattr("app.routes.admin.save_codex_auth", fake_save)
+
+    response = client.post(
+        "/admin/settings/codex/auth",
+        data={"payload": "{}", "user_id": str(admin_user_id), "next": "/admin/settings"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert captured["payload"] == "{}"
+    assert captured["user_id"] == admin_user_id
+
+
+def test_admin_codex_auth_error(app, client, login_admin, admin_user_id, monkeypatch):
+    def fake_save(payload, user_id=None):
+        raise CodexConfigError("bad codex auth")
+
+    monkeypatch.setattr("app.routes.admin.save_codex_auth", fake_save)
+
+    response = client.post(
+        "/admin/settings/codex/auth",
+        data={"payload": "{}", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"bad codex auth" in response.data
 
 
 def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):

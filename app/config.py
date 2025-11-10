@@ -32,7 +32,7 @@ class Config:
     REPO_STORAGE_PATH = os.getenv(
         "REPO_STORAGE_PATH", str((INSTANCE_DIR / "repos").resolve())
     )
-    GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "yolo")
+    GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "auto_edit")
     _GEMINI_COMMAND = _ensure_gemini_approval_mode(
         os.getenv("GEMINI_COMMAND", "gemini"),
         GEMINI_APPROVAL_MODE,

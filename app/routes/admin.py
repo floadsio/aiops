@@ -476,7 +476,6 @@ def dashboard():
                 window_name = (getattr(window, "window_name", "") or "").strip()
                 if window_name.lower() == "zsh":
                     continue
-                session_name = (getattr(window, "session_name", "") or "").strip()
                 window_created = _coerce_timestamp(window.created)
                 if window_created and (last_activity is None or window_created > last_activity):
                     last_activity = window_created

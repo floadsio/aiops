@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Optional, Type
 
 from flask import Flask, request
-from flask_login import current_user
 from flask_wtf.csrf import generate_csrf
 
 from .cli import register_cli_commands
@@ -16,7 +15,7 @@ from .routes.projects import projects_bp
 from .version import __version__
 from .git_info import detect_repo_branch
 from .forms.admin import QuickBranchSwitchForm
-from .services.branch_state import configure_branch_form, load_recorded_branch
+from .services.branch_state import configure_branch_form
 
 
 def create_app(
@@ -54,7 +53,6 @@ def register_extensions(app: Flask) -> None:
     @app.context_processor
     def inject_csrf_token():
         repo_branch = detect_repo_branch(Path(app.root_path).parent)
-        recorded_branch = load_recorded_branch()
         branch_switch_form = QuickBranchSwitchForm()
         configure_branch_form(branch_switch_form, current_branch=repo_branch)
         if request:

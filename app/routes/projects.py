@@ -573,7 +573,7 @@ def project_ai_console(project_id: int):
     requested_target = request.args.get("attach") or request.args.get("tmux_target")
 
     default_codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
-        "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
+        default_tool, current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
     )
 
     ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})

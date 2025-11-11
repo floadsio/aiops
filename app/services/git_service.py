@@ -5,7 +5,7 @@ import os
 import shlex
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Optional, Sequence
+from typing import Any, Optional
 
 from datetime import datetime, timezone
 

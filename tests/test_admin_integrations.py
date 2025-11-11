@@ -20,7 +20,6 @@ from app.services.gemini_config_service import GeminiConfigError
 from app.services.codex_config_service import CodexConfigError
 from app.services.claude_update_service import ClaudeUpdateError
 from app.services.claude_config_service import ClaudeConfigError
-from app.services.git_service import checkout_or_create_branch
 from app.services.migration_service import MigrationError
 
 

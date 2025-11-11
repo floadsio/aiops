@@ -2,6 +2,29 @@
 {% block title %}Admin Settings | aiops Control Panel{% endblock %}
 {% block extra_head %}
 <style>
+  .settings-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  .settings-category {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .settings-category h2 {
+    font-size: 1.5rem;
+    margin: 0 0 0.5rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(148, 163, 184, 0.3);
+  }
+  [data-theme="dark"] .settings-category h2 {
+    border-bottom-color: rgba(148, 163, 184, 0.2);
+  }
   .settings-grid {
     display: flex;
     flex-direction: column;
@@ -11,6 +34,21 @@
     padding: 0;
     box-sizing: border-box;
   }
+  .settings-grid-3 {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  @media (min-width: 1024px) {
+    .settings-grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
   .settings-card {
     padding: 1.5rem;
     border-radius: 1.2rem;
@@ -19,19 +57,17 @@
     width: 100%;
     box-sizing: border-box;
   }
-  @media (min-width: 720px) {
-    .settings-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    }
+  .settings-card-full {
+    width: 100%;
   }
   [data-theme="dark"] .settings-card {
     background: rgba(15, 23, 42, 0.6);
     border-color: rgba(148, 163, 184, 0.25);
   }
-  .settings-card h2 {
+  .settings-card h3 {
     margin-top: 0;
     margin-bottom: 0.75rem;
+    font-size: 1.25rem;
   }
   .settings-card p {
     margin-top: 0;
@@ -128,12 +164,6 @@
     background: rgba(30, 41, 59, 0.6);
     border-color: rgba(148, 163, 184, 0.25);
   }
-  @media (min-width: 640px) {
-    .settings-grid {
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      justify-items: stretch;
-    }
-  }
   @media (max-width: 900px) {
     .settings-card {
       padding: 1.1rem;
@@ -157,18 +187,18 @@
       max-width: 100%;
       overflow-x: auto;
     }
-    .settings-grid {
-      grid-template-columns: 1fr;
-    }
   }
 </style>
 {% endblock %}
 {% block content %}
 <h1>Admin Settings</h1>
 
-<div class="settings-grid">
+<div class="settings-container">
+  <section class="settings-category">
+    <h2>System Operations</h2>
+    <div class="settings-grid-3">
   <article class="settings-card">
-    <h2>System Update</h2>
+    <h3>System Update</h3>
     <p>Run <code>scripts/update.sh</code> without shell access. Optionally request a restart once the update completes.</p>
     {% if restart_command %}
       <p class="text-muted">Configured restart command: <code>{{ restart_command }}</code></p>
@@ -193,7 +223,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>Quick Branch Switch</h2>
+    <h3>Quick Branch Switch</h3>
     <p>Pick a branch and run the update script with restart in one step. Use this when you need to jump between release trains quickly.</p>
     <form method="post" action="{{ url_for('admin.quick_branch_switch') }}">
       {{ quick_branch_form.hidden_tag() }}
@@ -210,7 +240,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>tmux Sessions</h2>
+    <h3>tmux Sessions</h3>
     <p>Ensure each project has an active tmux window and remove orphaned project windows from the shared session.</p>
     <p class="text-muted">Creates missing windows (matching the DB) and prunes stale `-p<ID>` tmux windows.</p>
     <form method="post" action="{{ url_for('admin.resync_tmux_sessions') }}">
@@ -223,7 +253,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>Database Schema</h2>
+    <h3>Database Schema</h3>
     <p>Apply pending Alembic migrations without shell access. Use this after pulling new releases that add columns or tables.</p>
     <p class="text-muted">Runs <code>flask --app manage.py db upgrade</code> inside the project virtualenv.</p>
     <form method="post" action="{{ url_for('admin.run_database_migrations') }}">
@@ -234,9 +264,14 @@
       </div>
     </form>
   </article>
+    </div>
+  </section>
 
+  <section class="settings-category">
+    <h2>AI CLI Tools</h2>
+    <div class="settings-grid-3">
   <article class="settings-card">
-    <h2>Codex CLI Updates</h2>
+    <h3>Codex CLI Updates</h3>
     <p>Check the installed Codex CLI version and install the latest release without shell access.</p>
     <p class="text-muted">The update command runs <code>sudo npm install -g @openai/codex</code> on Debian-based hosts. Ensure the service account has passwordless sudo access for npm.</p>
     <div>
@@ -296,7 +331,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>Claude CLI Updates</h2>
+    <h3>Claude CLI Updates</h3>
     <p>Install or upgrade the <code>claude</code> CLI from Anthropic without shell access.</p>
     {% set claude_command = claude_update_command or "sudo npm install -g @anthropic-ai/claude-code" %}
     <p class="text-muted">Runs <code>{{ claude_command }}</code> on Debian-based hosts.</p>
@@ -357,7 +392,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>Gemini CLI Updates</h2>
+    <h3>Gemini CLI Updates</h3>
     <p>Install or upgrade the <code>gemini-cli</code> tool from Google to run AI assistants locally.</p>
     <p class="text-muted">Runs <code>sudo npm install -g @google/gemini-cli</code>; ensure the service user can run npm with sudo.</p>
     <div>
@@ -415,9 +450,14 @@
       <p class="text-muted">Gemini CLI is up to date. Refresh to check again.</p>
     {% endif %}
   </article>
+    </div>
+  </section>
 
+  <section class="settings-category">
+    <h2>AI Credentials</h2>
+    <div class="settings-grid-3">
   <article class="settings-card">
-    <h2>Gemini Credentials</h2>
+    <h3>Gemini Credentials</h3>
     {% if not gemini_users %}
       <p class="text-muted">Create at least one user to manage Gemini credentials.</p>
     {% else %}
@@ -481,7 +521,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>Codex Credentials</h2>
+    <h3>Codex Credentials</h3>
     {% if not codex_users %}
       <p class="text-muted">Create at least one user to manage Codex credentials.</p>
     {% else %}
@@ -517,7 +557,7 @@
   </article>
 
   <article class="settings-card">
-    <h2>Claude Credentials</h2>
+    <h3>Claude Credentials</h3>
     {% if not claude_users %}
       <p class="text-muted">Create at least one user to manage Claude credentials.</p>
     {% else %}
@@ -622,9 +662,14 @@
       {% endif %}
     {% endif %}
   </article>
+    </div>
+  </section>
 
-  <article class="settings-card">
-    <h2>User Accounts</h2>
+  <section class="settings-category">
+    <h2>User Management</h2>
+    <div class="settings-grid">
+  <article class="settings-card settings-card-full">
+    <h3>User Accounts</h3>
     <p>Create and manage application users. Promote additional administrators so critical tasks are not blocked on a single account.</p>
     <details>
       <summary><strong>Create user</strong></summary>
@@ -741,8 +786,14 @@
     {% endif %}
   </article>
 
-  <article class="settings-card">
-    <h2>Application Logs</h2>
+    </div>
+  </section>
+
+  <section class="settings-category">
+    <h2>System Logs</h2>
+    <div class="settings-grid">
+  <article class="settings-card settings-card-full">
+    <h3>Application Logs</h3>
     {% if log_file %}
       <p>Inspect recent entries from <code>{{ log_file }}</code> to troubleshoot background activity.</p>
     {% else %}
@@ -758,6 +809,8 @@
     </div>
     <pre id="app-log-output" class="log-output" tabindex="0">Loading…</pre>
   </article>
+    </div>
+  </section>
 </div>
 <script>
   (function () {

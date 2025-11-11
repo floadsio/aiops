@@ -1004,6 +1004,7 @@ def manage_settings():
         gemini_update_form=gemini_update_form,
         claude_status=claude_status,
         claude_update_form=claude_update_form,
+        claude_update_command=current_app.config.get("CLAUDE_UPDATE_COMMAND"),
         quick_branch_form=quick_branch_form,
         gemini_accounts_form=gemini_accounts_form,
         gemini_oauth_form=gemini_oauth_form,

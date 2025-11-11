@@ -299,7 +299,8 @@
   <article class="settings-card">
     <h2>Claude CLI Updates</h2>
     <p>Install or upgrade the <code>claude</code> CLI from Anthropic without shell access.</p>
-    <p class="text-muted">Runs <code>{{ current_app.config.get("CLAUDE_UPDATE_COMMAND") }}</code> on Debian-based hosts.</p>
+    {% set claude_command = claude_update_command or "sudo npm install -g @anthropic/claude-cli" %}
+    <p class="text-muted">Runs <code>{{ claude_command }}</code> on Debian-based hosts.</p>
     <div>
       <p><strong>Installed version:</strong>
         {% if claude_status.installed_version %}
@@ -539,7 +540,7 @@
       {% if claude_selected_user %}
         <p>Editing credentials for <strong>{{ claude_selected_user.name }}</strong> (<code>{{ claude_selected_user.email }}</code>).
           {% if claude_cli_key_path and claude_storage_key_path %}
-            CLI key is synced from <code>{{ claude_storage_key_path }}</code> into <code>{{ claude_cli_key_path }}</code>, and sessions export <code>ANTHROPIC_API_KEY</code> for tmux windows.
+            CLI key is synced from <code>{{ claude_storage_key_path }}</code> into <code>{{ claude_cli_key_path }}</code>, and sessions export <code>CLAUDE_CODE_OAUTH_TOKEN</code> for tmux windows.
           {% endif %}
         </p>
       {% endif %}

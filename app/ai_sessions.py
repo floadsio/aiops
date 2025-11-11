@@ -250,7 +250,7 @@ def create_session(
             current_app.logger.warning("Claude credentials unavailable for user %s: %s", user_id, exc)
         else:
             claude_env_exports.append(f"export CLAUDE_CONFIG_DIR={shlex.quote(str(claude_cli_dir))}")
-            claude_env_exports.append(f"export ANTHROPIC_API_KEY={shlex.quote(claude_key)}")
+            claude_env_exports.append(f"export CLAUDE_CODE_OAUTH_TOKEN={shlex.quote(claude_key)}")
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)

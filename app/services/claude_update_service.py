@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shlex
 import subprocess
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from typing import Optional, Sequence
 from flask import current_app
 
 PACKAGE_NAME = "@anthropic/claude-cli"
+VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?")
 
 
 @dataclass(frozen=True)
@@ -36,11 +38,51 @@ class ClaudeUpdateError(RuntimeError):
     """Raised when the Claude CLI cannot be inspected or upgraded."""
 
 
+def _configured_cli_binary() -> Optional[str]:
+    command_map = current_app.config.get("ALLOWED_AI_TOOLS") or {}
+    command = command_map.get("claude")
+    if not command:
+        return None
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return None
+    return parts[0] if parts else None
+
+
+def _parse_version(output: str) -> Optional[str]:
+    if not output:
+        return None
+    match = VERSION_PATTERN.search(output)
+    if match:
+        return match.group(0)
+    return None
+
+
+def _brew_formula_name() -> Optional[str]:
+    configured = current_app.config.get("CLAUDE_BREW_PACKAGE")
+    if configured:
+        return configured
+    binary = _configured_cli_binary()
+    if binary:
+        basename = os.path.basename(binary)
+        if basename == "claude":
+            return "claude-code"
+        return basename
+    return "claude-code"
+
+
 def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     npm_prefix = current_app.config.get("NPM_PREFIX_PATH")
+    extra_paths = current_app.config.get("CLI_EXTRA_PATHS")
+    path_segments = []
+    if extra_paths:
+        path_segments.append(extra_paths)
     if npm_prefix:
-        env["PATH"] = os.pathsep.join([npm_prefix, env.get("PATH", "")])
+        path_segments.append(npm_prefix)
+    path_segments.append(env.get("PATH", ""))
+    env["PATH"] = os.pathsep.join(segment for segment in path_segments if segment)
 
     return subprocess.run(
         command,
@@ -52,7 +94,45 @@ def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.Complete
     )
 
 
-def _fetch_installed_version(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+    binary = _configured_cli_binary()
+    if not binary:
+        return None, None
+
+    attempts = (
+        [binary, "--version"],
+        [binary, "version"],
+    )
+    last_error: Optional[str] = None
+    for command in attempts:
+        try:
+            completed = _run_command(command, timeout=timeout)
+        except FileNotFoundError:
+            return None, f"{binary} is not installed or not on PATH."
+        except subprocess.TimeoutExpired:
+            last_error = f"Timed out while running {' '.join(command)}."
+            continue
+        except OSError as exc:
+            last_error = f"Failed to run {' '.join(command)}: {exc}"
+            continue
+
+        if completed.returncode != 0:
+            last_error = (
+                completed.stderr.strip()
+                or completed.stdout.strip()
+                or f"{binary} exited with {completed.returncode}"
+            )
+            continue
+
+        version = _parse_version((completed.stdout or "") + (completed.stderr or ""))
+        if version:
+            return version, None
+        last_error = "Unable to parse Claude CLI version from command output."
+
+    return None, last_error
+
+
+def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
     try:
         completed = _run_command(
             ["npm", "list", "-g", PACKAGE_NAME, "--json", "--depth=0"],
@@ -89,7 +169,21 @@ def _fetch_installed_version(*, timeout: int) -> tuple[Optional[str], Optional[s
     return version, None
 
 
-def _fetch_latest_version(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+    cli_version, cli_error = _fetch_installed_version_via_cli(timeout=timeout)
+    if cli_version:
+        return cli_version, None
+
+    npm_version, npm_error = _fetch_installed_version_via_npm(timeout=timeout)
+    if npm_version:
+        return npm_version, None
+
+    if npm_error:
+        return None, npm_error
+    return None, cli_error or "Unable to determine installed Claude CLI version."
+
+
+def _fetch_latest_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
     try:
         completed = _run_command(
             ["npm", "view", PACKAGE_NAME, "version"],
@@ -114,6 +208,63 @@ def _fetch_latest_version(*, timeout: int) -> tuple[Optional[str], Optional[str]
         return None, "npm did not return a version for the latest Claude CLI release."
 
     return latest, None
+
+
+def _fetch_latest_version_via_brew(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+    formula = _brew_formula_name()
+    if not formula:
+        return None, None
+    try:
+        completed = _run_command(
+            ["brew", "info", "--json=v2", formula],
+            timeout=timeout,
+        )
+    except FileNotFoundError:
+        return None, "brew is not installed on this system."
+    except subprocess.TimeoutExpired:
+        return None, "Timed out while checking the latest Claude CLI release via Homebrew."
+    except OSError as exc:
+        return None, f"Failed to query Homebrew for Claude CLI release: {exc}"
+
+    if completed.returncode != 0:
+        error_output = completed.stderr.strip() or completed.stdout.strip()
+        return None, (
+            f"Homebrew could not provide info for {formula}."
+            + (f" Details: {error_output}" if error_output else "")
+        )
+
+    try:
+        payload = json.loads(completed.stdout or "{}")
+    except json.JSONDecodeError:
+        return None, "Received malformed response from brew while checking Claude CLI version."
+
+    entries = payload.get("formulae") or payload.get("casks") or []
+    entry = entries[0] if entries else None
+    version = None
+    if entry:
+        versions = entry.get("versions") or {}
+        version = versions.get("stable") or versions.get("version")
+        if not version:
+            version = entry.get("version") or entry.get("bundle_short_version") or entry.get("bundle_version")
+        if version and isinstance(version, str) and "," in version:
+            version = version.split(",", 1)[0]
+    if not version:
+        return None, "Unable to parse Claude CLI version from Homebrew response."
+    return version, None
+
+
+def _fetch_latest_version(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+    npm_version, npm_error = _fetch_latest_version_via_npm(timeout=timeout)
+    if npm_version:
+        return npm_version, None
+
+    brew_version, brew_error = _fetch_latest_version_via_brew(timeout=timeout)
+    if brew_version:
+        return brew_version, None
+
+    if brew_error:
+        return None, brew_error
+    return None, npm_error
 
 
 def get_claude_status(*, timeout: int = 20) -> ClaudeStatus:

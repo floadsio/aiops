@@ -33,6 +33,7 @@ class Config:
         "REPO_STORAGE_PATH", str((INSTANCE_DIR / "repos").resolve())
     )
     GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "auto_edit")
+    CLI_EXTRA_PATHS = os.getenv("CLI_EXTRA_PATHS", "/opt/homebrew/bin:/usr/local/bin")
     _GEMINI_COMMAND = _ensure_gemini_approval_mode(
         os.getenv("GEMINI_COMMAND", "gemini"),
         GEMINI_APPROVAL_MODE,
@@ -97,3 +98,4 @@ class Config:
     CLAUDE_UPDATE_COMMAND = os.getenv(
         "CLAUDE_UPDATE_COMMAND", f"sudo npm install -g @anthropic/claude-cli"
     )
+    CLAUDE_BREW_PACKAGE = os.getenv("CLAUDE_BREW_PACKAGE", "claude-code")

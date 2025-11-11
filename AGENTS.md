@@ -34,7 +34,7 @@ live under `ansible/`.
   credentials stay isolated without manual copies.
 - Use the Claude credentials card to save each user's Anthropic API key (stored at
   `instance/claude/user-<id>/api_key`), then aiops copies it into `CLAUDE_CONFIG_DIR/api_key` and
-  exports `ANTHROPIC_API_KEY` when launching Claude tmux sessions so `claude` can authenticate.
+  exports `CLAUDE_CODE_OAUTH_TOKEN` when launching Claude tmux sessions so `claude` can authenticate.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

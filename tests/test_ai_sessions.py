@@ -418,7 +418,7 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
         git_env = build_project_git_env(project)
         expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
         claude_dir_command = f"export CLAUDE_CONFIG_DIR={shlex.quote(str(tmp_path / '.claude'))}"
-        claude_key_command = "export ANTHROPIC_API_KEY=claude-token"
+        claude_key_command = "export CLAUDE_CODE_OAUTH_TOKEN=claude-token"
 
         assert pane.commands == [
             (expected_git, True),

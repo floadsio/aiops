@@ -113,9 +113,13 @@ def test_quick_branch_switch_runs_update(app, client, login_admin, monkeypatch):
         called["restart"] = command
         return True, "Restart command executed."
 
+
+    def fake_switch_repo_branch(branch):
+        called["switch_repo_branch"] = branch
+
     monkeypatch.setattr("app.services.branch_state.available_branches", lambda: ["main", "develop"])
     monkeypatch.setattr("app.services.branch_state.load_recorded_branch", lambda: None)
-    monkeypatch.setattr("app.routes.admin.run_update_script", fake_run_update_script)
+    monkeypatch.setattr("app.routes.admin.switch_repo_branch", fake_switch_repo_branch)
     monkeypatch.setattr("app.routes.admin._trigger_restart", fake_restart)
 
     with app.app_context():
@@ -127,7 +131,7 @@ def test_quick_branch_switch_runs_update(app, client, login_admin, monkeypatch):
         follow_redirects=True,
     )
     assert resp.status_code == 200
-    assert called["env"] == {"AIOPS_UPDATE_BRANCH": "develop"}
+    assert called["switch_repo_branch"] == "develop"
     assert "restart" in called
 
 

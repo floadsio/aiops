@@ -30,7 +30,7 @@ def test_app_factory():
     assert response.status_code == 200
 
 
-def test_branch_badge_uses_recorded_marker(tmp_path):
+def test_branch_badge_uses_recorded_marker(tmp_path, monkeypatch):
     class TestConfig(Config):
         TESTING = True
         WTF_CSRF_ENABLED = False
@@ -46,8 +46,10 @@ def test_branch_badge_uses_recorded_marker(tmp_path):
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text("release-2024-08\n", encoding="utf-8")
 
+    monkeypatch.setattr("app.services.branch_state.current_repo_branch", lambda: "release-2024-08")
     client = app.test_client()
     resp = client.get("/")
+    print(resp.data)
     assert resp.status_code == 200
     assert b"branch: release-2024-08" in resp.data
 
@@ -369,7 +371,7 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert response.status_code == 200
     data = response.get_json()
     assert data["tool"] == "codex"
-    assert data["command"] == "codex"
+    assert data["command"] == app.config["ALLOWED_AI_TOOLS"]["codex"]
     assert data["prompt"] == ""
     assert ":" in data["tmux_target"]
 

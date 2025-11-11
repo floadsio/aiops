@@ -108,7 +108,7 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
 
         monkeypatch.setattr("app.ai_sessions._register_session", fake_register)
 
-        session = create_session(project, user_id=99)
+        session = create_session(project, user_id=99, tool="codex")
 
         expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
         assert session.command == expected_command
@@ -223,7 +223,7 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
         monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
         monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
 
-        session = create_session(project, user_id=202, tmux_target="aiops:demo-project-p3")
+        session = create_session(project, user_id=202, tmux_target="aiops:demo-project-p3", tool="codex")
 
         expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
         assert session.command == expected_command
@@ -417,13 +417,10 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
         expected_command = app.config["ALLOWED_AI_TOOLS"]["claude"]
         git_env = build_project_git_env(project)
         expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
-        claude_dir_command = f"export CLAUDE_CONFIG_DIR={shlex.quote(str(tmp_path / '.claude'))}"
-        claude_key_command = "export CLAUDE_CODE_OAUTH_TOKEN=claude-token"
 
+        # Claude uses web auth, no env exports expected
         assert pane.commands == [
             (expected_git, True),
-            (claude_dir_command, True),
-            (claude_key_command, True),
             ("clear", True),
             (expected_command, True),
         ]

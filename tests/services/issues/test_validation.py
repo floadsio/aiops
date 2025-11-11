@@ -6,27 +6,7 @@ import types
 import pytest
 from requests.auth import HTTPBasicAuth
 
-if "github" not in sys.modules:
-    github_stub = types.ModuleType("github")
 
-    class GithubExceptionStub(Exception):
-        def __init__(self, status=None, data=None, headers=None):
-            self.status = status
-            super().__init__(status)
-
-    class GithubStub:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def get_user(self):
-            return types.SimpleNamespace(login="tester")
-
-    github_stub.Github = GithubStub
-    github_stub.GithubException = GithubExceptionStub
-    github_exception_module = types.ModuleType("github.GithubException")
-    github_exception_module.GithubException = GithubExceptionStub
-    sys.modules["github"] = github_stub
-    sys.modules["github.GithubException"] = github_exception_module
 
 if "gitlab" not in sys.modules:
     gitlab_stub = types.ModuleType("gitlab")
@@ -61,9 +41,23 @@ if "gitlab" not in sys.modules:
     sys.modules["gitlab"] = gitlab_stub
     sys.modules["gitlab.exceptions"] = gitlab_exceptions_module
 
-from github.GithubException import GithubException
 
 from app.services.issues import IssueSyncError, test_integration_connection
+
+
+class FakeGithubException(Exception):
+    def __init__(self, status=None, data=None, headers=None):
+        self.status = status
+        super().__init__(status)
+
+def _install_fake_github(monkeypatch, github_class):
+    module = types.ModuleType("github")
+
+    module.Github = github_class
+    module.GithubException = FakeGithubException
+    monkeypatch.setitem(sys.modules, "github", module)
+    monkeypatch.setitem(sys.modules, "github.GithubException", module)
+    return FakeGithubException
 
 
 def test_test_integration_success_github(monkeypatch):
@@ -82,7 +76,7 @@ def test_test_integration_success_github(monkeypatch):
             captured["called"] = True
             return FakeUser()
 
-    monkeypatch.setattr(sys.modules["github"], "Github", FakeGithub)
+    _install_fake_github(monkeypatch, FakeGithub)
 
     message = test_integration_connection("github", "token-123", None)
 
@@ -155,9 +149,9 @@ def test_test_integration_unauthorized(monkeypatch):
             pass
 
         def get_user(self):
-            raise GithubException(status=401, data={"message": "bad creds"}, headers={})
+            raise FakeGithubException(status=401, data={"message": "bad creds"}, headers={})
 
-    monkeypatch.setattr(sys.modules["github"], "Github", FailingGithub)
+    FakeGithubException = _install_fake_github(monkeypatch, FailingGithub)
 
     with pytest.raises(IssueSyncError) as exc:
         test_integration_connection("github", "invalid", None)

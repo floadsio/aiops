@@ -982,7 +982,7 @@
                     <div class="tmux-session-actions">
                       <a
                         role="button"
-                        class="secondary outline"
+                        class="secondary outline tmux-action-btn"
                         href="{{ url_for(
                           'projects.project_ai_console',
                           project_id=project.id,
@@ -1000,7 +1000,7 @@
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="tmux_target" value="{{ session.target }}">
                         <input type="hidden" name="next" value="{{ request.full_path }}">
-                        <button type="submit" class="secondary outline">Close</button>
+                        <button type="submit" class="secondary outline tmux-action-btn">Close</button>
                       </form>
                     </div>
                   </div>

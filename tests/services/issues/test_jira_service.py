@@ -43,6 +43,7 @@ def test_fetch_issues_uses_jira_client(monkeypatch):
             fields: str,
             validate_query: bool,
             json_result: bool,
+            expand: str = "",
         ) -> Dict[str, Any]:
             captured["jql"] = jql_str
             captured["startAt"] = startAt
@@ -50,6 +51,7 @@ def test_fetch_issues_uses_jira_client(monkeypatch):
             captured["fields"] = fields
             captured["validate_query"] = validate_query
             captured["json_result"] = json_result
+            captured["expand"] = expand
             return {
                 "issues": [
                     {
@@ -323,8 +325,9 @@ def test_create_issue_fetches_when_raw_missing(monkeypatch):
             captured["create_fields"] = fields
             return FakeIssue("DEVOPS-3", {"key": "DEVOPS-3"})
 
-        def issue(self, key: str, fields: str):
+        def issue(self, key: str, fields: str, expand: str = ""):
             captured["issue_fields"] = fields
+            captured["issue_expand"] = expand
             return FakeIssue(
                 key,
                 {

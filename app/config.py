@@ -96,6 +96,6 @@ class Config:
     CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))
     CLAUDE_CONFIG_DIR = os.getenv("CLAUDE_CONFIG_DIR", str((Path.home() / ".claude")))
     CLAUDE_UPDATE_COMMAND = os.getenv(
-        "CLAUDE_UPDATE_COMMAND", f"sudo npm install -g @anthropic/claude-cli"
+        "CLAUDE_UPDATE_COMMAND", f"sudo npm install -g @anthropic-ai/claude-code"
     )
     CLAUDE_BREW_PACKAGE = os.getenv("CLAUDE_BREW_PACKAGE", "claude-code")

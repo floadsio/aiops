@@ -19,6 +19,21 @@
   .integration-inline-form button {
     align-self: flex-start;
   }
+  @media (max-width: 640px) {
+    .button-row {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .button-row button {
+      width: 100%;
+      justify-content: center;
+    }
+    .integration-inline-form button {
+      width: 100%;
+      align-self: stretch;
+      justify-content: center;
+    }
+  }
 </style>
 
 <h2>Configured Integrations</h2>

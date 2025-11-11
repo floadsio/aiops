@@ -3,6 +3,30 @@
 {% block extra_head %}
   {{ super() }}
   <style>
+    article.contrast ul li > button,
+    article.contrast ul li > .inline-form {
+      display: inline-block;
+      margin-top: 0.5rem;
+      margin-right: 0.5rem;
+    }
+    @media (max-width: 640px) {
+      article.contrast ul li {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+      article.contrast ul li > button {
+        width: 100%;
+        justify-content: center;
+        margin-top: 0.35rem;
+        margin-right: 0;
+      }
+      article.contrast ul li > .inline-form {
+        width: 100%;
+        margin-top: 0.35rem;
+        margin-right: 0;
+      }
+    }
     .git-history-list {
       list-style: none;
       padding: 0;

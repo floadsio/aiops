@@ -64,7 +64,6 @@ from ..forms.admin import (
     MigrationRunForm,
     TmuxResyncForm,
 )
-from ..git_info import list_repo_branches
 from ..models import (
     ExternalIssue,
     Project,
@@ -97,7 +96,6 @@ from ..services.tmux_service import (
     TmuxServiceError,
     list_windows_for_aliases,
     sync_project_windows,
-    TmuxSyncResult,
     session_name_for_user,
 )
 from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path

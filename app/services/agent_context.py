@@ -485,7 +485,7 @@ def _render_git_identity_section(identity_user: User | None) -> str:
 
     command_block = ""
     if commands:
-        command_block = f"```bash\n" + "\n".join(commands) + "\n```"
+        command_block = "```bash\n" + "\n".join(commands) + "\n```"
 
     section = dedent(
         f"""

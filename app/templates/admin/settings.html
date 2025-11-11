@@ -299,7 +299,7 @@
   <article class="settings-card">
     <h2>Claude CLI Updates</h2>
     <p>Install or upgrade the <code>claude</code> CLI from Anthropic without shell access.</p>
-    {% set claude_command = claude_update_command or "sudo npm install -g @anthropic/claude-cli" %}
+    {% set claude_command = claude_update_command or "sudo npm install -g @anthropic-ai/claude-code" %}
     <p class="text-muted">Runs <code>{{ claude_command }}</code> on Debian-based hosts.</p>
     <div>
       <p><strong>Installed version:</strong>

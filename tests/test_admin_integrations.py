@@ -570,7 +570,7 @@ def test_admin_gemini_settings_error(app, client, login_admin, admin_user_id, mo
 
 def test_admin_claude_update_success(app, client, login_admin, monkeypatch):
     class DummyResult:
-        command = "sudo npm install -g @anthropic/claude-cli"
+        command = "sudo npm install -g @anthropic-ai/claude-code"
         returncode = 0
         stdout = "ok"
         stderr = ""

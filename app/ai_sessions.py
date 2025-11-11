@@ -16,6 +16,7 @@ from select import select
 from typing import Optional
 
 from flask import current_app
+from .models import User
 from .services.tmux_service import ensure_project_window
 from .services.git_service import build_project_git_env
 from .services.gemini_config_service import (
@@ -278,6 +279,15 @@ def create_session(
             os.environ[key] = value
     ssh_command = git_env.get("GIT_SSH_COMMAND")
 
+    # Prepare Git author information from user
+    user = User.query.get(user_id)
+    git_author_exports: list[str] = []
+    if user:
+        git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
+        git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}")
+
     exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
 
     session_id = uuid.uuid4().hex
@@ -321,6 +331,11 @@ def create_session(
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
                 current_app.logger.debug("Unable to set GIT_SSH_COMMAND for %s", window_name)
+        for export_command in git_author_exports:
+            try:
+                pane.send_keys(export_command, enter=True)
+            except Exception:  # noqa: BLE001
+                current_app.logger.debug("Unable to set Git author environment for %s", window_name)
         for export_command in codex_env_exports:
             try:
                 pane.send_keys(export_command, enter=True)

@@ -516,6 +516,9 @@ def project_ai_console(project_id: int):
         (key, key.capitalize()) for key in current_app.config["ALLOWED_AI_TOOLS"]
     ]
     form.ai_tool.choices = choices
+    default_tool = current_app.config.get("DEFAULT_AI_TOOL", "claude")
+    if default_tool in current_app.config["ALLOWED_AI_TOOLS"]:
+        form.ai_tool.data = default_tool
 
     tmux_windows: list = []
     tmux_error: str | None = None

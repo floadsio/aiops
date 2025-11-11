@@ -27,6 +27,13 @@ class User(db.Model, TimestampMixin):
     name = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    claude_input_tokens_limit = Column(Integer, nullable=True)
+    claude_input_tokens_remaining = Column(Integer, nullable=True)
+    claude_output_tokens_limit = Column(Integer, nullable=True)
+    claude_output_tokens_remaining = Column(Integer, nullable=True)
+    claude_requests_limit = Column(Integer, nullable=True)
+    claude_requests_remaining = Column(Integer, nullable=True)
+    claude_usage_last_updated = Column(DateTime, nullable=True)
 
     ssh_keys = relationship("SSHKey", back_populates="user", cascade="all, delete-orphan")
     projects = relationship("Project", back_populates="owner")

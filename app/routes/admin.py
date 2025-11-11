@@ -1434,6 +1434,34 @@ def save_claude_key():
     return redirect(redirect_target)
 
 
+@admin_bp.route("/settings/claude/usage/<int:user_id>", methods=["POST"])
+@admin_required
+def refresh_claude_usage(user_id: int):
+    from ..services.claude_usage_service import ClaudeUsageError, fetch_and_update_usage
+
+    user_exists = User.query.get(user_id)
+    if user_exists is None:
+        return jsonify({"error": "User not found"}), 404
+
+    try:
+        usage_data = fetch_and_update_usage(user_id)
+        return jsonify(
+            {
+                "success": True,
+                "usage": {
+                    "input_tokens_limit": usage_data.get("input_tokens_limit"),
+                    "input_tokens_remaining": usage_data.get("input_tokens_remaining"),
+                    "output_tokens_limit": usage_data.get("output_tokens_limit"),
+                    "output_tokens_remaining": usage_data.get("output_tokens_remaining"),
+                    "requests_limit": usage_data.get("requests_limit"),
+                    "requests_remaining": usage_data.get("requests_remaining"),
+                },
+            }
+        )
+    except ClaudeUsageError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+
 @admin_bp.route("/settings/gemini/settings", methods=["POST"])
 @admin_required
 def save_gemini_settings():

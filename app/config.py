@@ -44,7 +44,7 @@ class Config:
         "gemini": _GEMINI_COMMAND,
         "claude": os.getenv("CLAUDE_COMMAND", "claude"),
     }
-    DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "codex")
+    DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "claude")
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")
     DEFAULT_AI_ROWS = int(os.getenv("DEFAULT_AI_ROWS", "30"))
     DEFAULT_AI_COLS = int(os.getenv("DEFAULT_AI_COLS", "100"))

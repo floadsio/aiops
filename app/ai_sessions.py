@@ -27,10 +27,6 @@ from .services.codex_config_service import (
     CodexConfigError,
     ensure_codex_auth,
 )
-from .services.claude_config_service import (
-    ClaudeConfigError,
-    ensure_claude_api_key,
-)
 from .services.tmux_metadata import record_tmux_tool
 
 
@@ -242,16 +238,8 @@ def create_session(
         else:
             codex_env_exports.append(f"export CODEX_CONFIG_DIR={shlex.quote(str(cli_auth_path.parent))}")
             codex_env_exports.append(f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}")
-    uses_claude = _uses_claude(command_str, tool)
+    # Claude uses web auth, no token injection needed
     claude_env_exports: list[str] = []
-    if uses_claude:
-        try:
-            claude_cli_dir, claude_key = ensure_claude_api_key(user_id)
-        except ClaudeConfigError as exc:
-            current_app.logger.warning("Claude credentials unavailable for user %s: %s", user_id, exc)
-        else:
-            claude_env_exports.append(f"export CLAUDE_CONFIG_DIR={shlex.quote(str(claude_cli_dir))}")
-            claude_env_exports.append(f"export CLAUDE_CODE_OAUTH_TOKEN={shlex.quote(claude_key)}")
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)

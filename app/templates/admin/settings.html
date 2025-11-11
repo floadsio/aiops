@@ -297,6 +297,66 @@
   </article>
 
   <article class="settings-card">
+    <h2>Claude CLI Updates</h2>
+    <p>Install or upgrade the <code>claude</code> CLI from Anthropic without shell access.</p>
+    <p class="text-muted">Runs <code>{{ current_app.config.get("CLAUDE_UPDATE_COMMAND") }}</code> on Debian-based hosts.</p>
+    <div>
+      <p><strong>Installed version:</strong>
+        {% if claude_status.installed_version %}
+          <code>{{ claude_status.installed_version }}</code>
+        {% else %}
+          <span class="text-muted">Unknown</span>
+        {% endif %}
+      </p>
+      <p><strong>Latest release:</strong>
+        {% if claude_status.latest_version %}
+          <code>{{ claude_status.latest_version }}</code>
+        {% else %}
+          <span class="text-muted">Unknown</span>
+        {% endif %}
+      </p>
+      <p>
+        {% if claude_status.errors %}
+          <span class="badge danger">Status unavailable</span>
+        {% elif claude_status.update_available %}
+          <span class="badge warning">Update available</span>
+        {% else %}
+          <span class="badge success">Up to date</span>
+        {% endif %}
+      </p>
+    </div>
+    {% if claude_status.errors %}
+      <div class="critical-note">
+        <p>Unable to determine Claude CLI status:</p>
+        <ul>
+          {% for message in claude_status.errors %}
+            <li>{{ message }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    <form method="post" action="{{ url_for('admin.update_claude_cli') }}">
+      {{ claude_update_form.hidden_tag() }}
+      {% set disable_update = claude_status.errors or (not claude_status.update_available) %}
+      <div class="settings-actions">
+        <button type="submit" class="secondary"
+                {% if disable_update %}disabled aria-disabled="true"{% endif %}
+                {% if disable_update %}title="Claude must have an update available and a healthy status to proceed."{% endif %}>
+          Install latest Claude
+        </button>
+        <span class="text-muted form-helper">Updates can take a few minutes; check logs for progress.</span>
+      </div>
+    </form>
+    {% if claude_status.errors %}
+      <p class="text-muted">Resolve the issues above, then refresh to try again.</p>
+    {% elif claude_status.update_available %}
+      <p class="text-muted">A newer Claude CLI release is available. Updates can take a few minutes.</p>
+    {% else %}
+      <p class="text-muted">Claude CLI is up to date. Refresh the page to check for newer releases.</p>
+    {% endif %}
+  </article>
+
+  <article class="settings-card">
     <h2>Gemini CLI Updates</h2>
     <p>Install or upgrade the <code>gemini-cli</code> tool from Google to run AI assistants locally.</p>
     <p class="text-muted">Runs <code>sudo npm install -g @google/gemini-cli</code>; ensure the service user can run npm with sudo.</p>
@@ -452,6 +512,46 @@
           {{ codex_auth_form.payload() }}
         </label>
         <button type="submit" class="secondary">{{ codex_auth_form.submit.label.text }}</button>
+      </form>
+    {% endif %}
+  </article>
+
+  <article class="settings-card">
+    <h2>Claude Credentials</h2>
+    {% if not claude_users %}
+      <p class="text-muted">Create at least one user to manage Claude credentials.</p>
+    {% else %}
+      <form method="get" action="{{ url_for('admin.manage_settings') }}" class="stacked-form slim" autocomplete="off">
+        <label>
+          <span>Claude user</span>
+          <select name="claude_user_id" onchange="this.form.submit()">
+            {% for user in claude_users %}
+              <option value="{{ user.id }}" {% if claude_selected_user and claude_selected_user.id == user.id %}selected{% endif %}>
+                {{ user.name }} ({{ user.email }})
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <noscript>
+          <button type="submit" class="secondary">Switch user</button>
+        </noscript>
+      </form>
+      {% if claude_selected_user %}
+        <p>Editing credentials for <strong>{{ claude_selected_user.name }}</strong> (<code>{{ claude_selected_user.email }}</code>).
+          {% if claude_cli_key_path and claude_storage_key_path %}
+            CLI key is synced from <code>{{ claude_storage_key_path }}</code> into <code>{{ claude_cli_key_path }}</code>, and sessions export <code>ANTHROPIC_API_KEY</code> for tmux windows.
+          {% endif %}
+        </p>
+      {% endif %}
+      <form method="post" action="{{ url_for('admin.save_claude_key') }}">
+        {{ claude_api_form.hidden_tag() }}
+        {{ claude_api_form.user_id() }}
+        <label>
+          {{ claude_api_form.payload.label }}
+          {{ claude_api_form.payload() }}
+        </label>
+        <span class="text-muted form-helper">Paste the Anthropic API key used by the Claude CLI.</span>
+        <button type="submit" class="secondary">{{ claude_api_form.submit.label.text }}</button>
       </form>
     {% endif %}
   </article>

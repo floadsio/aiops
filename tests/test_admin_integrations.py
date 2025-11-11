@@ -18,6 +18,8 @@ from app.services.tmux_service import TmuxServiceError
 from app.services.gemini_update_service import GeminiUpdateError
 from app.services.gemini_config_service import GeminiConfigError
 from app.services.codex_config_service import CodexConfigError
+from app.services.claude_update_service import ClaudeUpdateError
+from app.services.claude_config_service import ClaudeConfigError
 from app.services.git_service import checkout_or_create_branch
 from app.services.migration_service import MigrationError
 
@@ -564,6 +566,77 @@ def test_admin_gemini_settings_error(app, client, login_admin, admin_user_id, mo
     )
     assert response.status_code == 200
     assert b"broken settings" in response.data
+
+
+def test_admin_claude_update_success(app, client, login_admin, monkeypatch):
+    class DummyResult:
+        command = "sudo npm install -g @anthropic/claude-cli"
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+        @property
+        def ok(self):
+            return True
+
+    monkeypatch.setattr("app.routes.admin.install_latest_claude", lambda: DummyResult())
+
+    response = client.post(
+        "/admin/settings/claude/update",
+        data={"submit": "Install latest Claude"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"Claude CLI update succeeded" in response.data
+
+
+def test_admin_claude_update_failure(app, client, login_admin, monkeypatch):
+    def fake_update():
+        raise ClaudeUpdateError("npm missing")
+
+    monkeypatch.setattr("app.routes.admin.install_latest_claude", fake_update)
+
+    response = client.post(
+        "/admin/settings/claude/update",
+        data={"submit": "Install latest Claude"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"npm missing" in response.data
+
+
+def test_admin_claude_key_save(app, client, login_admin, admin_user_id, monkeypatch):
+    saved = {}
+
+    def fake_save(payload, *, user_id=None):
+        saved["payload"] = payload
+        saved["user_id"] = user_id
+
+    monkeypatch.setattr("app.routes.admin.save_claude_api_key", fake_save)
+
+    response = client.post(
+        "/admin/settings/claude/key",
+        data={"payload": "token", "user_id": str(admin_user_id), "next": "/admin/settings"},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert saved["payload"] == "token"
+    assert saved["user_id"] == admin_user_id
+
+
+def test_admin_claude_key_error(app, client, login_admin, admin_user_id, monkeypatch):
+    def fake_save(payload, *, user_id=None):
+        raise ClaudeConfigError("invalid key")
+
+    monkeypatch.setattr("app.routes.admin.save_claude_api_key", fake_save)
+
+    response = client.post(
+        "/admin/settings/claude/key",
+        data={"payload": "token", "user_id": str(admin_user_id)},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert b"invalid key" in response.data
 
 
 def test_admin_codex_auth_save(app, client, login_admin, admin_user_id, monkeypatch):

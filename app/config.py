@@ -41,6 +41,7 @@ class Config:
         "codex": os.getenv("CODEX_COMMAND", "codex -a on-failure"),
         "aider": os.getenv("AIDER_COMMAND", "aider"),
         "gemini": _GEMINI_COMMAND,
+        "claude": os.getenv("CLAUDE_COMMAND", "claude"),
     }
     DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "codex")
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")
@@ -92,3 +93,7 @@ class Config:
     )
     GEMINI_CONFIG_DIR = os.getenv("GEMINI_CONFIG_DIR", str((Path.home() / ".gemini")))
     CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))
+    CLAUDE_CONFIG_DIR = os.getenv("CLAUDE_CONFIG_DIR", str((Path.home() / ".claude")))
+    CLAUDE_UPDATE_COMMAND = os.getenv(
+        "CLAUDE_UPDATE_COMMAND", f"sudo npm install -g @anthropic/claude-cli"
+    )

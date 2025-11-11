@@ -25,12 +25,16 @@ live under `ansible/`.
   restores; it recreates missing windows and prunes orphaned `-p<ID>` sessions.
 - Dashboard project cards include branch-aware git controls plus inline forms to checkout/create or
   merge branches; prefer these tools when testing feature branches.
-- Admin → Settings now has Codex and Gemini CLI cards; use them to install/upgrade `codex` or
-  `gemini-cli` instead of running npm manually. Select a user before pasting Codex `auth.json` or
-  Gemini `google_accounts.json` / `oauth_creds.json`; aiops stores each user's files under
-  `instance/<tool>/user-<id>/` and mirrors them into the corresponding CLI directories
-  (`CODEX_CONFIG_DIR/auth.json` for Codex, `GEMINI_CONFIG_DIR/user-<id>/...` for Gemini) whenever
-  they save or launch a session so credentials stay isolated without manual copies.
+- Admin → Settings now has Codex, Gemini, and Claude CLI cards; use them to install/upgrade
+  `codex`, `gemini-cli`, or `claude` instead of running npm manually. Select a user before
+  pasting Codex `auth.json` or Gemini `google_accounts.json` / `oauth_creds.json`; aiops stores
+  each user's files under `instance/<tool>/user-<id>/` and mirrors them into the corresponding
+  CLI directories (`CODEX_CONFIG_DIR/auth.json` for Codex, `GEMINI_CONFIG_DIR/user-<id>/...` for
+  Gemini, `CLAUDE_CONFIG_DIR/api_key` for Claude) whenever they save or launch a session so
+  credentials stay isolated without manual copies.
+- Use the Claude credentials card to save each user's Anthropic API key (stored at
+  `instance/claude/user-<id>/api_key`), then aiops copies it into `CLAUDE_CONFIG_DIR/api_key` and
+  exports `ANTHROPIC_API_KEY` when launching Claude tmux sessions so `claude` can authenticate.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

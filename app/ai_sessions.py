@@ -26,6 +26,10 @@ from .services.codex_config_service import (
     CodexConfigError,
     ensure_codex_auth,
 )
+from .services.claude_config_service import (
+    ClaudeConfigError,
+    ensure_claude_api_key,
+)
 from .services.tmux_metadata import record_tmux_tool
 
 
@@ -131,6 +135,16 @@ def _uses_codex(command_str: str, tool: str | None) -> bool:
     return bool(configured_token and command_token and configured_token == command_token)
 
 
+def _uses_claude(command_str: str, tool: str | None) -> bool:
+    tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+    configured = tool_commands.get("claude")
+    if tool == "claude":
+        return True
+    configured_token = _first_command_token(configured)
+    command_token = _first_command_token(command_str)
+    return bool(configured_token and command_token and configured_token == command_token)
+
+
 def _resolve_tmux_window(
     project,
     tmux_target: Optional[str] = None,
@@ -227,6 +241,16 @@ def create_session(
         else:
             codex_env_exports.append(f"export CODEX_CONFIG_DIR={shlex.quote(str(cli_auth_path.parent))}")
             codex_env_exports.append(f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}")
+    uses_claude = _uses_claude(command_str, tool)
+    claude_env_exports: list[str] = []
+    if uses_claude:
+        try:
+            claude_cli_dir, claude_key = ensure_claude_api_key(user_id)
+        except ClaudeConfigError as exc:
+            current_app.logger.warning("Claude credentials unavailable for user %s: %s", user_id, exc)
+        else:
+            claude_env_exports.append(f"export CLAUDE_CONFIG_DIR={shlex.quote(str(claude_cli_dir))}")
+            claude_env_exports.append(f"export ANTHROPIC_API_KEY={shlex.quote(claude_key)}")
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)
@@ -302,6 +326,11 @@ def create_session(
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
                 current_app.logger.debug("Unable to set Codex environment for %s", window_name)
+        for export_command in claude_env_exports:
+            try:
+                pane.send_keys(export_command, enter=True)
+            except Exception:  # noqa: BLE001
+                current_app.logger.debug("Unable to set Claude environment for %s", window_name)
         try:
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001

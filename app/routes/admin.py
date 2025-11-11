@@ -55,9 +55,11 @@ from ..forms.admin import (
     TenantIntegrationDeleteForm,
     CodexUpdateForm,
     GeminiUpdateForm,
+    ClaudeUpdateForm,
     GeminiAccountsForm,
     GeminiOAuthForm,
     CodexAuthForm,
+    ClaudeApiKeyForm,
     GeminiSettingsForm,
     MigrationRunForm,
     TmuxResyncForm,
@@ -113,6 +115,12 @@ from ..services.gemini_update_service import (
     get_gemini_status,
     install_latest_gemini,
 )
+from ..services.claude_update_service import (
+    ClaudeStatus,
+    ClaudeUpdateError,
+    get_claude_status,
+    install_latest_claude,
+)
 from ..services.gemini_config_service import (
     GeminiConfigError,
     get_config_dir,
@@ -128,6 +136,12 @@ from ..services.codex_config_service import (
     load_codex_auth,
     save_codex_auth,
     get_user_auth_paths,
+)
+from ..services.claude_config_service import (
+    ClaudeConfigError,
+    load_claude_api_key,
+    save_claude_api_key,
+    get_user_api_paths,
 )
 from ..services.tmux_metadata import get_tmux_tool, prune_tmux_tools
 from ..services.agent_context import (
@@ -715,6 +729,14 @@ def manage_settings():
         except CodexConfigError:
             return ""
 
+    def _load_claude_payload(user_id: int | None) -> str:
+        if not user_id:
+            return ""
+        try:
+            return load_claude_api_key(user_id=user_id)
+        except ClaudeConfigError:
+            return ""
+
     def _format_expiry(payload: str) -> str | None:
         try:
             data = json.loads(payload or "{}")
@@ -834,6 +856,41 @@ def manage_settings():
     else:
         codex_cli_auth_path = str(Path(current_app.config.get("CODEX_CONFIG_DIR")).expanduser() / "auth.json")
 
+    claude_users = gemini_users
+    requested_claude_user_id = request.args.get("claude_user_id", type=int)
+    claude_selected_user = None
+    if requested_claude_user_id:
+        claude_selected_user = next(
+            (user for user in claude_users if user.id == requested_claude_user_id),
+            None,
+        )
+    if claude_selected_user is None and default_user_id:
+        claude_selected_user = next(
+            (user for user in claude_users if user.id == default_user_id),
+            None,
+        )
+    if claude_selected_user is None and claude_users:
+        claude_selected_user = claude_users[0]
+    claude_selected_user_id = claude_selected_user.id if claude_selected_user else None
+    claude_form_redirect = (
+        url_for("admin.manage_settings", claude_user_id=claude_selected_user_id)
+        if claude_selected_user_id is not None
+        else url_for("admin.manage_settings")
+    )
+    claude_api_form = ClaudeApiKeyForm()
+    claude_api_form.user_id.data = (
+        str(claude_selected_user_id) if claude_selected_user_id is not None else ""
+    )
+    claude_api_form.next.data = claude_form_redirect
+    if not claude_api_form.payload.data:
+        claude_api_form.payload.data = _load_claude_payload(claude_selected_user_id)
+    claude_cli_key_path = None
+    claude_storage_key_path = None
+    if claude_selected_user_id is not None:
+        claude_cli_path, claude_storage_path = get_user_api_paths(claude_selected_user_id)
+        claude_cli_key_path = str(claude_cli_path)
+        claude_storage_key_path = str(claude_storage_path)
+
     migration_form = MigrationRunForm()
     migration_form.next.data = url_for("admin.manage_settings")
 
@@ -859,6 +916,20 @@ def manage_settings():
             latest_version=None,
             update_available=False,
             errors=(f"Unable to determine Gemini status: {exc}",),
+        )
+
+    claude_update_form = ClaudeUpdateForm()
+    claude_update_form.next.data = url_for("admin.manage_settings")
+
+    try:
+        claude_status = get_claude_status()
+    except Exception as exc:  # pragma: no cover
+        current_app.logger.exception("Unable to determine Claude CLI status.")
+        claude_status = ClaudeStatus(
+            installed_version=None,
+            latest_version=None,
+            update_available=False,
+            errors=(f"Unable to determine Claude status: {exc}",),
         )
 
     quick_branch_form = QuickBranchSwitchForm()
@@ -931,6 +1002,8 @@ def manage_settings():
         codex_update_form=codex_update_form,
         gemini_status=gemini_status,
         gemini_update_form=gemini_update_form,
+        claude_status=claude_status,
+        claude_update_form=claude_update_form,
         quick_branch_form=quick_branch_form,
         gemini_accounts_form=gemini_accounts_form,
         gemini_oauth_form=gemini_oauth_form,
@@ -944,6 +1017,11 @@ def manage_settings():
         codex_selected_user=codex_selected_user,
         codex_cli_auth_path=codex_cli_auth_path,
         codex_storage_auth_path=codex_storage_auth_path,
+        claude_api_form=claude_api_form,
+        claude_users=claude_users,
+        claude_selected_user=claude_selected_user,
+        claude_cli_key_path=claude_cli_key_path,
+        claude_storage_key_path=claude_storage_key_path,
     )
 
 
@@ -1194,6 +1272,49 @@ def update_gemini_cli():
     return redirect(redirect_target)
 
 
+@admin_bp.route("/settings/claude/update", methods=["POST"])
+@admin_required
+def update_claude_cli():
+    form = ClaudeUpdateForm()
+    if not form.validate_on_submit():
+        flash("Invalid Claude update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        result = install_latest_claude()
+    except ClaudeUpdateError as exc:
+        current_app.logger.exception("Failed to run Claude CLI update.")
+        flash(str(exc), "danger")
+    else:
+        combined_output = "\n".join(
+            part for part in [result.stdout.strip(), result.stderr.strip()] if part
+        )
+        truncated = _truncate_output(combined_output)
+        message = (
+            f"Claude CLI update succeeded (exit {result.returncode})."
+            if result.ok
+            else f"Claude CLI update failed (exit {result.returncode})."
+        )
+        category = "success" if result.ok else "danger"
+        log_message = f"Claude CLI update command finished with exit {result.returncode}"
+        if combined_output:
+            current_app.logger.info("%s; output: %s", log_message, combined_output)
+        else:
+            current_app.logger.info(log_message)
+        if truncated:
+            flash(
+                Markup(
+                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                ),
+                category,
+            )
+        else:
+            flash(message, category)
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
 @admin_bp.route("/settings/gemini/accounts", methods=["POST"])
 @admin_required
 def save_gemini_accounts():
@@ -1279,6 +1400,36 @@ def save_codex_auth_payload():
         flash("Saved Codex auth.json.", "success")
 
     redirect_target = form.next.data or url_for("admin.manage_settings", codex_user_id=user_id)
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/claude/key", methods=["POST"])
+@admin_required
+def save_claude_key():
+    form = ClaudeApiKeyForm()
+    if not form.validate_on_submit():
+        flash("Invalid Claude API key payload.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        user_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Select a user for Claude credentials.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    user_exists = User.query.get(user_id)
+    if user_exists is None:
+        flash("Selected user for Claude credentials was not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        save_claude_api_key(form.payload.data, user_id=user_id)
+    except ClaudeConfigError as exc:
+        flash(str(exc), "danger")
+    else:
+        flash("Saved Claude API key.", "success")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings", claude_user_id=user_id)
     return redirect(redirect_target)
 
 

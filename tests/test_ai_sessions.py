@@ -12,6 +12,7 @@ from app.services.gemini_config_service import (
     save_settings_json,
 )
 from app.services.codex_config_service import save_codex_auth
+from app.services.claude_config_service import save_claude_api_key
 
 
 class FakePane:
@@ -363,3 +364,70 @@ def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
         assert pane.commands[2] == (expected_codex_file, True)
         assert pane.commands[3] == ("clear", True)
         assert pane.commands[4] == (expected_command, True)
+
+
+def test_create_session_exports_claude_key(monkeypatch, tmp_path):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
+        CODEX_CONFIG_DIR = str(tmp_path / ".codex")
+        CLAUDE_CONFIG_DIR = str(tmp_path / ".claude")
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    with app.app_context():
+        project_path = tmp_path / "repos" / "demo"
+        project_path.mkdir(parents=True, exist_ok=True)
+        project = SimpleNamespace(
+            id=5,
+            name="Demo Project",
+            local_path=str(project_path),
+            tenant=SimpleNamespace(name="Tenant Beta"),
+        )
+
+        pane = FakePane()
+        window = FakeWindow("demo-project-p7")
+        window._pane = pane
+        session_obj = FakeSession("aiops", window)
+
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None, session_name=None: (session_obj, window, True),
+        )
+        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
+        monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (5555, 28))
+        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
+
+        class DummyThread:
+            def __init__(self, *_, **__):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
+        monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
+
+        save_claude_api_key("claude-token", user_id=505)
+
+        session = create_session(project, user_id=505, tool="claude")
+
+        expected_command = app.config["ALLOWED_AI_TOOLS"]["claude"]
+        git_env = build_project_git_env(project)
+        expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        claude_dir_command = f"export CLAUDE_CONFIG_DIR={shlex.quote(str(tmp_path / '.claude'))}"
+        claude_key_command = "export ANTHROPIC_API_KEY=claude-token"
+
+        assert pane.commands == [
+            (expected_git, True),
+            (claude_dir_command, True),
+            (claude_key_command, True),
+            ("clear", True),
+            (expected_command, True),
+        ]
+        assert session.command == expected_command
+        assert (tmp_path / ".claude" / "api_key").read_text().strip() == "claude-token"
+        stored_path = tmp_path / "instance" / "claude" / "user-505" / "api_key"
+        assert stored_path.read_text().strip() == "claude-token"

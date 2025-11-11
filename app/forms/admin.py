@@ -221,6 +221,11 @@ class GeminiUpdateForm(FlaskForm):
     submit = SubmitField("Update Gemini CLI")
 
 
+class ClaudeUpdateForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Update Claude CLI")
+
+
 class GeminiAccountsForm(FlaskForm):
     payload = TextAreaField("google_accounts.json", validators=[DataRequired()], render_kw={"rows": 6})
     user_id = HiddenField(validators=[DataRequired()])
@@ -240,6 +245,13 @@ class CodexAuthForm(FlaskForm):
     user_id = HiddenField(validators=[DataRequired()])
     next = HiddenField()
     submit = SubmitField("Save Codex auth.json")
+
+
+class ClaudeApiKeyForm(FlaskForm):
+    payload = TextAreaField("Claude API key", validators=[DataRequired()], render_kw={"rows": 3})
+    user_id = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Save Claude API Key")
 
 
 class GeminiSettingsForm(FlaskForm):

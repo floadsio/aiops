@@ -570,16 +570,19 @@
   }
   .tmux-session-actions a,
   .tmux-session-actions form {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%;
     box-sizing: border-box;
   }
   .tmux-session-actions form {
     margin: 0;
     display: flex;
   }
-  .tmux-session-actions button {
+  .tmux-session-actions button,
+  .tmux-session-actions a[role="button"] {
     width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
     justify-content: center;
   }
@@ -590,9 +593,16 @@
       width: 100%;
     }
     .tmux-session-actions a,
-    .tmux-session-actions form,
-    .tmux-session-actions button {
+    .tmux-session-actions form {
+      flex: none;
       width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .tmux-session-actions button,
+    .tmux-session-actions a[role="button"] {
+      width: 100%;
+      max-width: 100%;
       box-sizing: border-box;
     }
   }
@@ -670,18 +680,21 @@
     box-sizing: border-box;
   }
   .tmux-recent-actions .tmux-action {
-    flex: 1 1 0;
+    flex: 1 1 auto;
     display: flex;
     min-width: 0;
+    max-width: 100%;
     box-sizing: border-box;
   }
   .tmux-recent-actions form {
     margin: 0;
     width: 100%;
+    max-width: 100%;
     box-sizing: border-box;
   }
   .tmux-recent-actions .tmux-action-btn {
     width: 100%;
+    max-width: 100%;
     justify-content: center;
     align-items: center;
     display: inline-flex;
@@ -698,10 +711,16 @@
       flex-direction: column;
       align-items: stretch;
     }
+    .tmux-recent-actions .tmux-action {
+      flex: none;
+      width: 100%;
+      max-width: 100%;
+    }
     .tmux-recent-actions .tmux-action,
     .tmux-recent-actions form,
     .tmux-recent-actions .tmux-action-btn {
       width: 100%;
+      max-width: 100%;
       box-sizing: border-box;
     }
   }

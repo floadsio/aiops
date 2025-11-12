@@ -53,6 +53,81 @@ def _check_path_via_sudo(linux_username: str, path: str) -> bool:
         return False
 
 
+def _mkdir_via_sudo(linux_username: str, path: str) -> None:
+    """Create a directory using sudo to run as the target user.
+
+    Args:
+        linux_username: Linux username to run as
+        path: Path to create
+
+    Raises:
+        WorkspaceError: If directory creation fails
+    """
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "-u", linux_username, "mkdir", "-p", path],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            raise WorkspaceError(
+                f"Failed to create directory as {linux_username}: {result.stderr}"
+            )
+    except subprocess.TimeoutExpired as exc:
+        raise WorkspaceError(f"Timeout creating directory as {linux_username}") from exc
+    except FileNotFoundError as exc:
+        raise WorkspaceError(
+            f"sudo or mkdir command not found for user {linux_username}"
+        ) from exc
+
+
+def _git_clone_via_sudo(
+    linux_username: str, repo_url: str, target_path: str, branch: str, env: dict | None
+) -> None:
+    """Clone a git repository using sudo to run as the target user.
+
+    Args:
+        linux_username: Linux username to run as
+        repo_url: Git repository URL
+        target_path: Path to clone into
+        branch: Branch to check out
+        env: Environment variables for git (e.g., SSH keys)
+
+    Raises:
+        WorkspaceError: If git clone fails
+    """
+    # Build git clone command with sudo
+    cmd = ["sudo", "-n", "-u", linux_username]
+
+    # If we have environment variables, pass them via the 'env' command
+    # (sudo strips most env vars for security)
+    if env:
+        cmd.append("env")
+        for key, value in env.items():
+            cmd.append(f"{key}={value}")
+
+    cmd.extend(["git", "clone", "--branch", branch, repo_url, target_path])
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes for git clone
+        )
+        if result.returncode != 0:
+            raise WorkspaceError(
+                f"Failed to clone repository as {linux_username}: {result.stderr}"
+            )
+    except subprocess.TimeoutExpired as exc:
+        raise WorkspaceError(f"Timeout cloning repository as {linux_username}") from exc
+    except FileNotFoundError as exc:
+        raise WorkspaceError(
+            f"sudo or git command not found for user {linux_username}"
+        ) from exc
+
+
 def get_workspace_path(project, user) -> Optional[Path]:
     """Get the workspace directory path for a user and project.
 
@@ -136,22 +211,27 @@ def initialize_workspace(project, user) -> Path:
         )
         return workspace_path
 
-    # Create workspace directory
-    try:
-        workspace_path.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        raise WorkspaceError(f"Failed to create workspace directory: {exc}") from exc
+    # Create workspace directory using sudo as the target user
+    linux_username = resolve_linux_username(user)
+    if not linux_username:
+        raise WorkspaceError(
+            f"Cannot determine Linux username for user {getattr(user, 'email', 'unknown')}"
+        )
 
-    # Clone repository
     try:
-        from git import Repo
+        _mkdir_via_sudo(linux_username, str(workspace_path))
+    except WorkspaceError:
+        raise
 
+    # Clone repository using sudo as the target user
+    try:
         env = build_project_git_env(project)
-        Repo.clone_from(
+        _git_clone_via_sudo(
+            linux_username,
             project.repo_url,
-            workspace_path,
-            branch=project.default_branch,
-            env=env or None,
+            str(workspace_path),
+            project.default_branch,
+            env,
         )
         log.info(
             "Initialized workspace for project %s, user %s at %s",
@@ -160,13 +240,30 @@ def initialize_workspace(project, user) -> Path:
             workspace_path,
         )
         return workspace_path
-    except Exception as exc:
-        # Clean up on failure
-        if workspace_path.exists() and not (workspace_path / ".git").exists():
-            import shutil
-
-            shutil.rmtree(workspace_path, ignore_errors=True)
-        raise WorkspaceError(f"Failed to clone repository: {exc}") from exc
+    except WorkspaceError:
+        # Clean up on failure using sudo
+        if _check_path_via_sudo(
+            linux_username, str(workspace_path)
+        ) and not _check_path_via_sudo(linux_username, str(workspace_path / ".git")):
+            try:
+                subprocess.run(
+                    [
+                        "sudo",
+                        "-n",
+                        "-u",
+                        linux_username,
+                        "rm",
+                        "-rf",
+                        str(workspace_path),
+                    ],
+                    capture_output=True,
+                    timeout=10,
+                )
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                log.warning(
+                    "Failed to clean up workspace directory after clone failure"
+                )
+        raise
 
 
 def get_workspace_status(project, user) -> dict[str, any]:

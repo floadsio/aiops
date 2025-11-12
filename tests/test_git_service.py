@@ -3,17 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from git import GitCommandError, Repo
 
 from app import create_app, db
 from app.config import Config
 from app.models import Project, SSHKey, Tenant, User
 from app.security import hash_password
 from app.services.git_service import (
-    ensure_repo_checkout,
     _resolve_project_ssh_key_path,
     delete_project_branch,
+    ensure_repo_checkout,
 )
-from git import GitCommandError, Repo
 
 
 @pytest.fixture()
@@ -192,8 +192,14 @@ def test_ensure_repo_checkout_uses_ssh_env(app, owner, tenant, tmp_path, monkeyp
             def clone_from(cls, repo_url, path, branch=None, env=None):
                 captured_env.update(env or {})
                 attempts.append(env.get("GIT_SSH_COMMAND", ""))
-                if env and "project" in env.get("GIT_SSH_COMMAND", "") and len(attempts) == 1:
-                    raise GitCommandError("clone", 128, stderr="Load key invalid format")
+                if (
+                    env
+                    and "project" in env.get("GIT_SSH_COMMAND", "")
+                    and len(attempts) == 1
+                ):
+                    raise GitCommandError(
+                        "clone", 128, stderr="Load key invalid format"
+                    )
                 path = Path(path)
                 path.mkdir(parents=True, exist_ok=True)
                 (path / ".git").mkdir(parents=True, exist_ok=True)
@@ -223,7 +229,9 @@ def test_ensure_repo_checkout_uses_ssh_env(app, owner, tenant, tmp_path, monkeyp
         assert len(attempts) >= 2
 
 
-def test_ensure_repo_checkout_relocates_inaccessible_path(app, owner, tenant, monkeypatch):
+def test_ensure_repo_checkout_relocates_inaccessible_path(
+    app, owner, tenant, monkeypatch
+):
     inaccessible_path = "/Users/eim/src/floads/github/aiops/instance/repos/demo"
 
     with app.app_context():

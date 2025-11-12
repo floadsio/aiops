@@ -55,12 +55,16 @@ def build_issue_agent_file(
     all_issues: list[ExternalIssue],
 ) -> Path:
     instance_path = Path(current_app.instance_path)
-    agents_root = _ensure_agent_directory(instance_path / "agents" / f"project_{project.id}")
+    agents_root = _ensure_agent_directory(
+        instance_path / "agents" / f"project_{project.id}"
+    )
     filename = f"issue_{primary_issue.external_id}.md"
     agent_path = agents_root / filename
 
     integration = (
-        primary_issue.project_integration.integration if primary_issue.project_integration else None
+        primary_issue.project_integration.integration
+        if primary_issue.project_integration
+        else None
     )
     tenant = project.tenant
 
@@ -75,18 +79,18 @@ def build_issue_agent_file(
 
         ## Project Context
         - Project Name: {project.name}
-        - Tenant: {tenant.name if tenant else 'N/A'}
+        - Tenant: {tenant.name if tenant else "N/A"}
         - Repository URL: {project.repo_url}
         - Local Path: {project.local_path}
 
         ## Selected Issue
-        - Provider: {integration.provider if integration else 'unknown'}
-        - Integration Name: {integration.name if integration else 'Unknown Integration'}
+        - Provider: {integration.provider if integration else "unknown"}
+        - Integration Name: {integration.name if integration else "Unknown Integration"}
         - ID: {primary_issue.external_id}
-        - Status: {primary_issue.status or 'unspecified'}
-        - Assignee: {primary_issue.assignee or 'unassigned'}
-        - Labels: {', '.join(primary_issue.labels) if primary_issue.labels else 'none'}
-        - Source URL: {primary_issue.url or 'N/A'}
+        - Status: {primary_issue.status or "unspecified"}
+        - Assignee: {primary_issue.assignee or "unassigned"}
+        - Labels: {", ".join(primary_issue.labels) if primary_issue.labels else "none"}
+        - Source URL: {primary_issue.url or "N/A"}
         - Last Updated: {format_issue_datetime(primary_issue.external_updated_at or primary_issue.updated_at or primary_issue.created_at)}
 
         ## All Issues for this Project

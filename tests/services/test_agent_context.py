@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from types import SimpleNamespace
 from pathlib import Path
+from types import SimpleNamespace
 
 from app.services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
@@ -58,7 +58,9 @@ def test_render_issue_context_includes_github_body():
 
 def test_render_issue_context_includes_gitlab_description():
     project = ProjectStub()
-    issue = _make_issue("gitlab", raw_payload={"description": "GitLab flavored markdown"})
+    issue = _make_issue(
+        "gitlab", raw_payload={"description": "GitLab flavored markdown"}
+    )
 
     content = render_issue_context(project, issue, [issue])
 
@@ -99,7 +101,9 @@ def test_render_issue_context_renders_jira_description_document():
             },
         ],
     }
-    issue = _make_issue("jira", raw_payload={"fields": {"description": jira_description}})
+    issue = _make_issue(
+        "jira", raw_payload={"fields": {"description": jira_description}}
+    )
 
     content = render_issue_context(project, issue, [issue])
 

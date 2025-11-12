@@ -1,18 +1,18 @@
-import shlex
 import json
+import shlex
 from types import SimpleNamespace
 
 from app import create_app
-from app.config import Config
 from app.ai_sessions import create_session
-from app.services.git_service import build_project_git_env
+from app.config import Config
+from app.services.claude_config_service import save_claude_api_key
+from app.services.codex_config_service import save_codex_auth
 from app.services.gemini_config_service import (
     save_google_accounts,
     save_oauth_creds,
     save_settings_json,
 )
-from app.services.codex_config_service import save_codex_auth
-from app.services.claude_config_service import save_claude_api_key
+from app.services.git_service import build_project_git_env
 
 
 class FakePane:
@@ -85,7 +85,11 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (session_obj, window, True),
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
         )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (1234, 56))
@@ -98,7 +102,9 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
             def start(self):
                 pass
 
-        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
 
         captured = {}
 
@@ -117,7 +123,9 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         assert session.fd == 56
         assert captured["session"] is session
         git_env = build_project_git_env(project)
-        expected_export = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        expected_export = (
+            f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        )
         assert pane.commands[0] == (expected_export, True)
         assert pane.commands[1] == ("clear", True)
         assert pane.commands[2] == (expected_command, True)
@@ -166,9 +174,13 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
             def start(self):
                 pass
 
-        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
 
-        monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
 
         session = create_session(
             project,
@@ -207,7 +219,11 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (session_obj, window, False),
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                False,
+            ),
         )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (9876, 54))
@@ -220,10 +236,16 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
             def start(self):
                 pass
 
-        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
-        monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
 
-        session = create_session(project, user_id=202, tmux_target="aiops:demo-project-p3", tool="codex")
+        session = create_session(
+            project, user_id=202, tmux_target="aiops:demo-project-p3", tool="codex"
+        )
 
         expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
         assert session.command == expected_command
@@ -256,7 +278,11 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (session_obj, window, True),
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
         )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (2468, 42))
@@ -269,7 +295,9 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
             def start(self):
                 pass
 
-        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
 
         captured = {}
 
@@ -289,7 +317,9 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         assert "--approval-mode auto_edit" in expected_command
         assert session.command == expected_command
         git_env = build_project_git_env(project)
-        expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        expected_git = (
+            f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        )
         cli_home = tmp_path / ".gemini"
 
         assert pane.commands == [
@@ -301,8 +331,12 @@ def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
         assert json.loads(settings_path.read_text())["model"] == "gemini-2.5-flash"
         home_settings = json.loads((cli_home / "settings.json").read_text())
         assert home_settings.get("model") == "gemini-2.5-flash"
-        assert json.loads((cli_home / "google_accounts.json").read_text()) == {"accounts": []}
-        assert json.loads((cli_home / "oauth_creds.json").read_text()) == {"token": "demo"}
+        assert json.loads((cli_home / "google_accounts.json").read_text()) == {
+            "accounts": []
+        }
+        assert json.loads((cli_home / "oauth_creds.json").read_text()) == {
+            "token": "demo"
+        }
 
 
 def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
@@ -332,7 +366,11 @@ def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (session_obj, window, True),
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
         )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (9753, 51))
@@ -345,8 +383,12 @@ def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
             def start(self):
                 pass
 
-        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
-        monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
 
         save_codex_auth(json.dumps({"token": "codex-token"}), user_id=88)
 
@@ -355,8 +397,12 @@ def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
         expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
         assert session.command == expected_command
         git_env = build_project_git_env(project)
-        expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
-        expected_codex_dir = f"export CODEX_CONFIG_DIR={shlex.quote(str(tmp_path / '.codex'))}"
+        expected_git = (
+            f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        )
+        expected_codex_dir = (
+            f"export CODEX_CONFIG_DIR={shlex.quote(str(tmp_path / '.codex'))}"
+        )
         expected_codex_file = f"export CODEX_AUTH_FILE={shlex.quote(str((tmp_path / '.codex') / 'auth.json'))}"
 
         assert pane.commands[0] == (expected_git, True)
@@ -394,7 +440,11 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (session_obj, window, True),
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
         )
         monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
         monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (5555, 28))
@@ -407,8 +457,12 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
             def start(self):
                 pass
 
-        monkeypatch.setattr("app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread())
-        monkeypatch.setattr("app.ai_sessions._register_session", lambda session: session)
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
 
         save_claude_api_key("claude-token", user_id=505)
 
@@ -416,7 +470,9 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
 
         expected_command = app.config["ALLOWED_AI_TOOLS"]["claude"]
         git_env = build_project_git_env(project)
-        expected_git = f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        expected_git = (
+            f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
+        )
 
         # Claude uses web auth, no env exports expected
         assert pane.commands == [

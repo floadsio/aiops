@@ -4,10 +4,9 @@ import logging
 import os
 import shlex
 from contextlib import nullcontext
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
-
-from datetime import datetime, timezone
 
 from flask import current_app
 from git import GitCommandError, Repo, exc
@@ -113,13 +112,19 @@ def _is_valid_private_key(path: Optional[str]) -> bool:
     return header.startswith("-----BEGIN")
 
 
-def _resolve_project_ssh_key_path(project: Project, *, invalid: Optional[set[str]] = None) -> Optional[str]:
+def _resolve_project_ssh_key_path(
+    project: Project, *, invalid: Optional[set[str]] = None
+) -> Optional[str]:
     invalid = invalid or set()
 
     project_key = getattr(project, "ssh_key", None)
     if project_key:
         if (
-            (normalized_key := _normalize_private_key_path(project_key.private_key_path))
+            (
+                normalized_key := _normalize_private_key_path(
+                    project_key.private_key_path
+                )
+            )
             and _is_valid_private_key(str(normalized_key))
             and str(normalized_key) not in invalid
         ):
@@ -208,7 +213,9 @@ def ensure_repo_checkout(project: Project) -> Repo:
     except TypeError:  # pragma: no cover - older Python compatibility
         resolved_path = path.resolve()
     resolved_root = storage_root.resolve()
-    within_storage = resolved_path == resolved_root or resolved_root in resolved_path.parents
+    within_storage = (
+        resolved_path == resolved_root or resolved_root in resolved_path.parents
+    )
     if not within_storage:
         path = _relocate_project_path(project)
         resolved_path = path.resolve()
@@ -241,7 +248,9 @@ def ensure_repo_checkout(project: Project) -> Repo:
             return _attempt_clone(env if env else None)
         except exc.GitCommandError as err:
             message = str(err).lower()
-            if key_path and ("invalid format" in message or "permission denied" in message):
+            if key_path and (
+                "invalid format" in message or "permission denied" in message
+            ):
                 invalid_keys.add(key_path)
                 log.warning(
                     "Git clone failed for %s with key %s; retrying without it.",
@@ -281,7 +290,9 @@ def _select_remote(repo: Repo) -> Remote:
     return repo.remotes[0]
 
 
-def commit_project_files(project: Project, files: list[Path | str], message: str) -> bool:
+def commit_project_files(
+    project: Project, files: list[Path | str], message: str
+) -> bool:
     """Stage the provided files, commit them, and return True if a commit was created."""
     repo = ensure_repo_checkout(project)
     root = Path(repo.working_tree_dir).resolve()
@@ -317,7 +328,9 @@ def commit_project_files(project: Project, files: list[Path | str], message: str
     commit_env.setdefault("GIT_COMMITTER_NAME", author_name)
     commit_env.setdefault("GIT_COMMITTER_EMAIL", author_email)
 
-    env_context = repo.git.custom_environment(**commit_env) if commit_env else nullcontext()
+    env_context = (
+        repo.git.custom_environment(**commit_env) if commit_env else nullcontext()
+    )
     try:
         with env_context:
             repo.git.commit("-m", message)
@@ -347,13 +360,17 @@ def run_git_action(
             remote = _select_remote(repo)
             target = ref or project.default_branch
             messages.append(f"Pulling {remote.name}/{target} …")
-            env_context = repo.git.custom_environment(**(env or {})) if env else nullcontext()
+            env_context = (
+                repo.git.custom_environment(**(env or {})) if env else nullcontext()
+            )
             with env_context:
                 pull_results = remote.pull(target)
             if pull_results:
                 pull_messages: list[str] = []
                 for result in pull_results:
-                    summary = getattr(result, "summary", None) or getattr(result, "note", None)
+                    summary = getattr(result, "summary", None) or getattr(
+                        result, "note", None
+                    )
                     if summary:
                         pull_messages.append(summary.strip())
                 messages.extend(pull_messages or ["Pull completed."])
@@ -367,13 +384,17 @@ def run_git_action(
             remote = _select_remote(repo)
             target = ref or project.default_branch
             messages.append(f"Pushing to {remote.name}/{target} …")
-            env_context = repo.git.custom_environment(**(env or {})) if env else nullcontext()
+            env_context = (
+                repo.git.custom_environment(**(env or {})) if env else nullcontext()
+            )
             with env_context:
                 push_results = remote.push(target)
             if push_results:
                 push_messages: list[str] = []
                 for result in push_results:
-                    summary = getattr(result, "summary", None) or getattr(result, "note", None)
+                    summary = getattr(result, "summary", None) or getattr(
+                        result, "note", None
+                    )
                     if summary:
                         push_messages.append(summary.strip())
                 messages.extend(push_messages or ["Push completed."])
@@ -391,7 +412,9 @@ def run_git_action(
             return _run_with_env(ssh_key_env)
         except GitCommandError as err:
             message = str(err).lower()
-            if key_path and ("invalid format" in message or "permission denied" in message):
+            if key_path and (
+                "invalid format" in message or "permission denied" in message
+            ):
                 invalid_keys.add(key_path)
                 log.warning(
                     "Git action %s failed for %s with key %s; retrying without it.",
@@ -404,7 +427,9 @@ def run_git_action(
             raise RuntimeError(f"Git action failed: {err}") from err
 
 
-def list_project_branches(project: Project, *, include_remote: bool = False) -> list[str]:
+def list_project_branches(
+    project: Project, *, include_remote: bool = False
+) -> list[str]:
     repo = ensure_repo_checkout(project)
     branches: set[str] = set(head.name for head in repo.heads)
     if include_remote:
@@ -421,7 +446,9 @@ def list_project_branches(project: Project, *, include_remote: bool = False) -> 
     return ordered
 
 
-def get_project_commit_history(project: Project, limit: int = 10) -> list[dict[str, Any]]:
+def get_project_commit_history(
+    project: Project, limit: int = 10
+) -> list[dict[str, Any]]:
     repo = ensure_repo_checkout(project)
     history: list[dict[str, Any]] = []
     try:
@@ -446,7 +473,9 @@ def get_project_commit_history(project: Project, limit: int = 10) -> list[dict[s
     return history
 
 
-def delete_project_branch(project: Project, branch: str, *, force: bool = False) -> None:
+def delete_project_branch(
+    project: Project, branch: str, *, force: bool = False
+) -> None:
     branch = (branch or "").strip()
     if not branch:
         raise RuntimeError("Branch name is required.")
@@ -458,7 +487,9 @@ def delete_project_branch(project: Project, branch: str, *, force: bool = False)
     if branch not in existing_branches:
         raise RuntimeError(f"Branch {branch} does not exist.")
 
-    target_branch = default_branch if default_branch in existing_branches else existing_branches[0]
+    target_branch = (
+        default_branch if default_branch in existing_branches else existing_branches[0]
+    )
     env = build_project_git_env(project)
     context = repo.git.custom_environment(**env) if env else nullcontext()
     with context:
@@ -471,7 +502,9 @@ def delete_project_branch(project: Project, branch: str, *, force: bool = False)
             raise RuntimeError(f"Failed to delete branch {branch}: {exc}") from exc
 
 
-def checkout_or_create_branch(project: Project, branch: str, base: Optional[str] = None) -> bool:
+def checkout_or_create_branch(
+    project: Project, branch: str, base: Optional[str] = None
+) -> bool:
     branch = (branch or "").strip()
     if not branch:
         raise RuntimeError("Branch name is required.")
@@ -525,7 +558,9 @@ def get_repo_status(project: Project) -> dict[str, Any]:
     try:
         repo = ensure_repo_checkout(project)
     except Exception as exc:  # noqa: BLE001
-        log.warning("Unable to inspect repository for project %s: %s", project.name, exc)
+        log.warning(
+            "Unable to inspect repository for project %s: %s", project.name, exc
+        )
         return {
             "branch": "unknown",
             "dirty": None,

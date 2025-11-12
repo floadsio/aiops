@@ -57,7 +57,9 @@ def test_create_tenant_and_project(test_app, monkeypatch):
 
     monkeypatch.setattr("app.routes.api.ensure_repo_checkout", lambda project: project)
 
-    tenant_resp = client.post("/api/tenants", json={"name": "Alpha", "description": "Tenant Alpha"})
+    tenant_resp = client.post(
+        "/api/tenants", json={"name": "Alpha", "description": "Tenant Alpha"}
+    )
     assert tenant_resp.status_code == 201
     tenant_payload = tenant_resp.get_json()["tenant"]
     tenant_id = tenant_payload["id"]
@@ -83,7 +85,9 @@ def test_create_tenant_and_project(test_app, monkeypatch):
     assert tenant_detail.status_code == 200
     tenant_data = tenant_detail.get_json()["tenant"]
     assert any(p["id"] == project_id for p in tenant_data["projects"])
-    assert all(p["tenant_color"] == DEFAULT_TENANT_COLOR for p in tenant_data["projects"])
+    assert all(
+        p["tenant_color"] == DEFAULT_TENANT_COLOR for p in tenant_data["projects"]
+    )
 
 
 def test_create_tenant_with_custom_color(test_app):
@@ -176,12 +180,14 @@ def test_project_git_action_clean_pull(test_app, monkeypatch):
     calls = {}
 
     def fake_git_action(proj, action, ref=None, *, clean=False):
-        calls.update({
-            "proj_id": proj.id,
-            "action": action,
-            "ref": ref,
-            "clean": clean,
-        })
+        calls.update(
+            {
+                "proj_id": proj.id,
+                "action": action,
+                "ref": ref,
+                "clean": clean,
+            }
+        )
         return "pulled"
 
     monkeypatch.setattr("app.routes.api.run_git_action", fake_git_action)
@@ -212,8 +218,8 @@ def test_project_ai_session_lifecycle(test_app, monkeypatch):
 
     def fake_create_session(project_obj, user_id, **kwargs):
         assert project_obj.id == project.id
-        captured['tmux_target'] = kwargs.get('tmux_target')
-        return SimpleNamespace(id='session-123', project_id=project.id)
+        captured["tmux_target"] = kwargs.get("tmux_target")
+        return SimpleNamespace(id="session-123", project_id=project.id)
 
     def fake_get_session(session_id):
         if session_id == "session-123":
@@ -241,7 +247,7 @@ def test_project_ai_session_lifecycle(test_app, monkeypatch):
     session_id = start_resp.get_json()["session_id"]
     assert session_id == "session-123"
     assert sent_data == ["print('hello')\n"]
-    assert captured['tmux_target'] is None
+    assert captured["tmux_target"] is None
 
     input_resp = client.post(
         f"/api/projects/{project.id}/ai/sessions/{session_id}/input",
@@ -299,8 +305,8 @@ def test_project_ai_session_attach_existing(test_app, monkeypatch):
     captured: dict[str, str | None] = {}
 
     def fake_create_session(project_obj, user_id, **kwargs):
-        captured['tmux_target'] = kwargs.get('tmux_target')
-        return SimpleNamespace(id='session-attach', project_id=project.id)
+        captured["tmux_target"] = kwargs.get("tmux_target")
+        return SimpleNamespace(id="session-attach", project_id=project.id)
 
     monkeypatch.setattr("app.routes.api.create_session", fake_create_session)
 
@@ -309,4 +315,4 @@ def test_project_ai_session_attach_existing(test_app, monkeypatch):
         json={"tmux_target": "aiops:tenant-shell"},
     )
     assert response.status_code == 201
-    assert captured['tmux_target'] == 'aiops:tenant-shell'
+    assert captured["tmux_target"] == "aiops:tenant-shell"

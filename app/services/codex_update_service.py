@@ -58,7 +58,9 @@ def _parse_version(output: str) -> Optional[str]:
     return None
 
 
-def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+def _run_command(
+    command: Sequence[str], *, timeout: int
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     npm_prefix = current_app.config.get("NPM_PREFIX_PATH")
     extra_paths = current_app.config.get("CLI_EXTRA_PATHS")
@@ -80,7 +82,9 @@ def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.Complete
     )
 
 
-def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_cli(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     binary = _configured_cli_binary()
     if not binary:
         return None, None
@@ -118,7 +122,9 @@ def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Op
     return None, last_error
 
 
-def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_npm(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     try:
         completed = _run_command(
             ["npm", "list", "-g", "@openai/codex", "--json", "--depth=0"],
@@ -141,7 +147,10 @@ def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Op
     try:
         payload = json.loads(completed.stdout or "{}")
     except json.JSONDecodeError:
-        return None, "Received malformed response from npm while checking Codex version."
+        return (
+            None,
+            "Received malformed response from npm while checking Codex version.",
+        )
 
     dependencies = payload.get("dependencies") or {}
     package_info = dependencies.get("@openai/codex")
@@ -201,9 +210,7 @@ def get_codex_status(*, timeout: int = 20) -> CodexStatus:
     latest_version, latest_error = _fetch_latest_version(timeout=timeout)
 
     errors = tuple(
-        message
-        for message in [installed_error, latest_error]
-        if message is not None
+        message for message in [installed_error, latest_error] if message is not None
     )
     update_available = False
     if installed_version and latest_version:
@@ -218,7 +225,9 @@ def get_codex_status(*, timeout: int = 20) -> CodexStatus:
 
 
 def install_latest_codex(*, timeout: int = 600) -> CodexUpdateResult:
-    raw_command = current_app.config.get("CODEX_UPDATE_COMMAND", "sudo npm install -g @openai/codex")
+    raw_command = current_app.config.get(
+        "CODEX_UPDATE_COMMAND", "sudo npm install -g @openai/codex"
+    )
     if isinstance(raw_command, str):
         parts = shlex.split(raw_command)
     elif isinstance(raw_command, (list, tuple)):
@@ -232,11 +241,17 @@ def install_latest_codex(*, timeout: int = 600) -> CodexUpdateResult:
     try:
         completed = _run_command(parts, timeout=timeout)
     except FileNotFoundError as exc:
-        raise CodexUpdateError(f"Unable to execute Codex update command: {exc}") from exc
+        raise CodexUpdateError(
+            f"Unable to execute Codex update command: {exc}"
+        ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise CodexUpdateError(f"Codex update command timed out after {timeout} seconds.") from exc
+        raise CodexUpdateError(
+            f"Codex update command timed out after {timeout} seconds."
+        ) from exc
     except OSError as exc:
-        raise CodexUpdateError(f"Failed to execute Codex update command: {exc}") from exc
+        raise CodexUpdateError(
+            f"Failed to execute Codex update command: {exc}"
+        ) from exc
 
     return CodexUpdateResult(
         command=" ".join(shlex.quote(component) for component in parts),

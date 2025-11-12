@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import re
 import sys
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any, Optional
 from urllib.parse import urlsplit, urlunsplit
@@ -27,12 +27,18 @@ def _ensure_github_module_placeholder() -> None:
     if module is None:
         return
     if not hasattr(module, "Github"):
+
         class _GithubPlaceholder:  # pragma: no cover - placeholder only
             pass
+
         setattr(module, "Github", _GithubPlaceholder)
     if not hasattr(module, "GithubException"):
-        class _GithubExceptionPlaceholder(Exception):  # pragma: no cover - placeholder only
+
+        class _GithubExceptionPlaceholder(
+            Exception
+        ):  # pragma: no cover - placeholder only
             pass
+
         setattr(module, "GithubException", _GithubExceptionPlaceholder)
 
 
@@ -53,7 +59,9 @@ def ensure_base_url(integration: TenantIntegration, fallback: str) -> str:
     return _normalize_base_url(candidate)
 
 
-def get_timeout(integration: TenantIntegration, *, default: float = DEFAULT_TIMEOUT_SECONDS) -> float:
+def get_timeout(
+    integration: TenantIntegration, *, default: float = DEFAULT_TIMEOUT_SECONDS
+) -> float:
     """Read a per-integration request timeout, falling back to a sane default."""
     settings = getattr(integration, "settings", None) or {}
     timeout_value = settings.get("timeout") or settings.get("request_timeout")
@@ -171,9 +179,13 @@ def normalize_issue_status(status: Optional[str]) -> tuple[str, str]:
     lower_normalized = normalized.lower()
     tokens = _split_status_tokens(lower_normalized)
 
-    if lower_normalized in _OPEN_STATUS_PHRASES or any(token in _OPEN_STATUS_TOKENS for token in tokens):
+    if lower_normalized in _OPEN_STATUS_PHRASES or any(
+        token in _OPEN_STATUS_TOKENS for token in tokens
+    ):
         return "open", "Open"
-    if lower_normalized in _CLOSED_STATUS_PHRASES or any(token in _CLOSED_STATUS_TOKENS for token in tokens):
+    if lower_normalized in _CLOSED_STATUS_PHRASES or any(
+        token in _CLOSED_STATUS_TOKENS for token in tokens
+    ):
         return "closed", "Closed"
 
     slug = _slugify_status(lower_normalized)
@@ -253,10 +265,7 @@ def _humanize_status_label(raw: str) -> str:
     if not cleaned:
         return "Unspecified"
     parts = cleaned.split()
-    humanized = [
-        part if part.isupper() else part.capitalize()
-        for part in parts
-    ]
+    humanized = [part if part.isupper() else part.capitalize() for part in parts]
     return " ".join(humanized)
 
 
@@ -267,14 +276,18 @@ def _slugify_status(value: str) -> str:
     return "_".join(token.lower() for token in tokens)
 
 
-def _integration_proxy(base_url: Optional[str], settings: Optional[dict[str, Any]] = None) -> SimpleNamespace:
+def _integration_proxy(
+    base_url: Optional[str], settings: Optional[dict[str, Any]] = None
+) -> SimpleNamespace:
     return SimpleNamespace(base_url=base_url, settings=settings or {})
 
 
 def _verify_github_credentials(api_token: str, base_url: Optional[str]) -> str:
     try:
         from github import Github  # type: ignore import-not-found
-        from github.GithubException import GithubException  # type: ignore import-not-found
+        from github.GithubException import (
+            GithubException,  # type: ignore import-not-found
+        )
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise ProviderTestError(
             "GitHub support requires PyGithub. Install dependencies with 'make sync'."
@@ -291,7 +304,9 @@ def _verify_github_credentials(api_token: str, base_url: Optional[str]) -> str:
         user = client.get_user()
     except GithubException as exc:
         status = getattr(exc, "status", None) or getattr(exc, "status_code", None)
-        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
+        message = (
+            getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
+        )
         details = f"{status}" if status is not None else str(exc)
         if message:
             details = f"{details}: {message}" if details else message
@@ -351,7 +366,9 @@ def _verify_jira_credentials(
     headers = {"Accept": "application/json"}
     auth = HTTPBasicAuth(username, api_token)
     try:
-        response = requests.get(api_endpoint, headers=headers, auth=auth, timeout=timeout)
+        response = requests.get(
+            api_endpoint, headers=headers, auth=auth, timeout=timeout
+        )
         response.raise_for_status()
     except HTTPError as exc:
         status = getattr(exc.response, "status_code", None)

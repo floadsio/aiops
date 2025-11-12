@@ -67,7 +67,9 @@ def test_create_issue_for_project_integration(tmp_path, monkeypatch):
     app = _init_app(tmp_path)
     with app.app_context():
         db.create_all()
-        user, tenant, project, integration, project_integration = _seed_project(tmp_path)
+        user, tenant, project, integration, project_integration = _seed_project(
+            tmp_path
+        )
         db.session.add_all([user, tenant, project, integration, project_integration])
         db.session.commit()
 

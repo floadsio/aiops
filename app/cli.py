@@ -49,7 +49,9 @@ def create_admin_command(email: str, password: str) -> None:
 
 
 @click.command("seed-data")
-@click.option("--owner-email", default=None, help="Email of the user who owns the seed project.")
+@click.option(
+    "--owner-email", default=None, help="Email of the user who owns the seed project."
+)
 @with_appcontext
 def seed_data_command(owner_email: Optional[str]) -> None:
     """Seed initial tenant and project data."""
@@ -109,7 +111,9 @@ def seed_data_command(owner_email: Optional[str]) -> None:
 
         db.session.flush()
 
-        project = Project.query.filter_by(name=seed_project["name"], tenant_id=tenant.id).first()
+        project = Project.query.filter_by(
+            name=seed_project["name"], tenant_id=tenant.id
+        ).first()
         if project is None:
             local_path = storage_root / seed_project["name"].replace(" ", "-")
             project = Project(
@@ -134,7 +138,9 @@ def seed_data_command(owner_email: Optional[str]) -> None:
 
 
 @click.command("seed-identities")
-@click.option("--owner-email", required=True, help="Email of the user who owns the keys.")
+@click.option(
+    "--owner-email", required=True, help="Email of the user who owns the keys."
+)
 @click.option(
     "--source-dir",
     type=click.Path(path_type=Path),
@@ -169,7 +175,9 @@ def seed_identities_command(owner_email: str, source_dir: Optional[Path]) -> Non
         try:
             fingerprint = compute_fingerprint(public_key)
         except Exception as exc:  # noqa: BLE001
-            click.echo(f"Skipping {priv_file.name}: invalid public key ({exc}).", err=True)
+            click.echo(
+                f"Skipping {priv_file.name}: invalid public key ({exc}).", err=True
+            )
             continue
 
         parts = priv_file.name.split("-")
@@ -217,7 +225,9 @@ def seed_identities_command(owner_email: str, source_dir: Optional[Path]) -> Non
 
 
 @click.command("sync-issues")
-@click.option("--tenant-id", type=int, default=None, help="Limit synchronization to a tenant ID.")
+@click.option(
+    "--tenant-id", type=int, default=None, help="Limit synchronization to a tenant ID."
+)
 @click.option(
     "--integration-id",
     type=int,
@@ -225,7 +235,9 @@ def seed_identities_command(owner_email: str, source_dir: Optional[Path]) -> Non
     help="Limit synchronization to a specific tenant integration ID.",
 )
 @with_appcontext
-def sync_issues_command(tenant_id: Optional[int], integration_id: Optional[int]) -> None:
+def sync_issues_command(
+    tenant_id: Optional[int], integration_id: Optional[int]
+) -> None:
     """Pull external issues for configured project integrations."""
     if tenant_id is not None and integration_id is not None:
         integration = TenantIntegration.query.get(integration_id)
@@ -237,7 +249,9 @@ def sync_issues_command(tenant_id: Optional[int], integration_id: Optional[int])
     query = (
         ProjectIntegration.query.options(
             selectinload(ProjectIntegration.project),
-            selectinload(ProjectIntegration.integration).selectinload(TenantIntegration.tenant),
+            selectinload(ProjectIntegration.integration).selectinload(
+                TenantIntegration.tenant
+            ),
         )
         .join(ProjectIntegration.integration)
         .filter(TenantIntegration.enabled.is_(True))
@@ -264,10 +278,16 @@ def sync_issues_command(tenant_id: Optional[int], integration_id: Optional[int])
             if project_integration.integration.tenant
             else "Unknown tenant"
         )
-        project_name = project_integration.project.name if project_integration.project else "Unknown project"
+        project_name = (
+            project_integration.project.name
+            if project_integration.project
+            else "Unknown project"
+        )
         provider = project_integration.integration.provider
         count = len(results.get(project_integration.id, []))
-        click.echo(f"[{provider}] {tenant_name} -> {project_name} - fetched {count} issue(s).")
+        click.echo(
+            f"[{provider}] {tenant_name} -> {project_name} - fetched {count} issue(s)."
+        )
 
     click.echo("Issue synchronization completed.")
 
@@ -302,7 +322,9 @@ def create_issue_command(
 ) -> None:
     """Create a new external issue for a linked project integration."""
     project_integration = ProjectIntegration.query.options(
-        selectinload(ProjectIntegration.integration).selectinload(TenantIntegration.tenant),
+        selectinload(ProjectIntegration.integration).selectinload(
+            TenantIntegration.tenant
+        ),
         selectinload(ProjectIntegration.project),
     ).get(project_integration_id)
     if project_integration is None:
@@ -310,7 +332,9 @@ def create_issue_command(
 
     integration = project_integration.integration
     if integration is None:
-        raise click.ClickException("Project integration is missing its parent integration.")
+        raise click.ClickException(
+            "Project integration is missing its parent integration."
+        )
 
     clean_summary = (summary or "").strip()
     if not clean_summary:
@@ -330,10 +354,12 @@ def create_issue_command(
     except IssueSyncError as exc:
         raise click.ClickException(f"Issue creation failed: {exc}") from exc
 
-    tenant_name = (
-        integration.tenant.name if integration.tenant else "Unknown tenant"
+    tenant_name = integration.tenant.name if integration.tenant else "Unknown tenant"
+    project_name = (
+        project_integration.project.name
+        if project_integration.project
+        else "Unknown project"
     )
-    project_name = project_integration.project.name if project_integration.project else "Unknown project"
     click.echo(
         f"[{integration.provider}] {tenant_name} -> {project_name}: created issue {payload.external_id}."
     )

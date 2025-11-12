@@ -9,6 +9,7 @@ from typing import Optional
 
 from flask import current_app
 
+
 @dataclass(frozen=True)
 class UpdateResult:
     command: str
@@ -57,7 +58,9 @@ def run_update_script(
         raise UpdateError(f"Update script not found at {resolved_script}")
 
     if resolved_script.is_dir():
-        raise UpdateError(f"Update script path {resolved_script} is a directory, not a file.")
+        raise UpdateError(
+            f"Update script path {resolved_script} is a directory, not a file."
+        )
 
     command = ["/bin/bash", str(resolved_script)]
     env = os.environ.copy()
@@ -70,7 +73,9 @@ def run_update_script(
     if path_parts:
         env["PATH"] = os.pathsep.join(path_parts + [env.get("PATH", "")])
     if extra_env:
-        env.update({key: str(value) for key, value in extra_env.items() if value is not None})
+        env.update(
+            {key: str(value) for key, value in extra_env.items() if value is not None}
+        )
 
     try:
         completed = subprocess.run(
@@ -82,7 +87,9 @@ def run_update_script(
             env=env,
         )
     except FileNotFoundError as exc:  # /bin/bash missing (unlikely)
-        raise UpdateError("Unable to execute update script: /bin/bash not found.") from exc
+        raise UpdateError(
+            "Unable to execute update script: /bin/bash not found."
+        ) from exc
     except subprocess.TimeoutExpired as exc:
         raise UpdateError(f"Update script timed out after {timeout} seconds.") from exc
     except OSError as exc:

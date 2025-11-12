@@ -3,24 +3,30 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
 from git import Repo
 from git.exc import GitCommandError
 
-import pytest
-
 from app import create_app, db
 from app.config import Config
-from app.models import Project, ProjectIntegration, SSHKey, Tenant, TenantIntegration, User
+from app.models import (
+    Project,
+    ProjectIntegration,
+    SSHKey,
+    Tenant,
+    TenantIntegration,
+    User,
+)
 from app.security import hash_password
-from app.services.key_service import resolve_private_key_path
-from app.services.update_service import UpdateError
-from app.services.tmux_service import TmuxServiceError
-from app.services.gemini_update_service import GeminiUpdateError
-from app.services.gemini_config_service import GeminiConfigError
-from app.services.codex_config_service import CodexConfigError
-from app.services.claude_update_service import ClaudeUpdateError
 from app.services.claude_config_service import ClaudeConfigError
+from app.services.claude_update_service import ClaudeUpdateError
+from app.services.codex_config_service import CodexConfigError
+from app.services.gemini_config_service import GeminiConfigError
+from app.services.gemini_update_service import GeminiUpdateError
+from app.services.key_service import resolve_private_key_path
 from app.services.migration_service import MigrationError
+from app.services.tmux_service import TmuxServiceError
+from app.services.update_service import UpdateError
 
 
 class AdminTestConfig(Config):
@@ -191,7 +197,9 @@ def test_test_integration_endpoint(app, client, login_admin, monkeypatch):
         captured["args"] = (provider, api_token, base_url, username)
         return "Credentials verified."
 
-    monkeypatch.setattr("app.routes.admin.test_integration_connection", fake_test_integration)
+    monkeypatch.setattr(
+        "app.routes.admin.test_integration_connection", fake_test_integration
+    )
 
     response = client.post(
         "/admin/integrations/test",
@@ -333,7 +341,9 @@ def test_admin_update_restart_failure(app, client, login_admin, monkeypatch):
             return True
 
     monkeypatch.setattr("app.routes.admin.run_update_script", lambda **_: DummyResult())
-    monkeypatch.setattr("app.routes.admin._trigger_restart", lambda cmd: (False, "Restart failed"))
+    monkeypatch.setattr(
+        "app.routes.admin._trigger_restart", lambda cmd: (False, "Restart failed")
+    )
 
     response = client.post(
         "/admin/system/update",
@@ -465,7 +475,9 @@ def test_admin_gemini_update_failure(app, client, login_admin, monkeypatch):
     assert b"npm missing" in response.data
 
 
-def test_admin_gemini_accounts_save(app, client, login_admin, admin_user_id, monkeypatch):
+def test_admin_gemini_accounts_save(
+    app, client, login_admin, admin_user_id, monkeypatch
+):
     saved = {}
 
     def fake_save(payload, *, user_id=None):
@@ -476,7 +488,11 @@ def test_admin_gemini_accounts_save(app, client, login_admin, admin_user_id, mon
 
     response = client.post(
         "/admin/settings/gemini/accounts",
-        data={"payload": "{}", "user_id": str(admin_user_id), "next": "/admin/settings"},
+        data={
+            "payload": "{}",
+            "user_id": str(admin_user_id),
+            "next": "/admin/settings",
+        },
         follow_redirects=True,
     )
     assert response.status_code == 200
@@ -484,7 +500,9 @@ def test_admin_gemini_accounts_save(app, client, login_admin, admin_user_id, mon
     assert saved["user_id"] == admin_user_id
 
 
-def test_admin_gemini_accounts_error(app, client, login_admin, admin_user_id, monkeypatch):
+def test_admin_gemini_accounts_error(
+    app, client, login_admin, admin_user_id, monkeypatch
+):
     def fake_save(payload, *, user_id=None):
         raise GeminiConfigError("bad json")
 
@@ -533,7 +551,9 @@ def test_admin_gemini_oauth_error(app, client, login_admin, admin_user_id, monke
     assert b"invalid" in response.data
 
 
-def test_admin_gemini_settings_save(app, client, login_admin, admin_user_id, monkeypatch):
+def test_admin_gemini_settings_save(
+    app, client, login_admin, admin_user_id, monkeypatch
+):
     saved = {}
 
     def fake_save(payload, *, user_id=None):
@@ -552,7 +572,9 @@ def test_admin_gemini_settings_save(app, client, login_admin, admin_user_id, mon
     assert saved["user_id"] == admin_user_id
 
 
-def test_admin_gemini_settings_error(app, client, login_admin, admin_user_id, monkeypatch):
+def test_admin_gemini_settings_error(
+    app, client, login_admin, admin_user_id, monkeypatch
+):
     def fake_save(payload, *, user_id=None):
         raise GeminiConfigError("broken settings")
 
@@ -615,7 +637,11 @@ def test_admin_claude_key_save(app, client, login_admin, admin_user_id, monkeypa
 
     response = client.post(
         "/admin/settings/claude/key",
-        data={"payload": "token", "user_id": str(admin_user_id), "next": "/admin/settings"},
+        data={
+            "payload": "token",
+            "user_id": str(admin_user_id),
+            "next": "/admin/settings",
+        },
         follow_redirects=True,
     )
     assert response.status_code == 200
@@ -649,7 +675,11 @@ def test_admin_codex_auth_save(app, client, login_admin, admin_user_id, monkeypa
 
     response = client.post(
         "/admin/settings/codex/auth",
-        data={"payload": "{}", "user_id": str(admin_user_id), "next": "/admin/settings"},
+        data={
+            "payload": "{}",
+            "user_id": str(admin_user_id),
+            "next": "/admin/settings",
+        },
         follow_redirects=True,
     )
     assert response.status_code == 200
@@ -885,7 +915,9 @@ def test_can_update_and_remove_private_key(app, client, login_admin):
     assert not stored_path.exists()
 
 
-def test_dashboard_refresh_project_issues(app, client, login_admin, monkeypatch, tmp_path):
+def test_dashboard_refresh_project_issues(
+    app, client, login_admin, monkeypatch, tmp_path
+):
     with app.app_context():
         tenant = Tenant.query.filter_by(name="tenant-one").first()
         user = User.query.filter_by(email="admin@example.com").first()
@@ -932,7 +964,9 @@ def test_dashboard_refresh_project_issues(app, client, login_admin, monkeypatch,
 
     assert response.status_code == 200
     assert captured["links"] == [link_id]
-    assert b"Refreshed issues for" in response.data or b"Issue cache for" in response.data
+    assert (
+        b"Refreshed issues for" in response.data or b"Issue cache for" in response.data
+    )
 
 
 def test_dashboard_refresh_project_git(app, client, login_admin, monkeypatch, tmp_path):
@@ -974,7 +1008,9 @@ def test_dashboard_refresh_project_git(app, client, login_admin, monkeypatch, tm
     assert b"Pulled latest changes" in response.data
 
 
-def test_admin_can_clean_pull_project_repo(app, client, login_admin, tmp_path, monkeypatch):
+def test_admin_can_clean_pull_project_repo(
+    app, client, login_admin, tmp_path, monkeypatch
+):
     with app.app_context():
         tenant = Tenant.query.filter_by(name="tenant-one").first()
         user = User.query.filter_by(email="admin@example.com").first()
@@ -1013,15 +1049,21 @@ def test_admin_can_clean_pull_project_repo(app, client, login_admin, tmp_path, m
     assert b"Clean pull completed" in response.data
 
 
-def test_dashboard_orders_projects_by_last_activity(app, client, login_admin, monkeypatch):
+def test_dashboard_orders_projects_by_last_activity(
+    app, client, login_admin, monkeypatch
+):
     now = datetime(2024, 10, 30, 12, 0, tzinfo=timezone.utc)
     older = now.replace(hour=9)
     newer = now.replace(hour=13)
 
-    monkeypatch.setattr("app.routes.admin.list_windows_for_aliases", lambda *_, **__: [])
+    monkeypatch.setattr(
+        "app.routes.admin.list_windows_for_aliases", lambda *_, **__: []
+    )
 
     def fake_status(project):
-        timestamp = newer.isoformat() if project.name == "fresh-project" else older.isoformat()
+        timestamp = (
+            newer.isoformat() if project.name == "fresh-project" else older.isoformat()
+        )
         return {
             "branch": "main",
             "dirty": False,
@@ -1073,7 +1115,9 @@ def test_dashboard_orders_projects_by_last_activity(app, client, login_admin, mo
             external_identifier="STALE",
             last_synced_at=older,
         )
-        db.session.add_all([stale_project, fresh_project, integration, fresh_link, stale_link])
+        db.session.add_all(
+            [stale_project, fresh_project, integration, fresh_link, stale_link]
+        )
         db.session.commit()
 
     response = client.get("/admin/")
@@ -1082,8 +1126,12 @@ def test_dashboard_orders_projects_by_last_activity(app, client, login_admin, mo
     assert html.index("fresh-project") < html.index("stale-project")
 
 
-def test_dashboard_tenant_filter_limits_projects(app, client, login_admin, monkeypatch, tmp_path):
-    monkeypatch.setattr("app.routes.admin.list_windows_for_aliases", lambda *args, **kwargs: [])
+def test_dashboard_tenant_filter_limits_projects(
+    app, client, login_admin, monkeypatch, tmp_path
+):
+    monkeypatch.setattr(
+        "app.routes.admin.list_windows_for_aliases", lambda *args, **kwargs: []
+    )
     monkeypatch.setattr("app.routes.admin.get_repo_status", lambda project: {})
 
     with app.app_context():

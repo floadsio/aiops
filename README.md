@@ -119,7 +119,7 @@ Store the token securely (for example in `.env`) and rotate it if it becomes exp
 To publish the open-source tree:
 
 ```bash
-git remote add github git@github.com:floadsio/aiops.git
+git remote add github https://github.com/floadsio/aiops.git
 git push github main
 ```
 

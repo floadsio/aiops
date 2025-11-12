@@ -39,7 +39,7 @@ live under `ansible/`.
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so
   teammates can reproduce results.
-- Run `make check` (Ruff + MyPy + Pytest) before every commit; treat style/type errors as blockers.
+- During implementation, focus on code changes and skip tests (`make lint` only). Run `make check` before commits; treat style/type errors as blockers. Use `make test-file FILE=tests/test_<area>.py` to test specific modules during development.
 
 # Repository Guidelines
 

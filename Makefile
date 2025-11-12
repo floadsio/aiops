@@ -48,7 +48,21 @@ lint:
 test:
 	$(VENV_BIN)/pytest
 
+test-parallel:
+	$(VENV_BIN)/pytest -n auto
+
+test-fast:
+	$(VENV_BIN)/pytest -m "not slow"
+
+test-file:
+	@if [ -z "$(FILE)" ]; then \
+		echo "Usage: make test-file FILE=tests/test_example.py"; exit 1; \
+	fi
+	$(VENV_BIN)/pytest $(FILE) -v
+
 check: lint test
+
+check-fast: lint test-fast
 
 start:
 	@if [ -f $(PID_FILE) ] && kill -0 $$(cat $(PID_FILE)) >/dev/null 2>&1; then \

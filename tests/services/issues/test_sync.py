@@ -15,7 +15,11 @@ from app.models import (
     User,
 )
 from app.security import hash_password
-from app.services.issues import IssuePayload, PROVIDER_REGISTRY, sync_project_integration
+from app.services.issues import (
+    PROVIDER_REGISTRY,
+    IssuePayload,
+    sync_project_integration,
+)
 
 
 class IssueTestConfig(Config):
@@ -69,7 +73,9 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
     app = _init_app(tmp_path)
     with app.app_context():
         db.create_all()
-        user, tenant, project, integration, project_integration = _seed_project(tmp_path)
+        user, tenant, project, integration, project_integration = _seed_project(
+            tmp_path
+        )
         db.session.add_all([user, tenant, project, integration, project_integration])
         db.session.commit()
 
@@ -120,7 +126,9 @@ def test_sync_issues_command_invokes_service(tmp_path, monkeypatch):
     app = _init_app(tmp_path)
     with app.app_context():
         db.create_all()
-        user, tenant, project, integration, project_integration = _seed_project(tmp_path)
+        user, tenant, project, integration, project_integration = _seed_project(
+            tmp_path
+        )
         db.session.add_all([user, tenant, project, integration, project_integration])
         db.session.commit()
         project_integration_id = project_integration.id

@@ -32,9 +32,7 @@ def _project_root() -> Path:
     return Path(current_app.root_path).parent.resolve()
 
 
-def _resolve_flask_binary(
-    project_root: Path, override: Optional[str | Path]
-) -> Path:
+def _resolve_flask_binary(project_root: Path, override: Optional[str | Path]) -> Path:
     if override is not None:
         candidate = Path(override)
         if not candidate.is_absolute():
@@ -91,9 +89,13 @@ def run_db_upgrade(
             env=env,
         )
     except subprocess.TimeoutExpired as exc:
-        raise MigrationError(f"Migration command timed out after {timeout} seconds.") from exc
+        raise MigrationError(
+            f"Migration command timed out after {timeout} seconds."
+        ) from exc
     except FileNotFoundError as exc:
-        raise MigrationError("Unable to execute migration command: flask binary missing.") from exc
+        raise MigrationError(
+            "Unable to execute migration command: flask binary missing."
+        ) from exc
     except OSError as exc:
         raise MigrationError(f"Failed to execute migration command: {exc}") from exc
 

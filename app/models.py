@@ -3,13 +3,21 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import relationship
 
 from .constants import DEFAULT_TENANT_COLOR
 from .extensions import db, login_manager
 from .security import LoginUser
-
 
 
 class TimestampMixin:
@@ -35,7 +43,9 @@ class User(db.Model, TimestampMixin):
     claude_requests_remaining = Column(Integer, nullable=True)
     claude_usage_last_updated = Column(DateTime, nullable=True)
 
-    ssh_keys = relationship("SSHKey", back_populates="user", cascade="all, delete-orphan")
+    ssh_keys = relationship(
+        "SSHKey", back_populates="user", cascade="all, delete-orphan"
+    )
     projects = relationship("Project", back_populates="owner")
 
 
@@ -63,7 +73,9 @@ class Tenant(db.Model, TimestampMixin):
     description = Column(Text, nullable=True)
     color = Column(String(16), nullable=False, default=DEFAULT_TENANT_COLOR)
 
-    projects = relationship("Project", back_populates="tenant", cascade="all, delete-orphan")
+    projects = relationship(
+        "Project", back_populates="tenant", cascade="all, delete-orphan"
+    )
     ssh_keys = relationship(
         "SSHKey",
         back_populates="tenant",
@@ -143,15 +155,21 @@ class ProjectIntegration(db.Model, TimestampMixin):
 
     id = Column(Integer, primary_key=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    integration_id = Column(Integer, ForeignKey("tenant_integrations.id"), nullable=False)
+    integration_id = Column(
+        Integer, ForeignKey("tenant_integrations.id"), nullable=False
+    )
     external_identifier = Column(String(255), nullable=False)
     config = Column(db.JSON, default=dict, nullable=False)
     last_synced_at = Column(DateTime, nullable=True)
 
     project = relationship("Project", back_populates="issue_integrations")
-    integration = relationship("TenantIntegration", back_populates="project_integrations")
+    integration = relationship(
+        "TenantIntegration", back_populates="project_integrations"
+    )
     issues = relationship(
-        "ExternalIssue", back_populates="project_integration", cascade="all, delete-orphan"
+        "ExternalIssue",
+        back_populates="project_integration",
+        cascade="all, delete-orphan",
     )
 
 

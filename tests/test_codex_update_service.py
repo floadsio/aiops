@@ -29,7 +29,9 @@ def app(tmp_path):
 def test_get_codex_status_signals_update(monkeypatch, app):
     def fake_run(command, timeout):
         if command[:2] == ["codex", "--version"]:
-            return subprocess.CompletedProcess(command, 0, stdout="codex/1.0.0\n", stderr="")
+            return subprocess.CompletedProcess(
+                command, 0, stdout="codex/1.0.0\n", stderr=""
+            )
         if command[:3] == ["npm", "view", "@openai/codex"]:
             return subprocess.CompletedProcess(command, 0, stdout="1.1.0\n", stderr="")
         raise AssertionError(f"Unexpected command {command}")

@@ -115,11 +115,15 @@ def _ensure_session(*, session_name: Optional[str] = None, create: bool = True):
                 attach=False,
             )
         except Exception as exc:
-            raise TmuxServiceError(f"Unable to create tmux session {resolved_name!r}: {exc}") from exc
+            raise TmuxServiceError(
+                f"Unable to create tmux session {resolved_name!r}: {exc}"
+            ) from exc
         try:
             session.set_option("mouse", "off")
         except Exception:  # noqa: BLE001 - best effort
-            current_app.logger.debug("Unable to set tmux session options for %s", resolved_name)
+            current_app.logger.debug(
+                "Unable to set tmux session options for %s", resolved_name
+            )
     return session
 
 
@@ -139,7 +143,9 @@ def ensure_project_window(
         None,
     )
     if window is None:
-        start_directory = getattr(project, "local_path", None) or current_app.instance_path
+        start_directory = (
+            getattr(project, "local_path", None) or current_app.instance_path
+        )
         try:
             window = session.new_window(
                 window_name=window_name,
@@ -147,7 +153,9 @@ def ensure_project_window(
                 start_directory=start_directory,
             )
         except Exception as exc:
-            raise TmuxServiceError(f"Unable to create tmux window {window_name!r}: {exc}") from exc
+            raise TmuxServiceError(
+                f"Unable to create tmux window {window_name!r}: {exc}"
+            ) from exc
         created = True
     return session, window, created
 
@@ -214,17 +222,25 @@ def list_windows_for_aliases(
     return matches
 
 
-def get_or_create_window_for_project(project, *, session_name: Optional[str] = None) -> TmuxWindow:
+def get_or_create_window_for_project(
+    project, *, session_name: Optional[str] = None
+) -> TmuxWindow:
     session, window, _ = ensure_project_window(project, session_name=session_name)
     return _window_info(session, window)
 
 
-def find_window_for_project(project, *, session_name: Optional[str] = None) -> Optional[TmuxWindow]:
+def find_window_for_project(
+    project, *, session_name: Optional[str] = None
+) -> Optional[TmuxWindow]:
     session = _ensure_session(session_name=session_name, create=False)
     if session is None:
         return None
     window = next(
-        (item for item in session.windows if item.get("window_name") == _project_window_name(project)),
+        (
+            item
+            for item in session.windows
+            if item.get("window_name") == _project_window_name(project)
+        ),
         None,
     )
     if window is None:
@@ -245,7 +261,9 @@ def _is_managed_window_name(window_name: str) -> bool:
     return True
 
 
-def sync_project_windows(projects: Sequence[object], *, session_name: Optional[str] = None) -> TmuxSyncResult:
+def sync_project_windows(
+    projects: Sequence[object], *, session_name: Optional[str] = None
+) -> TmuxSyncResult:
     """
     Ensure every project has a tmux window and prune orphaned project windows.
     """
@@ -260,11 +278,15 @@ def sync_project_windows(projects: Sequence[object], *, session_name: Optional[s
         desired_names.add(window_name)
         if window_name not in existing:
             try:
-                ensure_project_window(project, window_name=window_name, session_name=session_name)
+                ensure_project_window(
+                    project, window_name=window_name, session_name=session_name
+                )
             except TmuxServiceError:
                 raise
             except Exception as exc:  # pragma: no cover - libtmux raise
-                raise TmuxServiceError(f"Unable to create tmux window {window_name}: {exc}") from exc
+                raise TmuxServiceError(
+                    f"Unable to create tmux window {window_name}: {exc}"
+                ) from exc
             created += 1
 
     removed = 0
@@ -276,11 +298,15 @@ def sync_project_windows(projects: Sequence[object], *, session_name: Optional[s
         try:
             window.kill_window()
         except Exception as exc:  # pragma: no cover - best effort cleanup
-            current_app.logger.warning("Unable to remove tmux window %s: %s", window_name, exc)
+            current_app.logger.warning(
+                "Unable to remove tmux window %s: %s", window_name, exc
+            )
         else:
             removed += 1
 
-    return TmuxSyncResult(created=created, removed=removed, total_managed=len(desired_names))
+    return TmuxSyncResult(
+        created=created, removed=removed, total_managed=len(desired_names)
+    )
 
 
 def close_tmux_target(target: str) -> None:
@@ -302,7 +328,9 @@ def close_tmux_target(target: str) -> None:
         None,
     )
     if window is None:
-        raise TmuxServiceError(f"Window {window_name!r} not found in session {session_name!r}.")
+        raise TmuxServiceError(
+            f"Window {window_name!r} not found in session {session_name!r}."
+        )
     try:
         window.kill_window()
     except Exception as exc:  # noqa: BLE001 - best effort

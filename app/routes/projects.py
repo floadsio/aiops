@@ -3,54 +3,55 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+
 from flask import (
     Blueprint,
     Response,
     abort,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
     stream_with_context,
     url_for,
-    jsonify,
 )
 from flask_login import current_user, login_required
+from sqlalchemy.orm import selectinload
 
+from ..ai_sessions import (
+    close_session,
+    create_session,
+    get_session,
+    resize_session,
+    stream_session,
+    write_to_session,
+)
 from ..extensions import db
 from ..forms.project import (
-    AIRunForm,
     AgentFileForm,
+    AIRunForm,
     AnsibleForm,
     GitActionForm,
     IssueCreateForm,
     ProjectKeyForm,
 )
-from sqlalchemy.orm import selectinload
-
 from ..models import ExternalIssue, Project, ProjectIntegration, SSHKey
+from ..services.agent_context import write_tracked_issue_context
 from ..services.ansible_runner import (
-    get_semaphore_templates,
-    run_ansible_playbook,
     SemaphoreAPIError,
     SemaphoreConfigError,
     SemaphoreTimeoutError,
+    get_semaphore_templates,
+    run_ansible_playbook,
 )
 from ..services.git_service import (
     commit_project_files,
+    get_project_commit_history,
     get_repo_status,
     run_git_action,
-    get_project_commit_history,
 )
-from ..services.tmux_service import (
-    list_windows_for_aliases,
-    TmuxServiceError,
-    get_or_create_window_for_project,
-    session_name_for_user,
-    close_tmux_target,
-)
-from ..services.agent_context import write_tracked_issue_context
 from ..services.issues import (
     ASSIGN_PROVIDER_REGISTRY,
     CREATE_PROVIDER_REGISTRY,
@@ -61,13 +62,12 @@ from ..services.issues import (
     sync_project_integration,
 )
 from ..services.issues.utils import normalize_issue_status
-from ..ai_sessions import (
-    close_session,
-    create_session,
-    get_session,
-    resize_session,
-    stream_session,
-    write_to_session,
+from ..services.tmux_service import (
+    TmuxServiceError,
+    close_tmux_target,
+    get_or_create_window_for_project,
+    list_windows_for_aliases,
+    session_name_for_user,
 )
 
 projects_bp = Blueprint("projects", __name__, template_folder="../templates/projects")
@@ -103,8 +103,12 @@ def _issue_sort_key(issue: ExternalIssue):
 def project_detail(project_id: int):
     project = (
         Project.query.options(
-            selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
-            selectinload(Project.issue_integrations).selectinload(ProjectIntegration.issues),
+            selectinload(Project.issue_integrations).selectinload(
+                ProjectIntegration.integration
+            ),
+            selectinload(Project.issue_integrations).selectinload(
+                ProjectIntegration.issues
+            ),
         )
         .filter_by(id=project_id)
         .first()
@@ -161,7 +165,9 @@ def project_detail(project_id: int):
             selected_key = SSHKey.query.get(selected_id)
             if selected_key is None or selected_key.tenant_id != project.tenant_id:
                 flash("Invalid SSH key selection for this project.", "danger")
-                return redirect(url_for("projects.project_detail", project_id=project.id))
+                return redirect(
+                    url_for("projects.project_detail", project_id=project.id)
+                )
         project.ssh_key = selected_key
         db.session.commit()
         if selected_key is None:
@@ -170,7 +176,9 @@ def project_detail(project_id: int):
             flash(f"Project SSH key updated to {selected_key.name}.", "success")
         return redirect(url_for("projects.project_detail", project_id=project.id))
     elif ssh_key_form.submit.data:
-        flash("Unable to update project SSH key. Please review the selection.", "danger")
+        flash(
+            "Unable to update project SSH key. Please review the selection.", "danger"
+        )
     elif git_form.submit.data and git_form.validate_on_submit():
         try:
             message = run_git_action(
@@ -198,17 +206,11 @@ def project_detail(project_id: int):
                     break
 
                 summary = (form.summary.data or "").strip()
-                description = (
-                    (form.description.data or "").strip() or None
-                )
-                issue_type_value = (
-                    (form.issue_type.data or "").strip() or None
-                )
+                description = (form.description.data or "").strip() or None
+                issue_type_value = (form.issue_type.data or "").strip() or None
                 labels_raw = form.labels.data or ""
                 labels = [
-                    label.strip()
-                    for label in labels_raw.split(",")
-                    if label.strip()
+                    label.strip() for label in labels_raw.split(",") if label.strip()
                 ]
 
                 try:
@@ -235,14 +237,20 @@ def project_detail(project_id: int):
                 else:
                     integration = link.integration
                     provider_display = (
-                        integration.name
-                        or (integration.provider or "Integration").title()
-                    ) if integration else "Integration"
+                        (
+                            integration.name
+                            or (integration.provider or "Integration").title()
+                        )
+                        if integration
+                        else "Integration"
+                    )
                     flash(
                         f"Created issue {payload.external_id} via {provider_display}.",
                         "success",
                     )
-                    return redirect(url_for("projects.project_detail", project_id=project.id))
+                    return redirect(
+                        url_for("projects.project_detail", project_id=project.id)
+                    )
             else:
                 flash("Please correct the errors in the issue form.", "danger")
             break
@@ -264,9 +272,7 @@ def project_detail(project_id: int):
     issue_groups: list[dict[str, object]] = []
     total_issue_count = 0
     all_project_issues = [
-        issue
-        for link in project.issue_integrations
-        for issue in link.issues
+        issue for link in project.issue_integrations for issue in link.issues
     ]
 
     status_counts: Counter[str] = Counter()
@@ -337,7 +343,11 @@ def project_detail(project_id: int):
                 record.external_updated_at or record.updated_at or record.created_at
             )
             status_key, _ = normalize_issue_status(record.status)
-            provider_key_lower = (integration.provider or "").lower() if integration and integration.provider else ""
+            provider_key_lower = (
+                (integration.provider or "").lower()
+                if integration and integration.provider
+                else ""
+            )
             issue_payload = {
                 "id": record.id,
                 "external_id": record.external_id,
@@ -369,7 +379,9 @@ def project_detail(project_id: int):
         provider_display = provider_key.capitalize() if provider_key else "Unknown"
         issue_groups.append(
             {
-                "integration_name": integration.name if integration else "Unknown Integration",
+                "integration_name": integration.name
+                if integration
+                else "Unknown Integration",
                 "provider": provider_key,
                 "provider_display": provider_display,
                 "enabled": integration.enabled if integration else False,
@@ -455,16 +467,24 @@ def edit_agents_file(project_id: int):
             agents_path.parent.mkdir(parents=True, exist_ok=True)
             agents_path.write_text(content, encoding="utf-8")
         except OSError as exc:
-            form.contents.errors.append(f"Failed to write {AGENTS_OVERRIDE_FILENAME}: {exc}")
+            form.contents.errors.append(
+                f"Failed to write {AGENTS_OVERRIDE_FILENAME}: {exc}"
+            )
         else:
-            flash(f"Saved {AGENTS_OVERRIDE_FILENAME} to the local workspace.", "success")
+            flash(
+                f"Saved {AGENTS_OVERRIDE_FILENAME} to the local workspace.", "success"
+            )
             if form.save_and_push.data:
                 commit_message = (form.commit_message.data or "").strip()
                 if not commit_message:
-                    form.commit_message.errors.append("Commit message is required to push changes.")
+                    form.commit_message.errors.append(
+                        "Commit message is required to push changes."
+                    )
                 else:
                     try:
-                        committed = commit_project_files(project, [agents_path], commit_message)
+                        committed = commit_project_files(
+                            project, [agents_path], commit_message
+                        )
                     except RuntimeError as exc:
                         flash(f"Commit failed: {exc}", "danger")
                     else:
@@ -476,14 +496,21 @@ def edit_agents_file(project_id: int):
                             except RuntimeError as exc:
                                 flash(f"Push failed: {exc}", "danger")
                             else:
-                                flash(f"Committed and pushed {AGENTS_OVERRIDE_FILENAME}.", "success")
+                                flash(
+                                    f"Committed and pushed {AGENTS_OVERRIDE_FILENAME}.",
+                                    "success",
+                                )
                                 if push_output:
                                     flash(push_output, "info")
             if not form.errors:
-                return redirect(url_for("projects.edit_agents_file", project_id=project.id))
+                return redirect(
+                    url_for("projects.edit_agents_file", project_id=project.id)
+                )
 
     file_exists = agents_path.exists()
-    last_modified_display = _format_agents_timestamp(agents_path if file_exists else None)
+    last_modified_display = _format_agents_timestamp(
+        agents_path if file_exists else None
+    )
     relative_path = AGENTS_OVERRIDE_FILENAME
     try:
         relative_path = str(agents_path.relative_to(Path(project.local_path)))
@@ -512,9 +539,7 @@ def project_ai_console(project_id: int):
     form = AIRunForm()
     choices = [
         ("", "Manual Shell"),
-    ] + [
-        (key, key.capitalize()) for key in current_app.config["ALLOWED_AI_TOOLS"]
-    ]
+    ] + [(key, key.capitalize()) for key in current_app.config["ALLOWED_AI_TOOLS"]]
     form.ai_tool.choices = choices
     default_tool = current_app.config.get("DEFAULT_AI_TOOL", "claude")
     if default_tool in current_app.config["ALLOWED_AI_TOOLS"]:
@@ -526,7 +551,9 @@ def project_ai_console(project_id: int):
     tenant_name = tenant.name if tenant else ""
     try:
         # Ensure a window exists for this project so users can attach immediately
-        project_window = get_or_create_window_for_project(project, session_name=tmux_session_name)
+        project_window = get_or_create_window_for_project(
+            project, session_name=tmux_session_name
+        )
         created_display = (
             project_window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
             if project_window.created
@@ -622,7 +649,9 @@ def prepare_issue_context(project_id: int, issue_id: int):
             identity_user=getattr(current_user, "model", None),
         )
     except OSError as exc:
-        current_app.logger.exception("Failed to update agent context for project %s", project.id)
+        current_app.logger.exception(
+            "Failed to update agent context for project %s", project.id
+        )
         return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
 
     codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
@@ -632,19 +661,23 @@ def prepare_issue_context(project_id: int, issue_id: int):
 
     tmux_session_name = _current_tmux_session_name()
 
-    return jsonify({
-        "prompt": prompt,
-        "command": command,
-        "tool": "codex",
-        "agent_path": str(agents_path) if agents_path else None,
-        "tmux_target": get_or_create_window_for_project(
-            project,
-            session_name=tmux_session_name,
-        ).target,
-    })
+    return jsonify(
+        {
+            "prompt": prompt,
+            "command": command,
+            "tool": "codex",
+            "agent_path": str(agents_path) if agents_path else None,
+            "tmux_target": get_or_create_window_for_project(
+                project,
+                session_name=tmux_session_name,
+            ).target,
+        }
+    )
 
 
-@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/populate-agent-md", methods=["POST"])
+@projects_bp.route(
+    "/<int:project_id>/issues/<int:issue_id>/populate-agent-md", methods=["POST"]
+)
 @login_required
 def populate_issue_agents_md(project_id: int, issue_id: int):
     project = Project.query.get_or_404(project_id)
@@ -674,7 +707,9 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
             identity_user=getattr(current_user, "model", None),
         )
     except OSError as exc:
-        current_app.logger.exception("Failed to populate agent context for project %s", project.id)
+        current_app.logger.exception(
+            "Failed to populate agent context for project %s", project.id
+        )
         return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
 
     return jsonify(
@@ -696,10 +731,7 @@ def assign_issue(project_id: int, issue_id: int):
 
     issue = ExternalIssue.query.get_or_404(issue_id)
     integration = issue.project_integration
-    if (
-        integration is None
-        or integration.project_id != project_id
-    ):
+    if integration is None or integration.project_id != project_id:
         abort(404)
 
     assignee_input = (request.form.get("assignee") or "").strip()
@@ -709,7 +741,9 @@ def assign_issue(project_id: int, issue_id: int):
         return redirect(url_for("projects.project_detail", project_id=project.id))
 
     try:
-        payload = assign_issue_for_project_integration(integration, issue.external_id, assignees)
+        payload = assign_issue_for_project_integration(
+            integration, issue.external_id, assignees
+        )
     except IssueSyncError as exc:
         flash(str(exc), "danger")
         return redirect(url_for("projects.project_detail", project_id=project.id))
@@ -894,8 +928,13 @@ def project_ansible_console(project_id: int):
 
     template_error = None
     template_choices: list[tuple[int, str]] = []
-    default_semaphore_project_id = current_app.config.get("SEMAPHORE_DEFAULT_PROJECT_ID")
-    if form.semaphore_project_id.data is None and default_semaphore_project_id is not None:
+    default_semaphore_project_id = current_app.config.get(
+        "SEMAPHORE_DEFAULT_PROJECT_ID"
+    )
+    if (
+        form.semaphore_project_id.data is None
+        and default_semaphore_project_id is not None
+    ):
         form.semaphore_project_id.data = default_semaphore_project_id
 
     selected_project_id = form.semaphore_project_id.data

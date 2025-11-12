@@ -27,7 +27,9 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
     fields = issue.get("fields")
     if not isinstance(fields, dict):
         fields = {}
-    labels_source = fields.get("labels") if isinstance(fields.get("labels"), list) else []
+    labels_source = (
+        fields.get("labels") if isinstance(fields.get("labels"), list) else []
+    )
     labels = [str(label) for label in labels_source]
     return IssuePayload(
         external_id=str(key),
@@ -65,7 +67,7 @@ def fetch_issues(
 
     if since:
         since_value = _format_jira_datetime(since)
-        jql = f"{jql} AND updated >= \"{since_value}\""
+        jql = f'{jql} AND updated >= "{since_value}"'
 
     timeout = get_timeout(integration)
     try:
@@ -78,7 +80,11 @@ def fetch_issues(
 
     client: Optional[Any] = None
     try:
-        client = JIRA(server=base_url, basic_auth=(username, integration.api_token), timeout=timeout)
+        client = JIRA(
+            server=base_url,
+            basic_auth=(username, integration.api_token),
+            timeout=timeout,
+        )
         data = client.search_issues(
             jql,
             startAt=0,
@@ -133,14 +139,18 @@ def create_issue(
 
     project_key = (project_integration.external_identifier or "").strip()
     if not project_key:
-        raise IssueSyncError("Jira project integration needs a project key for issue creation.")
+        raise IssueSyncError(
+            "Jira project integration needs a project key for issue creation."
+        )
 
     summary = (request.summary or "").strip()
     if not summary:
         raise IssueSyncError("Issue summary is required.")
 
     config = project_integration.config or {}
-    issue_type = (request.issue_type or config.get("issue_type") or DEFAULT_ISSUE_TYPE).strip()
+    issue_type = (
+        request.issue_type or config.get("issue_type") or DEFAULT_ISSUE_TYPE
+    ).strip()
     fields: dict[str, Any] = {
         "project": {"key": project_key},
         "summary": summary,
@@ -162,7 +172,11 @@ def create_issue(
 
     client: Optional[Any] = None
     try:
-        client = JIRA(server=base_url, basic_auth=(username, integration.api_token), timeout=timeout)
+        client = JIRA(
+            server=base_url,
+            basic_auth=(username, integration.api_token),
+            timeout=timeout,
+        )
         created_issue = client.create_issue(fields=fields)
         issue_data = getattr(created_issue, "raw", None)
         if not isinstance(issue_data, dict) or "fields" not in issue_data:
@@ -221,16 +235,24 @@ def close_issue(
 
     client: Optional[Any] = None
     try:
-        client = JIRA(server=base_url, basic_auth=(username, integration.api_token), timeout=timeout)
+        client = JIRA(
+            server=base_url,
+            basic_auth=(username, integration.api_token),
+            timeout=timeout,
+        )
         transitions = client.transitions(issue_key)
         transition_id = _select_close_transition(transitions, preferred_transition_name)
         if transition_id is None:
-            raise IssueSyncError("Jira project configuration lacks a suitable transition to close issues.")
+            raise IssueSyncError(
+                "Jira project configuration lacks a suitable transition to close issues."
+            )
         client.transition_issue(issue_key, transition_id)
         issue = client.issue(issue_key, fields=",".join(DEFAULT_FIELDS))
         issue_data = getattr(issue, "raw", None)
         if not isinstance(issue_data, dict):
-            raise IssueSyncError("Jira did not return expected issue payload after closing.")
+            raise IssueSyncError(
+                "Jira did not return expected issue payload after closing."
+            )
         return _issue_to_payload(base_url, issue_data)
     except JIRAError as exc:
         message = getattr(exc, "text", None) or str(exc)
@@ -269,7 +291,9 @@ def _format_jira_datetime(source: datetime) -> str:
     return aware.strftime("%Y-%m-%d %H:%M")
 
 
-def _select_close_transition(transitions: List[dict[str, Any]], preferred_name: str) -> Optional[str]:
+def _select_close_transition(
+    transitions: List[dict[str, Any]], preferred_name: str
+) -> Optional[str]:
     candidates = []
     if preferred_name:
         candidates.append(preferred_name)

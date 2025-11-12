@@ -6,7 +6,7 @@ import pytest
 
 from app import create_app, db
 from app.config import Config
-from app.services.migration_service import run_db_upgrade, MigrationError
+from app.services.migration_service import MigrationError, run_db_upgrade
 
 
 class MigrationTestConfig(Config):

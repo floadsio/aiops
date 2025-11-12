@@ -5,11 +5,11 @@ Revises: 4a2a1640babc
 Create Date: 2025-10-21 16:24:27.957480
 
 """
+
 from __future__ import annotations
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "9ed76e12b271"
@@ -26,7 +26,10 @@ def _column_missing(table_name: str, column_name: str) -> bool:
 
 def upgrade():
     if _column_missing("ssh_keys", "private_key_path"):
-        op.add_column("ssh_keys", sa.Column("private_key_path", sa.String(length=512), nullable=True))
+        op.add_column(
+            "ssh_keys",
+            sa.Column("private_key_path", sa.String(length=512), nullable=True),
+        )
     if _column_missing("ssh_keys", "tenant_id"):
         op.add_column("ssh_keys", sa.Column("tenant_id", sa.Integer(), nullable=True))
         op.create_foreign_key(
@@ -47,4 +50,3 @@ def downgrade():
         op.drop_column("ssh_keys", "tenant_id")
     if "private_key_path" in column_names:
         op.drop_column("ssh_keys", "private_key_path")
-

@@ -6,8 +6,6 @@ import types
 import pytest
 from requests.auth import HTTPBasicAuth
 
-
-
 if "gitlab" not in sys.modules:
     gitlab_stub = types.ModuleType("gitlab")
 
@@ -49,6 +47,7 @@ class FakeGithubException(Exception):
     def __init__(self, status=None, data=None, headers=None):
         self.status = status
         super().__init__(status)
+
 
 def _install_fake_github(monkeypatch, github_class):
     module = types.ModuleType("github")
@@ -100,7 +99,9 @@ def test_test_integration_success_gitlab(monkeypatch):
 
     monkeypatch.setattr(sys.modules["gitlab"], "Gitlab", FakeGitlab)
 
-    message = test_integration_connection("gitlab", "token-123", "https://gitlab.example")
+    message = test_integration_connection(
+        "gitlab", "token-123", "https://gitlab.example"
+    )
 
     assert captured["url"] == "https://gitlab.example"
     assert captured["token"] == "token-123"
@@ -149,7 +150,9 @@ def test_test_integration_unauthorized(monkeypatch):
             pass
 
         def get_user(self):
-            raise FakeGithubException(status=401, data={"message": "bad creds"}, headers={})
+            raise FakeGithubException(
+                status=401, data={"message": "bad creds"}, headers={}
+            )
 
     FakeGithubException = _install_fake_github(monkeypatch, FailingGithub)
 

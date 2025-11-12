@@ -367,3 +367,22 @@ class UserResetPasswordForm(FlaskForm):
 class UserDeleteForm(FlaskForm):
     user_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Delete User")
+
+
+class LinuxUserMappingForm(FlaskForm):
+    """Form for configuring Linux user mapping for tmux sessions.
+
+    Users input a JSON mapping like:
+    {"ivo@floads.io": "ivo", "michael@floads.io": "michael"}
+    """
+
+    mapping_json = TextAreaField(
+        "Linux User Mapping (JSON)",
+        validators=[DataRequired()],
+        render_kw={
+            "rows": 10,
+            "placeholder": '{"user@example.com": "linux_username", ...}',
+            "aria-description": "JSON object mapping aiops user email to Linux system username",
+        },
+    )
+    submit = SubmitField("Save Linux User Mapping")

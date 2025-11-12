@@ -803,6 +803,38 @@
   </section>
 
   <section class="settings-category">
+    <h2>Per-User Linux Shell Sessions</h2>
+    <div class="settings-grid">
+  <article class="settings-card settings-card-full">
+    <h3>Linux User Mapping Configuration</h3>
+    <p class="text-muted">Configure which Linux system users (e.g., <code>ivo</code>, <code>michael</code>) correspond to aiops users. When a session starts, tmux will run as the mapped Linux user, providing separate home directories and shell configurations.</p>
+
+    <form method="POST" action="{{ url_for('admin.save_linux_user_mapping') }}">
+      {{ linux_mapping_form.hidden_tag() }}
+
+      <div class="form-group">
+        <label for="mapping_json">{{ linux_mapping_form.mapping_json.label }}</label>
+        {{ linux_mapping_form.mapping_json(rows=10, class="form-control", id="mapping_json") }}
+        {% if linux_mapping_form.mapping_json.errors %}
+          <div class="form-error">
+            {% for error in linux_mapping_form.mapping_json.errors %}
+              <p>{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <small class="form-helper">JSON object mapping aiops user email to Linux username. Example: <code>{"user@example.com": "linux_user"}</code></small>
+      </div>
+
+      <div class="settings-actions">
+        {{ linux_mapping_form.submit(class="btn btn-primary") }}
+      </div>
+    </form>
+  </article>
+
+    </div>
+  </section>
+
+  <section class="settings-category">
     <h2>System Logs</h2>
     <div class="settings-grid">
   <article class="settings-card settings-card-full">

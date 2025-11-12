@@ -325,6 +325,7 @@ def create_session(
             from .services.linux_users import get_linux_user_info
             linux_user_info = get_linux_user_info(linux_username_for_session)
             if linux_user_info:
+                # Try setuid first (will work if running as root)
                 try:
                     os.setgid(linux_user_info.gid)
                     os.setuid(linux_user_info.uid)
@@ -333,15 +334,23 @@ def create_session(
                     os.environ["USER"] = linux_user_info.username
                     os.environ["LOGNAME"] = linux_user_info.username
                     current_app.logger.info(
-                        "Switched tmux session to Linux user %s (UID=%d)",
+                        "Switched tmux session to Linux user %s (UID=%d) via setuid",
                         linux_user_info.username,
                         linux_user_info.uid,
                     )
                 except OSError as exc:
-                    current_app.logger.warning(
-                        "Failed to switch to Linux user %s: %s",
+                    # If setuid fails, try using sudo to execute tmux as the target user
+                    current_app.logger.info(
+                        "setuid to %s failed (%s), attempting sudo approach",
                         linux_user_info.username,
                         exc,
+                    )
+                    # Prepend sudo to run tmux as the target user
+                    exec_args = ["sudo", "-u", linux_user_info.username] + exec_args
+                    current_app.logger.info(
+                        "Will execute tmux as Linux user %s via sudo: %s",
+                        linux_user_info.username,
+                        " ".join(exec_args),
                     )
 
         try:

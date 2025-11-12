@@ -28,7 +28,6 @@ from .services.gemini_config_service import (
 )
 from .services.git_service import build_project_git_env
 from .services.tmux_metadata import record_tmux_tool
-from .services.linux_users import get_linux_user_for_aiops_user
 from .services.tmux_service import ensure_project_window
 
 
@@ -288,9 +287,13 @@ def create_session(
     ssh_command = git_env.get("GIT_SSH_COMMAND")
 
     # Prepare Git author information from user
+    # Also grab linux_username before fork since DB session won't be available after fork
     user = User.query.get(user_id)
+    linux_username_for_session = None
     git_author_exports: list[str] = []
     if user:
+        from .services.linux_users import resolve_linux_username
+        linux_username_for_session = resolve_linux_username(user)
         git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
         git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
         git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
@@ -317,8 +320,10 @@ def create_session(
 
         # Attempt to switch to Linux user for the session
         linux_user_info = None
-        if user:
-            linux_user_info = get_linux_user_for_aiops_user(user)
+        # Use the pre-fetched linux_username from before the fork
+        if linux_username_for_session:
+            from .services.linux_users import get_linux_user_info
+            linux_user_info = get_linux_user_info(linux_username_for_session)
             if linux_user_info:
                 try:
                     os.setgid(linux_user_info.gid)

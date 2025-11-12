@@ -444,6 +444,7 @@
     border-radius: 1rem;
     background: rgba(148, 163, 184, 0.18);
     border: 1px solid rgba(148, 163, 184, 0.45);
+    box-sizing: border-box;
   }
   [data-theme="dark"] .tmux-session-panel {
     background: rgba(30, 41, 59, 0.65);
@@ -518,6 +519,7 @@
     gap: 0.4rem;
     width: 100%;
     min-width: 0;
+    box-sizing: border-box;
   }
   .tmux-recent-card {
     min-width: 0;
@@ -529,6 +531,7 @@
     align-items: center;
     gap: 0.4rem;
     min-width: 0;
+    box-sizing: border-box;
   }
   .tmux-chip {
     display: inline-flex;
@@ -563,13 +566,22 @@
     gap: 0.5rem;
     flex-wrap: wrap;
     width: 100%;
+    box-sizing: border-box;
   }
   .tmux-session-actions a,
   .tmux-session-actions form {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
+    box-sizing: border-box;
   }
   .tmux-session-actions form {
     margin: 0;
+    display: flex;
+  }
+  .tmux-session-actions button {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
   }
   @media (max-width: 640px) {
     .tmux-session-actions {
@@ -588,6 +600,7 @@
     display: grid;
     gap: 0.85rem;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    box-sizing: border-box;
   }
   .tmux-section-header {
     display: flex;
@@ -640,6 +653,7 @@
     align-items: center;
     font-size: 0.9rem;
     color: #475569;
+    box-sizing: border-box;
   }
   [data-theme="dark"] .tmux-recent-meta {
     color: rgba(226, 232, 240, 0.75);
@@ -653,14 +667,18 @@
     display: flex;
     width: 100%;
     gap: 0.5rem;
+    box-sizing: border-box;
   }
   .tmux-recent-actions .tmux-action {
     flex: 1 1 0;
     display: flex;
+    min-width: 0;
+    box-sizing: border-box;
   }
   .tmux-recent-actions form {
     margin: 0;
     width: 100%;
+    box-sizing: border-box;
   }
   .tmux-recent-actions .tmux-action-btn {
     width: 100%;
@@ -678,12 +696,10 @@
     }
     .tmux-recent-actions {
       flex-direction: column;
-      width: 100%;
+      align-items: stretch;
     }
-    .tmux-recent-actions .tmux-action {
-      width: 100%;
-      flex: 1 1 100%;
-    }
+    .tmux-recent-actions .tmux-action,
+    .tmux-recent-actions form,
     .tmux-recent-actions .tmux-action-btn {
       width: 100%;
       box-sizing: border-box;

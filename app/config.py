@@ -6,6 +6,7 @@ from .version import get_version
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 INSTANCE_DIR = BASE_DIR / "instance"
+INSTANCE_PATH = str(INSTANCE_DIR.resolve())
 
 
 def _ensure_gemini_approval_mode(command: str, mode: str | None) -> str:
@@ -23,6 +24,7 @@ def _ensure_gemini_approval_mode(command: str, mode: str | None) -> str:
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+    INSTANCE_PATH = INSTANCE_PATH
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL", f"sqlite:///{(INSTANCE_DIR / 'app.db').resolve()}"
     )

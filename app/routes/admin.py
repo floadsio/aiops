@@ -1061,16 +1061,6 @@ def manage_settings():
         ]
         user_update_forms[user.id] = form
 
-    # Prepare Linux user mapping form
-    from ..services.linux_user_config_service import get_linux_user_mapping
-
-    linux_mapping_form = LinuxUserMappingForm(formdata=None)
-    try:
-        current_mapping = get_linux_user_mapping()
-        linux_mapping_form.mapping_json.data = json.dumps(current_mapping, indent=2)
-    except Exception:
-        linux_mapping_form.mapping_json.data = "{}"
-
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1109,7 +1099,6 @@ def manage_settings():
         claude_selected_user=claude_selected_user,
         claude_cli_key_path=claude_cli_key_path,
         claude_storage_key_path=claude_storage_key_path,
-        linux_mapping_form=linux_mapping_form,
     )
 
 

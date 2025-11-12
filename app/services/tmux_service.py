@@ -119,6 +119,124 @@ def _get_server(linux_username: Optional[str] = None):
         raise TmuxServiceError(f"Unable to initialize tmux server: {exc}") from exc
 
 
+class _SudoAwareSession:
+    """A session proxy that routes all operations through a sudo-aware server."""
+
+    def __init__(self, session_name: str, server):
+        self.session_name = session_name
+        self.server = server
+
+    def get(self, key: str, default=None):
+        """Get session metadata via tmux command."""
+        if key == "session_name":
+            return self.session_name
+        # For other attributes, query tmux
+        result = self.server._run_tmux_cmd(
+            "display-message",
+            f"-t{self.session_name}",
+            f"#{{session_{key}}}",
+        )
+        if result.returncode == 0 and result.stdout:
+            return result.stdout[0]
+        return default
+
+    @property
+    def windows(self):
+        """List windows in this session via sudo."""
+        result = self.server._run_tmux_cmd(
+            "list-windows",
+            f"-t{self.session_name}",
+            "-F#{window_id}\t#{window_name}\t#{window_created}",
+        )
+        windows = []
+        for line in result.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("\t", 2)
+            if len(parts) >= 2:
+                window_id, window_name = parts[0], parts[1]
+                created = parts[2] if len(parts) > 2 else None
+                window = _SudoAwareWindow(
+                    window_id=window_id,
+                    window_name=window_name,
+                    window_created=created,
+                    session=self,
+                )
+                windows.append(window)
+        return windows
+
+    def set_option(self, name: str, value):
+        """Set session option via sudo."""
+        result = self.server.cmd("set-option", "-s", "-t", self.session_name, name, value)
+        if result.returncode != 0:
+            raise TmuxServiceError(
+                f"Unable to set option {name} on session {self.session_name}: {result.stderr}"
+            )
+
+    def new_window(self, window_name: str, start_directory: Optional[str] = None, attach: bool = False, **kwargs):
+        """Create new window in this session via sudo."""
+        args = ["-n", window_name]
+        if start_directory:
+            args.extend(["-c", start_directory])
+        if attach:
+            args.append("")  # Attach flag
+
+        result = self.server.cmd("new-window", f"-t{self.session_name}", *args)
+        if result.returncode != 0:
+            raise TmuxServiceError(
+                f"Unable to create window {window_name} in session {self.session_name}: {result.stderr}"
+            )
+
+        # Return a window proxy
+        return _SudoAwareWindow(
+            window_id="",
+            window_name=window_name,
+            window_created=None,
+            session=self,
+        )
+
+    def select_window(self):
+        """Select this session (for compatibility)."""
+        pass
+
+
+class _SudoAwareWindow:
+    """A window proxy that routes all operations through a sudo-aware session."""
+
+    def __init__(self, window_id: str, window_name: str, window_created: Optional[str], session):
+        self.window_id = window_id
+        self.window_name = window_name
+        self.window_created = window_created
+        self.session = session
+        self.panes = []
+
+    def get(self, key: str, default=None):
+        """Get window metadata."""
+        if key == "window_name":
+            return self.window_name
+        if key == "window_id":
+            return self.window_id
+        if key == "window_created":
+            return self.window_created
+        return default
+
+    def select_window(self):
+        """Select this window."""
+        result = self.session.server.cmd(
+            "select-window",
+            f"-t{self.session.session_name}:{self.window_name}",
+        )
+        if result.returncode != 0:
+            raise TmuxServiceError(
+                f"Unable to select window {self.window_name}: {result.stderr}"
+            )
+
+    def split_window(self, *args, **kwargs):
+        """Split window (stub for compatibility)."""
+        pass
+
+
 class _SudoAwareServer:
     """A tmux Server that runs commands via sudo to bypass tmux ownership checks.
 
@@ -155,8 +273,6 @@ class _SudoAwareServer:
     @property
     def sessions(self):
         """List sessions by running 'tmux list-sessions' via sudo."""
-        import libtmux
-
         result = self._run_tmux_cmd("list-sessions", "-F#{session_id}\t#{session_name}")
         sessions = []
 
@@ -167,21 +283,12 @@ class _SudoAwareServer:
             parts = line.split("\t", 1)
             if len(parts) == 2:
                 session_id, session_name = parts
-                # Create a Session object
-                try:
-                    session = libtmux.Session(
-                        server=self._base_server or self, session_name=session_name
-                    )
-                    sessions.append(session)
-                except Exception:
-                    # Fallback: create a dict-like object
-                    class SessionDict(dict):
-                        pass
-
-                    session = SessionDict(
-                        session_id=session_id, session_name=session_name
-                    )
-                    sessions.append(session)
+                # Create a sudo-aware session proxy
+                session = _SudoAwareSession(
+                    session_name=session_name,
+                    server=self,
+                )
+                sessions.append(session)
 
         return sessions
 
@@ -259,8 +366,6 @@ class _SudoAwareServer:
         **kwargs,
     ):
         """Create a new tmux session via sudo."""
-        import libtmux
-
         args = ["-d", "-s", session_name]
         if start_directory:
             args.extend(["-c", start_directory])
@@ -280,27 +385,8 @@ class _SudoAwareServer:
                 f"Unable to create tmux session {session_name!r}: {result.stderr}"
             )
 
-        # Return a Session object
-        try:
-            return libtmux.Session(
-                server=self._base_server or self, session_name=session_name
-            )
-        except Exception:
-            # Fallback: return a minimal session object
-            class SessionProxy:
-                def __init__(self, name, server):
-                    self.session_name = name
-                    self.server = server
-
-                def get(self, key, default=None):
-                    if key == "session_name":
-                        return self.session_name
-                    return default
-
-                def set_option(self, name, value):
-                    self.server.cmd("set-option", "-s", name, value)
-
-            return SessionProxy(session_name, self)
+        # Return a sudo-aware session proxy
+        return _SudoAwareSession(session_name=session_name, server=self)
 
 
 def _ensure_session(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, List, Optional, Sequence
@@ -92,21 +94,213 @@ def _get_server(linux_username: Optional[str] = None):
         raise TmuxServiceError("libtmux is required for tmux integrations.") from exc
 
     socket_path = None
+    target_linux_username = None
     if linux_username:
         from .linux_users import get_linux_user_info
         user_info = get_linux_user_info(linux_username)
         if user_info:
             socket_path = f"/tmp/tmux-{user_info.uid}/default"
+            target_linux_username = linux_username
             current_app.logger.debug(
                 "Using tmux socket for user %s: %s", linux_username, socket_path
             )
 
     try:
-        if socket_path:
+        if socket_path and target_linux_username:
+            # When accessing another user's tmux session, we need to run tmux
+            # commands as that user via sudo to bypass tmux's ownership checks
+            return _SudoAwareServer(
+                socket_path=socket_path, sudo_username=target_linux_username
+            )
+        elif socket_path:
             return libtmux.Server(socket_path=socket_path)
         return libtmux.Server()
     except Exception as exc:  # pragma: no cover - backend error
         raise TmuxServiceError(f"Unable to initialize tmux server: {exc}") from exc
+
+
+class _SudoAwareServer:
+    """A tmux Server that runs commands via sudo to bypass tmux ownership checks.
+
+    Even with proper file permissions, tmux has internal ownership checks that
+    prevent one user from accessing another user's sessions directly. This class
+    wraps libtmux and executes tmux commands as the target user via sudo to
+    work around this limitation.
+    """
+
+    def __init__(self, socket_path: str, sudo_username: str, **kwargs):
+        import libtmux
+
+        # Store configuration
+        self.sudo_username = sudo_username
+        self.socket_path = socket_path
+        self.socket_name = kwargs.get("socket_name")
+        self.config_file = kwargs.get("config_file")
+        self.colors = kwargs.get("colors")
+
+        # Create a base server instance for reference (may not work directly
+        # due to ownership checks, but we keep it for compatibility)
+        try:
+            self._base_server = libtmux.Server(socket_path=socket_path, **kwargs)
+        except Exception:
+            # If direct connection fails, we'll handle it via sudo
+            self._base_server = None
+
+    def __getattr__(self, name: str):
+        """Delegate attribute access to the base server if available."""
+        if self._base_server is not None:
+            return getattr(self._base_server, name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    @property
+    def sessions(self):
+        """List sessions by running 'tmux list-sessions' via sudo."""
+        import libtmux
+
+        result = self._run_tmux_cmd("list-sessions", "-F#{session_id}\t#{session_name}")
+        sessions = []
+
+        for line in result.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            parts = line.split("\t", 1)
+            if len(parts) == 2:
+                session_id, session_name = parts
+                # Create a Session object
+                try:
+                    session = libtmux.Session(
+                        server=self._base_server or self, session_name=session_name
+                    )
+                    sessions.append(session)
+                except Exception:
+                    # Fallback: create a dict-like object
+                    class SessionDict(dict):
+                        pass
+
+                    session = SessionDict(
+                        session_id=session_id, session_name=session_name
+                    )
+                    sessions.append(session)
+
+        return sessions
+
+    def cmd(self, cmd: str, *args, target: Optional[str] = None):
+        """Execute tmux command via sudo."""
+        svr_args = [cmd]
+        if self.socket_name:
+            svr_args.insert(0, f"-L{self.socket_name}")
+        if self.socket_path:
+            svr_args.insert(0, f"-S{self.socket_path}")
+        if self.config_file:
+            svr_args.insert(0, f"-f{self.config_file}")
+        if self.colors:
+            if self.colors == 256:
+                svr_args.insert(0, "-2")
+            elif self.colors == 88:
+                svr_args.insert(0, "-8")
+
+        cmd_args = ["-t", str(target), *args] if target is not None else [*args]
+        return self._run_tmux_cmd(*svr_args, *cmd_args)
+
+    def _run_tmux_cmd(self, *args):
+        """Execute a tmux command via sudo as the target user."""
+        import libtmux.common
+
+        tmux_bin = shutil.which("tmux")
+        if not tmux_bin:
+            raise TmuxServiceError("tmux binary not found")
+
+        # Build command: sudo -u <user> tmux <args>
+        full_cmd = ["sudo", "-u", self.sudo_username, tmux_bin] + [str(a) for a in args]
+
+        current_app.logger.debug("Executing tmux via sudo: %s", " ".join(full_cmd))
+
+        try:
+            process = subprocess.Popen(
+                full_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="backslashreplace",
+            )
+            stdout, stderr = process.communicate()
+            returncode = process.returncode
+        except Exception:
+            current_app.logger.exception("Exception executing tmux command via sudo")
+            raise
+
+        # Parse output similar to libtmux.common.tmux_cmd
+        stdout_split = stdout.split("\n") if stdout else []
+        while stdout_split and stdout_split[-1] == "":
+            stdout_split.pop()
+
+        stderr_split = stderr.split("\n") if stderr else []
+        stderr_list = list(filter(None, stderr_split))
+
+        # Create a result object that mimics tmux_cmd
+        result = libtmux.common.tmux_cmd(*args)
+        result.returncode = returncode
+        result.stdout = stdout_split
+        result.stderr = stderr_list
+
+        if returncode != 0 and stderr_list:
+            current_app.logger.debug(
+                "tmux command stderr: %s", stderr_list
+            )
+
+        return result
+
+    def new_session(
+        self,
+        session_name: str,
+        start_directory: Optional[str] = None,
+        attach: bool = False,
+        **kwargs,
+    ):
+        """Create a new tmux session via sudo."""
+        import libtmux
+
+        args = ["-d", "-s", session_name]
+        if start_directory:
+            args.extend(["-c", start_directory])
+        if attach:
+            # Remove -d flag if attaching
+            args = [a for a in args if a != "-d"]
+
+        # Add any additional kwargs
+        for key, value in kwargs.items():
+            if value is not None and value is not False:
+                args.append(f"-{key}={value}")
+
+        result = self.cmd("new-session", *args)
+
+        if result.returncode != 0:
+            raise TmuxServiceError(
+                f"Unable to create tmux session {session_name!r}: {result.stderr}"
+            )
+
+        # Return a Session object
+        try:
+            return libtmux.Session(
+                server=self._base_server or self, session_name=session_name
+            )
+        except Exception:
+            # Fallback: return a minimal session object
+            class SessionProxy:
+                def __init__(self, name, server):
+                    self.session_name = name
+                    self.server = server
+
+                def get(self, key, default=None):
+                    if key == "session_name":
+                        return self.session_name
+                    return default
+
+                def set_option(self, name, value):
+                    self.server.cmd("set-option", "-s", name, value)
+
+            return SessionProxy(session_name, self)
 
 
 def _ensure_session(

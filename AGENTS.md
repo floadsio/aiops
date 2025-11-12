@@ -9,6 +9,11 @@ live under `ansible/`.
 
 ## How Agents Should Work Here
 
+- **CRITICAL: Working Directory Context** — When running in a tmux session launched by aiops to modify
+  aiops itself, ALWAYS work on code in `/home/syseng/aiops/instance/repos/aiops` (the project
+  checkout managed by aiops). NEVER modify files in `/home/syseng/aiops` directly, as that is the
+  running aiops instance. The project folder is where you make changes, commit, and push. Check your
+  current directory with `pwd` if uncertain.
 - Always load `AGENTS.override.md` (generated from the UI) for the current issue context before
   changing files.
 - Keep request/response handling inside `app/routes/` minimal; push integrations and orchestration

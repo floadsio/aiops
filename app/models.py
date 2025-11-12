@@ -198,6 +198,19 @@ class ExternalIssue(db.Model, TimestampMixin):
     project_integration = relationship("ProjectIntegration", back_populates="issues")
 
 
+class SystemConfig(db.Model, TimestampMixin):
+    """System-wide configuration settings stored in the database.
+
+    Currently stores Linux user mapping for per-user tmux sessions.
+    """
+
+    __tablename__ = "system_config"
+
+    id = Column(Integer, primary_key=True)
+    key = Column(String(128), unique=True, nullable=False, index=True)
+    value = Column(db.JSON, nullable=True)
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

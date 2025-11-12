@@ -40,6 +40,7 @@ from ..forms.admin import (
     GeminiOAuthForm,
     GeminiSettingsForm,
     GeminiUpdateForm,
+    LinuxUserMappingForm,
     MigrationRunForm,
     ProjectBranchForm,
     ProjectDeleteForm,
@@ -1052,6 +1053,16 @@ def manage_settings():
         form.is_admin.data = user.is_admin
         user_update_forms[user.id] = form
 
+    # Prepare Linux user mapping form
+    from ..services.linux_user_config_service import get_linux_user_mapping
+
+    linux_mapping_form = LinuxUserMappingForm(formdata=None)
+    try:
+        current_mapping = get_linux_user_mapping()
+        linux_mapping_form.mapping_json.data = json.dumps(current_mapping, indent=2)
+    except Exception:
+        linux_mapping_form.mapping_json.data = "{}"
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1090,6 +1101,7 @@ def manage_settings():
         claude_selected_user=claude_selected_user,
         claude_cli_key_path=claude_cli_key_path,
         claude_storage_key_path=claude_storage_key_path,
+        linux_mapping_form=linux_mapping_form,
     )
 
 
@@ -1545,6 +1557,41 @@ def refresh_claude_usage(user_id: int):
         )
     except ClaudeUsageError as exc:
         return jsonify({"error": str(exc)}), 400
+
+
+@admin_bp.route("/settings/linux-user-mapping", methods=["POST"])
+@admin_required
+def save_linux_user_mapping():
+    from ..services.linux_user_config_service import (
+        save_linux_user_mapping as save_mapping,
+    )
+
+    form = LinuxUserMappingForm()
+    if not form.validate_on_submit():
+        flash("Invalid Linux user mapping configuration.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        mapping = json.loads(form.mapping_json.data)
+        if not isinstance(mapping, dict):
+            flash("Mapping must be a JSON object.", "danger")
+            return redirect(url_for("admin.manage_settings"))
+
+        # Validate that all keys and values are strings
+        for key, value in mapping.items():
+            if not isinstance(key, str) or not isinstance(value, str):
+                flash("All keys and values in mapping must be strings.", "danger")
+                return redirect(url_for("admin.manage_settings"))
+
+        save_mapping(mapping)
+        flash("Saved Linux user mapping configuration.", "success")
+    except json.JSONDecodeError:
+        flash("Invalid JSON format for Linux user mapping.", "danger")
+    except Exception as exc:
+        current_app.logger.exception("Error saving Linux user mapping: %s", exc)
+        flash("Error saving Linux user mapping configuration.", "danger")
+
+    return redirect(url_for("admin.manage_settings"))
 
 
 @admin_bp.route("/settings/gemini/settings", methods=["POST"])

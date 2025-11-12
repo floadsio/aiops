@@ -50,6 +50,9 @@ def resolve_linux_username(aiops_user: object) -> Optional[str]:
     Uses the configured mapping strategy to determine which Linux user
     should execute commands for this aiops user.
 
+    First attempts to load mapping from the database (SystemConfig), then
+    falls back to app config.
+
     Args:
         aiops_user: User object from models.User
 
@@ -59,6 +62,7 @@ def resolve_linux_username(aiops_user: object) -> Optional[str]:
     Configuration:
         LINUX_USER_STRATEGY: 'mapping' (default) or 'direct'
         LINUX_USER_MAPPING: dict mapping email/username to Linux usernames
+            (from database if available, otherwise from app config)
     """
     strategy = current_app.config.get("LINUX_USER_STRATEGY", "mapping")
 
@@ -69,8 +73,12 @@ def resolve_linux_username(aiops_user: object) -> Optional[str]:
             return username
 
     elif strategy == "mapping":
-        # Look up in explicit mapping
-        mapping = current_app.config.get("LINUX_USER_MAPPING", {})
+        # Try to load mapping from database first
+        mapping = _load_mapping_from_db()
+
+        # Fall back to config if database mapping is empty
+        if not mapping:
+            mapping = current_app.config.get("LINUX_USER_MAPPING", {})
 
         # Try email first
         email = getattr(aiops_user, "email", None)
@@ -88,6 +96,23 @@ def resolve_linux_username(aiops_user: object) -> Optional[str]:
             return mapping[name]
 
     return None
+
+
+def _load_mapping_from_db() -> dict[str, str]:
+    """Load Linux user mapping from the database.
+
+    Returns empty dict if database is unavailable or mapping not configured.
+
+    Returns:
+        Dictionary mapping aiops user email to Linux username
+    """
+    try:
+        from app.services.linux_user_config_service import get_linux_user_mapping
+
+        return get_linux_user_mapping()
+    except Exception:
+        # Database not available, table doesn't exist, or other error
+        return {}
 
 
 def get_linux_user_for_aiops_user(aiops_user: object) -> Optional[LinuxUserInfo]:

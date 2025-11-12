@@ -373,6 +373,11 @@ def create_session(
             current_app.logger.warning(
                 "Failed to start command in tmux window %s: %s", window_name, exc
             )
+    else:
+        try:
+            pane.send_keys("clear", enter=True)
+        except Exception:  # noqa: BLE001
+            current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
 
     if tool:
         record_tmux_tool(session_record.tmux_target, tool)

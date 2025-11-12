@@ -845,17 +845,13 @@
                 </a>
               </div>
               <div class="tmux-action">
-                <form
-                  method="post"
-                  action="{{ url_for('projects.close_tmux_window', project_id=window.project.project_id) }}"
-                  style="margin:0;"
-                  onsubmit="return confirm('Close tmux window {{ window.window }}?')"
-                >
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <input type="hidden" name="tmux_target" value="{{ window.target }}">
-                  <input type="hidden" name="next" value="{{ request.full_path }}">
-                  <button type="submit" class="secondary outline tmux-action-btn" role="button">Close</button>
-                </form>
+                <button
+                  type="button"
+                  class="secondary outline tmux-action-btn close-tmux-window"
+                  data-project-id="{{ window.project.project_id }}"
+                  data-tmux-target="{{ window.target }}"
+                  data-window-name="{{ window.window }}"
+                >Close</button>
               </div>
             {% endif %}
           </div>
@@ -1045,17 +1041,13 @@
                       >
                         Reattach
                       </a>
-                      <form
-                        method="post"
-                        action="{{ url_for('projects.close_tmux_window', project_id=project.id) }}"
-                        style="margin:0;"
-                        onsubmit="return confirm('Close tmux window {{ session.window }}?')"
-                      >
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="tmux_target" value="{{ session.target }}">
-                        <input type="hidden" name="next" value="{{ request.full_path }}">
-                        <button type="submit" class="secondary outline tmux-action-btn">Close</button>
-                      </form>
+                      <button
+                        type="button"
+                        class="secondary outline tmux-action-btn close-tmux-window"
+                        data-project-id="{{ project.id }}"
+                        data-tmux-target="{{ session.target }}"
+                        data-window-name="{{ session.window }}"
+                      >Close</button>
                     </div>
                   </div>
                 {% endfor %}
@@ -1225,31 +1217,75 @@
     </div>
   {% endif %}
 </section>
+{% block extra_body %}
 <script>
   (function () {
-    const input = document.getElementById("dashboard-search-input");
-    if (!input) {
+    const closeButtons = document.querySelectorAll('.close-tmux-window');
+    if (!closeButtons.length) {
       return;
     }
-    let timer = null;
-    const endpoint = input.dataset.searchEndpoint || window.location.pathname;
-    const triggerSearch = () => {
-      const value = input.value.trim();
-      const url = new URL(endpoint, window.location.origin);
-      if (value) {
-        url.searchParams.set("q", value);
-      } else {
-        url.searchParams.delete("q");
-      }
-      if (url.toString() !== window.location.href) {
-        window.location.assign(url.toString());
-      }
-    };
-    input.addEventListener("input", () => {
-      if (timer) {
-        clearTimeout(timer);
-      }
-      timer = setTimeout(triggerSearch, 350);
+
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    closeButtons.forEach(button => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const projectId = button.dataset.projectId;
+        const tmuxTarget = button.dataset.tmuxTarget;
+        const windowName = button.dataset.windowName;
+
+        if (!projectId || !tmuxTarget) {
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to close tmux window ${windowName || tmuxTarget}?`)) {
+          return;
+        }
+
+        const url = `/projects/${projectId}/tmux/close`;
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Closing...';
+
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({
+            tmux_target: tmuxTarget,
+            next: window.location.pathname + window.location.search,
+          }),
+        })
+        .then(response => {
+          if (response.ok) {
+            // Try to find the card to remove it
+            const recentCard = button.closest('.tmux-recent-card');
+            if (recentCard) {
+              recentCard.remove();
+            } else {
+              const sessionRow = button.closest('.tmux-session-row');
+              if (sessionRow) {
+                sessionRow.remove();
+              } else {
+                // If we can't find the card, just reload
+                window.location.reload();
+              }
+            }
+          } else {
+            return response.json().then(data => {
+              throw new Error(data.error || 'Failed to close session.');
+            });
+          }
+        })
+        .catch(error => {
+          alert(`Error: ${error.message}`);
+          button.disabled = false;
+          button.textContent = originalLabel;
+        });
+      });
     });
   })();
 </script>

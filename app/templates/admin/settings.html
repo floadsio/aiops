@@ -82,6 +82,10 @@
     flex-wrap: wrap;
     align-items: center;
   }
+  .settings-actions button {
+    min-width: fit-content;
+    white-space: nowrap;
+  }
   .settings-actions label {
     display: flex;
     flex-direction: column;
@@ -177,8 +181,11 @@
       width: 100%;
     }
     .settings-actions button {
-      width: 100%;
+      width: 100% !important;
+      min-width: 100%;
+      max-width: 100%;
       justify-content: center;
+      box-sizing: border-box;
     }
     .settings-actions .form-helper {
       width: 100%;
@@ -186,6 +193,12 @@
     .log-output {
       max-width: 100%;
       overflow-x: auto;
+    }
+  }
+  @media (max-width: 480px) {
+    .settings-actions button {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
     }
   }
 </style>

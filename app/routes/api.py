@@ -237,9 +237,10 @@ def start_project_ai_session(project_id: int):
         except (TypeError, ValueError):
             return jsonify({"error": "Unable to resolve current user."}), 400
 
-    session_user = _resolve_project_owner(user_id) or getattr(
-        current_user, "model", None
-    )
+    # Use the current user's model directly for tmux session mapping
+    session_user = getattr(current_user, "model", None)
+    if not session_user:
+        session_user = User.query.get(user_id)
     tmux_session_name = session_name_for_user(session_user)
 
     try:

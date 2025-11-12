@@ -40,6 +40,22 @@ live under `ansible/`.
 - Use the Claude credentials card to save each user's Anthropic API key (stored at
   `instance/claude/user-<id>/api_key`), then aiops copies it into `CLAUDE_CONFIG_DIR/api_key` and
   exports `CLAUDE_CODE_OAUTH_TOKEN` when launching Claude tmux sessions so `claude` can authenticate.
+- **Per-User Linux Shell Sessions** — aiops can launch tmux sessions as individual Linux users (e.g., `ivo`, `michael`)
+  instead of running all sessions as the Flask app user. This allows each user to have their own home directory,
+  shell configurations (.bashrc, .profile), and separate git configs. To enable this:
+  1. Set `LINUX_USER_STRATEGY` in `.env` to `"mapping"` or `"direct"` (default: `"mapping"`)
+  2. For mapping strategy, define `LINUX_USER_MAPPING` as a JSON dict or Python dict in `config.py`:
+     ```python
+     LINUX_USER_MAPPING = {
+         'ivo@floads.io': 'ivo',
+         'michael@floads.io': 'michael',
+     }
+     ```
+  3. For direct strategy, the system tries to use the aiops user's `username` field as the Linux username
+  4. Ensure the target Linux users exist on the system: `id ivo` / `id michael`
+  5. Set `USE_LOGIN_SHELL=true` (default) to load user configs when spawning shells
+  The child process will call `os.setuid()` and `os.setgid()` to switch to the target Linux user before
+  executing tmux. Each shell gets its own `HOME`, `USER`, and `LOGNAME` environment variables.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

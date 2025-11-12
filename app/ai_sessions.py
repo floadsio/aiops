@@ -28,6 +28,7 @@ from .services.gemini_config_service import (
 )
 from .services.git_service import build_project_git_env
 from .services.tmux_metadata import record_tmux_tool
+from .services.linux_users import get_linux_user_for_aiops_user
 from .services.tmux_service import ensure_project_window
 
 
@@ -313,6 +314,31 @@ def create_session(
         os.environ.pop("TMUX", None)
         if rows and cols:
             _set_winsize(1, rows, cols)
+
+        # Attempt to switch to Linux user for the session
+        linux_user_info = None
+        if user:
+            linux_user_info = get_linux_user_for_aiops_user(user)
+            if linux_user_info:
+                try:
+                    os.setgid(linux_user_info.gid)
+                    os.setuid(linux_user_info.uid)
+                    # Update environment to reflect the Linux user
+                    os.environ["HOME"] = linux_user_info.home
+                    os.environ["USER"] = linux_user_info.username
+                    os.environ["LOGNAME"] = linux_user_info.username
+                    current_app.logger.info(
+                        "Switched tmux session to Linux user %s (UID=%d)",
+                        linux_user_info.username,
+                        linux_user_info.uid,
+                    )
+                except OSError as exc:
+                    current_app.logger.warning(
+                        "Failed to switch to Linux user %s: %s",
+                        linux_user_info.username,
+                        exc,
+                    )
+
         try:
             os.execvp(exec_args[0], exec_args)
         except FileNotFoundError:

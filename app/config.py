@@ -101,3 +101,15 @@ class Config:
         "CLAUDE_UPDATE_COMMAND", "sudo npm install -g @anthropic-ai/claude-code"
     )
     CLAUDE_BREW_PACKAGE = os.getenv("CLAUDE_BREW_PACKAGE", "claude-code")
+    # Linux user switching for tmux sessions
+    USE_LOGIN_SHELL = os.getenv("USE_LOGIN_SHELL", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    LINUX_USER_STRATEGY = os.getenv(
+        "LINUX_USER_STRATEGY", "mapping"
+    )  # 'mapping' or 'direct'
+    # Mapping of aiops user email/username to Linux system usernames
+    # Example: {'ivo@floads.io': 'ivo', 'michael@floads.io': 'michael'}
+    LINUX_USER_MAPPING: dict[str, str] = {}

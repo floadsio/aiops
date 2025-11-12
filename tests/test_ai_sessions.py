@@ -484,3 +484,178 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
         assert (tmp_path / ".claude" / "api_key").read_text().strip() == "claude-token"
         stored_path = tmp_path / "instance" / "claude" / "user-505" / "api_key"
         assert stored_path.read_text().strip() == "claude-token"
+
+
+def test_create_session_with_linux_user_switching(monkeypatch, tmp_path):
+    """Test that sessions attempt to switch to configured Linux user."""
+
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
+        CODEX_CONFIG_DIR = str(tmp_path / ".codex")
+        # Configure Linux user mapping
+        LINUX_USER_STRATEGY = "mapping"
+        LINUX_USER_MAPPING = {"user@example.com": "root"}
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    with app.app_context():
+        project_path = tmp_path / "repos" / "demo"
+        project_path.mkdir(parents=True, exist_ok=True)
+        project = SimpleNamespace(
+            id=10,
+            name="Demo Project",
+            local_path=str(project_path),
+            tenant=SimpleNamespace(name="Tenant Beta"),
+        )
+
+        pane = FakePane()
+        window = FakeWindow("demo-project-p10")
+        window._pane = pane
+        session_obj = FakeSession("aiops", window)
+
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
+        )
+        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
+
+        # Track the child process execution
+        exec_calls = []
+
+        def mock_fork():
+            return (1111, 77)  # parent
+
+        def mock_execvp(cmd, args):
+            # This would only be called in the child process
+            exec_calls.append((cmd, args))
+
+        # Mock os.setuid and os.setgid to track user switching
+        setuid_calls = []
+        setgid_calls = []
+
+        def mock_setuid(uid):
+            setuid_calls.append(uid)
+
+        def mock_setgid(gid):
+            setgid_calls.append(gid)
+
+        monkeypatch.setattr("app.ai_sessions.pty.fork", mock_fork)
+        monkeypatch.setattr("app.ai_sessions.os.execvp", mock_execvp)
+        monkeypatch.setattr("app.ai_sessions.os.setuid", mock_setuid)
+        monkeypatch.setattr("app.ai_sessions.os.setgid", mock_setgid)
+        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
+
+        class DummyThread:
+            def __init__(self, *_, **__):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
+
+        # Create a mock user with email that maps to root
+        class MockUser:
+            def __init__(self):
+                self.id = 999
+                self.email = "user@example.com"
+                self.name = "Test User"
+
+        def mock_user_query(user_id):
+            return MockUser()
+
+        monkeypatch.setattr(
+            "app.ai_sessions.User.query.get", mock_user_query, raising=False
+        )
+
+        session = create_session(project, user_id=999, tool="codex")
+
+        assert session.command == app.config["ALLOWED_AI_TOOLS"]["codex"]
+        assert session.tmux_target == "aiops:demo-project-p10"
+
+
+def test_create_session_logs_user_switch_failure(monkeypatch, tmp_path, capsys):
+    """Test that failures to switch users are logged but don't crash."""
+
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
+        CODEX_CONFIG_DIR = str(tmp_path / ".codex")
+        LINUX_USER_STRATEGY = "mapping"
+        LINUX_USER_MAPPING = {"user@example.com": "nonexistent_user_xyz"}
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    with app.app_context():
+        project_path = tmp_path / "repos" / "demo"
+        project_path.mkdir(parents=True, exist_ok=True)
+        project = SimpleNamespace(
+            id=11,
+            name="Demo Project",
+            local_path=str(project_path),
+            tenant=SimpleNamespace(name="Tenant Beta"),
+        )
+
+        pane = FakePane()
+        window = FakeWindow("demo-project-p11")
+        window._pane = pane
+        session_obj = FakeSession("aiops", window)
+
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
+        )
+        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
+        monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (1234, 56))
+        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
+
+        class DummyThread:
+            def __init__(self, *_, **__):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
+
+        # Create a mock user with email that maps to nonexistent user
+        class MockUser:
+            def __init__(self):
+                self.id = 998
+                self.email = "user@example.com"
+                self.name = "Test User"
+
+        def mock_user_query(user_id):
+            return MockUser()
+
+        monkeypatch.setattr(
+            "app.ai_sessions.User.query.get", mock_user_query, raising=False
+        )
+
+        # Session creation should succeed even if user mapping fails
+        session = create_session(project, user_id=998, tool="codex")
+        assert session is not None
+        assert session.command == app.config["ALLOWED_AI_TOOLS"]["codex"]

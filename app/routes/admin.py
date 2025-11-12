@@ -1709,7 +1709,15 @@ def delete_user(user_id: int):
 @admin_bp.route("/settings/users/<int:user_id>/update", methods=["POST"])
 @admin_required
 def update_user(user_id: int):
+    from ..services.linux_users import get_available_linux_users
+
     form = UserUpdateForm()
+    # Populate Linux user choices before validation
+    available_linux_users = get_available_linux_users()
+    form.linux_username.choices = [("", "None")] + [
+        (u, u) for u in available_linux_users
+    ]
+
     if not form.validate_on_submit():
         error_messages = [
             message for messages in form.errors.values() for message in messages

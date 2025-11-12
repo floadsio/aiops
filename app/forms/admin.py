@@ -326,6 +326,14 @@ class UserUpdateForm(FlaskForm):
     name = StringField("Full Name", validators=[DataRequired(), Length(max=255)])
     email = StringField("Email", validators=[DataRequired(), Length(max=255)])
     is_admin = BooleanField("Grant administrator access", default=False)
+    linux_username = SelectField(
+        "Linux Shell User",
+        validators=[Optional()],
+        choices=[],
+        render_kw={
+            "aria-description": "Select the Linux system user for tmux sessions"
+        },
+    )
     submit = SubmitField("Save Changes")
 
     def validate_email(self, field):

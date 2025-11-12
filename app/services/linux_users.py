@@ -50,8 +50,8 @@ def resolve_linux_username(aiops_user: object) -> Optional[str]:
     Uses the configured mapping strategy to determine which Linux user
     should execute commands for this aiops user.
 
-    First attempts to load mapping from the database (SystemConfig), then
-    falls back to app config.
+    First checks if the user has a per-user linux_username set, then attempts
+    to load mapping from the database (SystemConfig), then falls back to app config.
 
     Args:
         aiops_user: User object from models.User
@@ -64,6 +64,11 @@ def resolve_linux_username(aiops_user: object) -> Optional[str]:
         LINUX_USER_MAPPING: dict mapping email/username to Linux usernames
             (from database if available, otherwise from app config)
     """
+    # Check if user has a per-user linux_username set (takes precedence)
+    linux_username = getattr(aiops_user, "linux_username", None)
+    if linux_username:
+        return linux_username
+
     strategy = current_app.config.get("LINUX_USER_STRATEGY", "mapping")
 
     if strategy == "direct":
@@ -172,3 +177,35 @@ def should_use_login_shell() -> bool:
         Boolean flag from config, defaults to True
     """
     return current_app.config.get("USE_LOGIN_SHELL", True)
+
+
+def get_available_linux_users() -> list[str]:
+    """Get list of available Linux system users.
+
+    Retrieves all system users by reading /etc/passwd, filtering out system
+    users (UID < 1000) to show only regular users.
+
+    Returns:
+        List of available Linux usernames sorted alphabetically
+    """
+    available_users = []
+    try:
+        with open("/etc/passwd") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = line.split(":")
+                if len(parts) >= 3:
+                    username = parts[0]
+                    try:
+                        uid = int(parts[2])
+                        # Filter out system users (UID < 1000)
+                        if uid >= 1000:
+                            available_users.append(username)
+                    except ValueError:
+                        continue
+    except Exception as e:
+        current_app.logger.warning("Failed to get available Linux users: %s", e)
+
+    return sorted(available_users)

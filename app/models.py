@@ -35,6 +35,7 @@ class User(db.Model, TimestampMixin):
     name = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False, nullable=False)
+    linux_username = Column(String(255), nullable=True)
     claude_input_tokens_limit = Column(Integer, nullable=True)
     claude_input_tokens_remaining = Column(Integer, nullable=True)
     claude_output_tokens_limit = Column(Integer, nullable=True)

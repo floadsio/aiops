@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
-from collections import Counter, defaultdict
-from datetime import datetime, timezone
-import json
-from pathlib import Path
-from typing import Any
 import subprocess
 import threading
 import time
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 from flask import (
@@ -22,8 +22,8 @@ from flask import (
     request,
     url_for,
 )
-from markupsafe import Markup, escape
 from flask_login import current_user, login_required
+from markupsafe import Markup, escape
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -31,38 +31,38 @@ from sqlalchemy.orm import selectinload
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..extensions import db
 from ..forms.admin import (
+    ClaudeApiKeyForm,
+    ClaudeUpdateForm,
+    CodexAuthForm,
+    CodexUpdateForm,
+    CreateUserForm,
+    GeminiAccountsForm,
+    GeminiOAuthForm,
+    GeminiSettingsForm,
+    GeminiUpdateForm,
+    MigrationRunForm,
+    ProjectBranchForm,
+    ProjectDeleteForm,
     ProjectForm,
+    ProjectGitRefreshForm,
     ProjectIntegrationDeleteForm,
     ProjectIntegrationForm,
     ProjectIntegrationUpdateForm,
     ProjectIssueSyncForm,
-    ProjectGitRefreshForm,
-    ProjectBranchForm,
-    ProjectDeleteForm,
-    UpdateApplicationForm,
     QuickBranchSwitchForm,
-    CreateUserForm,
-    UserUpdateForm,
-    UserToggleAdminForm,
-    UserResetPasswordForm,
-    UserDeleteForm,
-    SSHKeyForm,
     SSHKeyDeleteForm,
-    TenantForm,
+    SSHKeyForm,
     TenantAppearanceForm,
     TenantDeleteForm,
-    TenantIntegrationForm,
+    TenantForm,
     TenantIntegrationDeleteForm,
-    CodexUpdateForm,
-    GeminiUpdateForm,
-    ClaudeUpdateForm,
-    GeminiAccountsForm,
-    GeminiOAuthForm,
-    CodexAuthForm,
-    ClaudeApiKeyForm,
-    GeminiSettingsForm,
-    MigrationRunForm,
+    TenantIntegrationForm,
     TmuxResyncForm,
+    UpdateApplicationForm,
+    UserDeleteForm,
+    UserResetPasswordForm,
+    UserToggleAdminForm,
+    UserUpdateForm,
 )
 from ..models import (
     ExternalIssue,
@@ -73,51 +73,41 @@ from ..models import (
     TenantIntegration,
     User,
 )
-from ..services.git_service import (
-    ensure_repo_checkout,
-    get_repo_status,
-    run_git_action,
-    checkout_or_create_branch,
-    merge_branch,
-    delete_project_branch,
-    list_project_branches,
+from ..security import hash_password
+from ..services.agent_context import (
+    MISSING_ISSUE_DETAILS_MESSAGE,
+    extract_issue_description,
 )
-from ..services.issues import (
-    ISSUE_STATUS_MAX_LENGTH,
-    IssueSyncError,
-    IssueUpdateError,
-    test_integration_connection,
-    sync_project_integration,
-    sync_tenant_integrations,
-    update_issue_status as update_issue_status_service,
+from ..services.branch_state import (
+    BranchSwitchError,
+    configure_branch_form,
+    current_repo_branch,
+    remember_branch,
+    switch_repo_branch,
 )
-from ..services.issues.utils import normalize_issue_status
-from ..services.tmux_service import (
-    TmuxServiceError,
-    list_windows_for_aliases,
-    sync_project_windows,
-    session_name_for_user,
-)
-from ..services.key_service import compute_fingerprint, format_private_key_path, resolve_private_key_path
-from ..services.update_service import run_update_script, UpdateError
-from ..services.migration_service import run_db_upgrade, MigrationError
-from ..services.codex_update_service import (
-    CodexStatus,
-    CodexUpdateError,
-    get_codex_status,
-    install_latest_codex,
-)
-from ..services.gemini_update_service import (
-    GeminiStatus,
-    GeminiUpdateError,
-    get_gemini_status,
-    install_latest_gemini,
+from ..services.claude_config_service import (
+    ClaudeConfigError,
+    get_user_api_paths,
+    load_claude_api_key,
+    save_claude_api_key,
 )
 from ..services.claude_update_service import (
     ClaudeStatus,
     ClaudeUpdateError,
     get_claude_status,
     install_latest_claude,
+)
+from ..services.codex_config_service import (
+    CodexConfigError,
+    get_user_auth_paths,
+    load_codex_auth,
+    save_codex_auth,
+)
+from ..services.codex_update_service import (
+    CodexStatus,
+    CodexUpdateError,
+    get_codex_status,
+    install_latest_codex,
 )
 from ..services.gemini_config_service import (
     GeminiConfigError,
@@ -129,32 +119,48 @@ from ..services.gemini_config_service import (
     save_oauth_creds,
     save_settings_json,
 )
-from ..services.codex_config_service import (
-    CodexConfigError,
-    load_codex_auth,
-    save_codex_auth,
-    get_user_auth_paths,
+from ..services.gemini_update_service import (
+    GeminiStatus,
+    GeminiUpdateError,
+    get_gemini_status,
+    install_latest_gemini,
 )
-from ..services.claude_config_service import (
-    ClaudeConfigError,
-    load_claude_api_key,
-    save_claude_api_key,
-    get_user_api_paths,
+from ..services.git_service import (
+    checkout_or_create_branch,
+    delete_project_branch,
+    ensure_repo_checkout,
+    get_repo_status,
+    list_project_branches,
+    merge_branch,
+    run_git_action,
 )
+from ..services.issues import (
+    ISSUE_STATUS_MAX_LENGTH,
+    IssueSyncError,
+    IssueUpdateError,
+    sync_project_integration,
+    sync_tenant_integrations,
+    test_integration_connection,
+)
+from ..services.issues import (
+    update_issue_status as update_issue_status_service,
+)
+from ..services.issues.utils import normalize_issue_status
+from ..services.key_service import (
+    compute_fingerprint,
+    format_private_key_path,
+    resolve_private_key_path,
+)
+from ..services.log_service import LogReadError, read_log_tail
+from ..services.migration_service import MigrationError, run_db_upgrade
 from ..services.tmux_metadata import get_tmux_tool, prune_tmux_tools
-from ..services.agent_context import (
-    MISSING_ISSUE_DETAILS_MESSAGE,
-    extract_issue_description,
+from ..services.tmux_service import (
+    TmuxServiceError,
+    list_windows_for_aliases,
+    session_name_for_user,
+    sync_project_windows,
 )
-from ..services.log_service import read_log_tail, LogReadError
-from ..services.branch_state import (
-    configure_branch_form,
-    remember_branch,
-    current_repo_branch,
-    switch_repo_branch,
-    BranchSwitchError,
-)
-from ..security import hash_password
+from ..services.update_service import UpdateError, run_update_script
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -272,19 +278,25 @@ def _store_private_key_file(ssh_key: SSHKey, private_key: str) -> None:
     destination = destination_dir / filename
 
     existing_path = (
-        resolve_private_key_path(ssh_key.private_key_path) if ssh_key.private_key_path else None
+        resolve_private_key_path(ssh_key.private_key_path)
+        if ssh_key.private_key_path
+        else None
     )
     if existing_path and existing_path.exists() and existing_path != destination:
         try:
             existing_path.unlink()
         except OSError:
-            current_app.logger.warning("Unable to remove previous private key file %s", existing_path)
+            current_app.logger.warning(
+                "Unable to remove previous private key file %s", existing_path
+            )
 
     if destination.exists():
         try:
             destination.unlink()
         except OSError:
-            current_app.logger.warning("Unable to remove existing private key file %s", destination)
+            current_app.logger.warning(
+                "Unable to remove existing private key file %s", destination
+            )
 
     try:
         with destination.open("w", encoding="utf-8") as handle:
@@ -293,7 +305,9 @@ def _store_private_key_file(ssh_key: SSHKey, private_key: str) -> None:
                 handle.write("\n")
         os.chmod(destination, 0o600)
     except OSError as exc:
-        current_app.logger.error("Failed to store private key for %s: %s", ssh_key.name, exc)
+        current_app.logger.error(
+            "Failed to store private key for %s: %s", ssh_key.name, exc
+        )
         raise
 
     ssh_key.private_key_path = format_private_key_path(destination)
@@ -375,7 +389,9 @@ def dashboard():
     tenants = tenant_query.order_by(Tenant.name).all()
 
     tenant_filter_raw = (request.args.get("tenant") or "").strip()
-    tenant_filter_active = bool(tenant_filter_raw and tenant_filter_raw.lower() != "all")
+    tenant_filter_active = bool(
+        tenant_filter_raw and tenant_filter_raw.lower() != "all"
+    )
     tenant_filter_label: str | None = None
     tenant_filter_id: int | None = None
     if tenant_filter_active:
@@ -410,15 +426,21 @@ def dashboard():
 
     project_query = Project.query.options(
         selectinload(Project.tenant),
-        selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
-        selectinload(Project.issue_integrations).selectinload(ProjectIntegration.issues),
+        selectinload(Project.issue_integrations).selectinload(
+            ProjectIntegration.integration
+        ),
+        selectinload(Project.issue_integrations).selectinload(
+            ProjectIntegration.issues
+        ),
     )
     if tenant_filter_id is not None:
         project_query = project_query.filter(Project.tenant_id == tenant_filter_id)
     project_limit_default = current_app.config.get("DASHBOARD_PROJECT_LIMIT", 10)
     project_limit_search = current_app.config.get("DASHBOARD_SEARCH_PROJECT_LIMIT", 25)
     project_limit = project_limit_search if search_query else project_limit_default
-    projects = project_query.order_by(Project.created_at.desc()).limit(project_limit).all()
+    projects = (
+        project_query.order_by(Project.created_at.desc()).limit(project_limit).all()
+    )
     project_cards: list[dict[str, Any]] = []
     tracked_tmux_targets: set[str] = set()
     recent_tmux_windows: list[dict[str, Any]] = []
@@ -440,14 +462,18 @@ def dashboard():
 
     for project in projects:
         status = get_repo_status(project)
-        last_activity = _coerce_timestamp(getattr(project, "updated_at", None)) or _coerce_timestamp(
-            getattr(project, "created_at", None)
-        )
+        last_activity = _coerce_timestamp(
+            getattr(project, "updated_at", None)
+        ) or _coerce_timestamp(getattr(project, "created_at", None))
         status_last_commit = _coerce_timestamp(status.get("last_commit_timestamp"))
-        if status_last_commit and (last_activity is None or status_last_commit > last_activity):
+        if status_last_commit and (
+            last_activity is None or status_last_commit > last_activity
+        ):
             last_activity = status_last_commit
         status_last_pull = _coerce_timestamp(status.get("last_pull"))
-        if status_last_pull and (last_activity is None or status_last_pull > last_activity):
+        if status_last_pull and (
+            last_activity is None or status_last_pull > last_activity
+        ):
             last_activity = status_last_pull
 
         issue_sync_form = ProjectIssueSyncForm()
@@ -459,7 +485,9 @@ def dashboard():
         try:
             tenant = project.tenant
             tenant_name = tenant.name if tenant else "Unassigned"
-            tenant_color = tenant.color if tenant and tenant.color else DEFAULT_TENANT_COLOR
+            tenant_color = (
+                tenant.color if tenant and tenant.color else DEFAULT_TENANT_COLOR
+            )
             windows = list_windows_for_aliases(
                 "",
                 project_local_path=project.local_path,
@@ -477,7 +505,9 @@ def dashboard():
                 if window_name.lower() == "zsh":
                     continue
                 window_created = _coerce_timestamp(window.created)
-                if window_created and (last_activity is None or window_created > last_activity):
+                if window_created and (
+                    last_activity is None or window_created > last_activity
+                ):
                     last_activity = window_created
                 tool_label = get_tmux_tool(window.target)
                 tmux_windows.append(
@@ -529,7 +559,9 @@ def dashboard():
                 "jira": "Jira",
             }.get(
                 provider_key,
-                (integration.provider or "Unknown").title() if integration else "Unknown",
+                (integration.provider or "Unknown").title()
+                if integration
+                else "Unknown",
             )
             base_url = integration.base_url if integration else None
             source_label = (
@@ -564,12 +596,16 @@ def dashboard():
                 )
 
             integration_last_synced = _coerce_timestamp(link.last_synced_at)
-            if integration_last_synced and (last_activity is None or integration_last_synced > last_activity):
+            if integration_last_synced and (
+                last_activity is None or integration_last_synced > last_activity
+            ):
                 last_activity = integration_last_synced
 
             integration_summaries.append(
                 {
-                    "integration_name": integration.name if integration else "Unknown integration",
+                    "integration_name": integration.name
+                    if integration
+                    else "Unknown integration",
                     "provider_key": provider_key,
                     "provider_display": provider_display,
                     "project_identifier": link.external_identifier,
@@ -593,7 +629,9 @@ def dashboard():
                 }
             )
 
-        matches_query = _project_matches_query(project, tmux_windows) if search_query else True
+        matches_query = (
+            _project_matches_query(project, tmux_windows) if search_query else True
+        )
         if search_query and not matches_query:
             continue
 
@@ -627,10 +665,15 @@ def dashboard():
                 "git_refresh_form": git_refresh_form,
                 "branch_form": branch_form,
                 "branch_choices": branch_choices,
-                "last_activity": last_activity or datetime.min.replace(tzinfo=timezone.utc),
+                "last_activity": last_activity
+                or datetime.min.replace(tzinfo=timezone.utc),
             }
         )
-    project_cards.sort(key=lambda card: card.get("last_activity") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    project_cards.sort(
+        key=lambda card: card.get("last_activity")
+        or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )
 
     try:
         all_windows = list_windows_for_aliases(
@@ -640,7 +683,8 @@ def dashboard():
         )
         all_windows = sorted(
             all_windows,
-            key=lambda window: window.created or datetime.min.replace(tzinfo=timezone.utc),
+            key=lambda window: window.created
+            or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
         max_windows = current_app.config.get("TMUX_RECENT_WINDOW_LIMIT", 8)
@@ -671,6 +715,7 @@ def dashboard():
         recent_tmux_error = str(exc)
 
     if search_query:
+
         def _recent_tmux_matches(entry: dict[str, Any]) -> bool:
             project_info = entry.get("project") or {}
             return any(
@@ -682,7 +727,9 @@ def dashboard():
                 )
             )
 
-        recent_tmux_windows = [entry for entry in recent_tmux_windows if _recent_tmux_matches(entry)]
+        recent_tmux_windows = [
+            entry for entry in recent_tmux_windows if _recent_tmux_matches(entry)
+        ]
 
     pending_tasks = sum(p for p in [0])  # placeholder for task count
     prune_tmux_tools(tracked_tmux_targets)
@@ -752,13 +799,19 @@ def manage_settings():
     requested_user_id = request.args.get("gemini_user_id", type=int)
     default_user_id = None
     if getattr(current_user, "is_authenticated", False):
-        default_user_id = getattr(getattr(current_user, "model", current_user), "id", None)
+        default_user_id = getattr(
+            getattr(current_user, "model", current_user), "id", None
+        )
 
     gemini_selected_user = None
     if requested_user_id:
-        gemini_selected_user = next((user for user in gemini_users if user.id == requested_user_id), None)
+        gemini_selected_user = next(
+            (user for user in gemini_users if user.id == requested_user_id), None
+        )
     if gemini_selected_user is None and default_user_id:
-        gemini_selected_user = next((user for user in gemini_users if user.id == default_user_id), None)
+        gemini_selected_user = next(
+            (user for user in gemini_users if user.id == default_user_id), None
+        )
     if gemini_selected_user is None and gemini_users:
         gemini_selected_user = gemini_users[0]
 
@@ -826,9 +879,13 @@ def manage_settings():
     requested_codex_user_id = request.args.get("codex_user_id", type=int)
     codex_selected_user = None
     if requested_codex_user_id:
-        codex_selected_user = next((user for user in codex_users if user.id == requested_codex_user_id), None)
+        codex_selected_user = next(
+            (user for user in codex_users if user.id == requested_codex_user_id), None
+        )
     if codex_selected_user is None and default_user_id:
-        codex_selected_user = next((user for user in codex_users if user.id == default_user_id), None)
+        codex_selected_user = next(
+            (user for user in codex_users if user.id == default_user_id), None
+        )
     if codex_selected_user is None and codex_users:
         codex_selected_user = codex_users[0]
     codex_selected_user_id = codex_selected_user.id if codex_selected_user else None
@@ -851,7 +908,9 @@ def manage_settings():
         codex_cli_auth_path = str(cli_path)
         codex_storage_auth_path = str(storage_path)
     else:
-        codex_cli_auth_path = str(Path(current_app.config.get("CODEX_CONFIG_DIR")).expanduser() / "auth.json")
+        codex_cli_auth_path = str(
+            Path(current_app.config.get("CODEX_CONFIG_DIR")).expanduser() / "auth.json"
+        )
 
     claude_users = gemini_users
     requested_claude_user_id = request.args.get("claude_user_id", type=int)
@@ -884,7 +943,9 @@ def manage_settings():
     claude_cli_key_path = None
     claude_storage_key_path = None
     if claude_selected_user_id is not None:
-        claude_cli_path, claude_storage_path = get_user_api_paths(claude_selected_user_id)
+        claude_cli_path, claude_storage_path = get_user_api_paths(
+            claude_selected_user_id
+        )
         claude_cli_key_path = str(claude_cli_path)
         claude_storage_key_path = str(claude_storage_path)
 
@@ -941,7 +1002,9 @@ def manage_settings():
 
             if not name:
                 create_user_form.name.errors.append("Full Name is required.")
-                flash("Unable to create user. Please correct the errors below.", "danger")
+                flash(
+                    "Unable to create user. Please correct the errors below.", "danger"
+                )
             else:
                 user = User(
                     email=email,
@@ -954,11 +1017,18 @@ def manage_settings():
                     db.session.commit()
                 except IntegrityError:
                     db.session.rollback()
-                    create_user_form.email.errors.append("A user with this email already exists.")
-                    flash("Unable to create user. Please correct the errors below.", "danger")
+                    create_user_form.email.errors.append(
+                        "A user with this email already exists."
+                    )
+                    flash(
+                        "Unable to create user. Please correct the errors below.",
+                        "danger",
+                    )
                 else:
                     status = "Administrator" if user.is_admin else "Standard user"
-                    flash(f"Created {status.lower()} account for {user.email}.", "success")
+                    flash(
+                        f"Created {status.lower()} account for {user.email}.", "success"
+                    )
                     return redirect(url_for("admin.manage_settings"))
         else:
             flash("Unable to create user. Please correct the errors below.", "danger")
@@ -1055,7 +1125,9 @@ def run_system_update():
             else f"Update failed (exit {result.returncode})."
         )
         category = "success" if result.ok else "danger"
-        log_message = f"Application update command finished with exit {result.returncode}"
+        log_message = (
+            f"Application update command finished with exit {result.returncode}"
+        )
         if combined_output:
             current_app.logger.info("%s; output: %s", log_message, combined_output)
         else:
@@ -1063,7 +1135,7 @@ def run_system_update():
         if truncated:
             flash(
                 Markup(
-                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                    f'{escape(message)}<pre class="update-log">{escape(truncated)}</pre>'
                 ),
                 category,
             )
@@ -1137,7 +1209,9 @@ def run_database_migrations():
             else f"Database migrations failed (exit {result.returncode})."
         )
         category = "success" if result.ok else "danger"
-        log_message = f"Database migration command finished with exit {result.returncode}"
+        log_message = (
+            f"Database migration command finished with exit {result.returncode}"
+        )
         if combined_output:
             current_app.logger.info("%s; output: %s", log_message, combined_output)
         else:
@@ -1145,7 +1219,7 @@ def run_database_migrations():
         if truncated:
             flash(
                 Markup(
-                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                    f'{escape(message)}<pre class="update-log">{escape(truncated)}</pre>'
                 ),
                 category,
             )
@@ -1216,7 +1290,7 @@ def update_codex_cli():
         if truncated:
             flash(
                 Markup(
-                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                    f'{escape(message)}<pre class="update-log">{escape(truncated)}</pre>'
                 ),
                 category,
             )
@@ -1251,7 +1325,9 @@ def update_gemini_cli():
             else f"Gemini CLI update failed (exit {result.returncode})."
         )
         category = "success" if result.ok else "danger"
-        log_message = f"Gemini CLI update command finished with exit {result.returncode}"
+        log_message = (
+            f"Gemini CLI update command finished with exit {result.returncode}"
+        )
         if combined_output:
             current_app.logger.info("%s; output: %s", log_message, combined_output)
         else:
@@ -1259,7 +1335,7 @@ def update_gemini_cli():
         if truncated:
             flash(
                 Markup(
-                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                    f'{escape(message)}<pre class="update-log">{escape(truncated)}</pre>'
                 ),
                 category,
             )
@@ -1294,7 +1370,9 @@ def update_claude_cli():
             else f"Claude CLI update failed (exit {result.returncode})."
         )
         category = "success" if result.ok else "danger"
-        log_message = f"Claude CLI update command finished with exit {result.returncode}"
+        log_message = (
+            f"Claude CLI update command finished with exit {result.returncode}"
+        )
         if combined_output:
             current_app.logger.info("%s; output: %s", log_message, combined_output)
         else:
@@ -1302,7 +1380,7 @@ def update_claude_cli():
         if truncated:
             flash(
                 Markup(
-                    f"{escape(message)}<pre class=\"update-log\">{escape(truncated)}</pre>"
+                    f'{escape(message)}<pre class="update-log">{escape(truncated)}</pre>'
                 ),
                 category,
             )
@@ -1338,7 +1416,9 @@ def save_gemini_accounts():
     else:
         flash("Saved google_accounts.json for Gemini CLI.", "success")
 
-    redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
+    redirect_target = form.next.data or url_for(
+        "admin.manage_settings", gemini_user_id=user_id
+    )
     return redirect(redirect_target)
 
 
@@ -1367,7 +1447,9 @@ def save_gemini_oauth():
     else:
         flash("Saved oauth_creds.json for Gemini CLI.", "success")
 
-    redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
+    redirect_target = form.next.data or url_for(
+        "admin.manage_settings", gemini_user_id=user_id
+    )
     return redirect(redirect_target)
 
 
@@ -1397,7 +1479,9 @@ def save_codex_auth_payload():
     else:
         flash("Saved Codex auth.json.", "success")
 
-    redirect_target = form.next.data or url_for("admin.manage_settings", codex_user_id=user_id)
+    redirect_target = form.next.data or url_for(
+        "admin.manage_settings", codex_user_id=user_id
+    )
     return redirect(redirect_target)
 
 
@@ -1427,7 +1511,9 @@ def save_claude_key():
     else:
         flash("Saved Claude API key.", "success")
 
-    redirect_target = form.next.data or url_for("admin.manage_settings", claude_user_id=user_id)
+    redirect_target = form.next.data or url_for(
+        "admin.manage_settings", claude_user_id=user_id
+    )
     return redirect(redirect_target)
 
 
@@ -1449,7 +1535,9 @@ def refresh_claude_usage(user_id: int):
                     "input_tokens_limit": usage_data.get("input_tokens_limit"),
                     "input_tokens_remaining": usage_data.get("input_tokens_remaining"),
                     "output_tokens_limit": usage_data.get("output_tokens_limit"),
-                    "output_tokens_remaining": usage_data.get("output_tokens_remaining"),
+                    "output_tokens_remaining": usage_data.get(
+                        "output_tokens_remaining"
+                    ),
                     "requests_limit": usage_data.get("requests_limit"),
                     "requests_remaining": usage_data.get("requests_remaining"),
                 },
@@ -1484,7 +1572,9 @@ def save_gemini_settings():
     else:
         flash("Saved settings.json for Gemini CLI.", "success")
 
-    redirect_target = form.next.data or url_for("admin.manage_settings", gemini_user_id=user_id)
+    redirect_target = form.next.data or url_for(
+        "admin.manage_settings", gemini_user_id=user_id
+    )
     return redirect(redirect_target)
 
 
@@ -1505,12 +1595,14 @@ def fetch_application_logs():
     except LogReadError as exc:
         return jsonify({"ok": False, "error": str(exc)}), 500
 
-    return jsonify({
-        "ok": True,
-        "content": tail.content,
-        "truncated": tail.truncated,
-        "path": str(log_path),
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "content": tail.content,
+            "truncated": tail.truncated,
+            "path": str(log_path),
+        }
+    )
 
 
 @admin_bp.route("/settings/users/<int:user_id>/toggle-admin", methods=["POST"])
@@ -1575,7 +1667,9 @@ def delete_user(user_id: int):
 def update_user(user_id: int):
     form = UserUpdateForm()
     if not form.validate_on_submit():
-        error_messages = [message for messages in form.errors.values() for message in messages]
+        error_messages = [
+            message for messages in form.errors.values() for message in messages
+        ]
         if error_messages:
             for message in error_messages:
                 flash(message, "danger")
@@ -1632,7 +1726,9 @@ def refresh_project_issues(project_id: int):
         return redirect(url_for("admin.dashboard"))
 
     project = Project.query.options(
-        selectinload(Project.issue_integrations).selectinload(ProjectIntegration.integration),
+        selectinload(Project.issue_integrations).selectinload(
+            ProjectIntegration.integration
+        ),
     ).get_or_404(project_id)
 
     force_full = bool(request.form.get("force_full"))
@@ -1648,13 +1744,21 @@ def refresh_project_issues(project_id: int):
         flash(f"Issue refresh failed: {exc}", "danger")
     except Exception:  # noqa: BLE001
         db.session.rollback()
-        current_app.logger.exception("Issue refresh failed for project_id=%s", project_id)
+        current_app.logger.exception(
+            "Issue refresh failed for project_id=%s", project_id
+        )
         flash("Unexpected error while refreshing issues.", "danger")
     else:
         if total_synced:
-            flash(f"Refreshed issues for {project.name} ({total_synced} updated).", "success")
+            flash(
+                f"Refreshed issues for {project.name} ({total_synced} updated).",
+                "success",
+            )
         elif force_full:
-            flash(f"Refreshed issues for {project.name}. No new updates detected.", "success")
+            flash(
+                f"Refreshed issues for {project.name}. No new updates detected.",
+                "success",
+            )
         else:
             flash(f"Issue cache for {project.name} is up to date.", "success")
     return redirect(url_for("admin.dashboard"))
@@ -1681,9 +1785,14 @@ def refresh_project_git(project_id: int):
             flash(f"Clean pull completed for {project.name}.", "success")
         else:
             branch_label = branch_name or project.default_branch
-            flash(f"Pulled latest changes for {project.name} ({branch_label}).", "success")
+            flash(
+                f"Pulled latest changes for {project.name} ({branch_label}).", "success"
+            )
         current_app.logger.info(
-            "Git pull for project %s (clean=%s): %s", project.name, clean_requested, output
+            "Git pull for project %s (clean=%s): %s",
+            project.name,
+            clean_requested,
+            output,
         )
     return redirect(url_for("admin.dashboard"))
 
@@ -1723,7 +1832,10 @@ def manage_project_branch(project_id: int):
         except RuntimeError as exc:
             flash(str(exc), "danger")
         else:
-            flash(f"Merged {source_branch} into {target_branch} for {project.name}.", "success")
+            flash(
+                f"Merged {source_branch} into {target_branch} for {project.name}.",
+                "success",
+            )
         return redirect(url_for("admin.dashboard"))
 
     if form.delete_submit.data:
@@ -1817,15 +1929,14 @@ def manage_tenants():
 @admin_bp.route("/issues", methods=["GET"])
 @admin_required
 def manage_issues():
-    issues = (
-        ExternalIssue.query.options(
-            selectinload(ExternalIssue.project_integration)
-            .selectinload(ProjectIntegration.project)
-            .selectinload(Project.tenant),
-            selectinload(ExternalIssue.project_integration)
-            .selectinload(ProjectIntegration.integration),
-        ).all()
-    )
+    issues = ExternalIssue.query.options(
+        selectinload(ExternalIssue.project_integration)
+        .selectinload(ProjectIntegration.project)
+        .selectinload(Project.tenant),
+        selectinload(ExternalIssue.project_integration).selectinload(
+            ProjectIntegration.integration
+        ),
+    ).all()
 
     sorted_issues = sorted(issues, key=_issue_sort_key, reverse=True)
     tenant_counts: Counter[str] = Counter()
@@ -1849,12 +1960,22 @@ def manage_issues():
         status_counts[status_key] += 1
         status_labels.setdefault(status_key, status_label)
 
-        integration = issue.project_integration.integration if issue.project_integration else None
-        project = issue.project_integration.project if issue.project_integration else None
+        integration = (
+            issue.project_integration.integration if issue.project_integration else None
+        )
+        project = (
+            issue.project_integration.project if issue.project_integration else None
+        )
         tenant = project.tenant if project else None
-        provider_key = (integration.provider or "").lower() if integration and integration.provider else ""
+        provider_key = (
+            (integration.provider or "").lower()
+            if integration and integration.provider
+            else ""
+        )
 
-        updated_reference = issue.external_updated_at or issue.updated_at or issue.created_at
+        updated_reference = (
+            issue.external_updated_at or issue.updated_at or issue.created_at
+        )
 
         codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
             "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
@@ -1886,8 +2007,18 @@ def manage_issues():
                 "description": description_text,
                 "description_available": bool(description_text),
                 "description_fallback": MISSING_ISSUE_DETAILS_MESSAGE,
-                "prepare_endpoint": url_for("projects.prepare_issue_context", project_id=project.id, issue_id=issue.id) if project else None,
-                "codex_target": url_for("projects.project_ai_console", project_id=project.id) if project else None,
+                "prepare_endpoint": url_for(
+                    "projects.prepare_issue_context",
+                    project_id=project.id,
+                    issue_id=issue.id,
+                )
+                if project
+                else None,
+                "codex_target": url_for(
+                    "projects.project_ai_console", project_id=project.id
+                )
+                if project
+                else None,
                 "codex_payload": {
                     "prompt": "",
                     "command": codex_command,
@@ -1896,11 +2027,25 @@ def manage_issues():
                     "issueId": issue.id,
                     "agentPath": None,
                     "tmuxTarget": None,
-                } if project else None,
-                "populate_endpoint": url_for("projects.populate_issue_agents_md", project_id=project.id, issue_id=issue.id) if project else None,
-                "close_endpoint": url_for("projects.close_issue", project_id=project.id, issue_id=issue.id) if project else None,
+                }
+                if project
+                else None,
+                "populate_endpoint": url_for(
+                    "projects.populate_issue_agents_md",
+                    project_id=project.id,
+                    issue_id=issue.id,
+                )
+                if project
+                else None,
+                "close_endpoint": url_for(
+                    "projects.close_issue", project_id=project.id, issue_id=issue.id
+                )
+                if project
+                else None,
                 "can_close": status_key != "closed",
-                "status_update_endpoint": url_for("admin.update_issue_status", issue_id=issue.id),
+                "status_update_endpoint": url_for(
+                    "admin.update_issue_status", issue_id=issue.id
+                ),
                 "status_choices": None,  # placeholder
             }
         )
@@ -1979,11 +2124,15 @@ def manage_issues():
         "project": _string_sort_key("project_name"),
         "tenant": _string_sort_key("tenant_name"),
         "assignee": _string_sort_key("assignee"),
-        "labels": _string_sort_key("labels", transform=lambda labels: ", ".join(labels or [])),
+        "labels": _string_sort_key(
+            "labels", transform=lambda labels: ", ".join(labels or [])
+        ),
         "updated": lambda entry: entry.get("updated_sort"),
     }
 
-    key_func = sort_key_functions.get(sort_key, sort_key_functions[ISSUE_SORT_DEFAULT_KEY])
+    key_func = sort_key_functions.get(
+        sort_key, sort_key_functions[ISSUE_SORT_DEFAULT_KEY]
+    )
     issues_for_template = sorted(
         filtered_issues,
         key=key_func,
@@ -2003,7 +2152,9 @@ def manage_issues():
         priority = 0 if key == "open" else 1
         return priority, label.lower()
 
-    for status_key, status_label in sorted(status_labels.items(), key=_status_option_sort_key):
+    for status_key, status_label in sorted(
+        status_labels.items(), key=_status_option_sort_key
+    ):
         status_options.append(
             {
                 "value": status_key,
@@ -2060,7 +2211,11 @@ def manage_issues():
         else:
             next_direction = column["default_direction"]
 
-        query_params = {**base_query_params, "sort": column_key, "direction": next_direction}
+        query_params = {
+            **base_query_params,
+            "sort": column_key,
+            "direction": next_direction,
+        }
         sort_headers[column_key] = {
             "url": url_for("admin.manage_issues", **query_params),
             "is_active": is_active,
@@ -2116,11 +2271,16 @@ def update_issue_status(issue_id: int):
         flash(str(exc), "danger")
     except Exception:  # noqa: BLE001
         db.session.rollback()
-        current_app.logger.exception("Failed to update issue status", extra={"issue_id": issue_id})
+        current_app.logger.exception(
+            "Failed to update issue status", extra={"issue_id": issue_id}
+        )
         flash("Unexpected error while updating issue status.", "danger")
     else:
         status_label = issue.status or "unspecified"
-        flash(f"Updated status for issue {issue.external_id} to {status_label}.", "success")
+        flash(
+            f"Updated status for issue {issue.external_id} to {status_label}.",
+            "success",
+        )
 
     return redirect(next_url)
 
@@ -2144,9 +2304,14 @@ def refresh_all_issues():
         flash("Unexpected error while refreshing issues.", "danger")
     else:
         if total_updated:
-            flash(f"Refreshed issues across all integrations ({total_updated} updated).", "success")
+            flash(
+                f"Refreshed issues across all integrations ({total_updated} updated).",
+                "success",
+            )
         elif force_full:
-            flash("Completed full issue resync with no new changes detected.", "success")
+            flash(
+                "Completed full issue resync with no new changes detected.", "success"
+            )
         else:
             flash("Issue caches are already up to date.", "success")
 
@@ -2158,7 +2323,9 @@ def refresh_all_issues():
 def manage_projects():
     form = ProjectForm()
     delete_form = ProjectDeleteForm()
-    form.tenant_id.choices = [(t.id, t.name) for t in Tenant.query.order_by(Tenant.name)]
+    form.tenant_id.choices = [
+        (t.id, t.name) for t in Tenant.query.order_by(Tenant.name)
+    ]
     form.owner_id.choices = [(u.id, u.email) for u in User.query.order_by(User.email)]
 
     if not form.tenant_id.choices:
@@ -2234,7 +2401,9 @@ def manage_projects():
         return redirect(url_for("admin.manage_projects"))
 
     projects = Project.query.order_by(Project.created_at.desc()).all()
-    return render_template("admin/projects.html", form=form, delete_form=delete_form, projects=projects)
+    return render_template(
+        "admin/projects.html", form=form, delete_form=delete_form, projects=projects
+    )
 
 
 @admin_bp.route("/integrations", methods=["GET", "POST"])
@@ -2265,7 +2434,10 @@ def manage_integrations():
         project_choices.append((project.id, f"{tenant_name} - {project.name}"))
     project_form.project_id.choices = project_choices
 
-    if integration_delete_form.submit.data and integration_delete_form.validate_on_submit():
+    if (
+        integration_delete_form.submit.data
+        and integration_delete_form.validate_on_submit()
+    ):
         try:
             integration_id = int(integration_delete_form.integration_id.data)
         except (TypeError, ValueError):
@@ -2304,7 +2476,9 @@ def manage_integrations():
                     )
                     form_valid = False
                 elif "@" not in jira_email:
-                    integration_form.jira_email.errors.append("Enter a valid email address.")
+                    integration_form.jira_email.errors.append(
+                        "Enter a valid email address."
+                    )
                     form_valid = False
                 else:
                     settings["username"] = jira_email
@@ -2337,7 +2511,12 @@ def manage_integrations():
             project_form.project_id.errors.append("Selected project not found.")
             valid = False
 
-        if valid and integration and project and integration.tenant_id != project.tenant_id:
+        if (
+            valid
+            and integration
+            and project
+            and integration.tenant_id != project.tenant_id
+        ):
             project_form.integration_id.errors.append(
                 "Integration tenant does not match the selected project."
             )
@@ -2419,7 +2598,9 @@ def test_integration() -> Any:
     username = jira_email if provider == "jira" else None
 
     if not provider or not api_token:
-        return jsonify({"ok": False, "message": "Provider and API token are required."}), 400
+        return jsonify(
+            {"ok": False, "message": "Provider and API token are required."}
+        ), 400
 
     if provider == "jira" and (not base_url or not username):
         return (
@@ -2433,18 +2614,24 @@ def test_integration() -> Any:
         )
 
     try:
-        message = test_integration_connection(provider, api_token, base_url, username=username)
+        message = test_integration_connection(
+            provider, api_token, base_url, username=username
+        )
     except IssueSyncError as exc:
         return jsonify({"ok": False, "message": str(exc)}), 400
 
     return jsonify({"ok": True, "message": message})
 
 
-@admin_bp.route("/integrations/project/<int:project_integration_id>/update", methods=["POST"])
+@admin_bp.route(
+    "/integrations/project/<int:project_integration_id>/update", methods=["POST"]
+)
 @admin_required
 def update_project_integration(project_integration_id: int):
     link = ProjectIntegration.query.options(
-        selectinload(ProjectIntegration.integration).selectinload(TenantIntegration.tenant),
+        selectinload(ProjectIntegration.integration).selectinload(
+            TenantIntegration.tenant
+        ),
         selectinload(ProjectIntegration.project),
     ).get_or_404(project_integration_id)
 
@@ -2454,7 +2641,10 @@ def update_project_integration(project_integration_id: int):
     if prefixed_field not in request.form and "external_identifier" in request.form:
         form = ProjectIntegrationUpdateForm()
     if not form.validate_on_submit():
-        flash("Unable to update project integration. Please fix the form errors.", "danger")
+        flash(
+            "Unable to update project integration. Please fix the form errors.",
+            "danger",
+        )
         return redirect(url_for("admin.manage_integrations"))
 
     external_identifier = (form.external_identifier.data or "").strip()
@@ -2480,7 +2670,9 @@ def update_project_integration(project_integration_id: int):
     return redirect(url_for("admin.manage_integrations"))
 
 
-@admin_bp.route("/integrations/project/<int:project_integration_id>/delete", methods=["POST"])
+@admin_bp.route(
+    "/integrations/project/<int:project_integration_id>/delete", methods=["POST"]
+)
 @admin_required
 def delete_project_integration(project_integration_id: int):
     link = ProjectIntegration.query.get_or_404(project_integration_id)
@@ -2535,7 +2727,9 @@ def manage_ssh_keys():
                 except OSError as exc:
                     db.session.rollback()
                     current_app.logger.error("Failed to save SSH private key: %s", exc)
-                    form.private_key.errors.append("Failed to store private key on disk.")
+                    form.private_key.errors.append(
+                        "Failed to store private key on disk."
+                    )
                 else:
                     flash("SSH key added.", "success")
                     return redirect(url_for("admin.manage_ssh_keys"))
@@ -2545,7 +2739,9 @@ def manage_ssh_keys():
         .order_by(SSHKey.created_at.desc())
         .all()
     )
-    return render_template("admin/ssh_keys.html", form=form, delete_form=delete_form, ssh_keys=keys)
+    return render_template(
+        "admin/ssh_keys.html", form=form, delete_form=delete_form, ssh_keys=keys
+    )
 
 
 @admin_bp.route("/ssh-keys/<int:key_id>", methods=["GET", "POST"])
@@ -2572,10 +2768,9 @@ def edit_ssh_key(key_id: int):
         except ValueError as exc:  # noqa: BLE001
             form.public_key.errors.append(str(exc))
         else:
-            existing = (
-                SSHKey.query.filter(SSHKey.fingerprint == fingerprint, SSHKey.id != ssh_key.id)
-                .first()
-            )
+            existing = SSHKey.query.filter(
+                SSHKey.fingerprint == fingerprint, SSHKey.id != ssh_key.id
+            ).first()
             if existing:
                 form.public_key.errors.append(
                     "Another key with this fingerprint already exists."
@@ -2594,9 +2789,13 @@ def edit_ssh_key(key_id: int):
                     db.session.commit()
                 except OSError as exc:
                     db.session.rollback()
-                    current_app.logger.error("Failed to update SSH private key: %s", exc)
+                    current_app.logger.error(
+                        "Failed to update SSH private key: %s", exc
+                    )
                     if private_key_raw:
-                        form.private_key.errors.append("Failed to store private key on disk.")
+                        form.private_key.errors.append(
+                            "Failed to store private key on disk."
+                        )
                     else:
                         flash("Unable to update private key material.", "danger")
                 else:

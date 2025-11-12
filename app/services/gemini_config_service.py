@@ -55,7 +55,9 @@ def get_config_dir(user_id: Optional[int] = None) -> Path:
 
 def _storage_dir(user_id: Optional[int]) -> Path:
     if user_id is None:
-        raise GeminiConfigError("User identifier is required for Gemini credential storage.")
+        raise GeminiConfigError(
+            "User identifier is required for Gemini credential storage."
+        )
     base = Path(current_app.instance_path) / "gemini"
     base.mkdir(parents=True, exist_ok=True)
     _safe_chmod(base, 0o700)
@@ -89,10 +91,14 @@ def save_google_accounts(raw_json: str, *, user_id: Optional[int] = None) -> Non
     try:
         parsed = json.loads(raw_json)
     except json.JSONDecodeError as exc:
-        raise GeminiConfigError(f"google_accounts.json is not valid JSON: {exc}") from exc
+        raise GeminiConfigError(
+            f"google_accounts.json is not valid JSON: {exc}"
+        ) from exc
     formatted = json.dumps(parsed, indent=2)
     if user_id is None:
-        raise GeminiConfigError("User identifier is required when saving Gemini accounts.")
+        raise GeminiConfigError(
+            "User identifier is required when saving Gemini accounts."
+        )
     _store_payload("google_accounts.json", formatted, user_id=user_id)
     ensure_user_config(user_id)
 
@@ -104,7 +110,9 @@ def save_oauth_creds(raw_json: str, *, user_id: Optional[int] = None) -> None:
         raise GeminiConfigError(f"oauth_creds.json is not valid JSON: {exc}") from exc
     formatted = json.dumps(parsed, indent=2)
     if user_id is None:
-        raise GeminiConfigError("User identifier is required when saving Gemini OAuth credentials.")
+        raise GeminiConfigError(
+            "User identifier is required when saving Gemini OAuth credentials."
+        )
     _store_payload("oauth_creds.json", formatted, user_id=user_id)
     ensure_user_config(user_id)
 
@@ -118,7 +126,9 @@ def _stored_payload(name: str, user_id: Optional[int]) -> str:
         try:
             return destination.read_text(encoding="utf-8")
         except OSError as exc:  # pragma: no cover
-            raise GeminiConfigError(f"Failed to read persisted {destination}: {exc}") from exc
+            raise GeminiConfigError(
+                f"Failed to read persisted {destination}: {exc}"
+            ) from exc
 
     # Legacy fallback: ~/.gemini/user-<id>/<name>
     legacy_dir = _base_config_dir() / f"user-{user_id}"
@@ -127,7 +137,9 @@ def _stored_payload(name: str, user_id: Optional[int]) -> str:
         try:
             contents = legacy_file.read_text(encoding="utf-8")
         except OSError as exc:  # pragma: no cover
-            raise GeminiConfigError(f"Failed to read legacy {legacy_file}: {exc}") from exc
+            raise GeminiConfigError(
+                f"Failed to read legacy {legacy_file}: {exc}"
+            ) from exc
         directory.mkdir(parents=True, exist_ok=True)
         _safe_chmod(directory, 0o700)
         destination.write_text(contents, encoding="utf-8")
@@ -181,19 +193,27 @@ def sync_credentials_to_cli_home(user_id: int) -> Path:
                 destination.write_text(payload.strip() + "\n", encoding="utf-8")
                 _safe_chmod(destination, 0o600)
             except OSError as exc:  # pragma: no cover - filesystem error path
-                raise GeminiConfigError(f"Failed to copy {name} into {cli_home}: {exc}") from exc
+                raise GeminiConfigError(
+                    f"Failed to copy {name} into {cli_home}: {exc}"
+                ) from exc
         elif destination.exists():
             try:
                 destination.unlink()
             except OSError:
-                current_app.logger.debug("Unable to remove stale %s from %s", name, cli_home)
-    settings_payload = _stored_payload("settings.json", user_id) or DEFAULT_SETTINGS_PAYLOAD
+                current_app.logger.debug(
+                    "Unable to remove stale %s from %s", name, cli_home
+                )
+    settings_payload = (
+        _stored_payload("settings.json", user_id) or DEFAULT_SETTINGS_PAYLOAD
+    )
     settings_path = cli_home / "settings.json"
     try:
         settings_path.write_text(settings_payload.strip() + "\n", encoding="utf-8")
         _safe_chmod(settings_path, 0o600)
     except OSError as exc:  # pragma: no cover - filesystem error path
-        raise GeminiConfigError(f"Failed to copy settings.json into {cli_home}: {exc}") from exc
+        raise GeminiConfigError(
+            f"Failed to copy settings.json into {cli_home}: {exc}"
+        ) from exc
     return cli_home
 
 
@@ -204,7 +224,9 @@ def save_settings_json(raw_json: str, *, user_id: Optional[int] = None) -> None:
         raise GeminiConfigError(f"settings.json is not valid JSON: {exc}") from exc
     formatted = json.dumps(parsed, indent=2)
     if user_id is None:
-        raise GeminiConfigError("User identifier is required when saving Gemini settings.")
+        raise GeminiConfigError(
+            "User identifier is required when saving Gemini settings."
+        )
     _store_payload("settings.json", formatted, user_id=user_id)
     ensure_user_config(user_id)
 

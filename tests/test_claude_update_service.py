@@ -24,12 +24,20 @@ def app():
 def test_get_claude_status_uses_brew_when_npm_missing(monkeypatch, app):
     def fake_run(command, timeout):
         if command[:2] == ["claude", "--version"]:
-            return type("Proc", (), {"returncode": 0, "stdout": "2.0.37 (Claude Code)", "stderr": ""})
+            return type(
+                "Proc",
+                (),
+                {"returncode": 0, "stdout": "2.0.37 (Claude Code)", "stderr": ""},
+            )
         if command[:3] == ["npm", "view", "@anthropic/claude-cli"]:
             return type("Proc", (), {"returncode": 1, "stdout": "", "stderr": "E404"})
         if command[:3] == ["brew", "info", "--json=v2"]:
             payload = {"casks": [{"version": "2.1.0"}]}
-            return type("Proc", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})
+            return type(
+                "Proc",
+                (),
+                {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""},
+            )
         raise AssertionError(f"Unexpected command: {command}")
 
     monkeypatch.setattr("app.services.claude_update_service._run_command", fake_run)

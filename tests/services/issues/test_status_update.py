@@ -72,7 +72,9 @@ def app(tmp_path):
             title="Initial issue",
             status="Open",
         )
-        db.session.add_all([user, tenant, project, integration, project_integration, issue])
+        db.session.add_all(
+            [user, tenant, project, integration, project_integration, issue]
+        )
         db.session.commit()
 
     yield application

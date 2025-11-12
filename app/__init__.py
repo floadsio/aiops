@@ -8,14 +8,14 @@ from .cli import register_cli_commands
 from .config import Config
 from .constants import DEFAULT_TENANT_COLOR
 from .extensions import csrf, db, login_manager, migrate
-from .routes.api import api_bp
+from .forms.admin import QuickBranchSwitchForm
+from .git_info import detect_repo_branch
 from .routes.admin import admin_bp
+from .routes.api import api_bp
 from .routes.auth import auth_bp
 from .routes.projects import projects_bp
-from .version import __version__
-from .git_info import detect_repo_branch
-from .forms.admin import QuickBranchSwitchForm
 from .services.branch_state import configure_branch_form
+from .version import __version__
 
 
 def create_app(

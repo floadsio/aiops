@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+from git import Repo
+
 from app import create_app, db
 from app.config import Config
 from app.models import (
@@ -15,9 +17,8 @@ from app.models import (
 )
 from app.security import hash_password
 from app.services.ansible_runner import run_ansible_playbook
-from app.services.key_service import resolve_private_key_path
 from app.services.issues import IssuePayload
-from git import Repo
+from app.services.key_service import resolve_private_key_path
 
 
 def test_app_factory():
@@ -46,7 +47,9 @@ def test_branch_badge_uses_recorded_marker(tmp_path, monkeypatch):
         marker.parent.mkdir(parents=True, exist_ok=True)
         marker.write_text("release-2024-08\n", encoding="utf-8")
 
-    monkeypatch.setattr("app.services.branch_state.current_repo_branch", lambda: "release-2024-08")
+    monkeypatch.setattr(
+        "app.services.branch_state.current_repo_branch", lambda: "release-2024-08"
+    )
     client = app.test_client()
     resp = client.get("/")
     print(resp.data)
@@ -268,7 +271,9 @@ def test_project_detail_shows_external_issues(tmp_path):
             labels=["bug", "urgent"],
             external_updated_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
         )
-        db.session.add_all([user, tenant, project, integration, project_integration, issue])
+        db.session.add_all(
+            [user, tenant, project, integration, project_integration, issue]
+        )
         db.session.commit()
         project_id = project.id
 
@@ -300,7 +305,7 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
         TESTING = True
         WTF_CSRF_ENABLED = False
         SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'issues.db'}"
-        REPO_STORAGE_PATH = str(tmp_path / 'repos')
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
 
     app = create_app(TestConfig)
 
@@ -347,7 +352,17 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
             title="Secondary Issue",
             status="closed",
         )
-        db.session.add_all([user, tenant, project, integration, project_integration, issue, other_issue])
+        db.session.add_all(
+            [
+                user,
+                tenant,
+                project,
+                integration,
+                project_integration,
+                issue,
+                other_issue,
+            ]
+        )
         db.session.commit()
 
     client = app.test_client()
@@ -375,7 +390,9 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert data["prompt"] == ""
     assert ":" in data["tmux_target"]
 
-    local_context_path = Path(tmp_path / "repos" / "demo-project" / "AGENTS.override.md")
+    local_context_path = Path(
+        tmp_path / "repos" / "demo-project" / "AGENTS.override.md"
+    )
     assert local_context_path.exists()
     local_contents = local_context_path.read_text()
     assert "Sample Issue" in local_contents
@@ -437,7 +454,17 @@ def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
             title="Secondary Issue",
             status="closed",
         )
-        db.session.add_all([user, tenant, project, integration, project_integration, issue, other_issue])
+        db.session.add_all(
+            [
+                user,
+                tenant,
+                project,
+                integration,
+                project_integration,
+                issue,
+                other_issue,
+            ]
+        )
         db.session.commit()
 
         # Seed a tracked AGENTS base file with a placeholder section.
@@ -466,7 +493,9 @@ def test_populate_agents_md_updates_context(tmp_path, monkeypatch):
         project_id = Project.query.filter_by(name="demo-project").first().id
         issue_id = ExternalIssue.query.filter_by(external_id="123").first().id
 
-    response = client.post(f"/projects/{project_id}/issues/{issue_id}/populate-agent-md")
+    response = client.post(
+        f"/projects/{project_id}/issues/{issue_id}/populate-agent-md"
+    )
     assert response.status_code == 200
     data = response.get_json()
     assert "tracked_path" in data
@@ -526,7 +555,9 @@ def test_agents_editor_save_and_push(tmp_path, monkeypatch):
 
         agents_path = Path(project.local_path)
         agents_path.mkdir(parents=True, exist_ok=True)
-        (agents_path / "AGENTS.override.md").write_text("Initial guide", encoding="utf-8")
+        (agents_path / "AGENTS.override.md").write_text(
+            "Initial guide", encoding="utf-8"
+        )
 
         project_id = project.id
 
@@ -569,10 +600,14 @@ def test_agents_editor_save_and_push(tmp_path, monkeypatch):
         follow_redirects=True,
     )
     assert post_response.status_code == 200
-    assert "Committed and pushed AGENTS.override.md." in post_response.get_data(as_text=True)
+    assert "Committed and pushed AGENTS.override.md." in post_response.get_data(
+        as_text=True
+    )
     assert "Push completed." in post_response.get_data(as_text=True)
 
-    saved_text = (tmp_path / "repos" / "demo-project" / "AGENTS.override.md").read_text()
+    saved_text = (
+        tmp_path / "repos" / "demo-project" / "AGENTS.override.md"
+    ).read_text()
     assert "Rewritten guide" in saved_text
 
     assert recorded["commit"]["project_id"] == project_id
@@ -612,7 +647,9 @@ def test_agents_editor_requires_commit_message(tmp_path, monkeypatch):
 
         agents_path = Path(project.local_path)
         agents_path.mkdir(parents=True, exist_ok=True)
-        (agents_path / "AGENTS.override.md").write_text("Initial guide", encoding="utf-8")
+        (agents_path / "AGENTS.override.md").write_text(
+            "Initial guide", encoding="utf-8"
+        )
 
         project_id = project.id
 
@@ -734,20 +771,22 @@ def test_admin_issues_page_filters(tmp_path):
             labels=["ops"],
         )
 
-        db.session.add_all([
-            admin_user,
-            tenant,
-            integration,
-            project,
-            project_integration,
-            open_issue,
-            closed_issue,
-            other_tenant,
-            other_integration,
-            other_project,
-            other_project_integration,
-            other_issue,
-        ])
+        db.session.add_all(
+            [
+                admin_user,
+                tenant,
+                integration,
+                project,
+                project_integration,
+                open_issue,
+                closed_issue,
+                other_tenant,
+                other_integration,
+                other_project,
+                other_project_integration,
+                other_issue,
+            ]
+        )
         db.session.commit()
 
         tenant_id = tenant.id
@@ -794,7 +833,9 @@ def test_admin_issues_page_filters(tmp_path):
     assert "Retire legacy job" not in body_tenant
     assert "Provision runner" not in body_tenant
 
-    response_other_tenant = client.get(f"/admin/issues?tenant={other_tenant_id}&status=all")
+    response_other_tenant = client.get(
+        f"/admin/issues?tenant={other_tenant_id}&status=all"
+    )
     body_other = response_other_tenant.get_data(as_text=True)
     assert "Provision runner" in body_other
     assert "Fix deployment" not in body_other
@@ -847,7 +888,9 @@ def test_close_issue_route_updates_status(tmp_path, monkeypatch):
             status="open",
             labels=[],
         )
-        db.session.add_all([user, tenant, integration, project, project_integration, issue])
+        db.session.add_all(
+            [user, tenant, integration, project, project_integration, issue]
+        )
         db.session.commit()
 
         project_id = project.id
@@ -866,7 +909,9 @@ def test_close_issue_route_updates_status(tmp_path, monkeypatch):
             raw={"state": "closed"},
         )
 
-    monkeypatch.setattr("app.routes.projects.close_issue_for_project_integration", fake_close)
+    monkeypatch.setattr(
+        "app.routes.projects.close_issue_for_project_integration", fake_close
+    )
 
     client = app.test_client()
     login_resp = client.post(
@@ -937,7 +982,9 @@ def test_assign_issue_route_updates_assignee(tmp_path, monkeypatch):
             status="open",
             labels=["bug"],
         )
-        db.session.add_all([user, tenant, integration, project, project_integration, issue])
+        db.session.add_all(
+            [user, tenant, integration, project, project_integration, issue]
+        )
         db.session.commit()
 
         project_id = project.id
@@ -957,7 +1004,9 @@ def test_assign_issue_route_updates_assignee(tmp_path, monkeypatch):
             raw={"assignee": "octocat"},
         )
 
-    monkeypatch.setattr("app.routes.projects.assign_issue_for_project_integration", fake_assign)
+    monkeypatch.setattr(
+        "app.routes.projects.assign_issue_for_project_integration", fake_assign
+    )
 
     client = app.test_client()
     login_resp = client.post(

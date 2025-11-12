@@ -28,9 +28,15 @@ def app():
 def test_get_gemini_status(monkeypatch, app):
     def fake_run(command, timeout):
         if command[:2] == ["gemini", "--version"]:
-            return type("Proc", (), {"returncode": 0, "stdout": "gemini-cli/1.0.0", "stderr": ""})
+            return type(
+                "Proc",
+                (),
+                {"returncode": 0, "stdout": "gemini-cli/1.0.0", "stderr": ""},
+            )
         if command[:3] == ["npm", "view", "@google/gemini-cli"]:
-            return type("Proc", (), {"returncode": 0, "stdout": "1.1.0\n", "stderr": ""})
+            return type(
+                "Proc", (), {"returncode": 0, "stdout": "1.1.0\n", "stderr": ""}
+            )
         raise AssertionError(f"Unexpected command: {command}")
 
     monkeypatch.setattr("app.services.gemini_update_service._run_command", fake_run)
@@ -53,9 +59,15 @@ def test_get_gemini_status_falls_back_to_npm(monkeypatch, app):
                     "@google/gemini-cli": {"version": "1.0.0"},
                 }
             }
-            return type("Proc", (), {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""})
+            return type(
+                "Proc",
+                (),
+                {"returncode": 0, "stdout": json.dumps(payload), "stderr": ""},
+            )
         if command[:3] == ["npm", "view", "@google/gemini-cli"]:
-            return type("Proc", (), {"returncode": 0, "stdout": "1.0.0\n", "stderr": ""})
+            return type(
+                "Proc", (), {"returncode": 0, "stdout": "1.0.0\n", "stderr": ""}
+            )
         raise AssertionError(f"Unexpected command: {command}")
 
     monkeypatch.setattr("app.services.gemini_update_service._run_command", fake_run)

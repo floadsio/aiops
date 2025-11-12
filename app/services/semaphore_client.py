@@ -6,7 +6,8 @@ import time
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
 from urllib import error as urlerror
-from urllib import parse, request as urlrequest
+from urllib import parse
+from urllib import request as urlrequest
 
 TERMINAL_STATUSES = {
     "error",
@@ -143,7 +144,9 @@ class SemaphoreClient:
             status = exc.code
             response_headers = dict(exc.headers.items()) if exc.headers else {}
         except urlerror.URLError as exc:  # pragma: no cover - network failure path
-            raise SemaphoreAPIError(f"Error communicating with Semaphore API: {exc.reason}") from exc
+            raise SemaphoreAPIError(
+                f"Error communicating with Semaphore API: {exc.reason}"
+            ) from exc
 
         response = _SimpleResponse(status, response_headers, body)
         if status not in expected_status:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import sys
+from datetime import datetime, timezone
 from types import ModuleType, SimpleNamespace
 from typing import Any, Dict, List
 
@@ -219,7 +219,10 @@ def test_create_issue_uses_jira_client(monkeypatch):
     assert captured["timeout"] is not None
     assert captured["create_fields"]["project"] == {"key": "DEVOPS"}
     assert captured["create_fields"]["summary"] == "Create new pipeline task"
-    assert captured["create_fields"]["issuetype"]["name"] == jira_service.DEFAULT_ISSUE_TYPE
+    assert (
+        captured["create_fields"]["issuetype"]["name"]
+        == jira_service.DEFAULT_ISSUE_TYPE
+    )
     assert captured["create_fields"]["labels"] == ["automation"]
     assert "issue_invoked" not in captured
     assert captured["closed"] is True
@@ -389,4 +392,6 @@ def test_create_issue_requires_summary(monkeypatch):
     )
 
     with pytest.raises(IssueSyncError):
-        jira_service.create_issue(integration, project_integration, IssueCreateRequest(summary=""))
+        jira_service.create_issue(
+            integration, project_integration, IssueCreateRequest(summary="")
+        )

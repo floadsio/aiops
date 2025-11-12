@@ -3,12 +3,12 @@ from __future__ import annotations
 import fcntl
 import os
 import pty
+import shlex
 import shutil
 import signal
-import shlex
 import struct
-import threading
 import termios
+import threading
 import uuid
 from base64 import b64encode
 from queue import Empty, Queue
@@ -16,18 +16,19 @@ from select import select
 from typing import Optional
 
 from flask import current_app
+
 from .models import User
-from .services.tmux_service import ensure_project_window
-from .services.git_service import build_project_git_env
-from .services.gemini_config_service import (
-    ensure_user_config,
-    sync_credentials_to_cli_home,
-)
 from .services.codex_config_service import (
     CodexConfigError,
     ensure_codex_auth,
 )
+from .services.gemini_config_service import (
+    ensure_user_config,
+    sync_credentials_to_cli_home,
+)
+from .services.git_service import build_project_git_env
 from .services.tmux_metadata import record_tmux_tool
+from .services.tmux_service import ensure_project_window
 
 
 class AISession:
@@ -119,7 +120,9 @@ def _uses_gemini(command_str: str, tool: str | None) -> bool:
         return True
     configured_token = _first_command_token(configured)
     command_token = _first_command_token(command_str)
-    return bool(configured_token and command_token and configured_token == command_token)
+    return bool(
+        configured_token and command_token and configured_token == command_token
+    )
 
 
 def _uses_codex(command_str: str, tool: str | None) -> bool:
@@ -129,7 +132,9 @@ def _uses_codex(command_str: str, tool: str | None) -> bool:
         return True
     configured_token = _first_command_token(configured)
     command_token = _first_command_token(command_str)
-    return bool(configured_token and command_token and configured_token == command_token)
+    return bool(
+        configured_token and command_token and configured_token == command_token
+    )
 
 
 def _uses_claude(command_str: str, tool: str | None) -> bool:
@@ -139,7 +144,9 @@ def _uses_claude(command_str: str, tool: str | None) -> bool:
         return True
     configured_token = _first_command_token(configured)
     command_token = _first_command_token(command_str)
-    return bool(configured_token and command_token and configured_token == command_token)
+    return bool(
+        configured_token and command_token and configured_token == command_token
+    )
 
 
 def _resolve_tmux_window(
@@ -169,12 +176,16 @@ def _resolve_tmux_window(
             getattr(project, "id", "unknown"),
             exc,
         )
-        session, window, created = ensure_project_window(project, session_name=session_name)
+        session, window, created = ensure_project_window(
+            project, session_name=session_name
+        )
     try:
         window.select_window()
     except Exception:  # noqa: BLE001 - best effort
         current_app.logger.debug(
-            "Unable to select tmux window %s:%s", session.get("session_name"), window.get("window_name")
+            "Unable to select tmux window %s:%s",
+            session.get("session_name"),
+            window.get("window_name"),
         )
     return session, window, created
 
@@ -234,10 +245,16 @@ def create_session(
         try:
             cli_auth_path = ensure_codex_auth(user_id)
         except CodexConfigError as exc:
-            current_app.logger.warning("Codex credentials unavailable for user %s: %s", user_id, exc)
+            current_app.logger.warning(
+                "Codex credentials unavailable for user %s: %s", user_id, exc
+            )
         else:
-            codex_env_exports.append(f"export CODEX_CONFIG_DIR={shlex.quote(str(cli_auth_path.parent))}")
-            codex_env_exports.append(f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}")
+            codex_env_exports.append(
+                f"export CODEX_CONFIG_DIR={shlex.quote(str(cli_auth_path.parent))}"
+            )
+            codex_env_exports.append(
+                f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}"
+            )
     # Claude uses web auth, no token injection needed
     claude_env_exports: list[str] = []
 
@@ -248,7 +265,9 @@ def create_session(
 
     tmux_path = shutil.which("tmux")
     if not tmux_path:
-        raise RuntimeError("tmux binary not found. Install tmux or disable tmux integration.")
+        raise RuntimeError(
+            "tmux binary not found. Install tmux or disable tmux integration."
+        )
 
     session, window, created = _resolve_tmux_window(
         project,
@@ -274,7 +293,9 @@ def create_session(
         git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
         git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
         git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
-        git_author_exports.append(f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}")
+        git_author_exports.append(
+            f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
+        )
 
     exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
 
@@ -305,7 +326,7 @@ def create_session(
         command_str,
         pid,
         fd,
-        f"{session_name}:{window_name}"
+        f"{session_name}:{window_name}",
     )
     if rows and cols:
         _set_winsize(fd, rows, cols)
@@ -318,22 +339,30 @@ def create_session(
             try:
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
-                current_app.logger.debug("Unable to set GIT_SSH_COMMAND for %s", window_name)
+                current_app.logger.debug(
+                    "Unable to set GIT_SSH_COMMAND for %s", window_name
+                )
         for export_command in git_author_exports:
             try:
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
-                current_app.logger.debug("Unable to set Git author environment for %s", window_name)
+                current_app.logger.debug(
+                    "Unable to set Git author environment for %s", window_name
+                )
         for export_command in codex_env_exports:
             try:
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
-                current_app.logger.debug("Unable to set Codex environment for %s", window_name)
+                current_app.logger.debug(
+                    "Unable to set Codex environment for %s", window_name
+                )
         for export_command in claude_env_exports:
             try:
                 pane.send_keys(export_command, enter=True)
             except Exception:  # noqa: BLE001
-                current_app.logger.debug("Unable to set Claude environment for %s", window_name)
+                current_app.logger.debug(
+                    "Unable to set Claude environment for %s", window_name
+                )
         try:
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001
@@ -341,7 +370,9 @@ def create_session(
         try:
             pane.send_keys(command_str, enter=True)
         except Exception as exc:  # noqa: BLE001
-            current_app.logger.warning("Failed to start command in tmux window %s: %s", window_name, exc)
+            current_app.logger.warning(
+                "Failed to start command in tmux window %s: %s", window_name, exc
+            )
 
     if tool:
         record_tmux_tool(session_record.tmux_target, tool)

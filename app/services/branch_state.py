@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from flask import current_app
-from git import Repo, GitCommandError
+from git import GitCommandError, Repo
 
 from ..git_info import list_repo_branches
 
@@ -38,7 +38,9 @@ def remember_branch(branch: str | None) -> None:
         try:
             marker.unlink(missing_ok=True)
         except OSError:
-            current_app.logger.debug("Branch marker removal failed; ignoring.", exc_info=True)
+            current_app.logger.debug(
+                "Branch marker removal failed; ignoring.", exc_info=True
+            )
 
 
 def current_repo_branch() -> str:
@@ -94,7 +96,9 @@ def switch_repo_branch(target_branch: str) -> None:
     try:
         repo = Repo(repo_root)
     except Exception as exc:  # noqa: BLE001
-        raise BranchSwitchError(f"Unable to open repository at {repo_root}: {exc}") from exc
+        raise BranchSwitchError(
+            f"Unable to open repository at {repo_root}: {exc}"
+        ) from exc
 
     cleaned = (target_branch or "").strip()
     if not cleaned:

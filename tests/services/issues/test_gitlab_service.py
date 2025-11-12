@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import sys
 import types
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -81,7 +81,9 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
                 return issue
         raise IssueSyncError("Issue not found")
 
-    project.issues = SimpleNamespace(list=list_wrapper, create=create_wrapper, get=get_wrapper)
+    project.issues = SimpleNamespace(
+        list=list_wrapper, create=create_wrapper, get=get_wrapper
+    )
 
     class FakeProjects:
         def __init__(self, project_ref):
@@ -92,7 +94,10 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
 
     fake_client = SimpleNamespace(projects=FakeProjects(project))
 
-    monkeypatch.setattr("app.services.issues.gitlab._build_client", lambda integration, base_url=None: fake_client)
+    monkeypatch.setattr(
+        "app.services.issues.gitlab._build_client",
+        lambda integration, base_url=None: fake_client,
+    )
 
 
 def test_fetch_issues(monkeypatch):
@@ -111,7 +116,9 @@ def test_fetch_issues(monkeypatch):
     _install_fake_client(monkeypatch, issues=issues)
 
     integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
-    project_integration = SimpleNamespace(external_identifier="group/project", config={})
+    project_integration = SimpleNamespace(
+        external_identifier="group/project", config={}
+    )
 
     payloads = gitlab_service.fetch_issues(integration, project_integration)
 
@@ -134,12 +141,18 @@ def test_create_issue(monkeypatch):
         }
         return FakeIssue(**data)
 
-    _install_fake_client(monkeypatch, issues=[], created_issue=lambda payload: created_issue(payload))
+    _install_fake_client(
+        monkeypatch, issues=[], created_issue=lambda payload: created_issue(payload)
+    )
 
     integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
-    project_integration = SimpleNamespace(external_identifier="group/project", config={})
+    project_integration = SimpleNamespace(
+        external_identifier="group/project", config={}
+    )
 
-    request = IssueCreateRequest(summary="Add pipeline", description="Automate", labels=["ci"])
+    request = IssueCreateRequest(
+        summary="Add pipeline", description="Automate", labels=["ci"]
+    )
     payload = gitlab_service.create_issue(integration, project_integration, request)
 
     assert payload.external_id == "42"
@@ -160,7 +173,9 @@ def test_close_issue(monkeypatch):
     _install_fake_client(monkeypatch, issues=[issue])
 
     integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
-    project_integration = SimpleNamespace(external_identifier="group/project", config={})
+    project_integration = SimpleNamespace(
+        external_identifier="group/project", config={}
+    )
 
     payload = gitlab_service.close_issue(integration, project_integration, "77")
 
@@ -170,7 +185,9 @@ def test_close_issue(monkeypatch):
 
 def test_create_issue_requires_summary():
     integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
-    project_integration = SimpleNamespace(external_identifier="group/project", config={})
+    project_integration = SimpleNamespace(
+        external_identifier="group/project", config={}
+    )
 
     with pytest.raises(IssueSyncError):
         gitlab_service.create_issue(

@@ -48,7 +48,9 @@ class Config:
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")
     DEFAULT_AI_ROWS = int(os.getenv("DEFAULT_AI_ROWS", "30"))
     DEFAULT_AI_COLS = int(os.getenv("DEFAULT_AI_COLS", "100"))
-    USE_TMUX_FOR_AI_SESSIONS = os.getenv("USE_TMUX_FOR_AI_SESSIONS", "true").lower() in {
+    USE_TMUX_FOR_AI_SESSIONS = os.getenv(
+        "USE_TMUX_FOR_AI_SESSIONS", "true"
+    ).lower() in {
         "1",
         "true",
         "yes",

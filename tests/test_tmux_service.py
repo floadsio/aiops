@@ -1,4 +1,3 @@
-
 from app.services import tmux_service
 
 
@@ -42,4 +41,3 @@ def test_list_windows_include_all_sessions(monkeypatch):
 
     assert len(windows) == 2
     assert {window.session_name for window in windows} == {"user-alpha", "user-beta"}
-

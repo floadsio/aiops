@@ -6,7 +6,6 @@ from typing import Optional, Tuple
 
 from flask import current_app
 
-
 CLAUDE_API_KEY_NAME = "api_key"
 
 
@@ -59,7 +58,9 @@ def _stored_payload(user_id: int) -> str:
         try:
             payload = legacy_path.read_text(encoding="utf-8").strip()
         except OSError as exc:  # pragma: no cover - filesystem issue
-            raise ClaudeConfigError("Failed to read legacy Claude API key: %s" % exc) from exc
+            raise ClaudeConfigError(
+                "Failed to read legacy Claude API key: %s" % exc
+            ) from exc
         storage_path.write_text(payload + "\n", encoding="utf-8")
         _safe_chmod(storage_path, 0o600)
         return payload

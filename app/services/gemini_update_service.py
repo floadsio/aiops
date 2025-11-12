@@ -10,7 +10,6 @@ from typing import Optional, Sequence
 
 from flask import current_app
 
-
 PACKAGE_NAME = "@google/gemini-cli"
 VERSION_PATTERN = re.compile(r"\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?")
 
@@ -60,7 +59,9 @@ def _parse_version(output: str) -> Optional[str]:
     return None
 
 
-def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+def _run_command(
+    command: Sequence[str], *, timeout: int
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     npm_prefix = current_app.config.get("NPM_PREFIX_PATH")
     extra_paths = current_app.config.get("CLI_EXTRA_PATHS")
@@ -82,7 +83,9 @@ def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.Complete
     )
 
 
-def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_cli(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     binary = _configured_cli_binary()
     if not binary:
         return None, None
@@ -120,7 +123,9 @@ def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Op
     return None, last_error
 
 
-def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_npm(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     try:
         completed = _run_command(
             ["npm", "list", "-g", PACKAGE_NAME, "--json", "--depth=0"],
@@ -143,7 +148,10 @@ def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Op
     try:
         payload = json.loads(completed.stdout or "{}")
     except json.JSONDecodeError:
-        return None, "Received malformed response from npm while checking Gemini CLI version."
+        return (
+            None,
+            "Received malformed response from npm while checking Gemini CLI version.",
+        )
 
     dependencies = payload.get("dependencies") or {}
     package_info = dependencies.get(PACKAGE_NAME)
@@ -232,11 +240,17 @@ def install_latest_gemini(*, timeout: int = 600) -> GeminiUpdateResult:
     try:
         completed = _run_command(parts, timeout=timeout)
     except FileNotFoundError as exc:
-        raise GeminiUpdateError(f"Unable to execute Gemini update command: {exc}") from exc
+        raise GeminiUpdateError(
+            f"Unable to execute Gemini update command: {exc}"
+        ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise GeminiUpdateError(f"Gemini update command timed out after {timeout} seconds.") from exc
+        raise GeminiUpdateError(
+            f"Gemini update command timed out after {timeout} seconds."
+        ) from exc
     except OSError as exc:
-        raise GeminiUpdateError(f"Failed to execute Gemini update command: {exc}") from exc
+        raise GeminiUpdateError(
+            f"Failed to execute Gemini update command: {exc}"
+        ) from exc
 
     return GeminiUpdateResult(
         command=" ".join(shlex.quote(component) for component in parts),

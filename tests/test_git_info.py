@@ -18,7 +18,9 @@ def test_detect_repo_branch_returns_active_branch(monkeypatch, tmp_path):
 
 def test_detect_repo_branch_handles_detached_head(monkeypatch, tmp_path):
     class DummyRepo:
-        head = SimpleNamespace(is_detached=True, commit=SimpleNamespace(hexsha="abcdef123456"))
+        head = SimpleNamespace(
+            is_detached=True, commit=SimpleNamespace(hexsha="abcdef123456")
+        )
         active_branch = None
 
     monkeypatch.setattr(git_info, "Repo", lambda *args, **kwargs: DummyRepo())

@@ -72,7 +72,9 @@ def _brew_formula_name() -> Optional[str]:
     return "claude-code"
 
 
-def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.CompletedProcess[str]:
+def _run_command(
+    command: Sequence[str], *, timeout: int
+) -> subprocess.CompletedProcess[str]:
     env = os.environ.copy()
     npm_prefix = current_app.config.get("NPM_PREFIX_PATH")
     extra_paths = current_app.config.get("CLI_EXTRA_PATHS")
@@ -94,7 +96,9 @@ def _run_command(command: Sequence[str], *, timeout: int) -> subprocess.Complete
     )
 
 
-def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_cli(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     binary = _configured_cli_binary()
     if not binary:
         return None, None
@@ -132,7 +136,9 @@ def _fetch_installed_version_via_cli(*, timeout: int) -> tuple[Optional[str], Op
     return None, last_error
 
 
-def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_installed_version_via_npm(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     try:
         completed = _run_command(
             ["npm", "list", "-g", PACKAGE_NAME, "--json", "--depth=0"],
@@ -155,7 +161,10 @@ def _fetch_installed_version_via_npm(*, timeout: int) -> tuple[Optional[str], Op
     try:
         payload = json.loads(completed.stdout or "{}")
     except json.JSONDecodeError:
-        return None, "Received malformed response from npm while checking Claude CLI version."
+        return (
+            None,
+            "Received malformed response from npm while checking Claude CLI version.",
+        )
 
     dependencies = payload.get("dependencies") or {}
     package_info = dependencies.get(PACKAGE_NAME)
@@ -183,7 +192,9 @@ def _fetch_installed_version(*, timeout: int) -> tuple[Optional[str], Optional[s
     return None, cli_error or "Unable to determine installed Claude CLI version."
 
 
-def _fetch_latest_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_latest_version_via_npm(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     try:
         completed = _run_command(
             ["npm", "view", PACKAGE_NAME, "version"],
@@ -210,7 +221,9 @@ def _fetch_latest_version_via_npm(*, timeout: int) -> tuple[Optional[str], Optio
     return latest, None
 
 
-def _fetch_latest_version_via_brew(*, timeout: int) -> tuple[Optional[str], Optional[str]]:
+def _fetch_latest_version_via_brew(
+    *, timeout: int
+) -> tuple[Optional[str], Optional[str]]:
     formula = _brew_formula_name()
     if not formula:
         return None, None
@@ -222,7 +235,10 @@ def _fetch_latest_version_via_brew(*, timeout: int) -> tuple[Optional[str], Opti
     except FileNotFoundError:
         return None, "brew is not installed on this system."
     except subprocess.TimeoutExpired:
-        return None, "Timed out while checking the latest Claude CLI release via Homebrew."
+        return (
+            None,
+            "Timed out while checking the latest Claude CLI release via Homebrew.",
+        )
     except OSError as exc:
         return None, f"Failed to query Homebrew for Claude CLI release: {exc}"
 
@@ -236,7 +252,10 @@ def _fetch_latest_version_via_brew(*, timeout: int) -> tuple[Optional[str], Opti
     try:
         payload = json.loads(completed.stdout or "{}")
     except json.JSONDecodeError:
-        return None, "Received malformed response from brew while checking Claude CLI version."
+        return (
+            None,
+            "Received malformed response from brew while checking Claude CLI version.",
+        )
 
     entries = payload.get("formulae") or payload.get("casks") or []
     entry = entries[0] if entries else None
@@ -245,7 +264,11 @@ def _fetch_latest_version_via_brew(*, timeout: int) -> tuple[Optional[str], Opti
         versions = entry.get("versions") or {}
         version = versions.get("stable") or versions.get("version")
         if not version:
-            version = entry.get("version") or entry.get("bundle_short_version") or entry.get("bundle_version")
+            version = (
+                entry.get("version")
+                or entry.get("bundle_short_version")
+                or entry.get("bundle_version")
+            )
         if version and isinstance(version, str) and "," in version:
             version = version.split(",", 1)[0]
     if not version:
@@ -301,13 +324,17 @@ def install_latest_claude(*, timeout: int = 600) -> ClaudeUpdateResult:
     try:
         completed = _run_command(parts, timeout=timeout)
     except FileNotFoundError as exc:
-        raise ClaudeUpdateError(f"Unable to execute Claude update command: {exc}") from exc
+        raise ClaudeUpdateError(
+            f"Unable to execute Claude update command: {exc}"
+        ) from exc
     except subprocess.TimeoutExpired as exc:
         raise ClaudeUpdateError(
             f"Claude update command timed out after {timeout} seconds."
         ) from exc
     except OSError as exc:
-        raise ClaudeUpdateError(f"Failed to execute Claude update command: {exc}") from exc
+        raise ClaudeUpdateError(
+            f"Failed to execute Claude update command: {exc}"
+        ) from exc
 
     return ClaudeUpdateResult(
         command=" ".join(shlex.quote(component) for component in parts),

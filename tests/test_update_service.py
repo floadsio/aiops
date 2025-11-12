@@ -4,7 +4,7 @@ import pytest
 
 from app import create_app
 from app.config import Config
-from app.services.update_service import run_update_script, UpdateError
+from app.services.update_service import UpdateError, run_update_script
 
 
 class UpdateTestConfig(Config):

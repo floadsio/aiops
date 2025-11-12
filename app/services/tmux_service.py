@@ -30,7 +30,7 @@ class TmuxSyncResult:
     total_managed: int
 
 
-_SLUG_REPLACEMENTS = str.maketrans({c: "-" for c in " ./\\:"})
+_SLUG_REPLACEMENTS = str.maketrans({c: "-" for c in " ./\\:@"})
 
 
 def _slugify(value: str) -> str:

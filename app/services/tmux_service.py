@@ -287,9 +287,21 @@ class _SudoAwarePane:
 
     def send_keys(self, *args, **kwargs):
         """Send keys to this pane via sudo."""
-        # Send keys command: tmux send-keys -t <target> <keys>
+        # Handle the 'enter' parameter
+        enter = kwargs.pop("enter", False)
+
+        # Build the command
         target = f"{self.window.session.session_name}:{self.window.window_name}.{self.pane_index}"
-        result = self.window.session.server.cmd("send-keys", "-t", target, *args)
+        tmux_args = ["send-keys", "-t", target]
+
+        # Add the keys (args)
+        tmux_args.extend(args)
+
+        # Add Enter key if requested
+        if enter:
+            tmux_args.append("Enter")
+
+        result = self.window.session.server.cmd(*tmux_args)
         if result.returncode != 0:
             raise TmuxServiceError(
                 f"Unable to send keys to pane {self.pane_id}: {result.stderr}"

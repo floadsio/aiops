@@ -340,6 +340,18 @@ def _current_tmux_session_name() -> str:
     return session_name_for_user(user_obj)
 
 
+def _current_linux_username() -> str | None:
+    """Get the Linux username for the current user."""
+    from ..services.linux_users import resolve_linux_username
+
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    if user_obj is None:
+        return None
+    return resolve_linux_username(user_obj)
+
+
 @admin_bp.route("/")
 @admin_required
 def dashboard():
@@ -1252,6 +1264,7 @@ def resync_tmux_sessions():
         result = sync_project_windows(
             projects,
             session_name=_current_tmux_session_name(),
+            linux_username=_current_linux_username(),
         )
     except TmuxServiceError as exc:
         current_app.logger.exception("Failed to resync tmux sessions.")

@@ -154,6 +154,7 @@ def _resolve_tmux_window(
     tmux_target: Optional[str] = None,
     *,
     session_name: Optional[str] = None,
+    linux_username: Optional[str] = None,
 ):
     window_name = None
     if tmux_target:
@@ -168,6 +169,7 @@ def _resolve_tmux_window(
             project,
             window_name=window_name,
             session_name=session_name,
+            linux_username=linux_username,
         )
     except ValueError as exc:
         current_app.logger.warning(
@@ -177,7 +179,7 @@ def _resolve_tmux_window(
             exc,
         )
         session, window, created = ensure_project_window(
-            project, session_name=session_name
+            project, session_name=session_name, linux_username=linux_username
         )
     try:
         window.select_window()
@@ -269,10 +271,31 @@ def create_session(
             "tmux binary not found. Install tmux or disable tmux integration."
         )
 
+    # Prepare Git author information from user
+    # Also grab linux_username before fork since DB session won't be available after fork
+    user = User.query.get(user_id)
+    linux_username_for_session = None
+    tmux_socket_path = None
+    git_author_exports: list[str] = []
+    if user:
+        from .services.linux_users import resolve_linux_username, get_linux_user_info
+        linux_username_for_session = resolve_linux_username(user)
+        if linux_username_for_session:
+            user_info = get_linux_user_info(linux_username_for_session)
+            if user_info:
+                tmux_socket_path = f"/tmp/tmux-{user_info.uid}/default"
+        git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
+        git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(
+            f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
+        )
+
     session, window, created = _resolve_tmux_window(
         project,
         tmux_target,
         session_name=tmux_session_name,
+        linux_username=linux_username_for_session,
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")
@@ -286,22 +309,11 @@ def create_session(
             os.environ[key] = value
     ssh_command = git_env.get("GIT_SSH_COMMAND")
 
-    # Prepare Git author information from user
-    # Also grab linux_username before fork since DB session won't be available after fork
-    user = User.query.get(user_id)
-    linux_username_for_session = None
-    git_author_exports: list[str] = []
-    if user:
-        from .services.linux_users import resolve_linux_username
-        linux_username_for_session = resolve_linux_username(user)
-        git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
-        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
-        git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
-        git_author_exports.append(
-            f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
-        )
-
-    exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
+    # Build tmux attach command with socket path if needed
+    exec_args = [tmux_path]
+    if tmux_socket_path:
+        exec_args.extend(["-S", tmux_socket_path])
+    exec_args.extend(["attach-session", "-t", f"{session_name}:{window_name}"])
 
     session_id = uuid.uuid4().hex
 

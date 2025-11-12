@@ -140,6 +140,7 @@ def ensure_project_window(
     window_name: Optional[str] = None,
     session_name: Optional[str] = None,
     linux_username: Optional[str] = None,
+    user: Optional[object] = None,
 ):
     session = _ensure_session(
         session_name=session_name, linux_username=linux_username
@@ -153,9 +154,21 @@ def ensure_project_window(
         None,
     )
     if window is None:
-        start_directory = (
-            getattr(project, "local_path", None) or current_app.instance_path
-        )
+        # Use workspace path if user is provided, otherwise fall back to instance path
+        start_directory = current_app.instance_path
+        if user is not None:
+            from .workspace_service import get_workspace_path
+
+            workspace_path = get_workspace_path(project, user)
+            if workspace_path is not None:
+                start_directory = str(workspace_path)
+                # Create workspace directory if it doesn't exist
+                try:
+                    workspace_path.mkdir(parents=True, exist_ok=True)
+                except OSError:
+                    current_app.logger.warning(
+                        "Unable to create workspace directory %s", workspace_path
+                    )
         try:
             window = session.new_window(
                 window_name=window_name,
@@ -240,9 +253,13 @@ def get_or_create_window_for_project(
     *,
     session_name: Optional[str] = None,
     linux_username: Optional[str] = None,
+    user: Optional[object] = None,
 ) -> TmuxWindow:
     session, window, _ = ensure_project_window(
-        project, session_name=session_name, linux_username=linux_username
+        project,
+        session_name=session_name,
+        linux_username=linux_username,
+        user=user,
     )
     return _window_info(session, window)
 

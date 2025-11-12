@@ -9,11 +9,12 @@ live under `ansible/`.
 
 ## How Agents Should Work Here
 
-- **CRITICAL: Working Directory Context** — When running in a tmux session launched by aiops to modify
-  aiops itself, ALWAYS work on code in `/home/syseng/aiops/instance/repos/aiops` (the project
-  checkout managed by aiops). NEVER modify files in `/home/syseng/aiops` directly, as that is the
-  running aiops instance. The project folder is where you make changes, commit, and push. Check your
-  current directory with `pwd` if uncertain.
+- **CRITICAL: Working Directory Context** — aiops uses **per-user workspaces** for all development work.
+  When running in a tmux session, you'll be in your personal workspace at `/home/{username}/workspace/{project}/`
+  (e.g., `/home/ivo/workspace/aiops/`). This is where you edit code, commit, and push changes.
+  **NEVER modify files in `/home/syseng/aiops` directly**, as that is the running aiops Flask instance.
+  Each user has their own isolated workspace with their own git configuration and shell environment.
+  Check your current directory with `pwd` if uncertain.
 - Always load `AGENTS.override.md` (generated from the UI) for the current issue context before
   changing files.
 - Keep request/response handling inside `app/routes/` minimal; push integrations and orchestration
@@ -56,6 +57,16 @@ live under `ansible/`.
   5. Set `USE_LOGIN_SHELL=true` (default) to load user configs when spawning shells
   The child process will call `os.setuid()` and `os.setgid()` to switch to the target Linux user before
   executing tmux. Each shell gets its own `HOME`, `USER`, and `LOGNAME` environment variables.
+- **Per-User Workspaces** — Each user has their own workspace directory at `/home/{username}/workspace/{project}/`
+  where they clone and work on projects. Workspaces must be initialized before use:
+  ```bash
+  # Initialize workspace for a user and project
+  .venv/bin/flask init-workspace --user-email ivo@floads.io --project-id 1
+  ```
+  Once initialized, tmux sessions automatically start in the user's workspace, and all git operations
+  (pull, push, branch management) operate on the user's workspace. The dashboard shows status from
+  the logged-in user's workspace. This architecture eliminates permission conflicts and provides
+  clean isolation between users.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so

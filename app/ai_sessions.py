@@ -151,6 +151,7 @@ def _uses_claude(command_str: str, tool: str | None) -> bool:
 
 def _resolve_tmux_window(
     project,
+    user,
     tmux_target: Optional[str] = None,
     *,
     session_name: Optional[str] = None,
@@ -170,6 +171,7 @@ def _resolve_tmux_window(
             window_name=window_name,
             session_name=session_name,
             linux_username=linux_username,
+            user=user,
         )
     except ValueError as exc:
         current_app.logger.warning(
@@ -179,7 +181,10 @@ def _resolve_tmux_window(
             exc,
         )
         session, window, created = ensure_project_window(
-            project, session_name=session_name, linux_username=linux_username
+            project,
+            session_name=session_name,
+            linux_username=linux_username,
+            user=user,
         )
     try:
         window.select_window()
@@ -288,6 +293,7 @@ def create_session(
 
     session, window, created = _resolve_tmux_window(
         project,
+        user,
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
@@ -311,7 +317,14 @@ def create_session(
 
     pid, fd = pty.fork()
     if pid == 0:  # child process
-        start_dir = getattr(project, "local_path", None) or current_app.instance_path
+        # Use workspace path if available, otherwise fall back to instance path
+        start_dir = current_app.instance_path
+        if user is not None:
+            from .services.workspace_service import get_workspace_path
+
+            workspace_path = get_workspace_path(project, user)
+            if workspace_path is not None:
+                start_dir = str(workspace_path)
         try:
             os.chdir(start_dir)
         except FileNotFoundError:

@@ -23,9 +23,17 @@ fi
 if ! git remote get-url "${REMOTE}" >/dev/null 2>&1; then
   cat <<EOF >&2
 Remote "${REMOTE}" is not configured. Add it first, e.g.:
-  git remote add ${REMOTE} git@github.com:floadsio/aiops.git
+  git remote add ${REMOTE} https://github.com/floadsio/aiops.git
 EOF
   exit 1
+fi
+
+# Ensure remote uses HTTPS instead of SSH (no SSH keys required)
+current_url="$(git remote get-url "${REMOTE}")"
+if [[ "$current_url" =~ ^git@github\.com:(.+)$ ]]; then
+  https_url="https://github.com/${BASH_REMATCH[1]}"
+  echo "Converting ${REMOTE} from SSH to HTTPS: ${https_url}"
+  git remote set-url "${REMOTE}" "${https_url}"
 fi
 
 echo "Fetching updates from ${REMOTE} ..."

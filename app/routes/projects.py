@@ -89,6 +89,18 @@ def _current_tmux_session_name() -> str:
     return session_name_for_user(user_obj)
 
 
+def _current_linux_username() -> str | None:
+    """Get the Linux username for the current user."""
+    from ..services.linux_users import resolve_linux_username
+
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    if user_obj is None:
+        return None
+    return resolve_linux_username(user_obj)
+
+
 def _issue_sort_key(issue: ExternalIssue):
     reference = issue.external_updated_at or issue.updated_at or issue.created_at
     if reference is None:
@@ -549,10 +561,11 @@ def project_ai_console(project_id: int):
     tmux_error: str | None = None
     tenant = project.tenant
     tenant_name = tenant.name if tenant else ""
+    linux_username = _current_linux_username()
     try:
         # Ensure a window exists for this project so users can attach immediately
         project_window = get_or_create_window_for_project(
-            project, session_name=tmux_session_name
+            project, session_name=tmux_session_name, linux_username=linux_username
         )
         created_display = (
             project_window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
@@ -575,6 +588,7 @@ def project_ai_console(project_id: int):
             project_local_path=project.local_path,
             extra_aliases=(project.name, getattr(project, "slug", None)),
             session_name=tmux_session_name,
+            linux_username=linux_username,
         )
         for window in extra_windows:
             if window.target == project_window.target:
@@ -660,6 +674,7 @@ def prepare_issue_context(project_id: int, issue_id: int):
     command = codex_command
 
     tmux_session_name = _current_tmux_session_name()
+    linux_username = _current_linux_username()
 
     return jsonify(
         {
@@ -670,6 +685,7 @@ def prepare_issue_context(project_id: int, issue_id: int):
             "tmux_target": get_or_create_window_for_project(
                 project,
                 session_name=tmux_session_name,
+                linux_username=linux_username,
             ).target,
         }
     )
@@ -916,8 +932,9 @@ def close_tmux_window(project_id: int):
         redirect_target = request.form.get("next") or url_for("admin.dashboard")
         return redirect(redirect_target)
 
+    linux_username = _current_linux_username()
     try:
-        close_tmux_target(tmux_target)
+        close_tmux_target(tmux_target, linux_username=linux_username)
     except TmuxServiceError as exc:
         if request.is_json:
             return jsonify({"error": str(exc)}), 500

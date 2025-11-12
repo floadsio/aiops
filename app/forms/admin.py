@@ -288,6 +288,16 @@ class TmuxResyncForm(FlaskForm):
     submit = SubmitField("Resync tmux")
 
 
+class PermissionsCheckForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Check Permissions")
+
+
+class PermissionsFixForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Fix Permissions")
+
+
 class ProjectBranchForm(FlaskForm):
     project_id = HiddenField(validators=[DataRequired()])
     branch_name = StringField("Branch", validators=[Length(max=128)])

@@ -42,6 +42,8 @@ from ..forms.admin import (
     GeminiUpdateForm,
     LinuxUserMappingForm,
     MigrationRunForm,
+    PermissionsCheckForm,
+    PermissionsFixForm,
     ProjectBranchForm,
     ProjectDeleteForm,
     ProjectForm,
@@ -154,6 +156,11 @@ from ..services.key_service import (
 )
 from ..services.log_service import LogReadError, read_log_tail
 from ..services.migration_service import MigrationError, run_db_upgrade
+from ..services.permissions_service import (
+    PermissionsError,
+    check_permissions,
+    fix_permissions,
+)
 from ..services.tmux_metadata import get_tmux_tool, prune_tmux_tools
 from ..services.tmux_service import (
     TmuxServiceError,
@@ -968,6 +975,12 @@ def manage_settings():
     tmux_resync_form = TmuxResyncForm()
     tmux_resync_form.next.data = url_for("admin.manage_settings")
 
+    permissions_check_form = PermissionsCheckForm()
+    permissions_check_form.next.data = url_for("admin.manage_settings")
+
+    permissions_fix_form = PermissionsFixForm()
+    permissions_fix_form.next.data = url_for("admin.manage_settings")
+
     try:
         codex_status = get_codex_status()
     except Exception as exc:  # pragma: no cover - defensive logging
@@ -1078,6 +1091,8 @@ def manage_settings():
         update_form=update_form,
         migration_form=migration_form,
         tmux_resync_form=tmux_resync_form,
+        permissions_check_form=permissions_check_form,
+        permissions_fix_form=permissions_fix_form,
         create_user_form=create_user_form,
         users=users,
         user_toggle_forms=user_toggle_forms,
@@ -1275,6 +1290,100 @@ def resync_tmux_sessions():
             f"created {result.created}, removed {result.removed}.",
             "success",
         )
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/permissions/check", methods=["POST"])
+@admin_required
+def check_instance_permissions():
+    form = PermissionsCheckForm()
+    if not form.validate_on_submit():
+        flash("Invalid permissions check request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        instance_path = Path(current_app.config["INSTANCE_PATH"])
+        result = check_permissions(instance_path)
+
+        if result.errors:
+            error_msg = Markup(
+                "<strong>Permission check completed with errors:</strong><br>"
+                + "<br>".join(escape(e) for e in result.errors)
+            )
+            flash(error_msg, "warning")
+        elif result.issues_found > 0:
+            issues_details = "<br>".join(
+                f"• {escape(str(issue.path))}: {escape(issue.description)}"
+                for issue in result.issues[:10]
+            )
+            if len(result.issues) > 10:
+                issues_details += f"<br>... and {len(result.issues) - 10} more"
+
+            flash(
+                Markup(
+                    f"<strong>Found {result.issues_found} permission issue(s) "
+                    f"across {result.checked} path(s).</strong><br>"
+                    f"{issues_details}<br><br>"
+                    f"Click 'Fix Permissions' to resolve these issues."
+                ),
+                "warning",
+            )
+        else:
+            flash(
+                f"All permissions look good! Checked {result.checked} path(s).",
+                "success",
+            )
+    except PermissionsError as exc:
+        current_app.logger.exception("Failed to check permissions.")
+        flash(str(exc), "danger")
+    except Exception as exc:
+        current_app.logger.exception("Unexpected error checking permissions.")
+        flash(f"Unexpected error: {exc}", "danger")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/permissions/fix", methods=["POST"])
+@admin_required
+def fix_instance_permissions():
+    form = PermissionsFixForm()
+    if not form.validate_on_submit():
+        flash("Invalid permissions fix request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        instance_path = Path(current_app.config["INSTANCE_PATH"])
+        result = fix_permissions(instance_path)
+
+        if result.errors:
+            error_msg = Markup(
+                f"<strong>Fixed {result.issues_fixed} of {result.issues_found} issue(s), "
+                f"but encountered {len(result.errors)} error(s):</strong><br>"
+                + "<br>".join(escape(e) for e in result.errors[:5])
+            )
+            if len(result.errors) > 5:
+                error_msg += Markup(f"<br>... and {len(result.errors) - 5} more errors")
+            flash(error_msg, "warning")
+        elif result.issues_fixed > 0:
+            flash(
+                f"Successfully fixed {result.issues_fixed} permission issue(s) "
+                f"across {result.checked} path(s).",
+                "success",
+            )
+        else:
+            flash(
+                f"No permission issues found. Checked {result.checked} path(s).",
+                "success",
+            )
+    except PermissionsError as exc:
+        current_app.logger.exception("Failed to fix permissions.")
+        flash(str(exc), "danger")
+    except Exception as exc:
+        current_app.logger.exception("Unexpected error fixing permissions.")
+        flash(f"Unexpected error: {exc}", "danger")
 
     redirect_target = form.next.data or url_for("admin.manage_settings")
     return redirect(redirect_target)

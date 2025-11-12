@@ -209,7 +209,7 @@ class _SudoAwareWindow:
         self.window_name = window_name
         self.window_created = window_created
         self.session = session
-        self.panes = []
+        self._panes = None
 
     def get(self, key: str, default=None):
         """Get window metadata."""
@@ -220,6 +220,38 @@ class _SudoAwareWindow:
         if key == "window_created":
             return self.window_created
         return default
+
+    @property
+    def panes(self):
+        """List panes in this window via sudo."""
+        if self._panes is None:
+            result = self.session.server._run_tmux_cmd(
+                "list-panes",
+                f"-t{self.session.session_name}:{self.window_name}",
+                "-F#{pane_id}\t#{pane_index}",
+            )
+            self._panes = []
+            for line in result.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("\t", 1)
+                if len(parts) >= 1:
+                    pane_id = parts[0]
+                    pane_index = parts[1] if len(parts) > 1 else "0"
+                    pane = _SudoAwarePane(
+                        pane_id=pane_id,
+                        pane_index=pane_index,
+                        window=self,
+                    )
+                    self._panes.append(pane)
+        return self._panes
+
+    @property
+    def attached_pane(self):
+        """Get the attached pane (first pane for now)."""
+        panes = self.panes
+        return panes[0] if panes else None
 
     def select_window(self):
         """Select this window."""
@@ -235,6 +267,34 @@ class _SudoAwareWindow:
     def split_window(self, *args, **kwargs):
         """Split window (stub for compatibility)."""
         pass
+
+
+class _SudoAwarePane:
+    """A pane proxy that routes all operations through a sudo-aware window."""
+
+    def __init__(self, pane_id: str, pane_index: str, window):
+        self.pane_id = pane_id
+        self.pane_index = pane_index
+        self.window = window
+
+    def get(self, key: str, default=None):
+        """Get pane metadata."""
+        if key == "pane_id":
+            return self.pane_id
+        if key == "pane_index":
+            return self.pane_index
+        return default
+
+    def send_keys(self, *args, **kwargs):
+        """Send keys to this pane via sudo."""
+        # Send keys command: tmux send-keys -t <target> <keys>
+        target = f"{self.window.session.session_name}:{self.window.window_name}.{self.pane_index}"
+        result = self.window.session.server.cmd("send-keys", "-t", target, *args)
+        if result.returncode != 0:
+            raise TmuxServiceError(
+                f"Unable to send keys to pane {self.pane_id}: {result.stderr}"
+            )
+        return result
 
 
 class _SudoAwareServer:

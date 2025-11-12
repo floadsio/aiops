@@ -9,6 +9,7 @@ This replaces the shared managed checkout model.
 from __future__ import annotations
 
 import logging
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -29,6 +30,27 @@ def _project_slug(project) -> str:
         slug = slug.replace("--", "-")
     slug = slug.strip("-")
     return slug or f"project-{project.id}"
+
+
+def _check_path_via_sudo(linux_username: str, path: str) -> bool:
+    """Check if a path exists using sudo to run as the target user.
+
+    Args:
+        linux_username: Linux username to run as
+        path: Path to check
+
+    Returns:
+        True if the path exists, False otherwise
+    """
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "-u", linux_username, "test", "-e", path],
+            capture_output=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return False
 
 
 def get_workspace_path(project, user) -> Optional[Path]:
@@ -67,7 +89,18 @@ def workspace_exists(project, user) -> bool:
     if not workspace_path:
         return False
 
-    return workspace_path.exists() and (workspace_path / ".git").exists()
+    try:
+        return workspace_path.exists() and (workspace_path / ".git").exists()
+    except PermissionError:
+        # Fall back to sudo check
+        linux_username = resolve_linux_username(user)
+        if not linux_username:
+            return False
+        exists = _check_path_via_sudo(linux_username, str(workspace_path))
+        has_git = exists and _check_path_via_sudo(
+            linux_username, str(workspace_path / ".git")
+        )
+        return exists and has_git
 
 
 def initialize_workspace(project, user) -> Path:
@@ -160,14 +193,36 @@ def get_workspace_status(project, user) -> dict[str, any]:
             "error": "Cannot determine workspace path (Linux user not found)",
         }
 
-    exists = workspace_path.exists()
-    has_git = exists and (workspace_path / ".git").exists()
+    # Try to check workspace existence directly, fall back to sudo if permission denied
+    exists = False
+    has_git = False
+    error = None
+
+    try:
+        exists = workspace_path.exists()
+        has_git = exists and (workspace_path / ".git").exists()
+    except PermissionError:
+        # Flask app doesn't have permission to access the workspace directory
+        # Use sudo to check as the target user
+        linux_username = resolve_linux_username(user)
+        if linux_username:
+            log.debug(
+                "Using sudo to check workspace for %s at %s",
+                linux_username,
+                workspace_path,
+            )
+            exists = _check_path_via_sudo(linux_username, str(workspace_path))
+            has_git = exists and _check_path_via_sudo(
+                linux_username, str(workspace_path / ".git")
+            )
+        else:
+            error = f"Cannot check workspace: no Linux username for user {getattr(user, 'email', 'unknown')}"
 
     return {
         "exists": exists,
         "path": str(workspace_path),
         "has_git": has_git,
-        "error": None,
+        "error": error,
     }
 
 

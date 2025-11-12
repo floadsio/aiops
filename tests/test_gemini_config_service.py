@@ -11,12 +11,12 @@ from app.services.gemini_config_service import (
     GeminiConfigError,
     ensure_user_config,
     get_config_dir,
-    save_google_accounts,
-    save_oauth_creds,
-    save_settings_json,
     load_google_accounts,
     load_oauth_creds,
     load_settings_json,
+    save_google_accounts,
+    save_oauth_creds,
+    save_settings_json,
     sync_credentials_to_cli_home,
 )
 
@@ -70,7 +70,9 @@ def test_load_uses_shared_fallback(app):
     with app.app_context():
         legacy_dir = Path(app.config["GEMINI_CONFIG_DIR"]) / "user-99"
         legacy_dir.mkdir(parents=True, exist_ok=True)
-        (legacy_dir / "oauth_creds.json").write_text(json.dumps(shared_payload), encoding="utf-8")
+        (legacy_dir / "oauth_creds.json").write_text(
+            json.dumps(shared_payload), encoding="utf-8"
+        )
         assert json.loads(load_oauth_creds(user_id=99)) == shared_payload
 
 
@@ -121,11 +123,23 @@ def test_sync_credentials_to_cli_home(app):
     with app.app_context():
         save_google_accounts(json.dumps({"accounts": [{"name": "demo"}]}), user_id=9)
         save_oauth_creds(json.dumps({"token": "abc"}), user_id=9)
-        save_settings_json(json.dumps({"security": {"auth": {"selectedType": "sso"}}}), user_id=9)
+        save_settings_json(
+            json.dumps({"security": {"auth": {"selectedType": "sso"}}}), user_id=9
+        )
         cli_home = sync_credentials_to_cli_home(9)
-        assert json.loads((cli_home / "google_accounts.json").read_text())["accounts"][0]["name"] == "demo"
+        assert (
+            json.loads((cli_home / "google_accounts.json").read_text())["accounts"][0][
+                "name"
+            ]
+            == "demo"
+        )
         assert json.loads((cli_home / "oauth_creds.json").read_text())["token"] == "abc"
-        assert json.loads((cli_home / "settings.json").read_text())["security"]["auth"]["selectedType"] == "sso"
+        assert (
+            json.loads((cli_home / "settings.json").read_text())["security"]["auth"][
+                "selectedType"
+            ]
+            == "sso"
+        )
 
 
 def test_sync_credentials_removes_stale_files(app):

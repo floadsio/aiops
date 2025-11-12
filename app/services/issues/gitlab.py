@@ -13,11 +13,17 @@ def _build_client(integration: TenantIntegration, base_url: str | None = None):
         from gitlab import Gitlab
         from gitlab import exceptions as gitlab_exc
     except ImportError as exc:  # pragma: no cover - dependency missing
-        raise IssueSyncError("python-gitlab is required for GitLab integrations.") from exc
+        raise IssueSyncError(
+            "python-gitlab is required for GitLab integrations."
+        ) from exc
 
     endpoint = ensure_base_url(integration, base_url or "https://gitlab.com")
     try:
-        client = Gitlab(endpoint, private_token=integration.api_token, timeout=get_timeout(integration))
+        client = Gitlab(
+            endpoint,
+            private_token=integration.api_token,
+            timeout=get_timeout(integration),
+        )
         return client
     except gitlab_exc.GitlabError as exc:  # pragma: no cover - configuration failure
         raise IssueSyncError(f"Unable to configure GitLab client: {exc}") from exc
@@ -30,7 +36,9 @@ def fetch_issues(
 ) -> List[IssuePayload]:
     project_ref = project_integration.external_identifier
     if not project_ref:
-        raise IssueSyncError("GitLab project integration requires an external project path.")
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
 
     client = _build_client(integration)
     try:
@@ -83,7 +91,9 @@ def create_issue(
 ) -> IssuePayload:
     project_ref = project_integration.external_identifier
     if not project_ref:
-        raise IssueSyncError("GitLab project integration requires an external project path.")
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
 
     summary = (request.summary or "").strip()
     if not summary:
@@ -129,7 +139,9 @@ def close_issue(
 ) -> IssuePayload:
     project_ref = project_integration.external_identifier
     if not project_ref:
-        raise IssueSyncError("GitLab project integration requires an external project path.")
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
 
     identifier = str(external_id).strip()
     try:

@@ -43,7 +43,9 @@ def _stored_payload(user_id: int) -> str:
         try:
             return storage_path.read_text(encoding="utf-8")
         except OSError as exc:  # pragma: no cover - filesystem error path
-            raise CodexConfigError(f"Failed to read Codex auth for user {user_id}: {exc}") from exc
+            raise CodexConfigError(
+                f"Failed to read Codex auth for user {user_id}: {exc}"
+            ) from exc
 
     legacy_path = _cli_auth_path()
     if legacy_path.exists():
@@ -71,7 +73,9 @@ def save_codex_auth(raw_json: str, *, user_id: Optional[int] = None) -> None:
         storage_path.write_text(formatted + "\n", encoding="utf-8")
         _safe_chmod(storage_path, 0o600)
     except OSError as exc:  # pragma: no cover - filesystem error path
-        raise CodexConfigError(f"Failed to write Codex auth for user {user_id}: {exc}") from exc
+        raise CodexConfigError(
+            f"Failed to write Codex auth for user {user_id}: {exc}"
+        ) from exc
     ensure_codex_auth(user_id)
 
 

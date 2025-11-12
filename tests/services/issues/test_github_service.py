@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import sys
 import types
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import List
 
@@ -28,7 +28,16 @@ if "github" not in sys.modules:
 
 
 class FakeGithubIssue:
-    def __init__(self, number: int, title: str, state: str, html_url: str, labels=None, updated_at=None, assignee=None):
+    def __init__(
+        self,
+        number: int,
+        title: str,
+        state: str,
+        html_url: str,
+        labels=None,
+        updated_at=None,
+        assignee=None,
+    ):
         self.number = number
         self.title = title
         self.state = state
@@ -82,7 +91,10 @@ def _install_fake_client(monkeypatch, repo: FakeRepo):
             return self.repository
 
     fake_client = FakeClient(repo)
-    monkeypatch.setattr("app.services.issues.github._build_client", lambda integration, base_url=None: fake_client)
+    monkeypatch.setattr(
+        "app.services.issues.github._build_client",
+        lambda integration, base_url=None: fake_client,
+    )
 
 
 def test_fetch_issues(monkeypatch):
@@ -117,10 +129,16 @@ def test_create_issue(monkeypatch):
     integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
     project_integration = SimpleNamespace(external_identifier="org/repo", config={})
 
-    request = IssueCreateRequest(summary="Add feature", description="Details", labels=["enhancement"])
+    request = IssueCreateRequest(
+        summary="Add feature", description="Details", labels=["enhancement"]
+    )
     payload = github_service.create_issue(integration, project_integration, request)
 
-    assert repo.created_payload == {"title": "Add feature", "body": "Details", "labels": ["enhancement"]}
+    assert repo.created_payload == {
+        "title": "Add feature",
+        "body": "Details",
+        "labels": ["enhancement"],
+    }
     assert payload.external_id == "200"
     assert payload.title == "Add feature"
 

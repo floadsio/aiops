@@ -7,8 +7,14 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
+from ..ai_sessions import (
+    close_session,
+    create_session,
+    get_session,
+    resize_session,
+    write_to_session,
+)
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
-from ..ai_sessions import close_session, create_session, get_session, resize_session, write_to_session
 from ..extensions import csrf, db
 from ..models import Project, Tenant, User
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
@@ -33,7 +39,9 @@ def _tenant_to_dict(tenant: Tenant) -> dict[str, Any]:
     }
 
 
-def _project_to_dict(project: Project, *, include_status: bool = False) -> dict[str, Any]:
+def _project_to_dict(
+    project: Project, *, include_status: bool = False
+) -> dict[str, Any]:
     payload = {
         "id": project.id,
         "name": project.name,
@@ -43,7 +51,9 @@ def _project_to_dict(project: Project, *, include_status: bool = False) -> dict[
         "local_path": project.local_path,
         "tenant_id": project.tenant_id,
         "owner_id": project.owner_id,
-        "tenant_color": (project.tenant.color if project.tenant else DEFAULT_TENANT_COLOR),
+        "tenant_color": (
+            project.tenant.color if project.tenant else DEFAULT_TENANT_COLOR
+        ),
     }
     if include_status:
         payload["git_status"] = get_repo_status(project)
@@ -227,7 +237,9 @@ def start_project_ai_session(project_id: int):
         except (TypeError, ValueError):
             return jsonify({"error": "Unable to resolve current user."}), 400
 
-    session_user = _resolve_project_owner(user_id) or getattr(current_user, "model", None)
+    session_user = _resolve_project_owner(user_id) or getattr(
+        current_user, "model", None
+    )
     tmux_session_name = session_name_for_user(session_user)
 
     try:

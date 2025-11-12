@@ -61,7 +61,9 @@ def test_create_issue_command(tmp_path, monkeypatch):
     app = _init_app(tmp_path)
     with app.app_context():
         db.create_all()
-        user, tenant, project, integration, project_integration = _seed_project(tmp_path)
+        user, tenant, project, integration, project_integration = _seed_project(
+            tmp_path
+        )
         db.session.add_all([user, tenant, project, integration, project_integration])
         db.session.commit()
         project_integration_id = project_integration.id
@@ -82,7 +84,9 @@ def test_create_issue_command(tmp_path, monkeypatch):
             raw={"key": "DEVOPS-200"},
         )
 
-    monkeypatch.setattr("app.cli.create_issue_for_project_integration", fake_create_issue)
+    monkeypatch.setattr(
+        "app.cli.create_issue_for_project_integration", fake_create_issue
+    )
 
     runner = app.test_cli_runner()
     result = runner.invoke(

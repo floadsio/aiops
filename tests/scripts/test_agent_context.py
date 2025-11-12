@@ -25,7 +25,12 @@ def test_write_creates_override_with_base_content(tmp_path, monkeypatch):
     override_path = tmp_path / "AGENTS.override.md"
     monkeypatch.chdir(tmp_path)
 
-    entry = build_entry("Issue details here", issue="AIOPS-123", title="Check overrides", add_timestamp=False)
+    entry = build_entry(
+        "Issue details here",
+        issue="AIOPS-123",
+        title="Check overrides",
+        add_timestamp=False,
+    )
     write_content(override_path, entry, mode="write")
 
     contents = override_path.read_text().strip().split("\n\n---\n\n")
@@ -40,10 +45,14 @@ def test_append_keeps_single_base_section(tmp_path, monkeypatch):
     override_path = tmp_path / "AGENTS.override.md"
     monkeypatch.chdir(tmp_path)
 
-    first = build_entry("Initial context", issue="ISSUE-1", title=None, add_timestamp=False)
+    first = build_entry(
+        "Initial context", issue="ISSUE-1", title=None, add_timestamp=False
+    )
     write_content(override_path, first, mode="write")
 
-    second = build_entry("Follow-up context", issue="ISSUE-2", title=None, add_timestamp=False)
+    second = build_entry(
+        "Follow-up context", issue="ISSUE-2", title=None, add_timestamp=False
+    )
     write_content(override_path, second, mode="append")
 
     contents = override_path.read_text().strip().split("\n\n---\n\n")

@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import shlex
+from datetime import datetime, timezone
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, Iterable
 
 from ..models import ExternalIssue, Project, User
 from .issues.utils import format_issue_datetime, summarize_issue
-
 
 BASE_CONTEXT_FILENAME = "AGENTS.md"
 DEFAULT_CONTEXT_FILENAME = "AGENTS.override.md"
@@ -178,14 +177,20 @@ def _render_atlassian_document(node: Any) -> str:
     return "\n".join(cleaned_lines).strip()
 
 
-def _normalize_text_value(value: Any, *, allow_atlassian_document: bool = False) -> str | None:
+def _normalize_text_value(
+    value: Any, *, allow_atlassian_document: bool = False
+) -> str | None:
     """Coerce provider payload fields into Markdown text."""
     if value is None:
         return None
     if isinstance(value, str):
         text = value.strip("\n")
         return text.strip() or None
-    if allow_atlassian_document and isinstance(value, dict) and value.get("type") == "doc":
+    if (
+        allow_atlassian_document
+        and isinstance(value, dict)
+        and value.get("type") == "doc"
+    ):
         rendered = _render_atlassian_document(value)
         return rendered or None
     if isinstance(value, dict):
@@ -210,7 +215,9 @@ def _normalize_text_value(value: Any, *, allow_atlassian_document: bool = False)
         return None
     if isinstance(value, list):
         parts = [
-            _normalize_text_value(item, allow_atlassian_document=allow_atlassian_document)
+            _normalize_text_value(
+                item, allow_atlassian_document=allow_atlassian_document
+            )
             for item in value
         ]
         joined = "\n".join(part for part in parts if part)
@@ -221,7 +228,9 @@ def _normalize_text_value(value: Any, *, allow_atlassian_document: bool = False)
     return None
 
 
-def _search_nested_text(source: Any, *, keywords: tuple[str, ...] = ("description", "body")) -> str | None:
+def _search_nested_text(
+    source: Any, *, keywords: tuple[str, ...] = ("description", "body")
+) -> str | None:
     """Search nested payload structures for text fields that match known keywords."""
     if isinstance(source, dict):
         for key, value in source.items():
@@ -243,7 +252,9 @@ def _search_nested_text(source: Any, *, keywords: tuple[str, ...] = ("descriptio
     return None
 
 
-def _extract_issue_description(issue: ExternalIssue, provider: str | None) -> str | None:
+def _extract_issue_description(
+    issue: ExternalIssue, provider: str | None
+) -> str | None:
     """Pull a human-readable issue description from stored payload metadata."""
     payload = issue.raw_payload or {}
     if not payload:
@@ -255,11 +266,19 @@ def _extract_issue_description(issue: ExternalIssue, provider: str | None) -> st
     if provider_key == "gitlab":
         return _normalize_text_value(payload.get("description"))
     if provider_key == "jira":
-        fields = payload.get("fields") if isinstance(payload.get("fields"), dict) else {}
-        description = _normalize_text_value(fields.get("description"), allow_atlassian_document=True)
+        fields = (
+            payload.get("fields") if isinstance(payload.get("fields"), dict) else {}
+        )
+        description = _normalize_text_value(
+            fields.get("description"), allow_atlassian_document=True
+        )
         if description:
             return description
-        rendered_fields = payload.get("renderedFields") if isinstance(payload.get("renderedFields"), dict) else {}
+        rendered_fields = (
+            payload.get("renderedFields")
+            if isinstance(payload.get("renderedFields"), dict)
+            else {}
+        )
         rendered_description = _normalize_text_value(rendered_fields.get("description"))
         if rendered_description:
             return rendered_description
@@ -288,14 +307,15 @@ def render_issue_context(
         else None
     )
     provider = integration.provider if integration else "unknown"
-    other_issues = [
-        issue for issue in all_issues if issue.id != primary_issue.id
-    ]
+    other_issues = [issue for issue in all_issues if issue.id != primary_issue.id]
     issue_description = _extract_issue_description(primary_issue, provider)
 
-    other_issues_section = "\n".join(
-        f"- {summarize_issue(issue, include_url=True)}" for issue in other_issues
-    ) or "None listed."
+    other_issues_section = (
+        "\n".join(
+            f"- {summarize_issue(issue, include_url=True)}" for issue in other_issues
+        )
+        or "None listed."
+    )
 
     labels = ", ".join(primary_issue.labels) if primary_issue.labels else "none"
     assignee = primary_issue.assignee or "unassigned"
@@ -492,7 +512,7 @@ def _render_git_identity_section(identity_user: User | None) -> str:
         ## Git Identity
         Use this identity for commits created while working on this issue.
 
-        {'\n'.join(details)}
+        {"\n".join(details)}
 
         {command_block}
         """
@@ -516,7 +536,9 @@ def _remove_existing_issue_context(source: str) -> str:
 
     # Remove trailing section title if it directly precedes the marker block.
     title_index = prefix.rfind(ISSUE_CONTEXT_SECTION_TITLE)
-    if title_index != -1 and prefix[title_index:].strip().startswith(ISSUE_CONTEXT_SECTION_TITLE):
+    if title_index != -1 and prefix[title_index:].strip().startswith(
+        ISSUE_CONTEXT_SECTION_TITLE
+    ):
         prefix = prefix[:title_index]
 
     cleaned_prefix = prefix.rstrip()
@@ -545,7 +567,7 @@ def _strip_base_instructions(source: str, base_content: str) -> str:
         return stripped_source
 
     if stripped_source.startswith(normalized_base):
-        remainder = stripped_source[len(normalized_base):].lstrip()
+        remainder = stripped_source[len(normalized_base) :].lstrip()
         if remainder.startswith("---"):
             remainder = remainder[3:].lstrip("- \n")
         return remainder.lstrip()

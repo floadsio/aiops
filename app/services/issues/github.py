@@ -28,7 +28,9 @@ def fetch_issues(
 ) -> List[IssuePayload]:
     repo_path = project_integration.external_identifier
     if not repo_path:
-        raise IssueSyncError("GitHub project integration requires an owner/repo identifier.")
+        raise IssueSyncError(
+            "GitHub project integration requires an owner/repo identifier."
+        )
 
     client = _build_client(integration)
     try:
@@ -38,7 +40,9 @@ def fetch_issues(
         since_value = None
         if since:
             since_value = since if since.tzinfo else since.replace(tzinfo=timezone.utc)
-        issues = repo.get_issues(state="all", sort="updated", direction="desc", since=since_value)
+        issues = repo.get_issues(
+            state="all", sort="updated", direction="desc", since=since_value
+        )
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
         raise IssueSyncError(f"GitHub API error: {status}") from exc
@@ -60,7 +64,9 @@ def create_issue(
 ) -> IssuePayload:
     repo_path = project_integration.external_identifier
     if not repo_path:
-        raise IssueSyncError("GitHub project integration requires an owner/repo identifier.")
+        raise IssueSyncError(
+            "GitHub project integration requires an owner/repo identifier."
+        )
 
     summary = (request.summary or "").strip()
     if not summary:
@@ -93,7 +99,9 @@ def close_issue(
 ) -> IssuePayload:
     repo_path = project_integration.external_identifier
     if not repo_path:
-        raise IssueSyncError("GitHub project integration requires an owner/repo identifier.")
+        raise IssueSyncError(
+            "GitHub project integration requires an owner/repo identifier."
+        )
 
     try:
         issue_number = int(str(external_id).strip().lstrip("#"))
@@ -125,7 +133,9 @@ def assign_issue(
 ) -> IssuePayload:
     repo_path = project_integration.external_identifier
     if not repo_path:
-        raise IssueSyncError("GitHub project integration requires an owner/repo identifier.")
+        raise IssueSyncError(
+            "GitHub project integration requires an owner/repo identifier."
+        )
 
     try:
         issue_number = int(str(external_id).strip().lstrip("#"))

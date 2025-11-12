@@ -38,12 +38,22 @@ class IssueUpdateError(Exception):
     """Raised when an issue update request cannot be applied."""
 
 
-ProviderFunc = Callable[[TenantIntegration, ProjectIntegration, Optional[datetime]], List[IssuePayload]]
-CreateProviderFunc = Callable[[TenantIntegration, ProjectIntegration, IssueCreateRequest], IssuePayload]
+ProviderFunc = Callable[
+    [TenantIntegration, ProjectIntegration, Optional[datetime]], List[IssuePayload]
+]
+CreateProviderFunc = Callable[
+    [TenantIntegration, ProjectIntegration, IssueCreateRequest], IssuePayload
+]
 CloseProviderFunc = Callable[[TenantIntegration, ProjectIntegration, str], IssuePayload]
-AssignProviderFunc = Callable[[TenantIntegration, ProjectIntegration, str, List[str]], IssuePayload]
+AssignProviderFunc = Callable[
+    [TenantIntegration, ProjectIntegration, str, List[str]], IssuePayload
+]
 
-from . import github, gitlab, jira  # noqa: E402  (import depends on IssuePayload declaration)
+from . import (  # noqa: E402  (import depends on IssuePayload declaration)
+    github,
+    gitlab,
+    jira,
+)
 from .utils import ProviderTestError, test_provider_credentials  # noqa: E402
 
 PROVIDER_REGISTRY: Dict[str, ProviderFunc] = {
@@ -100,7 +110,9 @@ def sync_project_integration(
 ) -> List[ExternalIssue]:
     integration = project_integration.integration
     if integration is None:
-        raise IssueSyncError("Project integration is missing associated tenant integration.")
+        raise IssueSyncError(
+            "Project integration is missing associated tenant integration."
+        )
 
     provider_key = integration.provider.lower()
     fetcher = PROVIDER_REGISTRY.get(provider_key)
@@ -163,12 +175,16 @@ def close_issue_for_project_integration(
 ) -> IssuePayload:
     integration = project_integration.integration
     if integration is None:
-        raise IssueSyncError("Project integration is missing associated tenant integration.")
+        raise IssueSyncError(
+            "Project integration is missing associated tenant integration."
+        )
 
     provider_key = integration.provider.lower()
     closer = CLOSE_PROVIDER_REGISTRY.get(provider_key)
     if closer is None:
-        raise IssueSyncError(f"Issue closing is not supported for provider '{integration.provider}'.")
+        raise IssueSyncError(
+            f"Issue closing is not supported for provider '{integration.provider}'."
+        )
 
     try:
         return closer(integration, project_integration, external_id)
@@ -206,19 +222,27 @@ def assign_issue_for_project_integration(
 ) -> IssuePayload:
     integration = project_integration.integration
     if integration is None:
-        raise IssueSyncError("Project integration is missing associated tenant integration.")
+        raise IssueSyncError(
+            "Project integration is missing associated tenant integration."
+        )
 
     provider_key = integration.provider.lower()
     assigner = ASSIGN_PROVIDER_REGISTRY.get(provider_key)
     if assigner is None:
-        raise IssueSyncError(f"Issue assignment is not supported for provider '{integration.provider}'.")
+        raise IssueSyncError(
+            f"Issue assignment is not supported for provider '{integration.provider}'."
+        )
 
-    cleaned_assignees = [assignee.strip() for assignee in assignees if assignee and assignee.strip()]
+    cleaned_assignees = [
+        assignee.strip() for assignee in assignees if assignee and assignee.strip()
+    ]
     if not cleaned_assignees:
         raise IssueSyncError("At least one assignee is required.")
 
     try:
-        return assigner(integration, project_integration, external_id, cleaned_assignees)
+        return assigner(
+            integration, project_integration, external_id, cleaned_assignees
+        )
     except IssueSyncError:
         raise
     except Exception as exc:  # noqa: BLE001
@@ -238,7 +262,9 @@ def test_integration_connection(
     username: Optional[str] = None,
 ) -> str:
     try:
-        return test_provider_credentials(provider, api_token, base_url, username=username)
+        return test_provider_credentials(
+            provider, api_token, base_url, username=username
+        )
     except ProviderTestError as exc:
         raise IssueSyncError(str(exc)) from exc
 
@@ -256,12 +282,16 @@ def create_issue_for_project_integration(
 ) -> IssuePayload:
     integration = project_integration.integration
     if integration is None:
-        raise IssueSyncError("Project integration is missing associated tenant integration.")
+        raise IssueSyncError(
+            "Project integration is missing associated tenant integration."
+        )
 
     provider_key = integration.provider.lower()
     creator = CREATE_PROVIDER_REGISTRY.get(provider_key)
     if creator is None:
-        raise IssueSyncError(f"Issue creation is not supported for provider '{integration.provider}'.")
+        raise IssueSyncError(
+            f"Issue creation is not supported for provider '{integration.provider}'."
+        )
 
     request = IssueCreateRequest(
         summary=summary,

@@ -9,11 +9,10 @@ inheriting the repository defaults stored in ``AGENTS.md``.
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
-import sys
 from typing import Optional
-
 
 DEFAULT_FILENAME = "AGENTS.override.md"
 BASE_FILENAME = "AGENTS.md"
@@ -36,7 +35,8 @@ def parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     write_parser = subparsers.add_parser(
-        "write", help="Replace the context file with new content read from stdin or a file."
+        "write",
+        help="Replace the context file with new content read from stdin or a file.",
     )
     add_content_arguments(write_parser)
 
@@ -77,7 +77,12 @@ def main() -> None:
 
     if args.command in {"write", "append"}:
         content = load_content(args)
-        entry = build_entry(content, issue=args.issue, title=args.title, add_timestamp=not args.no_timestamp)
+        entry = build_entry(
+            content,
+            issue=args.issue,
+            title=args.title,
+            add_timestamp=not args.no_timestamp,
+        )
         write_content(args.path, entry, mode=args.command)
         return
 
@@ -99,7 +104,10 @@ def load_content(args: argparse.Namespace) -> str:
         return args.source.read_text()
 
     if sys.stdin.isatty():
-        print("Reading context from stdin. Press Ctrl-D (Unix) or Ctrl-Z (Windows) to finish.", file=sys.stderr)
+        print(
+            "Reading context from stdin. Press Ctrl-D (Unix) or Ctrl-Z (Windows) to finish.",
+            file=sys.stderr,
+        )
 
     data = sys.stdin.read()
     if not data.strip():
@@ -107,7 +115,9 @@ def load_content(args: argparse.Namespace) -> str:
     return data
 
 
-def build_entry(content: str, issue: Optional[str], title: Optional[str], add_timestamp: bool) -> str:
+def build_entry(
+    content: str, issue: Optional[str], title: Optional[str], add_timestamp: bool
+) -> str:
     blocks = []
     heading_parts = []
     if issue:

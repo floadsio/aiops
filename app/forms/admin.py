@@ -13,9 +13,10 @@ from wtforms import (
     TextAreaField,
     URLField,
 )
-from wtforms.validators import DataRequired, Length, Optional, URL, ValidationError
+from wtforms.validators import URL, DataRequired, Length, Optional, ValidationError
 
 from ..constants import DEFAULT_TENANT_COLOR, TENANT_COLOR_CHOICES
+
 
 class TenantForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired(), Length(max=255)])
@@ -38,7 +39,9 @@ def validate_repo_url(form, field):
 
     if value.startswith("git@"):
         if ":" not in value:
-            raise ValidationError("SSH URLs must follow git@host:owner/repo.git format.")
+            raise ValidationError(
+                "SSH URLs must follow git@host:owner/repo.git format."
+            )
         host, _, path = value.partition(":")
         if not path or "/" not in path:
             raise ValidationError("SSH URLs must include owner/repo.git.")
@@ -69,7 +72,9 @@ class ProjectForm(FlaskForm):
     repo_url = StringField(
         "Repository URL",
         validators=[DataRequired(), Length(max=512), validate_repo_url],
-        render_kw={"placeholder": "https://example.com/org/repo.git or git@example.com:org/repo.git"},
+        render_kw={
+            "placeholder": "https://example.com/org/repo.git or git@example.com:org/repo.git"
+        },
     )
     default_branch = StringField(
         "Default Branch", validators=[DataRequired(), Length(max=64)]
@@ -104,7 +109,9 @@ class TenantIntegrationForm(FlaskForm):
         validators=[DataRequired()],
     )
     base_url = URLField("Base URL", validators=[Optional(), URL(), Length(max=512)])
-    api_token = PasswordField("API Token", validators=[DataRequired(), Length(max=4096)])
+    api_token = PasswordField(
+        "API Token", validators=[DataRequired(), Length(max=4096)]
+    )
     jira_email = StringField(
         "Jira Account Email",
         description="Atlassian account email used with the API token (required for Jira Cloud).",
@@ -227,35 +234,45 @@ class ClaudeUpdateForm(FlaskForm):
 
 
 class GeminiAccountsForm(FlaskForm):
-    payload = TextAreaField("google_accounts.json", validators=[DataRequired()], render_kw={"rows": 6})
+    payload = TextAreaField(
+        "google_accounts.json", validators=[DataRequired()], render_kw={"rows": 6}
+    )
     user_id = HiddenField(validators=[DataRequired()])
     next = HiddenField()
     submit = SubmitField("Save google_accounts.json")
 
 
 class GeminiOAuthForm(FlaskForm):
-    payload = TextAreaField("oauth_creds.json", validators=[DataRequired()], render_kw={"rows": 6})
+    payload = TextAreaField(
+        "oauth_creds.json", validators=[DataRequired()], render_kw={"rows": 6}
+    )
     user_id = HiddenField(validators=[DataRequired()])
     next = HiddenField()
     submit = SubmitField("Save oauth_creds.json")
 
 
 class CodexAuthForm(FlaskForm):
-    payload = TextAreaField("Codex auth.json", validators=[DataRequired()], render_kw={"rows": 6})
+    payload = TextAreaField(
+        "Codex auth.json", validators=[DataRequired()], render_kw={"rows": 6}
+    )
     user_id = HiddenField(validators=[DataRequired()])
     next = HiddenField()
     submit = SubmitField("Save Codex auth.json")
 
 
 class ClaudeApiKeyForm(FlaskForm):
-    payload = TextAreaField("Claude API key", validators=[DataRequired()], render_kw={"rows": 3})
+    payload = TextAreaField(
+        "Claude API key", validators=[DataRequired()], render_kw={"rows": 3}
+    )
     user_id = HiddenField(validators=[DataRequired()])
     next = HiddenField()
     submit = SubmitField("Save Claude API Key")
 
 
 class GeminiSettingsForm(FlaskForm):
-    payload = TextAreaField("settings.json", validators=[DataRequired()], render_kw={"rows": 8})
+    payload = TextAreaField(
+        "settings.json", validators=[DataRequired()], render_kw={"rows": 8}
+    )
     user_id = HiddenField(validators=[DataRequired()])
     next = HiddenField()
     submit = SubmitField("Save settings.json")
@@ -286,7 +303,9 @@ class ProjectBranchForm(FlaskForm):
 class CreateUserForm(FlaskForm):
     name = StringField("Full Name", validators=[DataRequired(), Length(max=255)])
     email = StringField("Email", validators=[DataRequired(), Length(max=255)])
-    password = PasswordField("Password", validators=[DataRequired(), Length(min=8, max=255)])
+    password = PasswordField(
+        "Password", validators=[DataRequired(), Length(min=8, max=255)]
+    )
     is_admin = BooleanField("Grant administrator access", default=False)
     submit = SubmitField("Create User")
 
@@ -339,7 +358,9 @@ class UserToggleAdminForm(FlaskForm):
 
 class UserResetPasswordForm(FlaskForm):
     user_id = HiddenField(validators=[DataRequired()])
-    password = PasswordField("New Password", validators=[DataRequired(), Length(min=8, max=255)])
+    password = PasswordField(
+        "New Password", validators=[DataRequired(), Length(min=8, max=255)]
+    )
     submit = SubmitField("Reset Password")
 
 

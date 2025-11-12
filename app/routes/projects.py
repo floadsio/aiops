@@ -898,21 +898,38 @@ def stop_ai_session(project_id: int, session_id: str):
 def close_tmux_window(project_id: int):
     project = Project.query.get_or_404(project_id)
     if not _authorize(project):
+        if request.is_json:
+            return jsonify({"error": "Access denied"}), 403
         flash("You do not have access to this project.", "danger")
         return redirect(request.form.get("next") or url_for("admin.dashboard"))
 
-    tmux_target = (request.form.get("tmux_target") or "").strip()
-    redirect_target = request.form.get("next") or url_for("admin.dashboard")
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        tmux_target = (payload.get("tmux_target") or "").strip()
+    else:
+        tmux_target = (request.form.get("tmux_target") or "").strip()
+
     if not tmux_target:
+        if request.is_json:
+            return jsonify({"error": "Invalid tmux target."}), 400
         flash("Invalid tmux target.", "warning")
+        redirect_target = request.form.get("next") or url_for("admin.dashboard")
         return redirect(redirect_target)
 
     try:
         close_tmux_target(tmux_target)
     except TmuxServiceError as exc:
+        if request.is_json:
+            return jsonify({"error": str(exc)}), 500
         flash(str(exc), "danger")
     else:
-        flash(f"Closed tmux window {tmux_target}.", "success")
+        if not request.is_json:
+            flash(f"Closed tmux window {tmux_target}.", "success")
+
+    if request.is_json:
+        return jsonify({"success": True})
+
+    redirect_target = request.form.get("next") or url_for("admin.dashboard")
     return redirect(redirect_target)
 
 

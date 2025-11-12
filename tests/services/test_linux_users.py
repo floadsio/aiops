@@ -49,6 +49,7 @@ class TestResolveLinuxUsername:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "ivo@floads.io"
 
             result = resolve_linux_username(user)
@@ -68,6 +69,7 @@ class TestResolveLinuxUsername:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "michael@example.com"
             user.username = "michael"
 
@@ -87,6 +89,7 @@ class TestResolveLinuxUsername:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.username = "testuser"
 
             result = resolve_linux_username(user)
@@ -123,6 +126,7 @@ class TestResolveLinuxUsername:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "unknown@floads.io"
             user.username = "unknown"
 
@@ -143,6 +147,7 @@ class TestResolveLinuxUsername:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "john@example.com"
             user.username = None
             user.name = "John Doe"
@@ -168,6 +173,7 @@ class TestGetLinuxUserForAiopsUser:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "root@example.com"
 
             result = get_linux_user_for_aiops_user(user)
@@ -189,6 +195,7 @@ class TestGetLinuxUserForAiopsUser:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "fake@example.com"
 
             result = get_linux_user_for_aiops_user(user)
@@ -208,6 +215,7 @@ class TestGetLinuxUserForAiopsUser:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "unknown@example.com"
 
             result = get_linux_user_for_aiops_user(user)
@@ -231,6 +239,7 @@ class TestGetUserHomeDirectory:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "root@example.com"
 
             result = get_user_home_directory(user)
@@ -250,10 +259,33 @@ class TestGetUserHomeDirectory:
 
         with app.app_context():
             user = MagicMock()
+            user.linux_username = None
             user.email = "unknown@example.com"
 
             result = get_user_home_directory(user)
             assert result is None
+
+
+    def test_resolve_with_per_user_linux_username(self, tmp_path):
+        """Test per-user linux_username takes precedence over mapping."""
+        from app import create_app
+        from app.config import Config
+
+        class TestConfig(Config):
+            TESTING = True
+            LINUX_USER_STRATEGY = "mapping"
+            LINUX_USER_MAPPING = {"user@example.com": "other"}
+
+        app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+        with app.app_context():
+            user = MagicMock()
+            user.linux_username = "custom_user"
+            user.email = "user@example.com"
+
+            # Should return the per-user setting, not the global mapping
+            result = resolve_linux_username(user)
+            assert result == "custom_user"
 
 
 class TestValidateLinuxUserExists:

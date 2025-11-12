@@ -1045,12 +1045,20 @@ def manage_settings():
         user.id: UserDeleteForm(user_id=str(user.id)) for user in users
     }
     user_update_forms = {}
+    from ..services.linux_users import get_available_linux_users
+
+    available_linux_users = get_available_linux_users()
     for user in users:
         form = UserUpdateForm(formdata=None)
         form.user_id.data = str(user.id)
         form.name.data = user.name
         form.email.data = user.email
         form.is_admin.data = user.is_admin
+        form.linux_username.data = user.linux_username or ""
+        # Populate choices: empty option + available users
+        form.linux_username.choices = [("", "None")] + [
+            (u, u) for u in available_linux_users
+        ]
         user_update_forms[user.id] = form
 
     # Prepare Linux user mapping form
@@ -1752,6 +1760,9 @@ def update_user(user_id: int):
     user.name = name
     user.email = normalized_email
     user.is_admin = form.is_admin.data
+    # Set linux_username, allowing empty string to clear the selection
+    linux_username = (form.linux_username.data or "").strip()
+    user.linux_username = linux_username if linux_username else None
 
     try:
         db.session.commit()

@@ -112,4 +112,12 @@ class Config:
     )  # 'mapping' or 'direct'
     # Mapping of aiops user email/username to Linux system usernames
     # Example: {'ivo@floads.io': 'ivo', 'michael@floads.io': 'michael'}
+    # Can be set via LINUX_USER_MAPPING env var as JSON string or loaded from database
     LINUX_USER_MAPPING: dict[str, str] = {}
+    _mapping_env = os.getenv("LINUX_USER_MAPPING", "")
+    if _mapping_env:
+        import json
+        try:
+            LINUX_USER_MAPPING = json.loads(_mapping_env)
+        except (json.JSONDecodeError, ValueError):
+            LINUX_USER_MAPPING = {}

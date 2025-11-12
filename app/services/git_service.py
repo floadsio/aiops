@@ -205,7 +205,28 @@ def build_project_git_env(project: Project) -> dict[str, str]:
     return _build_git_env(key_path)
 
 
-def ensure_repo_checkout(project: Project) -> Repo:
+def ensure_repo_checkout(project: Project, user: Optional[object] = None) -> Repo:
+    # If user is provided, use their workspace; otherwise use managed checkout
+    if user is not None:
+        from .workspace_service import get_workspace_path, workspace_exists
+
+        workspace_path = get_workspace_path(project, user)
+        if workspace_path is None:
+            raise RuntimeError(
+                f"Cannot determine workspace path for user {getattr(user, 'email', 'unknown')}"
+            )
+
+        # If workspace exists with .git, return it
+        if workspace_exists(project, user):
+            return Repo(workspace_path)
+
+        # Otherwise, workspace needs to be initialized
+        raise RuntimeError(
+            f"Workspace not initialized at {workspace_path}. "
+            "Please initialize the workspace first."
+        )
+
+    # Fallback to managed checkout path (legacy behavior)
     storage_root = _project_repo_root()
     path = Path(project.local_path).expanduser()
     try:
@@ -291,10 +312,10 @@ def _select_remote(repo: Repo) -> Remote:
 
 
 def commit_project_files(
-    project: Project, files: list[Path | str], message: str
+    project: Project, files: list[Path | str], message: str, user: Optional[object] = None
 ) -> bool:
     """Stage the provided files, commit them, and return True if a commit was created."""
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     root = Path(repo.working_tree_dir).resolve()
     relative_paths: list[str] = []
     for item in files:
@@ -346,8 +367,9 @@ def run_git_action(
     ref: Optional[str] = None,
     *,
     clean: bool = False,
+    user: Optional[object] = None,
 ) -> str:
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     messages: list[str] = []
     invalid_keys: set[str] = set()
 
@@ -428,9 +450,9 @@ def run_git_action(
 
 
 def list_project_branches(
-    project: Project, *, include_remote: bool = False
+    project: Project, *, include_remote: bool = False, user: Optional[object] = None
 ) -> list[str]:
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     branches: set[str] = set(head.name for head in repo.heads)
     if include_remote:
         for remote in repo.remotes:
@@ -447,9 +469,9 @@ def list_project_branches(
 
 
 def get_project_commit_history(
-    project: Project, limit: int = 10
+    project: Project, limit: int = 10, user: Optional[object] = None
 ) -> list[dict[str, Any]]:
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     history: list[dict[str, Any]] = []
     try:
         commits = repo.iter_commits(max_count=limit)
@@ -474,12 +496,12 @@ def get_project_commit_history(
 
 
 def delete_project_branch(
-    project: Project, branch: str, *, force: bool = False
+    project: Project, branch: str, *, force: bool = False, user: Optional[object] = None
 ) -> None:
     branch = (branch or "").strip()
     if not branch:
         raise RuntimeError("Branch name is required.")
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     default_branch = project.default_branch or "main"
     if branch == default_branch:
         raise RuntimeError("Cannot delete the default branch.")
@@ -503,12 +525,12 @@ def delete_project_branch(
 
 
 def checkout_or_create_branch(
-    project: Project, branch: str, base: Optional[str] = None
+    project: Project, branch: str, base: Optional[str] = None, user: Optional[object] = None
 ) -> bool:
     branch = (branch or "").strip()
     if not branch:
         raise RuntimeError("Branch name is required.")
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     env = build_project_git_env(project)
     context = repo.git.custom_environment(**env) if env else nullcontext()
     with context:
@@ -537,12 +559,14 @@ def checkout_or_create_branch(
         return True
 
 
-def merge_branch(project: Project, source_branch: str, target_branch: str) -> None:
+def merge_branch(
+    project: Project, source_branch: str, target_branch: str, user: Optional[object] = None
+) -> None:
     source_branch = (source_branch or "").strip()
     target_branch = (target_branch or "").strip()
     if not source_branch or not target_branch:
         raise RuntimeError("Source and target branches are required.")
-    repo = ensure_repo_checkout(project)
+    repo = ensure_repo_checkout(project, user=user)
     env = build_project_git_env(project)
     context = repo.git.custom_environment(**env) if env else nullcontext()
     with context:
@@ -554,9 +578,9 @@ def merge_branch(project: Project, source_branch: str, target_branch: str) -> No
             raise RuntimeError(f"Merge failed: {exc}") from exc
 
 
-def get_repo_status(project: Project) -> dict[str, Any]:
+def get_repo_status(project: Project, user: Optional[object] = None) -> dict[str, Any]:
     try:
-        repo = ensure_repo_checkout(project)
+        repo = ensure_repo_checkout(project, user=user)
     except Exception as exc:  # noqa: BLE001
         log.warning(
             "Unable to inspect repository for project %s: %s", project.name, exc

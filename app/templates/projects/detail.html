@@ -88,6 +88,40 @@
 </section>
 
 <section>
+  <h2>Workspace</h2>
+  {% if workspace_status.has_git %}
+    <p>
+      <strong>Status:</strong> <span style="color: var(--pico-color-green-500)">✓ Initialized</span>
+    </p>
+    <p><strong>Path:</strong> <code>{{ workspace_status.path }}</code></p>
+    <p class="text-muted">
+      Your workspace is ready. Launch a tmux session to start working.
+    </p>
+  {% elif workspace_status.error %}
+    <p>
+      <strong>Status:</strong> <span style="color: var(--pico-color-amber-500)">⚠ Not available</span>
+    </p>
+    <p class="text-muted">{{ workspace_status.error }}</p>
+  {% else %}
+    <p>
+      <strong>Status:</strong> <span style="color: var(--pico-color-amber-500)">⚠ Not initialized</span>
+    </p>
+    <p class="text-muted">
+      Initialize your workspace to start working on this project.
+      This will clone the repository to <code>{{ workspace_status.path or '~/workspace/' ~ project.name }}</code>
+    </p>
+    <button
+      id="init-workspace-btn"
+      data-project-id="{{ project.id }}"
+      onclick="initWorkspace({{ project.id }})"
+    >
+      Initialize Workspace
+    </button>
+    <p id="workspace-init-status" style="margin-top: 1rem;"></p>
+  {% endif %}
+</section>
+
+<section>
   <h2>SSH Access</h2>
   <form method="post">
     {{ ssh_key_form.hidden_tag() }}
@@ -523,5 +557,50 @@
       });
     });
   })();
+
+  // Workspace initialization
+  function initWorkspace(projectId) {
+    const button = document.getElementById('init-workspace-btn');
+    const statusEl = document.getElementById('workspace-init-status');
+
+    if (!button || !statusEl) return;
+
+    // Disable button and show loading state
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    const originalText = button.textContent;
+    button.textContent = 'Initializing...';
+    statusEl.innerHTML = '<small style="color: var(--pico-color-azure-500);">Cloning repository...</small>';
+
+    fetch(`/api/projects/${projectId}/workspace/init`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        statusEl.innerHTML = `<small style="color: var(--pico-color-green-500);">✓ ${data.message || 'Workspace initialized successfully!'}</small>`;
+        // Reload page after 1 second to show updated status
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        statusEl.innerHTML = `<small style="color: var(--pico-color-red-500);">✗ ${data.error || 'Failed to initialize workspace'}</small>`;
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        button.textContent = originalText;
+      }
+    })
+    .catch(error => {
+      console.error('Workspace initialization error:', error);
+      statusEl.innerHTML = '<small style="color: var(--pico-color-red-500);">✗ Network error. Please try again.</small>';
+      button.disabled = false;
+      button.removeAttribute('aria-busy');
+      button.textContent = originalText;
+    });
+  }
 </script>
 {% endblock %}

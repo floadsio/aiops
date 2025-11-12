@@ -29,6 +29,14 @@ def require_authentication():
         return jsonify({"error": "Authentication required"}), 401
 
 
+def _current_user_obj():
+    """Get the current user object for workspace operations."""
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    return user_obj
+
+
 def _tenant_to_dict(tenant: Tenant) -> dict[str, Any]:
     return {
         "id": tenant.id,
@@ -56,7 +64,7 @@ def _project_to_dict(
         ),
     }
     if include_status:
-        payload["git_status"] = get_repo_status(project)
+        payload["git_status"] = get_repo_status(project, user=_current_user_obj())
     return payload
 
 
@@ -209,11 +217,54 @@ def project_git_action(project_id: int):
         return jsonify({"error": "Unsupported git action."}), 400
 
     try:
-        output = run_git_action(project, action, ref=ref, clean=clean)
+        output = run_git_action(project, action, ref=ref, clean=clean, user=_current_user_obj())
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 400
 
     return jsonify({"result": output})
+
+
+@api_bp.post("/projects/<int:project_id>/workspace/init")
+def init_project_workspace(project_id: int):
+    """Initialize workspace for the current user and project."""
+    from ..services.workspace_service import WorkspaceError, initialize_workspace
+
+    project = Project.query.get_or_404(project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied."}), 403
+
+    user = _current_user_obj()
+    if not user:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    try:
+        workspace_path = initialize_workspace(project, user)
+        return jsonify({
+            "success": True,
+            "path": str(workspace_path),
+            "message": f"Workspace initialized at {workspace_path}"
+        })
+    except WorkspaceError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"error": f"Failed to initialize workspace: {exc}"}), 500
+
+
+@api_bp.get("/projects/<int:project_id>/workspace/status")
+def get_project_workspace_status(project_id: int):
+    """Get workspace status for the current user and project."""
+    from ..services.workspace_service import get_workspace_status
+
+    project = Project.query.get_or_404(project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied."}), 403
+
+    user = _current_user_obj()
+    if not user:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    status = get_workspace_status(project, user)
+    return jsonify(status)
 
 
 @api_bp.post("/projects/<int:project_id>/ai/sessions")

@@ -373,6 +373,30 @@ def version_command() -> None:
     click.echo(__version__)
 
 
+@click.command("init-workspace")
+@click.option("--user-email", required=True, help="Email of the user")
+@click.option("--project-id", required=True, type=int, help="ID of the project")
+@with_appcontext
+def init_workspace_command(user_email: str, project_id: int) -> None:
+    """Initialize a workspace for a user and project."""
+    from .services.workspace_service import WorkspaceError, initialize_workspace
+
+    user = User.query.filter_by(email=user_email).first()
+    if not user:
+        raise click.ClickException(f"User with email {user_email} not found.")
+
+    project = Project.query.get(project_id)
+    if not project:
+        raise click.ClickException(f"Project with ID {project_id} not found.")
+
+    click.echo(f"Initializing workspace for {user.email} and project {project.name}...")
+    try:
+        workspace_path = initialize_workspace(project, user)
+        click.echo(f"Workspace initialized at: {workspace_path}")
+    except WorkspaceError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
 def register_cli_commands(app) -> None:
     app.cli.add_command(db_init_command)
     app.cli.add_command(create_admin_command)
@@ -381,3 +405,4 @@ def register_cli_commands(app) -> None:
     app.cli.add_command(sync_issues_command)
     app.cli.add_command(create_issue_command)
     app.cli.add_command(version_command)
+    app.cli.add_command(init_workspace_command)

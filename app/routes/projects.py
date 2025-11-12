@@ -101,6 +101,14 @@ def _current_linux_username() -> str | None:
     return resolve_linux_username(user_obj)
 
 
+def _current_user_obj():
+    """Get the current user object for workspace operations."""
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    return user_obj
+
+
 def _issue_sort_key(issue: ExternalIssue):
     reference = issue.external_updated_at or issue.updated_at or issue.created_at
     if reference is None:
@@ -197,6 +205,7 @@ def project_detail(project_id: int):
                 project,
                 git_form.action.data,
                 git_form.ref.data or None,
+                user=_current_user_obj(),
                 clean=bool(git_form.clean_pull.data),
             )
         except Exception as exc:  # noqa: BLE001
@@ -267,7 +276,11 @@ def project_detail(project_id: int):
                 flash("Please correct the errors in the issue form.", "danger")
             break
 
-    status = get_repo_status(project)
+    status = get_repo_status(project, user=_current_user_obj())
+
+    # Get workspace status for current user
+    from ..services.workspace_service import get_workspace_status
+    workspace_status = get_workspace_status(project, _current_user_obj())
 
     codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
         "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
@@ -427,6 +440,7 @@ def project_detail(project_id: int):
         project=project,
         git_form=git_form,
         status=status,
+        workspace_status=workspace_status,
         message=message,
         error=error,
         issue_groups=issue_groups,
@@ -504,7 +518,9 @@ def edit_agents_file(project_id: int):
                             flash("No changes to commit.", "warning")
                         else:
                             try:
-                                push_output = run_git_action(project, "push")
+                                push_output = run_git_action(
+                                    project, "push", user=_current_user_obj()
+                                )
                             except RuntimeError as exc:
                                 flash(f"Push failed: {exc}", "danger")
                             else:

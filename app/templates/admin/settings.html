@@ -277,6 +277,23 @@
       </div>
     </form>
   </article>
+
+  <article class="settings-card">
+    <h3>Instance Permissions</h3>
+    <p>Check and fix filesystem permissions on crucial aiops folders to ensure proper multi-user access.</p>
+    <p class="text-muted">Verifies that repos, configs, and database are writable by the syseng group. Uses sudo to fix issues.</p>
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+      <form method="post" action="{{ url_for('admin.check_instance_permissions') }}" style="margin: 0;">
+        {{ permissions_check_form.hidden_tag() }}
+        <button type="submit" class="secondary">Check Permissions</button>
+      </form>
+      <form method="post" action="{{ url_for('admin.fix_instance_permissions') }}" style="margin: 0;">
+        {{ permissions_fix_form.hidden_tag() }}
+        <button type="submit" class="primary">Fix Permissions</button>
+      </form>
+    </div>
+    <span class="text-muted form-helper" style="display: block; margin-top: 0.5rem;">Run check first to see issues; fix applies corrections using sudo as syseng user.</span>
+  </article>
     </div>
   </section>
 

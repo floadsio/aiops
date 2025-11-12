@@ -275,15 +275,10 @@ def create_session(
     # Also grab linux_username before fork since DB session won't be available after fork
     user = User.query.get(user_id)
     linux_username_for_session = None
-    tmux_socket_path = None
     git_author_exports: list[str] = []
     if user:
-        from .services.linux_users import resolve_linux_username, get_linux_user_info
+        from .services.linux_users import resolve_linux_username
         linux_username_for_session = resolve_linux_username(user)
-        if linux_username_for_session:
-            user_info = get_linux_user_info(linux_username_for_session)
-            if user_info:
-                tmux_socket_path = f"/tmp/tmux-{user_info.uid}/default"
         git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
         git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
         git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
@@ -309,11 +304,8 @@ def create_session(
             os.environ[key] = value
     ssh_command = git_env.get("GIT_SSH_COMMAND")
 
-    # Build tmux attach command with socket path if needed
-    exec_args = [tmux_path]
-    if tmux_socket_path:
-        exec_args.extend(["-S", tmux_socket_path])
-    exec_args.extend(["attach-session", "-t", f"{session_name}:{window_name}"])
+    # Build tmux attach command (runs as syseng, the Flask app user)
+    exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
 
     session_id = uuid.uuid4().hex
 
@@ -330,41 +322,8 @@ def create_session(
         if rows and cols:
             _set_winsize(1, rows, cols)
 
-        # Attempt to switch to Linux user for the session
-        linux_user_info = None
-        # Use the pre-fetched linux_username from before the fork
-        if linux_username_for_session:
-            from .services.linux_users import get_linux_user_info
-            linux_user_info = get_linux_user_info(linux_username_for_session)
-            if linux_user_info:
-                # Try setuid first (will work if running as root)
-                try:
-                    os.setgid(linux_user_info.gid)
-                    os.setuid(linux_user_info.uid)
-                    # Update environment to reflect the Linux user
-                    os.environ["HOME"] = linux_user_info.home
-                    os.environ["USER"] = linux_user_info.username
-                    os.environ["LOGNAME"] = linux_user_info.username
-                    current_app.logger.info(
-                        "Switched tmux session to Linux user %s (UID=%d) via setuid",
-                        linux_user_info.username,
-                        linux_user_info.uid,
-                    )
-                except OSError as exc:
-                    # If setuid fails, try using sudo to execute tmux as the target user
-                    current_app.logger.info(
-                        "setuid to %s failed (%s), attempting sudo approach",
-                        linux_user_info.username,
-                        exc,
-                    )
-                    # Prepend sudo to run tmux as the target user
-                    exec_args = ["sudo", "-u", linux_user_info.username] + exec_args
-                    current_app.logger.info(
-                        "Will execute tmux as Linux user %s via sudo: %s",
-                        linux_user_info.username,
-                        " ".join(exec_args),
-                    )
-
+        # tmux attach runs as the Flask app user (syseng)
+        # Commands inside the tmux pane will use sudo to run as the target Linux user
         try:
             os.execvp(exec_args[0], exec_args)
         except FileNotFoundError:

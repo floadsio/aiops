@@ -1,9 +1,9 @@
 """
-Service for checking and fixing filesystem permissions on crucial aiops folders.
+Service for checking and fixing filesystem permissions on crucial aiops shared resources.
 
-This ensures that all users in the syseng group can read/write repos, databases,
-and configuration files while maintaining appropriate restrictions on sensitive data
-like SSH keys.
+This ensures that all users can access shared resources like SSH keys, AI tool configs,
+and the database. Per-user workspaces are not checked as they are owned by individual
+users in their home directories.
 """
 
 import grp
@@ -57,26 +57,20 @@ class PermissionCheckResult:
 
 def get_permission_rules(instance_path: Path) -> list[PermissionRule]:
     """
-    Return the list of permission rules for crucial aiops folders.
+    Return the list of permission rules for crucial aiops shared resources.
 
-    Folders need to be readable/writable by all syseng group members:
-    - repos/: project checkouts
-    - agents/, codex/, gemini/, claude/: AI tool configs
+    Shared resources need to be readable/writable by all syseng group members:
+    - agents/, codex/, gemini/, claude/: AI tool configs (per-user subdirectories)
     - app.db: database file
     - current_branch.txt, tmux_tools.json: metadata files
 
     SSH keys need restricted access but readable by group:
     - keys/: SSH private keys (0o640 for files, 0o750 for directory)
+
+    NOTE: Per-user workspaces (~/workspace/) are NOT checked as they are owned
+    by individual users in their home directories.
     """
     return [
-        # Repository checkouts - full group access
-        PermissionRule(
-            path=instance_path / "repos",
-            mode=0o2775,  # drwxrwsr-x
-            group="syseng",
-            recursive=True,
-            description="Project repository checkouts",
-        ),
         # AI tool configuration directories
         PermissionRule(
             path=instance_path / "agents",

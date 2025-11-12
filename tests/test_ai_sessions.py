@@ -249,7 +249,8 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
 
         expected_command = app.config["ALLOWED_AI_TOOLS"]["codex"]
         assert session.command == expected_command
-        assert pane.commands == []
+        # When reusing a window, only clear is sent (not the command again)
+        assert pane.commands == [("clear", True)]
 
 
 def test_create_session_exports_gemini_config(monkeypatch, tmp_path):

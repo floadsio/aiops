@@ -407,8 +407,17 @@ def create_session(
             pane.send_keys("clear", enter=True)
         except Exception:  # noqa: BLE001
             current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
+        # Wrap command with sudo if we have a target Linux user (other than syseng)
+        final_command = command_str
+        if linux_username_for_session and linux_username_for_session != "syseng":
+            final_command = f"sudo -u {linux_username_for_session} {command_str}"
+            current_app.logger.info(
+                "Running command as user %s: %s",
+                linux_username_for_session,
+                final_command,
+            )
         try:
-            pane.send_keys(command_str, enter=True)
+            pane.send_keys(final_command, enter=True)
         except Exception as exc:  # noqa: BLE001
             current_app.logger.warning(
                 "Failed to start command in tmux window %s: %s", window_name, exc

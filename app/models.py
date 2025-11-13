@@ -1,19 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    String,
-    Text,
-    UniqueConstraint,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .constants import DEFAULT_TENANT_COLOR
 from .extensions import db, login_manager, BaseModel
@@ -21,8 +12,10 @@ from .security import LoginUser
 
 
 class TimestampMixin:
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
     )
 
@@ -30,59 +23,65 @@ class TimestampMixin:
 class User(BaseModel, TimestampMixin):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    name = Column(String(255), nullable=False)
-    password_hash = Column(String(255), nullable=False)
-    is_admin = Column(Boolean, default=False, nullable=False)
-    linux_username = Column(String(255), nullable=True)
-    claude_input_tokens_limit = Column(Integer, nullable=True)
-    claude_input_tokens_remaining = Column(Integer, nullable=True)
-    claude_output_tokens_limit = Column(Integer, nullable=True)
-    claude_output_tokens_remaining = Column(Integer, nullable=True)
-    claude_requests_limit = Column(Integer, nullable=True)
-    claude_requests_remaining = Column(Integer, nullable=True)
-    claude_usage_last_updated = Column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    linux_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    claude_input_tokens_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    claude_input_tokens_remaining: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True
+    )
+    claude_output_tokens_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    claude_output_tokens_remaining: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True
+    )
+    claude_requests_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    claude_requests_remaining: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    claude_usage_last_updated: Mapped[Optional[datetime]] = mapped_column(
+        DateTime, nullable=True
+    )
 
-    ssh_keys = relationship(
+    ssh_keys: Mapped[list["SSHKey"]] = relationship(
         "SSHKey", back_populates="user", cascade="all, delete-orphan"
     )
-    projects = relationship("Project", back_populates="owner")
+    projects: Mapped[list["Project"]] = relationship("Project", back_populates="owner")
 
 
 class SSHKey(BaseModel, TimestampMixin):
     __tablename__ = "ssh_keys"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(128), nullable=False)
-    public_key = Column(Text, nullable=False)
-    fingerprint = Column(String(128), nullable=False, unique=True)
-    private_key_path = Column(String(512), nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    public_key: Mapped[str] = mapped_column(Text, nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    private_key_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=True)
-    user = relationship("User", back_populates="ssh_keys")
-    tenant = relationship("Tenant", back_populates="ssh_keys")
-    projects = relationship("Project", back_populates="ssh_key")
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    tenant_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tenants.id"), nullable=True)
+    user: Mapped["User"] = relationship("User", back_populates="ssh_keys")
+    tenant: Mapped[Optional["Tenant"]] = relationship("Tenant", back_populates="ssh_keys")
+    projects: Mapped[list["Project"]] = relationship("Project", back_populates="ssh_key")
 
 
 class Tenant(BaseModel, TimestampMixin):
     __tablename__ = "tenants"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
-    description = Column(Text, nullable=True)
-    color = Column(String(16), nullable=False, default=DEFAULT_TENANT_COLOR)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    color: Mapped[str] = mapped_column(String(16), nullable=False, default=DEFAULT_TENANT_COLOR)
 
-    projects = relationship(
+    projects: Mapped[list["Project"]] = relationship(
         "Project", back_populates="tenant", cascade="all, delete-orphan"
     )
-    ssh_keys = relationship(
+    ssh_keys: Mapped[list["SSHKey"]] = relationship(
         "SSHKey",
         back_populates="tenant",
         cascade="all, delete-orphan",
     )
-    issue_integrations = relationship(
+    issue_integrations: Mapped[list["TenantIntegration"]] = relationship(
         "TenantIntegration", back_populates="tenant", cascade="all, delete-orphan"
     )
 
@@ -90,24 +89,24 @@ class Tenant(BaseModel, TimestampMixin):
 class Project(BaseModel, TimestampMixin):
     __tablename__ = "projects"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
-    repo_url = Column(String(512), nullable=False)
-    default_branch = Column(String(64), default="main", nullable=False)
-    local_path = Column(String(512), nullable=False)
-    description = Column(Text)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    repo_url: Mapped[str] = mapped_column(String(512), nullable=False)
+    default_branch: Mapped[str] = mapped_column(String(64), default="main", nullable=False)
+    local_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
 
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    ssh_key_id = Column(Integer, ForeignKey("ssh_keys.id"), nullable=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    ssh_key_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ssh_keys.id"), nullable=True)
 
-    tenant = relationship("Tenant", back_populates="projects")
-    owner = relationship("User", back_populates="projects")
-    ssh_key = relationship("SSHKey", back_populates="projects")
-    automation_tasks = relationship(
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="projects")
+    owner: Mapped["User"] = relationship("User", back_populates="projects")
+    ssh_key: Mapped[Optional["SSHKey"]] = relationship("SSHKey", back_populates="projects")
+    automation_tasks: Mapped[list["AutomationTask"]] = relationship(
         "AutomationTask", back_populates="project", cascade="all, delete-orphan"
     )
-    issue_integrations = relationship(
+    issue_integrations: Mapped[list["ProjectIntegration"]] = relationship(
         "ProjectIntegration", back_populates="project", cascade="all, delete-orphan"
     )
 
@@ -115,14 +114,14 @@ class Project(BaseModel, TimestampMixin):
 class AutomationTask(BaseModel, TimestampMixin):
     __tablename__ = "automation_tasks"
 
-    id = Column(Integer, primary_key=True)
-    task_type = Column(String(50), nullable=False)
-    payload = Column(Text, nullable=False)
-    status = Column(String(20), default="pending", nullable=False)
-    result = Column(Text, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    task_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    payload: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
+    result: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    project = relationship("Project", back_populates="automation_tasks")
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    project: Mapped["Project"] = relationship("Project", back_populates="automation_tasks")
 
 
 class TenantIntegration(BaseModel, TimestampMixin):
@@ -131,17 +130,17 @@ class TenantIntegration(BaseModel, TimestampMixin):
         UniqueConstraint("tenant_id", "name", name="uq_tenant_integration_name"),
     )
 
-    id = Column(Integer, primary_key=True)
-    tenant_id = Column(Integer, ForeignKey("tenants.id"), nullable=False)
-    provider = Column(String(50), nullable=False)
-    name = Column(String(255), nullable=False)
-    base_url = Column(String(512), nullable=True)
-    api_token = Column(Text, nullable=False)
-    settings = Column(db.JSON, default=dict, nullable=False)
-    enabled = Column(Boolean, default=True, nullable=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    provider: Mapped[str] = mapped_column(String(50), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    base_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    api_token: Mapped[str] = mapped_column(Text, nullable=False)
+    settings: Mapped[dict[str, Any]] = mapped_column(db.JSON, default=dict, nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    tenant = relationship("Tenant", back_populates="issue_integrations")
-    project_integrations = relationship(
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="issue_integrations")
+    project_integrations: Mapped[list["ProjectIntegration"]] = relationship(
         "ProjectIntegration", back_populates="integration", cascade="all, delete-orphan"
     )
 
@@ -154,20 +153,20 @@ class ProjectIntegration(BaseModel, TimestampMixin):
         ),
     )
 
-    id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
-    integration_id = Column(
-        Integer, ForeignKey("tenant_integrations.id"), nullable=False
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    integration_id: Mapped[int] = mapped_column(
+        ForeignKey("tenant_integrations.id"), nullable=False
     )
-    external_identifier = Column(String(255), nullable=False)
-    config = Column(db.JSON, default=dict, nullable=False)
-    last_synced_at = Column(DateTime, nullable=True)
+    external_identifier: Mapped[str] = mapped_column(String(255), nullable=False)
+    config: Mapped[dict[str, Any]] = mapped_column(db.JSON, default=dict, nullable=False)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
-    project = relationship("Project", back_populates="issue_integrations")
-    integration = relationship(
+    project: Mapped["Project"] = relationship("Project", back_populates="issue_integrations")
+    integration: Mapped["TenantIntegration"] = relationship(
         "TenantIntegration", back_populates="project_integrations"
     )
-    issues = relationship(
+    issues: Mapped[list["ExternalIssue"]] = relationship(
         "ExternalIssue",
         back_populates="project_integration",
         cascade="all, delete-orphan",
@@ -182,21 +181,23 @@ class ExternalIssue(BaseModel, TimestampMixin):
         ),
     )
 
-    id = Column(Integer, primary_key=True)
-    project_integration_id = Column(
-        Integer, ForeignKey("project_integrations.id"), nullable=False
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_integration_id: Mapped[int] = mapped_column(
+        ForeignKey("project_integrations.id"), nullable=False
     )
-    external_id = Column(String(128), nullable=False)
-    title = Column(String(512), nullable=False)
-    status = Column(String(128), nullable=True)
-    assignee = Column(String(255), nullable=True)
-    url = Column(String(1024), nullable=True)
-    labels = Column(db.JSON, default=list, nullable=False)
-    external_updated_at = Column(DateTime, nullable=True)
-    last_seen_at = Column(DateTime, nullable=True)
-    raw_payload = Column(db.JSON, nullable=True)
+    external_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    status: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    assignee: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    labels: Mapped[list[str]] = mapped_column(db.JSON, default=list, nullable=False)
+    external_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    raw_payload: Mapped[Optional[dict[str, Any]]] = mapped_column(db.JSON, nullable=True)
 
-    project_integration = relationship("ProjectIntegration", back_populates="issues")
+    project_integration: Mapped["ProjectIntegration"] = relationship(
+        "ProjectIntegration", back_populates="issues"
+    )
 
 
 class SystemConfig(BaseModel, TimestampMixin):
@@ -207,9 +208,9 @@ class SystemConfig(BaseModel, TimestampMixin):
 
     __tablename__ = "system_config"
 
-    id = Column(Integer, primary_key=True)
-    key = Column(String(128), unique=True, nullable=False, index=True)
-    value = Column(db.JSON, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    key: Mapped[str] = mapped_column(String(128), unique=True, nullable=False, index=True)
+    value: Mapped[Optional[dict[str, Any]]] = mapped_column(db.JSON, nullable=True)
 
 
 @login_manager.user_loader

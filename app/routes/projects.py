@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, cast
 
 from flask import (
     Blueprint,
@@ -69,6 +70,9 @@ from ..services.tmux_service import (
     list_windows_for_aliases,
     session_name_for_user,
 )
+
+ChoiceItem = tuple[Any, str] | tuple[Any, str, dict[str, Any]]
+ChoiceList = list[ChoiceItem]
 
 projects_bp = Blueprint("projects", __name__, template_folder="../templates/projects")
 
@@ -143,7 +147,7 @@ def project_detail(project_id: int):
     ssh_key_form = ProjectKeyForm(prefix="sshkey")
 
     tenant_keys = list(project.tenant.ssh_keys) if project.tenant else []
-    key_choices = [(0, "Use tenant default")]
+    key_choices: ChoiceList = [(0, "Use tenant default")]
     tenant_default_key = None
     for key in tenant_keys:
         if tenant_default_key is None and key.private_key_path:
@@ -493,9 +497,8 @@ def edit_agents_file(project_id: int):
             agents_path.parent.mkdir(parents=True, exist_ok=True)
             agents_path.write_text(content, encoding="utf-8")
         except OSError as exc:
-            form.contents.errors.append(
-                f"Failed to write {AGENTS_OVERRIDE_FILENAME}: {exc}"
-            )
+            content_errors = cast(list[str], form.contents.errors)
+            content_errors.append(f"Failed to write {AGENTS_OVERRIDE_FILENAME}: {exc}")
         else:
             flash(
                 f"Saved {AGENTS_OVERRIDE_FILENAME} to the local workspace.", "success"
@@ -503,7 +506,8 @@ def edit_agents_file(project_id: int):
             if form.save_and_push.data:
                 commit_message = (form.commit_message.data or "").strip()
                 if not commit_message:
-                    form.commit_message.errors.append(
+                    commit_errors = cast(list[str], form.commit_message.errors)
+                    commit_errors.append(
                         "Commit message is required to push changes."
                     )
                 else:
@@ -987,7 +991,7 @@ def project_ansible_console(project_id: int):
     form = AnsibleForm()
 
     template_error = None
-    template_choices: list[tuple[int, str]] = []
+    template_choices: ChoiceList = []
     default_semaphore_project_id = current_app.config.get(
         "SEMAPHORE_DEFAULT_PROJECT_ID"
     )

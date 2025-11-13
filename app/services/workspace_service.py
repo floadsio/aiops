@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from .linux_users import get_user_home_directory, resolve_linux_username
 from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
@@ -25,14 +25,15 @@ class WorkspaceError(RuntimeError):
 def _project_slug(project) -> str:
     """Generate a filesystem-safe slug from project name."""
     name = getattr(project, "name", "") or f"project-{project.id}"
-    slug = name.lower().translate(str.maketrans({c: "-" for c in " ./\\:@"}))
+    translation_map: dict[str, str | int] = {c: "-" for c in " ./\\:@"}
+    slug = name.lower().translate(str.maketrans(translation_map))
     while "--" in slug:
         slug = slug.replace("--", "-")
     slug = slug.strip("-")
     return slug or f"project-{project.id}"
 
 
-def _build_workspace_git_env(env: Optional[dict] = None) -> dict[str, str]:
+def _build_workspace_git_env(env: Optional[dict[str, str]] = None) -> dict[str, str]:
     """Ensure git commands accept new host keys automatically."""
     default_env = {
         "GIT_SSH_COMMAND": "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
@@ -46,7 +47,11 @@ def _build_workspace_git_env(env: Optional[dict] = None) -> dict[str, str]:
 
 
 def _git_clone_via_sudo(
-    linux_username: str, repo_url: str, target_path: str, branch: str, env: dict | None
+    linux_username: str,
+    repo_url: str,
+    target_path: str,
+    branch: str,
+    env: Optional[dict[str, str]] = None,
 ) -> None:
     """Clone a git repository using sudo to run as the target user.
 
@@ -201,7 +206,7 @@ def initialize_workspace(project, user) -> Path:
         raise
 
 
-def get_workspace_status(project, user) -> dict[str, any]:
+def get_workspace_status(project, user) -> dict[str, Any]:
     """Get status information about a workspace.
 
     Args:

@@ -144,6 +144,7 @@ def close_issue(
         )
 
     identifier = str(external_id).strip()
+    issue_ref: int | str
     try:
         issue_ref = int(identifier)
     except (TypeError, ValueError):

@@ -635,6 +635,15 @@ def project_ai_console(project_id: int):
 
     ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
 
+    # Get the workspace path for the current user
+    from ..services.workspace_service import get_workspace_path
+
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    workspace_path = get_workspace_path(project, user_obj) if user_obj else None
+    local_path = str(workspace_path) if workspace_path else project.local_path
+
     return render_template(
         "projects/ai_console.html",
         project=project,
@@ -644,6 +653,7 @@ def project_ai_console(project_id: int):
         requested_tmux_target=requested_target,
         default_codex_command=default_codex_command,
         ai_tool_commands=ai_tool_commands,
+        local_path=local_path,
     )
 
 

@@ -6,26 +6,34 @@
     .issues-actions {
       display: flex;
       flex-wrap: wrap;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 1rem;
+      align-items: center;
+      gap: 0.5rem;
       margin-bottom: 1.5rem;
     }
     .issue-filter-form {
       display: flex;
       flex-wrap: wrap;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
-    .issue-filter-form label {
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: rgba(71, 85, 105, 0.9);
+    .issue-filter-form select {
+      padding: 0.45rem 2rem 0.45rem 0.65rem;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(255, 255, 255, 0.92);
+      font-size: 0.875rem;
+      min-width: 10rem;
     }
-    [data-theme="dark"] .issue-filter-form label {
-      color: rgba(226, 232, 240, 0.72);
+    [data-theme="dark"] .issue-filter-form select {
+      border-color: rgba(148, 163, 184, 0.5);
+      background: rgba(15, 23, 42, 0.65);
+      color: rgba(226, 232, 240, 0.9);
+    }
+    .issue-refresh-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
     }
     .issues-table table {
       width: 100%;
@@ -142,12 +150,6 @@
     margin-top: 1.5rem;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   }
-  .issues-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    align-items: center;
-  }
     .issue-status-form {
       display: inline-flex;
       flex-wrap: wrap;
@@ -237,7 +239,17 @@
     }
     @media (max-width: 900px) {
       .issues-actions {
+        flex-direction: column;
         align-items: stretch;
+      }
+      .issue-filter-form,
+      .issue-refresh-form {
+        width: 100%;
+      }
+      .issue-filter-form select,
+      .issue-refresh-form button {
+        flex: 1;
+        min-width: 0;
       }
     }
     @media (max-width: 720px) {
@@ -255,16 +267,14 @@
 
 <div class="issues-actions">
   <form method="get" class="issue-filter-form">
-    <label for="issue-status-filter">Issue status</label>
-    <select id="issue-status-filter" name="status" onchange="this.form.submit()">
+    <select id="issue-status-filter" name="status" onchange="this.form.submit()" aria-label="Filter by issue status">
       {% for option in status_options %}
         <option value="{{ option.value }}" {% if option.value == status_filter %}selected{% endif %}>
           {{ option.label }} ({{ option.count }})
         </option>
       {% endfor %}
     </select>
-    <label for="issue-tenant-filter">Tenant</label>
-    <select id="issue-tenant-filter" name="tenant" onchange="this.form.submit()">
+    <select id="issue-tenant-filter" name="tenant" onchange="this.form.submit()" aria-label="Filter by tenant">
       {% for option in tenant_options %}
         <option value="{{ option.value }}" {% if option.value == tenant_filter %}selected{% endif %}>
           {{ option.label }} ({{ option.count }})
@@ -275,7 +285,7 @@
     <input type="hidden" name="direction" value="{{ sort_state.direction }}">
   </form>
 
-  <form method="post" action="{{ url_for('admin.refresh_all_issues') }}" class="inline-form">
+  <form method="post" action="{{ url_for('admin.refresh_all_issues') }}" class="issue-refresh-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
     <button type="submit" class="secondary">Refresh All Issues</button>
     <button type="submit" class="secondary outline" name="force_full" value="1" title="Fetch all issues from every provider, ignoring incremental tracking.">

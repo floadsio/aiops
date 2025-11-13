@@ -15,6 +15,11 @@ live under `ansible/`.
   **NEVER modify files in `/home/syseng/aiops` directly**, as that is the running aiops Flask instance.
   Each user has their own isolated workspace with their own git configuration and shell environment.
   Check your current directory with `pwd` if uncertain.
+- **CRITICAL: Production Environment Management** — **NEVER automatically update or restart the
+  production aiops environment** (running at `/home/syseng/aiops/`). All production deployments,
+  service restarts, and environment updates are performed manually by the system administrator.
+  Agents should only work in their personal workspaces, commit changes, and push to the repository.
+  The production environment will be updated separately by the admin.
 - Always load `AGENTS.override.md` (generated from the UI) for the current issue context before
   changing files.
 - Keep request/response handling inside `app/routes/` minimal; push integrations and orchestration

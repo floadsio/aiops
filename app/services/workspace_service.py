@@ -32,6 +32,19 @@ def _project_slug(project) -> str:
     return slug or f"project-{project.id}"
 
 
+def _build_workspace_git_env(env: Optional[dict] = None) -> dict[str, str]:
+    """Ensure git commands accept new host keys automatically."""
+    default_env = {
+        "GIT_SSH_COMMAND": "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+    }
+    if not env:
+        return default_env
+
+    merged_env = dict(env)
+    merged_env.setdefault("GIT_SSH_COMMAND", default_env["GIT_SSH_COMMAND"])
+    return merged_env
+
+
 def _git_clone_via_sudo(
     linux_username: str, repo_url: str, target_path: str, branch: str, env: dict | None
 ) -> None:
@@ -48,10 +61,11 @@ def _git_clone_via_sudo(
         WorkspaceError: If git clone fails
     """
     try:
+        git_env = _build_workspace_git_env(env)
         run_as_user(
             linux_username,
             ["git", "clone", "--branch", branch, repo_url, target_path],
-            env=env,
+            env=git_env,
             timeout=300,  # 5 minutes for git clone
         )
     except SudoError as exc:

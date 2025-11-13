@@ -9,6 +9,7 @@ from app import create_app, db
 from app.config import Config
 from app.models import User
 from app.security import hash_password, verify_password
+from app.services.ai_cli_update_service import CLICommandError
 
 
 class SettingsTestConfig(Config):
@@ -60,6 +61,8 @@ def test_settings_page_loads(client, login_admin):
     assert resp.status_code == 200
     assert b"System Update" in resp.data
     assert b"User Accounts" in resp.data
+    assert b"AI Tool Maintenance" in resp.data
+    assert b"Codex CLI" in resp.data
 
 
 def test_settings_update_branch_dropdown(client, login_admin, monkeypatch):
@@ -73,6 +76,40 @@ def test_settings_update_branch_dropdown(client, login_admin, monkeypatch):
     assert b"git-identities" in resp.data
     assert b"release-2024-08" in resp.data
     assert b"Quick Branch Switch" in resp.data
+
+
+def test_ai_tool_update_route_calls_service(client, login_admin, monkeypatch):
+    captured = {}
+
+    def fake_run(tool, source):
+        captured["args"] = (tool, source)
+        return SimpleNamespace(stdout="ok", stderr="", returncode=0, ok=True)
+
+    monkeypatch.setattr("app.routes.admin.run_ai_tool_update", fake_run)
+
+    resp = client.post(
+        "/admin/settings/ai-tools/codex/update",
+        data={"source": "npm"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert captured["args"] == ("codex", "npm")
+    assert b"Codex CLI NPM command succeeded" in resp.data
+
+
+def test_ai_tool_update_route_handles_errors(client, login_admin, monkeypatch):
+    def fake_run(tool, source):
+        raise CLICommandError("codex not installed")
+
+    monkeypatch.setattr("app.routes.admin.run_ai_tool_update", fake_run)
+
+    resp = client.post(
+        "/admin/settings/ai-tools/codex/update",
+        data={"source": "npm"},
+        follow_redirects=True,
+    )
+    assert resp.status_code == 200
+    assert b"codex not installed" in resp.data
 
 
 def test_run_system_update_records_branch(app, client, login_admin, monkeypatch):

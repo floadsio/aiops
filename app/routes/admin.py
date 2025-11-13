@@ -31,6 +31,7 @@ from sqlalchemy.orm import selectinload
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..extensions import db
 from ..forms.admin import (
+    AIToolUpdateForm,
     CreateUserForm,
     LinuxUserMappingForm,
     MigrationRunForm,
@@ -73,6 +74,7 @@ from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
     extract_issue_description,
 )
+from ..services.ai_cli_update_service import CLICommandError, run_ai_tool_update
 from ..services.branch_state import (
     BranchSwitchError,
     configure_branch_form,
@@ -741,6 +743,114 @@ def dashboard():
     )
 
 
+def _build_ai_tool_cards() -> list[dict[str, Any]]:
+    config = current_app.config
+    manage_url = url_for("admin.manage_settings")
+
+    def _make_action(source: str, *, label: str, helper: str, command: str | None):
+        command_text = (command or "").strip()
+        if not command_text:
+            return None
+        form = AIToolUpdateForm(formdata=None)
+        form.next.data = manage_url
+        form.source.data = source
+        return {
+            "source": source,
+            "label": label,
+            "helper": helper,
+            "command": command_text,
+            "form": form,
+        }
+
+    cards: list[dict[str, Any]] = []
+
+    codex_actions = [
+        _make_action(
+            "npm",
+            label="Update via npm",
+            helper="Runs CODEX_UPDATE_COMMAND (override in .env).",
+            command=config.get("CODEX_UPDATE_COMMAND"),
+        ),
+    ]
+    codex_brew_package = (config.get("CODEX_BREW_PACKAGE") or "").strip()
+    codex_actions.append(
+        _make_action(
+            "brew",
+            label="Update via Homebrew",
+            helper="Runs brew upgrade for CODEX_BREW_PACKAGE.",
+            command=f"brew upgrade {codex_brew_package}" if codex_brew_package else "",
+        )
+    )
+    codex_actions = [action for action in codex_actions if action]
+    if codex_actions:
+        cards.append(
+            {
+                "key": "codex",
+                "title": "Codex CLI",
+                "description": "Install or upgrade the Codex CLI without shell access.",
+                "actions": codex_actions,
+            }
+        )
+
+    gemini_actions = [
+        _make_action(
+            "npm",
+            label="Update via npm",
+            helper="Runs GEMINI_UPDATE_COMMAND.",
+            command=config.get("GEMINI_UPDATE_COMMAND"),
+        ),
+    ]
+    gemini_brew_package = (config.get("GEMINI_BREW_PACKAGE") or "").strip()
+    gemini_actions.append(
+        _make_action(
+            "brew",
+            label="Update via Homebrew",
+            helper="Runs brew upgrade for GEMINI_BREW_PACKAGE.",
+            command=f"brew upgrade {gemini_brew_package}" if gemini_brew_package else "",
+        )
+    )
+    gemini_actions = [action for action in gemini_actions if action]
+    if gemini_actions:
+        cards.append(
+            {
+                "key": "gemini",
+                "title": "Gemini CLI",
+                "description": "Upgrade the Gemini CLI for browser-based terminals.",
+                "actions": gemini_actions,
+            }
+        )
+
+    claude_actions = [
+        _make_action(
+            "npm",
+            label="Update via npm",
+            helper="Runs CLAUDE_UPDATE_COMMAND.",
+            command=config.get("CLAUDE_UPDATE_COMMAND"),
+        ),
+    ]
+    claude_brew_package = (config.get("CLAUDE_BREW_PACKAGE") or "").strip()
+    claude_actions.append(
+        _make_action(
+            "brew",
+            label="Update via Homebrew",
+            helper="Runs brew upgrade for CLAUDE_BREW_PACKAGE.",
+            command=f"brew upgrade {claude_brew_package}" if claude_brew_package else "",
+        )
+    )
+    claude_actions = [action for action in claude_actions if action]
+    if claude_actions:
+        cards.append(
+            {
+                "key": "claude",
+                "title": "Claude CLI",
+                "description": "Keep the Claude CLI current for tmux and browser sessions.",
+                "actions": claude_actions,
+            }
+        )
+
+    return cards
+
+
 @admin_bp.route("/settings", methods=["GET", "POST"])
 @admin_required
 def manage_settings():
@@ -831,6 +941,8 @@ def manage_settings():
         ]
         user_update_forms[user.id] = form
 
+    ai_tool_cards = _build_ai_tool_cards()
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -847,6 +959,7 @@ def manage_settings():
         restart_command=current_app.config.get("UPDATE_RESTART_COMMAND"),
         log_file=current_app.config.get("LOG_FILE"),
         quick_branch_form=quick_branch_form,
+        ai_tool_cards=ai_tool_cards,
     )
 
 
@@ -906,6 +1019,51 @@ def run_system_update():
             flash(restart_message, restart_category)
 
     redirect_target = form.next.data or url_for("admin.dashboard")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/ai-tools/<tool>/update", methods=["POST"])
+@admin_required
+def run_ai_tool_update_command(tool: str):
+    form = AIToolUpdateForm()
+    if not form.validate_on_submit():
+        flash("Invalid AI CLI update request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    source = (form.source.data or "").strip().lower()
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    tool_key = tool.lower().strip()
+    tool_label = {
+        "codex": "Codex CLI",
+        "gemini": "Gemini CLI",
+        "claude": "Claude CLI",
+    }.get(tool_key, tool.title())
+
+    try:
+        result = run_ai_tool_update(tool_key, source)
+    except CLICommandError as exc:
+        flash(str(exc), "danger")
+        return redirect(redirect_target)
+
+    combined_output = "\n".join(
+        part for part in [result.stdout.strip(), result.stderr.strip()] if part
+    )
+    truncated = _truncate_output(combined_output)
+    status = "succeeded" if result.ok else "failed"
+    category = "success" if result.ok else "danger"
+    message = (
+        f"{tool_label} {source.upper()} command {status} (exit {result.returncode})."
+    )
+    if truncated:
+        flash(
+            Markup(
+                f'{escape(message)}<pre class="update-log">{escape(truncated)}</pre>'
+            ),
+            category,
+        )
+    else:
+        flash(message, category)
+
     return redirect(redirect_target)
 
 

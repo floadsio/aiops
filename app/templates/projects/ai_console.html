@@ -26,13 +26,13 @@
     <label>
       <span>Codex permissions</span>
       <select id="codex_access">
-        <option value="never" selected>Full access (allow pushes & scripts)</option>
+        <option value="never" selected>Full access (network + pushes)</option>
         <option value="on-failure">Safe (read/write on request)</option>
       </select>
     </label>
     <p class="text-muted codex-access__note">
       Safe mode lets Codex suggest commands but asks before running destructive steps.
-      Full access enables `git push`, package installs, etc. Only use when you understand the impact.
+      Full access enables `git push`, package installs, and full network access. Only use when you understand the impact.
     </p>
   </div>
   <label>{{ form.prompt.label }} {{ form.prompt(id="initial_prompt", rows=4, placeholder="Optional one-shot instruction to send when the session starts") }}</label>
@@ -215,8 +215,12 @@
     if (!command) {
       return 'never';
     }
-    const match = command.match(/-a\s+([^\s]+)/);
-    return match ? match[1] : 'never';
+    const askMatch = command.match(/--ask-for-approval(?:\s+|=)([^\s]+)/);
+    if (askMatch) {
+      return askMatch[1];
+    }
+    const legacyMatch = command.match(/-a\s+([^\s]+)/);
+    return legacyMatch ? legacyMatch[1] : 'never';
   }
 
   function syncCodexAccessFromCommand() {
@@ -235,14 +239,17 @@
     }
     const base = (aiToolCommands && aiToolCommands.codex) || 'codex';
     const current = (commandInput.value || '').trim();
-    const replacement = `-a ${value}`;
+    const replacement = `--ask-for-approval ${value}`;
     if (!current) {
       commandInput.value = `${base} ${replacement}`.trim();
       return;
     }
-    const pattern = /-a\s+[^\s]+/;
-    if (pattern.test(current)) {
-      commandInput.value = current.replace(pattern, replacement);
+    const askPattern = /--ask-for-approval(?:\s+|=)[^\s]+/;
+    const legacyPattern = /-a\s+[^\s]+/;
+    if (askPattern.test(current)) {
+      commandInput.value = current.replace(askPattern, replacement);
+    } else if (legacyPattern.test(current)) {
+      commandInput.value = current.replace(legacyPattern, replacement);
     } else {
       commandInput.value = `${current} ${replacement}`.trim();
     }

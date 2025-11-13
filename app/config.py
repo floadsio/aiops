@@ -31,6 +31,38 @@ def _get_int_env_var(name: str, default: int) -> int:
     except ValueError:
         return default
 
+
+def _ensure_codex_flags(
+    command: str,
+    *,
+    sandbox_mode: str | None,
+    approval_mode: str | None,
+) -> str:
+    if not command:
+        return command
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return command
+    def ensure_flag(flag: str, value: str | None) -> None:
+        if not value:
+            return
+        for idx, token in enumerate(tokens):
+            if token == flag and idx + 1 < len(tokens):
+                tokens[idx + 1] = value
+                return
+            if token.startswith(f"{flag}="):
+                tokens[idx] = flag
+                if idx + 1 < len(tokens):
+                    tokens[idx + 1] = value
+                else:
+                    tokens.insert(idx + 1, value)
+                return
+        tokens.extend([flag, value])
+    ensure_flag("--sandbox", sandbox_mode)
+    ensure_flag("--ask-for-approval", approval_mode)
+    return shlex.join(tokens)
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     INSTANCE_PATH = INSTANCE_PATH
@@ -45,12 +77,19 @@ class Config:
     )
     GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "auto_edit")
     CLI_EXTRA_PATHS = os.getenv("CLI_EXTRA_PATHS", "/opt/homebrew/bin:/usr/local/bin")
+    CODEX_SANDBOX_MODE = os.getenv("CODEX_SANDBOX_MODE", "danger-full-access")
+    CODEX_APPROVAL_MODE = os.getenv("CODEX_APPROVAL_MODE", "never")
     _GEMINI_COMMAND = _ensure_gemini_approval_mode(
         os.getenv("GEMINI_COMMAND", "gemini"),
         GEMINI_APPROVAL_MODE,
     )
+    _CODEX_COMMAND = _ensure_codex_flags(
+        os.getenv("CODEX_COMMAND", "codex"),
+        sandbox_mode=CODEX_SANDBOX_MODE,
+        approval_mode=CODEX_APPROVAL_MODE,
+    )
     ALLOWED_AI_TOOLS = {
-        "codex": os.getenv("CODEX_COMMAND", "codex -a never"),
+        "codex": _CODEX_COMMAND,
         "aider": os.getenv("AIDER_COMMAND", "aider"),
         "gemini": _GEMINI_COMMAND,
         "claude": os.getenv("CLAUDE_COMMAND", "claude"),

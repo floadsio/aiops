@@ -966,6 +966,81 @@ def stop_ai_session(project_id: int, session_id: str):
     return ("", 204)
 
 
+@projects_bp.route("/<int:project_id>/ai/sessions/resumable", methods=["GET"])
+@login_required
+def list_resumable_sessions(project_id: int):
+    """List resumable AI sessions for a project."""
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        return jsonify({"error": "Access denied"}), 403
+
+    from ..services.ai_session_service import get_session_summary, get_user_sessions
+
+    user_id = current_user.get_id()
+    tool_filter = request.args.get("tool")  # Optional filter by tool
+
+    sessions = get_user_sessions(
+        user_id=int(user_id),
+        project_id=project_id,
+        tool=tool_filter,
+        active_only=True,
+    )
+
+    session_data = [get_session_summary(s) for s in sessions]
+
+    if request.is_json or request.accept_mimetypes.best == "application/json":
+        return jsonify({"sessions": session_data})
+
+    # Return HTML template for UI integration
+    return render_template(
+        "projects/resumable_sessions.html",
+        project=project,
+        sessions=session_data,
+    )
+
+
+@projects_bp.route("/<int:project_id>/ai/sessions/<int:db_session_id>/resume", methods=["POST"])
+@login_required
+def resume_ai_session(project_id: int, db_session_id: int):
+    """Resume an AI session by creating a new tmux session with the resume command."""
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        return jsonify({"error": "Access denied"}), 403
+
+    from ..models import AISession as AISessionModel
+    from ..services.ai_session_service import build_resume_command
+
+    # Get the saved session from database
+    db_session = AISessionModel.query.filter_by(
+        id=db_session_id,
+        project_id=project_id,
+        user_id=int(current_user.get_id()),
+    ).first_or_404()
+
+    # Build the resume command
+    resume_command = build_resume_command(db_session)
+
+    # Parse JSON payload for terminal dimensions
+    payload = request.get_json(silent=True) or {}
+    rows = payload.get("rows")
+    cols = payload.get("cols")
+
+    # Create a new tmux session with the resume command
+    try:
+        session = create_session(
+            project=project,
+            user_id=int(current_user.get_id()),
+            tool=db_session.tool,
+            command=resume_command,
+            rows=rows,
+            cols=cols,
+        )
+        return jsonify({"session_id": session.id})
+    except Exception as exc:
+        current_app.logger.error("Failed to resume session: %s", exc)
+        return jsonify({"error": str(exc)}), 500
+
+
 @projects_bp.route("/<int:project_id>/tmux/close", methods=["POST"])
 @login_required
 def close_tmux_window(project_id: int):

@@ -42,6 +42,15 @@
   </div>
 </form>
 
+<!-- Resumable AI Sessions Section -->
+<section class="resumable-sessions" id="resumable-sessions">
+  <h2>Resumable AI Sessions</h2>
+  <p class="text-muted">Continue previous Claude, Codex, or Gemini sessions</p>
+  <div id="session-list" class="session-grid">
+    <p class="text-muted">Loading sessions...</p>
+  </div>
+</section>
+
 {% if tmux_error %}
   <article class="contrast">
     <strong>tmux unavailable</strong>
@@ -902,5 +911,246 @@
   [data-theme="dark"] .text-muted {
     color: rgba(203, 213, 225, 0.78);
   }
+
+  /* Resumable Sessions Styling */
+  .resumable-sessions {
+    margin: 2rem 0;
+  }
+
+  .session-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .session-card {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    background: white;
+    transition: all 0.2s;
+  }
+
+  [data-theme="dark"] .session-card {
+    background: rgba(30, 41, 59, 0.4);
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  .session-card:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .session-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .session-tool-badge {
+    display: inline-flex;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+  }
+
+  .session-tool-badge.claude {
+    background: rgba(168, 85, 247, 0.15);
+    color: #7c3aed;
+  }
+
+  .session-tool-badge.codex {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+  }
+
+  .session-tool-badge.gemini {
+    background: rgba(59, 130, 246, 0.15);
+    color: #1d4ed8;
+  }
+
+  [data-theme="dark"] .session-tool-badge.claude {
+    background: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+  }
+
+  [data-theme="dark"] .session-tool-badge.codex {
+    background: rgba(34, 197, 94, 0.2);
+    color: #4ade80;
+  }
+
+  [data-theme="dark"] .session-tool-badge.gemini {
+    background: rgba(59, 130, 246, 0.2);
+    color: #60a5fa;
+  }
+
+  .session-meta {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0.5rem 0;
+  }
+
+  [data-theme="dark"] .session-meta {
+    color: rgba(203, 213, 225, 0.78);
+  }
+
+  .session-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .session-actions button {
+    flex: 1;
+  }
 </style>
+<script>
+  // Load resumable sessions
+  async function loadResumableSessions() {
+    const sessionList = document.getElementById('session-list');
+    if (!sessionList) return;
+
+    try {
+      const response = await fetch(`/projects/${projectId}/ai/sessions/resumable`, {
+        headers: {
+          'Accept': 'application/json',
+          ...csrfHeaders
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load sessions');
+      }
+
+      const data = await response.json();
+      const sessions = data.sessions || [];
+
+      if (sessions.length === 0) {
+        sessionList.innerHTML = '<p class="text-muted">No resumable sessions found. Start a new AI session to create one.</p>';
+        return;
+      }
+
+      // Render session cards
+      sessionList.innerHTML = sessions.map(session => {
+        const elapsed = formatElapsed(session.elapsed_seconds);
+        const startedAt = new Date(session.started_at).toLocaleString();
+
+        return `
+          <article class="session-card">
+            <div class="session-card-header">
+              <span class="session-tool-badge ${session.tool}">${session.tool}</span>
+              ${session.is_active ? '<span style="color: #10b981; font-size: 0.85rem;">●</span>' : ''}
+            </div>
+            ${session.description ? `<p>${escapeHtml(session.description)}</p>` : ''}
+            <div class="session-meta">
+              <div>Started: ${startedAt}</div>
+              <div>Duration: ${elapsed}</div>
+              ${session.branch ? `<div>Branch: <code>${escapeHtml(session.branch)}</code></div>` : ''}
+            </div>
+            <div class="session-actions">
+              <button type="button" class="resume-session" data-session-id="${session.id}">
+                Resume
+              </button>
+              <button type="button" class="secondary copy-resume-cmd" data-resume-command="${escapeHtml(session.resume_command)}">
+                Copy Command
+              </button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      // Attach event handlers
+      document.querySelectorAll('.resume-session').forEach(btn => {
+        btn.addEventListener('click', handleResumeSession);
+      });
+
+      document.querySelectorAll('.copy-resume-cmd').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const cmd = this.getAttribute('data-resume-command');
+          navigator.clipboard.writeText(cmd).then(() => {
+            this.textContent = 'Copied!';
+            setTimeout(() => {
+              this.textContent = 'Copy Command';
+            }, 2000);
+          });
+        });
+      });
+
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+      sessionList.innerHTML = '<p class="text-muted">Failed to load resumable sessions.</p>';
+    }
+  }
+
+  async function handleResumeSession(event) {
+    const button = event.target;
+    const sessionId = button.getAttribute('data-session-id');
+    const originalText = button.textContent;
+
+    button.disabled = true;
+    button.textContent = 'Resuming...';
+
+    try {
+      const response = await fetch(`/projects/${projectId}/ai/sessions/${sessionId}/resume`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders
+        },
+        body: JSON.stringify({
+          rows: term.rows,
+          cols: term.cols
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to resume session');
+      }
+
+      const data = await response.json();
+      sessionId = data.session_id;
+
+      // Start streaming from the new session
+      startSession(sessionId);
+
+    } catch (error) {
+      console.error('Error resuming session:', error);
+      alert('Failed to resume session: ' + error.message);
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+
+  function formatElapsed(seconds) {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    } else if (minutes > 0) {
+      return `${minutes}m ${secs}s`;
+    } else {
+      return `${secs}s`;
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Load sessions on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadResumableSessions);
+  } else {
+    loadResumableSessions();
+  }
+</script>
 {% endblock %}

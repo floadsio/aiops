@@ -41,6 +41,7 @@ class AISession:
         pid: int,
         fd: int,
         tmux_target: str | None = None,
+        tool: str | None = None,
     ):
         self.id = session_id
         self.project_id = project_id
@@ -49,8 +50,11 @@ class AISession:
         self.pid = pid
         self.fd = fd
         self.tmux_target = tmux_target
+        self.tool = tool
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
+        self.output_buffer: list[bytes] = []  # Buffer for session ID detection
+        self.detected_session_id: str | None = None
 
     def close(self) -> None:
         if self.stop_event.is_set():
@@ -239,6 +243,44 @@ def _reader_loop(session: AISession) -> None:
                 if not data:
                     break
                 session.queue.put(data)
+
+                # Buffer output for session ID detection (limit to ~50KB)
+                if len(session.output_buffer) < 50:
+                    session.output_buffer.append(data)
+
+                    # Try to detect session ID if not already found
+                    if session.detected_session_id is None and session.tool:
+                        from .services.ai_session_service import detect_session_id, save_session
+
+                        # Decode and check recent output
+                        try:
+                            recent_text = b"".join(session.output_buffer[-10:]).decode("utf-8", errors="ignore")
+                            detected_id = detect_session_id(session.tool, recent_text)
+
+                            if detected_id:
+                                session.detected_session_id = detected_id
+                                current_app.logger.info(
+                                    "Detected %s session ID: %s",
+                                    session.tool,
+                                    detected_id,
+                                )
+
+                                # Save to database
+                                try:
+                                    save_session(
+                                        project_id=session.project_id,
+                                        user_id=session.user_id,
+                                        tool=session.tool,
+                                        session_id=detected_id,
+                                        command=session.command,
+                                        tmux_target=session.tmux_target,
+                                    )
+                                except Exception as exc:  # noqa: BLE001
+                                    current_app.logger.error(
+                                        "Failed to save session to DB: %s", exc
+                                    )
+                        except Exception:  # noqa: BLE001
+                            pass  # Ignore decoding/detection errors
     finally:
         session.queue.put(None)
         session.stop_event.set()
@@ -372,6 +414,7 @@ def create_session(
         pid,
         fd,
         f"{session_name}:{window_name}",
+        tool=tool,
     )
     if rows and cols:
         _set_winsize(fd, rows, cols)

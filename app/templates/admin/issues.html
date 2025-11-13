@@ -394,8 +394,20 @@
                       data-target="{{ issue.codex_target }}"
                       data-prepare="{{ issue.prepare_endpoint }}"
                       data-context='{{ issue.codex_payload|tojson }}'
+                      data-tool="claude"
                     >
-                      Start Codex Session
+                      Claude
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary outline issues-start-codex"
+                      data-project-id="{{ issue.project_id }}"
+                      data-target="{{ issue.codex_target }}"
+                      data-prepare="{{ issue.prepare_endpoint }}"
+                      data-context='{{ issue.codex_payload|tojson }}'
+                      data-tool="codex"
+                    >
+                      Codex
                     </button>
                   {% endif %}
                   {% if issue.populate_endpoint %}
@@ -614,8 +626,20 @@
                 data-target="{{ issue.codex_target }}"
                 data-prepare="{{ issue.prepare_endpoint }}"
                 data-context='{{ issue.codex_payload|tojson }}'
+                data-tool="claude"
               >
-                Start Codex Session
+                Claude
+              </button>
+              <button
+                type="button"
+                class="secondary outline issues-start-codex"
+                data-project-id="{{ issue.project_id }}"
+                data-target="{{ issue.codex_target }}"
+                data-prepare="{{ issue.prepare_endpoint }}"
+                data-context='{{ issue.codex_payload|tojson }}'
+                data-tool="codex"
+              >
+                Codex
               </button>
             {% endif %}
             {% if issue.populate_endpoint %}
@@ -679,6 +703,7 @@
         const target = button.dataset.target;
         const prepareEndpoint = button.dataset.prepare;
         const payloadRaw = button.dataset.context;
+        const toolOverride = button.dataset.tool;
         if (!projectId || !target || !prepareEndpoint || !payloadRaw) {
           return;
         }
@@ -688,6 +713,11 @@
           payload = JSON.parse(payloadRaw);
         } catch (error) {
           return;
+        }
+
+        // Override the tool if specified on the button
+        if (toolOverride) {
+          payload.tool = toolOverride;
         }
 
         const storageKey = `aiops-session-context-${projectId}`;

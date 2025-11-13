@@ -273,7 +273,7 @@ def _store_private_key_file(ssh_key: SSHKey, private_key: str) -> None:
             handle.write(sanitized)
             if not sanitized.endswith("\n"):
                 handle.write("\n")
-        os.chmod(destination, 0o600)
+        os.chmod(destination, 0o640)
     except OSError as exc:
         current_app.logger.error(
             "Failed to store private key for %s: %s", ssh_key.name, exc

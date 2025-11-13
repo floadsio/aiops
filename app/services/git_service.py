@@ -93,7 +93,7 @@ def _sanitize_private_key(path: Path) -> Path:
 
     try:
         path.write_bytes(sanitized)
-        os.chmod(path, 0o600)
+        os.chmod(path, 0o640)
         log.info("Normalized line endings for SSH key %s", path)
     except OSError:
         log.warning("Unable to normalize SSH key %s", path)

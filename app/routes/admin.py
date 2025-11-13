@@ -347,13 +347,19 @@ def _current_tmux_session_name() -> str:
     return session_name_for_user(user_obj)
 
 
+def _current_user_obj():
+    """Get the current user object for workspace operations."""
+    user_obj = getattr(current_user, "model", None)
+    if user_obj is None and getattr(current_user, "is_authenticated", False):
+        user_obj = current_user
+    return user_obj
+
+
 def _current_linux_username() -> str | None:
     """Get the Linux username for the current user."""
     from ..services.linux_users import resolve_linux_username
 
-    user_obj = getattr(current_user, "model", None)
-    if user_obj is None and getattr(current_user, "is_authenticated", False):
-        user_obj = current_user
+    user_obj = _current_user_obj()
     if user_obj is None:
         return None
     return resolve_linux_username(user_obj)
@@ -481,7 +487,7 @@ def dashboard():
         return priority, label.lower()
 
     for project in projects:
-        status = get_repo_status(project)
+        status = get_repo_status(project, user=_current_user_obj())
         last_activity = _coerce_timestamp(
             getattr(project, "updated_at", None)
         ) or _coerce_timestamp(getattr(project, "created_at", None))

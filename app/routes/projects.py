@@ -40,6 +40,7 @@ from ..forms.project import (
 )
 from ..models import ExternalIssue, Project, ProjectIntegration, SSHKey
 from ..services.agent_context import write_tracked_issue_context
+from ..services.ai_status_service import AIStatusError, get_claude_status
 from ..services.ansible_runner import (
     SemaphoreAPIError,
     SemaphoreConfigError,
@@ -111,6 +112,29 @@ def _current_user_obj():
     if user_obj is None and getattr(current_user, "is_authenticated", False):
         user_obj = current_user
     return user_obj
+
+
+@projects_bp.route("/ai/status", methods=["GET"])
+@login_required
+def ai_status_overview():
+    """Display per-user AI tool capacity information."""
+    user = _current_user_obj()
+    if user is None:
+        abort(403)
+
+    claude_status = None
+    claude_error = None
+    try:
+        claude_status = get_claude_status(user)
+    except AIStatusError as exc:
+        claude_error = str(exc)
+
+    return render_template(
+        "projects/ai_status.html",
+        claude_status=claude_status,
+        claude_error=claude_error,
+        linux_username=_current_linux_username(),
+    )
 
 
 def _issue_sort_key(issue: ExternalIssue):

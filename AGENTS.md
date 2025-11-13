@@ -67,6 +67,15 @@ live under `ansible/`.
   (pull, push, branch management) operate on the user's workspace. The dashboard shows status from
   the logged-in user's workspace. This architecture eliminates permission conflicts and provides
   clean isolation between users.
+- **Per-User SSH Keys** — Each user must configure their own SSH keys for git authentication.
+  Per-user workspaces do NOT use project SSH keys to avoid permission issues. To set up:
+  1. Generate an SSH key pair: `ssh-keygen -t ed25519 -C "your_email@example.com"`
+  2. Add the public key to your GitHub/GitLab account
+  3. Test authentication: `ssh -T git@github.com`
+  4. Your `~/.ssh/id_ed25519` or `~/.ssh/id_rsa` will be used automatically for git operations
+  Project SSH keys (stored in `instance/keys/`) are only used for system-level operations run by
+  the Flask app user (`syseng`). AI sessions (Claude, Codex, Gemini) running as your Linux user
+  will use your personal SSH keys, ensuring proper file permissions and security isolation.
 - Use `make start-dev` during development so Flask auto-reloads changes. The legacy `make start`
   runs detached and will not reload code.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so
@@ -83,7 +92,7 @@ aiops uses a centralized sudo utility service (`app/services/sudo_service.py`) t
 Linux users. This is essential because:
 - The Flask app runs as `syseng` but needs to access per-user workspaces
 - User workspaces live in `~/workspace/` with restrictive permissions (drwx------)
-- Git operations must run with user-specific SSH keys and configurations
+- Git operations run with each user's own SSH keys (`~/.ssh/id_ed25519` or `~/.ssh/id_rsa`)
 - Workspace initialization requires creating directories as the target user
 
 ### Available Sudo Functions
@@ -210,12 +219,13 @@ def initialize_workspace(project, user) -> Path:
     # Create workspace directory
     mkdir(linux_username, str(workspace_path))
 
-    # Clone repository with SSH credentials
+    # Clone repository using user's own SSH keys
+    # Note: env=None means the user's default SSH key (~/.ssh/id_ed25519 or id_rsa) will be used
     try:
         run_as_user(
             linux_username,
             ["git", "clone", "--branch", branch, repo_url, str(workspace_path)],
-            env=build_project_git_env(project),
+            env=None,  # Let user's own SSH keys handle authentication
             timeout=300,
         )
     except SudoError as exc:
@@ -258,10 +268,13 @@ except SudoError as exc:
    - Git clone: 300 seconds (5 minutes)
    - Git operations: 30-60 seconds
 
-3. **Pass environment variables for git operations:**
+3. **Git operations use user's own SSH keys:**
    ```python
-   env = build_project_git_env(project)  # Gets SSH keys
-   run_as_user(username, ["git", "pull"], env=env)
+   # For per-user git operations, don't pass env - let user's SSH keys work
+   run_as_user(username, ["git", "pull"], env=None)
+
+   # Project SSH keys are only for system-level operations (syseng)
+   # env = build_project_git_env(project)  # Only use for syseng operations
    ```
 
 4. **Check paths via sudo when dealing with restrictive permissions:**

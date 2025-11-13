@@ -397,6 +397,13 @@ The workspace path is retrieved from `get_repo_status()` service (`app/services/
 ## Project Structure & Module Organization
 The aiops Flask app lives in `app/`, with blueprints in `app/routes/`, forms in `app/forms/`, and shared helpers in `app/services/`. Database models sit in `app/models.py`, configuration glue in `app/config.py` and `app/extensions.py`, and CLI entry points in `manage.py`. Store infrastructure assets under `ansible/playbooks/`, documentation in `docs/`, and keep tests parallel to runtime modules inside `tests/`.
 
+## Version Management
+When updating the aiops version, **always update both version locations**:
+1. **`AGENTS.md`**: Update the version number in the header line `# Project Overview _(version X.Y.Z)_`
+2. **`VERSION` file**: Update the version string in the root `VERSION` file (read by `app/version.py`)
+
+The version follows semantic versioning (MAJOR.MINOR.PATCH). Use `.venv/bin/flask version` to display the current version. The version is displayed in the admin UI footer and used for tracking deployments.
+
 ## Build, Test, and Development Commands
 Install [uv](https://github.com/astral-sh/uv) and run `make sync` to create the uv-managed `.venv/` (Python 3.12 by default) and install runtime dependencies; `make sync-dev` adds contributor tooling. Core automation: `make format` (Ruff auto-format), `make lint` (Ruff + MyPy), `make test` (Pytest), and `make check` (linting plus tests). Use `make seed AIOPS_ADMIN_EMAIL=<admin@domain>` to migrate and register default tenants/projects, and `make seed-identities AIOPS_ADMIN_EMAIL=<admin@domain> [SEED_SOURCE=/path]` to import syseng SSH material. Run the Flask server with `make start-dev` during development (auto reload) or `make start`/`make stop` for the background runner; logs land in `/tmp/aiops.log`. `make all` bootstraps dependencies and launches the server for local work. Run additional CLI tasks via `.venv/bin/flask ...` or after activating the env.
 

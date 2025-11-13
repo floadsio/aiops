@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional, Type
 
 from flask import Flask, request
-from flask_wtf.csrf import generate_csrf
+from flask_wtf.csrf import generate_csrf  # type: ignore
 
 from .cli import register_cli_commands
 from .config import Config

@@ -27,7 +27,7 @@ def read_log_tail(path: Path, *, max_lines: int = 400) -> LogTail:
 
     try:
         with path.open("r", encoding="utf-8", errors="replace") as handle:
-            buffer = deque(maxlen=max_lines)
+            buffer: deque[str] = deque(maxlen=max_lines)
             total = 0
             for line in handle:
                 buffer.append(line.rstrip("\n"))

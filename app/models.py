@@ -16,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from .constants import DEFAULT_TENANT_COLOR
-from .extensions import db, login_manager
+from .extensions import db, login_manager, BaseModel
 from .security import LoginUser
 
 
@@ -27,7 +27,7 @@ class TimestampMixin:
     )
 
 
-class User(db.Model, TimestampMixin):
+class User(BaseModel, TimestampMixin):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
@@ -50,7 +50,7 @@ class User(db.Model, TimestampMixin):
     projects = relationship("Project", back_populates="owner")
 
 
-class SSHKey(db.Model, TimestampMixin):
+class SSHKey(BaseModel, TimestampMixin):
     __tablename__ = "ssh_keys"
 
     id = Column(Integer, primary_key=True)
@@ -66,7 +66,7 @@ class SSHKey(db.Model, TimestampMixin):
     projects = relationship("Project", back_populates="ssh_key")
 
 
-class Tenant(db.Model, TimestampMixin):
+class Tenant(BaseModel, TimestampMixin):
     __tablename__ = "tenants"
 
     id = Column(Integer, primary_key=True)
@@ -87,7 +87,7 @@ class Tenant(db.Model, TimestampMixin):
     )
 
 
-class Project(db.Model, TimestampMixin):
+class Project(BaseModel, TimestampMixin):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True)
@@ -112,7 +112,7 @@ class Project(db.Model, TimestampMixin):
     )
 
 
-class AutomationTask(db.Model, TimestampMixin):
+class AutomationTask(BaseModel, TimestampMixin):
     __tablename__ = "automation_tasks"
 
     id = Column(Integer, primary_key=True)
@@ -125,7 +125,7 @@ class AutomationTask(db.Model, TimestampMixin):
     project = relationship("Project", back_populates="automation_tasks")
 
 
-class TenantIntegration(db.Model, TimestampMixin):
+class TenantIntegration(BaseModel, TimestampMixin):
     __tablename__ = "tenant_integrations"
     __table_args__ = (
         UniqueConstraint("tenant_id", "name", name="uq_tenant_integration_name"),
@@ -146,7 +146,7 @@ class TenantIntegration(db.Model, TimestampMixin):
     )
 
 
-class ProjectIntegration(db.Model, TimestampMixin):
+class ProjectIntegration(BaseModel, TimestampMixin):
     __tablename__ = "project_integrations"
     __table_args__ = (
         UniqueConstraint(
@@ -174,7 +174,7 @@ class ProjectIntegration(db.Model, TimestampMixin):
     )
 
 
-class ExternalIssue(db.Model, TimestampMixin):
+class ExternalIssue(BaseModel, TimestampMixin):
     __tablename__ = "external_issues"
     __table_args__ = (
         UniqueConstraint(
@@ -199,7 +199,7 @@ class ExternalIssue(db.Model, TimestampMixin):
     project_integration = relationship("ProjectIntegration", back_populates="issues")
 
 
-class SystemConfig(db.Model, TimestampMixin):
+class SystemConfig(BaseModel, TimestampMixin):
     """System-wide configuration settings stored in the database.
 
     Currently stores Linux user mapping for per-user tmux sessions.

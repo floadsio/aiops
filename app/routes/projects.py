@@ -17,7 +17,7 @@ from flask import (
     stream_with_context,
     url_for,
 )
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required  # type: ignore
 from sqlalchemy.orm import selectinload
 
 from ..ai_sessions import (

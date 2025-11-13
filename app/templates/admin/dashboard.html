@@ -822,6 +822,11 @@
             <span class="tmux-meta">
               <strong>Session:</strong> {{ window.session }}
             </span>
+            {% if window.project and window.project.workspace_path %}
+              <span class="tmux-meta">
+                <strong>Path:</strong> {{ window.project.workspace_path }}
+              </span>
+            {% endif %}
             <span class="tmux-chip">{{ window.window }}</span>
             {% if window.tool %}
               <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>

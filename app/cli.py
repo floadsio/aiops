@@ -500,9 +500,9 @@ def test_sudo_command(user_email: Optional[str] = None) -> None:
 
                 # Test if we can check workspace via sudo
                 if test_path(linux_username, str(workspace_path)):
-                    click.echo(f"   ✓ Can access workspace via sudo")
+                    click.echo("   ✓ Can access workspace via sudo")
                 else:
-                    click.echo(f"   ℹ Workspace not yet initialized")
+                    click.echo("   ℹ Workspace not yet initialized")
 
         # Test git safe directory configuration
         click.echo("\n4. Testing git safe directory configuration...")

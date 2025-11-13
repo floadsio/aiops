@@ -45,97 +45,101 @@ def _apply_atlassian_marks(text: str, marks: list[Any] | None) -> str:
 def _render_atlassian_document(node: Any) -> str:
     """Convert Atlassian document format payloads to readable Markdown."""
 
-    def render(current: Any) -> list[str]:
+    def render(current: Any) -> Iterable[str]:
         if isinstance(current, dict):
             node_type = current.get("type")
             if node_type == "text":
-                return [flatten_inline(current)]
+                yield flatten_inline(current)
+                return
             content = current.get("content", [])
             if node_type == "doc":
-                lines: list[str] = []
                 for child in content:
-                    lines.extend(render(child))
-                return lines
+                    yield from render(child)
+                return
             if node_type == "paragraph":
                 text = "".join(flatten_inline(child) for child in content).strip()
-                return [text] if text else []
+                if text:
+                    yield text
+                return
             if node_type == "heading":
                 level = current.get("attrs", {}).get("level", 1)
                 if not isinstance(level, int):
                     level = 1
                 level = max(1, min(level, 6))
                 text = "".join(flatten_inline(child) for child in content).strip()
-                return [f"{'#' * level} {text}"] if text else []
+                if text:
+                    yield f"{'#' * level} {text}"
+                return
             if node_type == "bulletList":
-                lines: list[str] = []
                 for item in content:
-                    item_lines = render(item)
+                    item_lines = list(render(item))
                     if not item_lines:
                         continue
                     first, *rest = item_lines
-                    lines.append(f"- {first}")
-                    lines.extend(f"  {line}" for line in rest if line)
-                return lines
+                    yield f"- {first}"
+                    for line in rest:
+                        if line:
+                            yield f"  {line}"
+                return
             if node_type == "orderedList":
-                lines: list[str] = []
                 start = current.get("attrs", {}).get("order", 1)
                 if not isinstance(start, int):
                     start = 1
                 counter = start
                 for item in content:
-                    item_lines = render(item)
+                    item_lines = list(render(item))
                     if not item_lines:
                         continue
                     first, *rest = item_lines
-                    lines.append(f"{counter}. {first}")
-                    lines.extend(f"   {line}" for line in rest if line)
+                    yield f"{counter}. {first}"
+                    for line in rest:
+                        if line:
+                            yield f"   {line}"
                     counter += 1
-                return lines
+                return
             if node_type == "listItem":
-                lines: list[str] = []
                 for child in content:
-                    lines.extend(render(child))
-                return lines
+                    yield from render(child)
+                return
             if node_type == "codeBlock":
                 language = current.get("attrs", {}).get("language")
-                body_lines: list[str] = []
-                for child in content:
-                    body_lines.extend(render(child))
+                body_lines = [line for child in content for line in render(child)]
                 body = "\n".join(body_lines)
                 fence = "```"
                 if language:
-                    return [f"{fence}{language}", body, fence]
-                return [fence, body, fence]
+                    yield f"{fence}{language}"
+                yield body
+                yield fence
+                return
             if node_type == "blockquote":
-                lines: list[str] = []
                 for child in content:
-                    child_lines = render(child)
+                    child_lines = list(render(child))
                     for line in child_lines:
                         prefix = "> " if line else ">"
-                        lines.append(f"{prefix}{line}" if line else prefix.rstrip())
-                return lines
+                        yield f"{prefix}{line}" if line else prefix.rstrip()
+                return
             if node_type == "rule":
-                return ["---"]
+                yield "---"
+                return
             if node_type == "panel":
-                lines: list[str] = []
                 for child in content:
-                    lines.extend(render(child))
-                return lines
+                    yield from render(child)
+                return
             if node_type == "hardBreak":
-                return [""]
+                yield ""
+                return
             # Fallback: render nested content without additional formatting.
-            lines: list[str] = []
             for child in content:
-                lines.extend(render(child))
-            return lines
+                yield from render(child)
+            return
         if isinstance(current, list):
-            lines: list[str] = []
             for child in current:
-                lines.extend(render(child))
-            return lines
+                yield from render(child)
+            return
         if isinstance(current, str):
-            return [current]
-        return []
+            yield current
+            return
+        return
 
     def flatten_inline(current: Any) -> str:
         if isinstance(current, dict):
@@ -162,7 +166,7 @@ def _render_atlassian_document(node: Any) -> str:
             return current
         return ""
 
-    raw_lines = render(node)
+    raw_lines = list(render(node))
     cleaned_lines: list[str] = []
     previous_blank = False
     for line in raw_lines:
@@ -463,8 +467,12 @@ def _render_git_identity_section(identity_user: User | None) -> str:
     """Return a Markdown section describing the git identity to use."""
     if identity_user is None:
         return ""
-    name = (getattr(identity_user, "name", "") or "").strip()
-    email = (getattr(identity_user, "email", "") or "").strip()
+    name: str = ""
+    email: str = ""
+    if identity_user and identity_user.name is not None:
+        name = str(identity_user.name).strip()  # type: ignore  # type: ignore  # type: ignore
+    if identity_user and identity_user.email is not None:
+        email = str(identity_user.email).strip()  # type: ignore  # type: ignore  # type: ignore
     if not name and not email:
         return ""
 

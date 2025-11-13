@@ -25,7 +25,7 @@ def _safe_chmod(path: Path, mode: int) -> None:
 
 
 def _base_config_dir() -> Path:
-    configured = current_app.config.get("GEMINI_CONFIG_DIR")
+    configured = current_app.config.get("GEMINI_CONFIG_DIR", str(Path.home() / ".gemini"))
     base_path = Path(configured).expanduser()
     base_path.mkdir(parents=True, exist_ok=True)
     _safe_chmod(base_path, 0o700)

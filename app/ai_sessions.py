@@ -310,6 +310,15 @@ def create_session(
             os.environ[key] = value
     ssh_command = git_env.get("GIT_SSH_COMMAND")
 
+    # Determine start directory (needed for both child and parent processes)
+    start_dir = current_app.instance_path
+    if user is not None:
+        from .services.workspace_service import get_workspace_path
+
+        workspace_path = get_workspace_path(project, user)
+        if workspace_path is not None:
+            start_dir = str(workspace_path)
+
     # Build tmux attach command (runs as syseng, the Flask app user)
     exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
 
@@ -317,14 +326,6 @@ def create_session(
 
     pid, fd = pty.fork()
     if pid == 0:  # child process
-        # Use workspace path if available, otherwise fall back to instance path
-        start_dir = current_app.instance_path
-        if user is not None:
-            from .services.workspace_service import get_workspace_path
-
-            workspace_path = get_workspace_path(project, user)
-            if workspace_path is not None:
-                start_dir = str(workspace_path)
         try:
             os.chdir(start_dir)
         except FileNotFoundError:
@@ -358,48 +359,82 @@ def create_session(
 
     should_bootstrap = created or tmux_target is None
     if should_bootstrap:
-        if ssh_command:
-            export_command = f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
-            try:
-                pane.send_keys(export_command, enter=True)
-            except Exception:  # noqa: BLE001
-                current_app.logger.debug(
-                    "Unable to set GIT_SSH_COMMAND for %s", window_name
-                )
-        for export_command in git_author_exports:
-            try:
-                pane.send_keys(export_command, enter=True)
-            except Exception:  # noqa: BLE001
-                current_app.logger.debug(
-                    "Unable to set Git author environment for %s", window_name
-                )
-        for export_command in codex_env_exports:
-            try:
-                pane.send_keys(export_command, enter=True)
-            except Exception:  # noqa: BLE001
-                current_app.logger.debug(
-                    "Unable to set Codex environment for %s", window_name
-                )
-        for export_command in claude_env_exports:
-            try:
-                pane.send_keys(export_command, enter=True)
-            except Exception:  # noqa: BLE001
-                current_app.logger.debug(
-                    "Unable to set Claude environment for %s", window_name
-                )
-        try:
-            pane.send_keys("clear", enter=True)
-        except Exception:  # noqa: BLE001
-            current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
-        # Wrap command with sudo if we have a target Linux user (other than syseng)
-        final_command = command_str
+        # When running as a different Linux user, start an interactive login shell
+        # so user configs (.bashrc, .profile) are loaded
         if linux_username_for_session and linux_username_for_session != "syseng":
-            final_command = f"sudo -u {linux_username_for_session} {command_str}"
-            current_app.logger.info(
-                "Running command as user %s: %s",
-                linux_username_for_session,
-                final_command,
+            use_login_shell = current_app.config.get("USE_LOGIN_SHELL", True)
+            shell_cmd = "bash -l" if use_login_shell else "bash"
+
+            # Build a heredoc script that sets up environment and runs the command
+            script_lines = []
+
+            # Change to workspace directory
+            script_lines.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+
+            # Export environment variables
+            if ssh_command:
+                script_lines.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+            for export_cmd in git_author_exports:
+                # Extract the export statement (remove "export " prefix for cleaner handling)
+                script_lines.append(export_cmd)
+            for export_cmd in codex_env_exports:
+                script_lines.append(export_cmd)
+            for export_cmd in claude_env_exports:
+                script_lines.append(export_cmd)
+
+            # Clear and run the command
+            script_lines.append("clear")
+            script_lines.append(command_str)
+
+            # Create the sudo command with a heredoc
+            script_body = "\n".join(script_lines)
+            final_command = (
+                f"sudo -u {linux_username_for_session} {shell_cmd} <<'AIOPS_EOF'\n"
+                f"{script_body}\n"
+                f"AIOPS_EOF"
             )
+            current_app.logger.info(
+                "Starting login shell as user %s in %s",
+                linux_username_for_session,
+                start_dir,
+            )
+        else:
+            # Running as syseng - use the original approach
+            if ssh_command:
+                export_command = f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
+                try:
+                    pane.send_keys(export_command, enter=True)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.debug(
+                        "Unable to set GIT_SSH_COMMAND for %s", window_name
+                    )
+            for export_command in git_author_exports:
+                try:
+                    pane.send_keys(export_command, enter=True)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.debug(
+                        "Unable to set Git author environment for %s", window_name
+                    )
+            for export_command in codex_env_exports:
+                try:
+                    pane.send_keys(export_command, enter=True)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.debug(
+                        "Unable to set Codex environment for %s", window_name
+                    )
+            for export_command in claude_env_exports:
+                try:
+                    pane.send_keys(export_command, enter=True)
+                except Exception:  # noqa: BLE001
+                    current_app.logger.debug(
+                        "Unable to set Claude environment for %s", window_name
+                    )
+            try:
+                pane.send_keys("clear", enter=True)
+            except Exception:  # noqa: BLE001
+                current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
+            final_command = command_str
+
         try:
             pane.send_keys(final_command, enter=True)
         except Exception as exc:  # noqa: BLE001

@@ -1196,6 +1196,32 @@
 </section>
 
 <section class="dashboard-section">
+  <header class="tmux-section-header">
+    <div class="dashboard-section-heading">
+      <h2>AI Session History</h2>
+      <small>Resume past Claude, Codex, and Gemini sessions</small>
+    </div>
+    <div class="tmux-scope-controls">
+      <label>
+        <select id="ai-session-filter" aria-label="Filter by tool">
+          <option value="">All tools</option>
+          <option value="claude">Claude</option>
+          <option value="codex">Codex</option>
+          <option value="gemini">Gemini</option>
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" id="ai-session-active-only" role="switch" />
+        Active only
+      </label>
+    </div>
+  </header>
+  <div id="ai-sessions-container">
+    <p style="text-align: center; color: #64748b;">Loading sessions...</p>
+  </div>
+</section>
+
+<section class="dashboard-section">
   <header>
     <h2>Tenants</h2>
     <small><a href="{{ url_for('admin.manage_tenants') }}">Manage tenants →</a></small>
@@ -1325,6 +1351,193 @@
         });
       });
     });
+  })();
+
+  // AI Session History
+  (function() {
+    const container = document.getElementById('ai-sessions-container');
+    const filterSelect = document.getElementById('ai-session-filter');
+    const activeOnlyCheckbox = document.getElementById('ai-session-active-only');
+
+    if (!container || !filterSelect || !activeOnlyCheckbox) {
+      return;
+    }
+
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    function formatDuration(seconds) {
+      if (seconds < 60) return `${seconds}s`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes}m`;
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return `${hours}h ${mins}m`;
+    }
+
+    function formatTimestamp(dateStr) {
+      if (!dateStr) return 'Unknown';
+      const date = new Date(dateStr);
+      return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short'
+      });
+    }
+
+    function renderSessions(sessions) {
+      if (!sessions || sessions.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No AI sessions found.</p></div>';
+        return;
+      }
+
+      const grid = document.createElement('div');
+      grid.className = 'tmux-recent-grid';
+
+      sessions.forEach(session => {
+        const card = document.createElement('div');
+        card.className = 'tmux-recent-card';
+        card.style.minHeight = 'auto';
+
+        const toolClass = session.tool ? `tmux-chip--tool` : '';
+        const statusBadge = session.is_active
+          ? '<span class="tmux-chip" style="background: #10b981;">Active</span>'
+          : '<span class="tmux-chip" style="background: #64748b;">Ended</span>';
+
+        card.innerHTML = `
+          <div class="tmux-recent-meta">
+            <strong>${session.project_name}</strong>
+            <span class="tmux-chip ${toolClass}">${session.tool}</span>
+            ${statusBadge}
+            ${session.branch ? `<span class="tmux-meta">Branch: ${session.branch}</span>` : ''}
+          </div>
+          <div class="tmux-recent-meta" style="font-size: 0.85rem; margin-top: 0.5rem;">
+            <span>Started: ${formatTimestamp(session.started_at)}</span>
+            ${session.ended_at ? `<span>Ended: ${formatTimestamp(session.ended_at)}</span>` : ''}
+            <span>Duration: ${formatDuration(session.elapsed_seconds)}</span>
+          </div>
+          ${session.description ? `
+            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: #64748b;">
+              ${session.description}
+            </div>
+          ` : ''}
+          <div class="tmux-recent-actions" style="margin-top: 0.75rem;">
+            <div class="tmux-action">
+              <button
+                class="secondary outline tmux-action-btn resume-session-btn"
+                data-session-id="${session.id}"
+                data-project-name="${session.project_name}"
+                data-tool="${session.tool}"
+              >
+                Resume Session
+              </button>
+            </div>
+            <div class="tmux-action">
+              <button
+                class="secondary outline tmux-action-btn copy-command-btn"
+                data-command="${session.resume_command.replace(/"/g, '&quot;')}"
+                title="${session.resume_command}"
+              >
+                Copy Command
+              </button>
+            </div>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+
+      container.innerHTML = '';
+      container.appendChild(grid);
+
+      // Add event listeners for resume buttons
+      grid.querySelectorAll('.resume-session-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const sessionId = this.dataset.sessionId;
+          const projectName = this.dataset.projectName;
+          const tool = this.dataset.tool;
+
+          if (!confirm(`Resume ${tool} session in project ${projectName}?`)) {
+            return;
+          }
+
+          const originalText = this.textContent;
+          this.disabled = true;
+          this.textContent = 'Resuming...';
+
+          fetch(`/api/ai/sessions/${sessionId}/resume`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({}),
+          })
+          .then(response => {
+            if (!response.ok) {
+              return response.json().then(data => {
+                throw new Error(data.error || 'Failed to resume session');
+              });
+            }
+            return response.json();
+          })
+          .then(data => {
+            alert(`Session resumed successfully! Session ID: ${data.session_id}`);
+            loadSessions();
+          })
+          .catch(error => {
+            alert(`Error: ${error.message}`);
+            this.disabled = false;
+            this.textContent = originalText;
+          });
+        });
+      });
+
+      // Add event listeners for copy buttons
+      grid.querySelectorAll('.copy-command-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const command = this.dataset.command;
+          navigator.clipboard.writeText(command).then(() => {
+            const originalText = this.textContent;
+            this.textContent = 'Copied!';
+            setTimeout(() => {
+              this.textContent = originalText;
+            }, 2000);
+          }).catch(err => {
+            alert('Failed to copy command: ' + err);
+          });
+        });
+      });
+    }
+
+    function loadSessions() {
+      const tool = filterSelect.value;
+      const activeOnly = activeOnlyCheckbox.checked;
+
+      const params = new URLSearchParams();
+      if (tool) params.set('tool', tool);
+      if (activeOnly) params.set('active_only', 'true');
+      params.set('limit', '20');
+
+      fetch(`/api/ai/sessions?${params.toString()}`)
+        .then(response => response.json())
+        .then(data => {
+          renderSessions(data.sessions);
+        })
+        .catch(error => {
+          container.innerHTML = `<div class="empty-state"><p style="color: #ef4444;">Error loading sessions: ${error.message}</p></div>`;
+        });
+    }
+
+    // Load sessions on page load
+    loadSessions();
+
+    // Reload on filter change
+    filterSelect.addEventListener('change', loadSessions);
+    activeOnlyCheckbox.addEventListener('change', loadSessions);
   })();
 </script>
 {% endblock %}

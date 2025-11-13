@@ -40,7 +40,6 @@ from ..forms.project import (
 )
 from ..models import ExternalIssue, Project, ProjectIntegration, SSHKey
 from ..services.agent_context import write_tracked_issue_context
-from ..services.ai_status_service import AIStatusError, get_claude_status
 from ..services.ansible_runner import (
     SemaphoreAPIError,
     SemaphoreConfigError,
@@ -122,17 +121,21 @@ def ai_status_overview():
     if user is None:
         abort(403)
 
-    claude_status = None
-    claude_error = None
-    try:
-        claude_status = get_claude_status(user)
-    except AIStatusError as exc:
-        claude_error = str(exc)
+    # Display Claude usage from database instead of running CLI command
+    # The usage data is populated by the update mechanism or API calls
+    claude_usage = {
+        "input_tokens_limit": user.claude_input_tokens_limit,
+        "input_tokens_remaining": user.claude_input_tokens_remaining,
+        "output_tokens_limit": user.claude_output_tokens_limit,
+        "output_tokens_remaining": user.claude_output_tokens_remaining,
+        "requests_limit": user.claude_requests_limit,
+        "requests_remaining": user.claude_requests_remaining,
+        "last_updated": user.claude_usage_last_updated,
+    }
 
     return render_template(
         "projects/ai_status.html",
-        claude_status=claude_status,
-        claude_error=claude_error,
+        claude_usage=claude_usage,
         linux_username=_current_linux_username(),
     )
 

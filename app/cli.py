@@ -216,7 +216,7 @@ def seed_identities_command(owner_email: str, source_dir: Optional[Path]) -> Non
 
         dest_path = dest_dir / priv_file.name
         shutil.copy(priv_file, dest_path)
-        os.chmod(dest_path, 0o600)
+        os.chmod(dest_path, 0o640)
         ssh_key.private_key_path = format_private_key_path(dest_path)
         processed += 1
 

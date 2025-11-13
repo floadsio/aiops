@@ -940,6 +940,11 @@
           {% else %}
             <p class="text-muted">No pull recorded yet (branch {{ branch_name }}).</p>
           {% endif %}
+          {% if status.get("workspace_path") %}
+            <p class="text-muted" style="font-size: 0.85em;">
+              <code>{{ status.get("workspace_path") }}</code>
+            </p>
+          {% endif %}
           {% if status.get("dirty") %}
             <p class="critical-note">Uncommitted changes detected</p>
           {% endif %}

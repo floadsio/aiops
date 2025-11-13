@@ -640,4 +640,5 @@ def get_repo_status(project: Project, user: Optional[object] = None) -> dict[str
         ),
         "last_commit_hash": commit_hash,
         "last_commit_subject": commit_subject,
+        "workspace_path": repo.working_dir,
     }

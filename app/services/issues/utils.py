@@ -118,6 +118,7 @@ def parse_datetime(value: Any) -> Optional[datetime]:
 
 _OPEN_STATUS_TOKENS = {
     "open",
+    "opened",  # GitLab uses "opened" instead of "open"
     "todo",
     "doing",
     "backlog",

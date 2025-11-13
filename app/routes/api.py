@@ -366,4 +366,99 @@ def stop_project_ai_session(project_id: int, session_id: str):
     return ("", 204)
 
 
+@api_bp.get("/ai/sessions")
+def list_ai_sessions():
+    """Get AI session history for the current user."""
+    from ..services.ai_session_service import get_session_summary, get_user_sessions
+
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    # Get query parameters for filtering
+    project_id = request.args.get("project_id", type=int)
+    tool = request.args.get("tool")
+    active_only = request.args.get("active_only", "false").lower() == "true"
+    limit = request.args.get("limit", type=int, default=50)
+
+    # Fetch sessions from database
+    sessions = get_user_sessions(
+        user_id=user_id,
+        project_id=project_id,
+        tool=tool,
+        active_only=active_only,
+    )
+
+    # Limit results
+    sessions = sessions[:limit]
+
+    # Convert to summary format
+    session_list = [get_session_summary(session) for session in sessions]
+
+    return jsonify({
+        "sessions": session_list,
+        "count": len(session_list),
+    })
+
+
+@api_bp.post("/ai/sessions/<int:db_session_id>/resume")
+def resume_ai_session(db_session_id: int):
+    """Resume a previous AI session in its related tmux window."""
+    from ..models import AISession as AISessionModel
+    from ..services.ai_session_service import build_resume_command
+
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    # Fetch the session from database
+    db_session = AISessionModel.query.get_or_404(db_session_id)
+
+    # Verify user has access
+    if db_session.user_id != user_id and not current_user.is_admin:
+        return jsonify({"error": "Access denied."}), 403
+
+    # Get the project
+    project = Project.query.get_or_404(db_session.project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied to project."}), 403
+
+    # Build the resume command
+    resume_command = build_resume_command(db_session)
+
+    # Get request parameters for the new session
+    data = request.get_json(silent=True) or {}
+    rows = data.get("rows")
+    cols = data.get("cols")
+
+    # Use the same tmux target if available
+    tmux_target = db_session.tmux_target
+
+    # Get session name for user
+    session_user = getattr(current_user, "model", None)
+    if not session_user:
+        session_user = User.query.get(user_id)
+    tmux_session_name = session_name_for_user(session_user)
+
+    try:
+        # Create a new AI session with the resume command
+        session = create_session(
+            project,
+            user_id,
+            tool=db_session.tool,
+            command=resume_command,
+            rows=rows if isinstance(rows, int) else None,
+            cols=cols if isinstance(cols, int) else None,
+            tmux_target=tmux_target,
+            tmux_session_name=tmux_session_name,
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    return jsonify({
+        "session_id": session.id,
+        "message": f"Resumed {db_session.tool} session in project {project.name}",
+    }), 201
+
+
 csrf.exempt(api_bp)

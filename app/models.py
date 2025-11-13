@@ -200,6 +200,37 @@ class ExternalIssue(BaseModel, TimestampMixin):
     )
 
 
+class AISession(BaseModel, TimestampMixin):
+    """Tracks AI tool sessions for resumption across Claude, Codex, and Gemini.
+
+    Stores session identifiers that can be used to resume interrupted or
+    completed AI sessions via the web UI. Each tool has different resumption
+    patterns:
+    - Claude: uses session UUIDs with --resume flag
+    - Codex: uses session UUIDs with resume command
+    - Gemini: uses custom tags with /chat resume command
+    """
+
+    __tablename__ = "ai_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    tool: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    session_id: Mapped[str] = mapped_column(String(255), nullable=False)
+    command: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tmux_target: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    ended_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    project: Mapped["Project"] = relationship("Project")
+    user: Mapped["User"] = relationship("User")
+
+
 class SystemConfig(BaseModel, TimestampMixin):
     """System-wide configuration settings stored in the database.
 

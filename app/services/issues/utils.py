@@ -131,6 +131,7 @@ _OPEN_STATUS_TOKENS = {
     "pending",
 }
 _OPEN_STATUS_PHRASES = {
+    "to do",
     "in progress",
     "in review",
     "under review",

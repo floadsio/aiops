@@ -70,7 +70,7 @@ to restart the service automatically after a successful update.
 
 ## AI Console
 
-- Browser sessions default to the `codex` CLI when no tool is selected, falling back to `DEFAULT_AI_SHELL` only if the Codex command is unavailable. By default we run `codex -a on-failure`; override `CODEX_COMMAND` in `.env` if you prefer another approval mode.
+- Browser sessions default to the `codex` CLI when no tool is selected, falling back to `DEFAULT_AI_SHELL` only if the Codex command is unavailable. By default we run `codex -a never` for full permissions; override `CODEX_COMMAND` in `.env` if you prefer another approval mode.
 - Add Gemini (`gemini-cli`) to `ALLOWED_AI_TOOLS` automatically by setting `GEMINI_COMMAND` (defaults to `gemini`).
 - Add Claude (`claude`) to `ALLOWED_AI_TOOLS` by setting `CLAUDE_COMMAND` (defaults to `claude`). Store per-user Anthropic API keys via the admin settings and these keys are exported as `CLAUDE_CODE_OAUTH_TOKEN` before Claude sessions start.
 - Use Admin → Settings to check the Claude CLI status and run the `CLAUDE_UPDATE_COMMAND` (default `sudo npm install -g @anthropic-ai/claude-code`) without leaving the browser.

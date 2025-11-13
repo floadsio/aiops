@@ -397,6 +397,142 @@ def init_workspace_command(user_email: str, project_id: int) -> None:
         raise click.ClickException(str(exc)) from exc
 
 
+@click.command("test-sudo")
+@click.option("--user-email", help="Email of user to test sudo access for")
+@with_appcontext
+def test_sudo_command(user_email: Optional[str] = None) -> None:
+    """Test sudo configuration and permissions for workspace operations.
+
+    This command checks:
+    - Passwordless sudo access for the Flask app user
+    - Ability to run commands as target Linux users
+    - Directory permissions for workspace access
+    - Git safe directory configuration
+
+    If --user-email is provided, tests sudo access for that specific user.
+    Otherwise, tests sudo configuration in general.
+    """
+    import pwd
+    import subprocess
+
+    from .services.linux_users import resolve_linux_username
+    from .services.sudo_service import SudoError, run_as_user, test_path
+
+    click.echo("=== Testing Sudo Configuration ===\n")
+
+    # Test 1: Check current user
+    current_user = pwd.getpwuid(os.getuid()).pw_name
+    click.echo(f"Current user: {current_user}")
+
+    # Test 2: Check passwordless sudo
+    click.echo("\n1. Testing passwordless sudo access...")
+    try:
+        result = subprocess.run(
+            ["sudo", "-n", "true"],
+            capture_output=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            click.echo("   ✓ Passwordless sudo is configured")
+        else:
+            click.echo("   ✗ Passwordless sudo is NOT configured")
+            click.echo("     Configure /etc/sudoers.d/aiops with:")
+            click.echo(f"     {current_user} ALL=(ALL) NOPASSWD: ALL")
+            return
+    except Exception as e:
+        click.echo(f"   ✗ Error testing sudo: {e}")
+        return
+
+    # Test 3: If user specified, test sudo access for that user
+    if user_email:
+        click.echo(f"\n2. Testing sudo access for user: {user_email}")
+
+        user = User.query.filter_by(email=user_email).first()
+        if not user:
+            raise click.ClickException(f"User with email {user_email} not found.")
+
+        linux_username = resolve_linux_username(user)
+        if not linux_username:
+            click.echo(f"   ✗ No Linux username mapping found for {user_email}")
+            return
+
+        click.echo(f"   Linux username: {linux_username}")
+
+        # Test sudo access as the target user
+        try:
+            result = run_as_user(linux_username, ["whoami"], timeout=5)
+            if result.success and linux_username in result.stdout:
+                click.echo(f"   ✓ Can run commands as {linux_username}")
+            else:
+                click.echo(f"   ✗ Failed to run commands as {linux_username}")
+                return
+        except SudoError as e:
+            click.echo(f"   ✗ Error: {e}")
+            return
+
+        # Test workspace directory access
+        from .services.workspace_service import get_workspace_path
+
+        projects = Project.query.limit(1).all()
+        if projects:
+            project = projects[0]
+            workspace_path = get_workspace_path(project, user)
+
+            if workspace_path:
+                click.echo(f"\n3. Testing workspace access at: {workspace_path}")
+
+                # Check if parent directories have execute permissions
+                home_dir = workspace_path.parent.parent
+                workspace_root = workspace_path.parent
+
+                for path in [home_dir, workspace_root]:
+                    try:
+                        # Try to access as current user
+                        if path.exists():
+                            perms = oct(path.stat().st_mode)[-3:]
+                            if int(perms[2]) & 1:  # Check "other" execute bit
+                                click.echo(f"   ✓ {path}: o+x permission set")
+                            else:
+                                click.echo(f"   ✗ {path}: missing o+x permission")
+                                click.echo(f"     Run: chmod o+rx {path}")
+                    except PermissionError:
+                        click.echo(f"   ✗ {path}: Permission denied (cannot check)")
+
+                # Test if we can check workspace via sudo
+                if test_path(linux_username, str(workspace_path)):
+                    click.echo(f"   ✓ Can access workspace via sudo")
+                else:
+                    click.echo(f"   ℹ Workspace not yet initialized")
+
+        # Test git safe directory configuration
+        click.echo("\n4. Testing git safe directory configuration...")
+        try:
+            result = subprocess.run(
+                ["git", "config", "--global", "--get-all", "safe.directory"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                safe_dirs = result.stdout.strip().split("\n")
+                click.echo(f"   Git safe directories configured: {len(safe_dirs)}")
+                for safe_dir in safe_dirs[:5]:  # Show first 5
+                    click.echo(f"     - {safe_dir}")
+            else:
+                click.echo("   ⚠ No git safe directories configured")
+                click.echo("     This may cause 'dubious ownership' errors")
+                click.echo("     Run: sudo -u syseng git config --global --add safe.directory '*'")
+        except Exception as e:
+            click.echo(f"   ✗ Error checking git config: {e}")
+
+    else:
+        # General tests without specific user
+        click.echo("\n2. General sudo configuration looks good")
+        click.echo("   Use --user-email to test specific user access")
+
+    click.echo("\n=== Sudo Configuration Test Complete ===")
+
+
 def register_cli_commands(app) -> None:
     app.cli.add_command(db_init_command)
     app.cli.add_command(create_admin_command)
@@ -406,3 +542,4 @@ def register_cli_commands(app) -> None:
     app.cli.add_command(create_issue_command)
     app.cli.add_command(version_command)
     app.cli.add_command(init_workspace_command)
+    app.cli.add_command(test_sudo_command)

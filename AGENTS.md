@@ -1,4 +1,4 @@
-# Project Overview _(version 0.1.2)_
+# Project Overview _(version 0.1.3)_
 
 aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
 AI-assisted tmux sessions, and Ansible automation. Platform engineers use it to synchronise issues,
@@ -72,6 +72,271 @@ live under `ansible/`.
 - Prefer built-in CLI commands (`flask version`, `flask sync-issues`, etc.) over ad-hoc scripts so
   teammates can reproduce results.
 - During implementation, focus on code changes and skip tests (`make lint` only). Run `make check` before commits; treat style/type errors as blockers. Use `make test-file FILE=tests/test_<area>.py` to test specific modules during development.
+
+## Sudo Service Architecture
+
+**CRITICAL: All code modifications must be made in your personal workspace** at `/home/{username}/workspace/aiops/`,
+NOT in the running Flask instance at `/home/syseng/aiops/`. The running instance is for the Flask application
+server only. Always use `pwd` to verify you're in your workspace before editing files.
+
+aiops uses a centralized sudo utility service (`app/services/sudo_service.py`) to execute operations as different
+Linux users. This is essential because:
+- The Flask app runs as `syseng` but needs to access per-user workspaces
+- User workspaces live in `~/workspace/` with restrictive permissions (drwx------)
+- Git operations must run with user-specific SSH keys and configurations
+- Workspace initialization requires creating directories as the target user
+
+### Available Sudo Functions
+
+Import from `app.services.sudo_service`:
+
+```python
+from app.services.sudo_service import (
+    SudoError,           # Exception raised on sudo operation failures
+    SudoResult,          # Dataclass with returncode, stdout, stderr, success
+    run_as_user,         # Execute any command as a different user
+    test_path,           # Check if a path exists as a user
+    mkdir,               # Create directories as a user
+    chown,               # Change file/directory ownership
+    chmod,               # Change file/directory permissions
+    chgrp,               # Change file/directory group
+    rm_rf,               # Recursively remove directories as a user
+)
+```
+
+### Core Function: run_as_user()
+
+The most flexible function for executing commands as different users:
+
+```python
+def run_as_user(
+    username: str,                    # Linux username (e.g., "ivo", "michael")
+    command: list[str],               # Command and args (e.g., ["git", "status"])
+    *,
+    timeout: float = 30.0,            # Timeout in seconds
+    env: dict[str, str] | None = None,  # Environment variables to pass
+    check: bool = True,               # Raise SudoError on failure
+    capture_output: bool = True,      # Capture stdout/stderr
+) -> SudoResult:
+    """Execute a command as a different Linux user via sudo."""
+```
+
+**Example Usage:**
+```python
+# Check git status in user's workspace
+result = run_as_user(
+    "ivo",
+    ["git", "status"],
+    timeout=10.0,
+)
+print(result.stdout)
+
+# Clone repository with SSH environment
+result = run_as_user(
+    "ivo",
+    ["git", "clone", "--branch", "main", repo_url, target_path],
+    env={"GIT_SSH_COMMAND": "ssh -i /path/to/key"},
+    timeout=300.0,  # 5 minutes for large repos
+)
+
+# Run command without raising on failure
+result = run_as_user(
+    "ivo",
+    ["test", "-f", "/some/file"],
+    check=False,  # Don't raise if file doesn't exist
+)
+if result.success:
+    print("File exists")
+```
+
+### Helper Functions
+
+**test_path()** - Check if a path exists:
+```python
+if test_path("ivo", "/home/ivo/workspace/aiops/.git"):
+    print("Workspace initialized")
+```
+
+**mkdir()** - Create directories:
+```python
+mkdir("ivo", "/home/ivo/workspace/newproject", parents=True)
+```
+
+**File Permission Operations:**
+```python
+# Change ownership
+chown("/path/to/file", owner="syseng", group="syseng")
+chown("/path/to/file", group="developers")  # Group only
+
+# Change permissions (use octal notation)
+chmod("/path/to/file", 0o644)      # -rw-r--r--
+chmod("/path/to/dir", 0o755)       # drwxr-xr-x
+chmod("/path/to/dir", 0o2775)      # drwxrwsr-x (with setgid)
+
+# Change group
+chgrp("/path/to/file", "syseng")
+```
+
+**rm_rf()** - Recursive removal:
+```python
+# Clean up failed clone attempt
+try:
+    rm_rf("ivo", "/home/ivo/workspace/failed_clone")
+except SudoError as e:
+    log.warning(f"Cleanup failed: {e}")
+```
+
+### Integration with Workspace Service
+
+The `workspace_service.py` uses sudo operations extensively:
+
+```python
+from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
+
+# Check if workspace exists
+def workspace_exists(project, user) -> bool:
+    workspace_path = get_workspace_path(project, user)
+    linux_username = resolve_linux_username(user)
+
+    exists = test_path(linux_username, str(workspace_path))
+    has_git = exists and test_path(linux_username, str(workspace_path / ".git"))
+    return exists and has_git
+
+# Initialize workspace
+def initialize_workspace(project, user) -> Path:
+    linux_username = resolve_linux_username(user)
+    workspace_path = get_workspace_path(project, user)
+
+    # Create workspace directory
+    mkdir(linux_username, str(workspace_path))
+
+    # Clone repository with SSH credentials
+    try:
+        run_as_user(
+            linux_username,
+            ["git", "clone", "--branch", branch, repo_url, str(workspace_path)],
+            env=build_project_git_env(project),
+            timeout=300,
+        )
+    except SudoError as exc:
+        # Cleanup on failure
+        if test_path(linux_username, str(workspace_path)):
+            rm_rf(linux_username, str(workspace_path), timeout=10)
+        raise WorkspaceError(str(exc)) from exc
+```
+
+### Error Handling
+
+All sudo functions raise `SudoError` on failure:
+
+```python
+from app.services.sudo_service import SudoError
+
+try:
+    mkdir("ivo", "/home/ivo/workspace/project")
+except SudoError as exc:
+    # exc contains detailed error message including stderr
+    log.error(f"Failed to create workspace: {exc}")
+    # Re-raise as service-specific exception if needed
+    raise WorkspaceError(f"Cannot create workspace: {exc}") from exc
+```
+
+### Best Practices
+
+1. **Always use sudo utilities instead of raw subprocess calls:**
+   ```python
+   # ❌ Don't do this
+   subprocess.run(["sudo", "-n", "-u", username, "mkdir", "-p", path])
+
+   # ✅ Do this
+   mkdir(username, path)
+   ```
+
+2. **Set appropriate timeouts:**
+   - File operations: 5-10 seconds
+   - Directory creation: 10 seconds
+   - Git clone: 300 seconds (5 minutes)
+   - Git operations: 30-60 seconds
+
+3. **Pass environment variables for git operations:**
+   ```python
+   env = build_project_git_env(project)  # Gets SSH keys
+   run_as_user(username, ["git", "pull"], env=env)
+   ```
+
+4. **Check paths via sudo when dealing with restrictive permissions:**
+   ```python
+   # Direct path.exists() will fail if syseng can't read parent dir
+   try:
+       exists = workspace_path.exists()
+   except PermissionError:
+       # Fall back to sudo check
+       exists = test_path(linux_username, str(workspace_path))
+   ```
+
+5. **Clean up on failures:**
+   ```python
+   try:
+       mkdir(username, workspace_path)
+       run_as_user(username, ["git", "clone", ...])
+   except SudoError:
+       # Remove partial directory
+       if test_path(username, workspace_path):
+           rm_rf(username, workspace_path)
+       raise
+   ```
+
+### Sudoers Configuration Requirements
+
+For production deployments, the Flask app user (`syseng`) needs passwordless sudo access:
+
+```bash
+# /etc/sudoers.d/aiops
+# Allow syseng to run commands as any Linux user without password
+syseng ALL=(ALL) NOPASSWD: ALL
+
+# More restrictive option (recommended for production):
+# Only allow specific commands for specific users
+syseng ALL=(ivo,michael) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm, /bin/chmod, /bin/chgrp, /usr/bin/chown
+```
+
+Test sudo configuration:
+```bash
+# As syseng user, should not prompt for password:
+sudo -n -u ivo test -e /home/ivo
+```
+
+### Git Safe Directory Configuration
+
+When the Flask app (running as `syseng`) needs to read git repositories owned by other users,
+add them to git's safe directory list:
+
+```bash
+# As syseng user
+sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/aiops'
+
+# Or use wildcard (Git 2.36+)
+sudo -u syseng git config --global --add safe.directory '*'
+```
+
+This prevents "dubious ownership" errors when GitPython accesses user workspaces.
+
+### Workspace Directory Permissions
+
+For the Flask app to check workspace status, parent directories need execute permissions:
+
+```bash
+# Allow directory traversal (doesn't expose file contents)
+chmod o+rx /home/ivo
+chmod o+rx /home/ivo/workspace
+
+# Workspace itself can remain user-owned
+ls -la /home/ivo/workspace/aiops
+# drwxrwxr-x 10 ivo ivo 4096 Nov 13 06:16 aiops
+```
+
+This allows `syseng` to stat paths and read .git metadata while keeping files secure.
 
 # Repository Guidelines
 

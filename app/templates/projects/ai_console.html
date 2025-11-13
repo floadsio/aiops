@@ -26,8 +26,8 @@
     <label>
       <span>Codex permissions</span>
       <select id="codex_access">
+        <option value="never" selected>Full access (allow pushes & scripts)</option>
         <option value="on-failure">Safe (read/write on request)</option>
-        <option value="full">Full access (allow pushes & scripts)</option>
       </select>
     </label>
     <p class="text-muted codex-access__note">
@@ -186,7 +186,7 @@
   const aiToolCommands = {{ ai_tool_commands|tojson }};
   const codexAccessWrap = document.getElementById('codex_access_wrap');
   const codexAccessSelect = document.getElementById('codex_access');
-  const codexAccessValues = new Set(['on-failure', 'full']);
+  const codexAccessValues = new Set(['never', 'on-failure']);
   const sessionStorageKey = `aiops-session-context-${projectId}`;
   let storedSessionContext = null;
   let plannedPrompt = '';
@@ -213,10 +213,10 @@
 
   function getCodexAccessValue(command) {
     if (!command) {
-      return 'on-failure';
+      return 'never';
     }
     const match = command.match(/-a\s+([^\s]+)/);
-    return match ? match[1] : 'on-failure';
+    return match ? match[1] : 'never';
   }
 
   function syncCodexAccessFromCommand() {

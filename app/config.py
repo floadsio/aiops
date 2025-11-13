@@ -50,7 +50,7 @@ class Config:
         GEMINI_APPROVAL_MODE,
     )
     ALLOWED_AI_TOOLS = {
-        "codex": os.getenv("CODEX_COMMAND", "codex -a on-failure"),
+        "codex": os.getenv("CODEX_COMMAND", "codex -a never"),
         "aider": os.getenv("AIDER_COMMAND", "aider"),
         "gemini": _GEMINI_COMMAND,
         "claude": os.getenv("CLAUDE_COMMAND", "claude"),

@@ -149,6 +149,20 @@ def _uses_claude(command_str: str, tool: str | None) -> bool:
     )
 
 
+def _is_interactive_tool(command_str: str, tool: str | None) -> bool:
+    """Check if the command is for an interactive AI tool that needs stdin connected to TTY.
+
+    Interactive tools like Claude Code, Codex, and Gemini CLI use terminal UI libraries
+    (Ink, etc.) that require raw mode access to stdin. These cannot work with heredoc
+    input redirection.
+    """
+    return (
+        _uses_claude(command_str, tool)
+        or _uses_codex(command_str, tool)
+        or _uses_gemini(command_str, tool)
+    )
+
+
 def _resolve_tmux_window(
     project,
     user,
@@ -365,39 +379,73 @@ def create_session(
             use_login_shell = current_app.config.get("USE_LOGIN_SHELL", True)
             shell_cmd = "bash -l" if use_login_shell else "bash"
 
-            # Build a heredoc script that sets up environment and runs the command
-            script_lines = []
+            # Check if this is an interactive tool that needs stdin connected to TTY
+            is_interactive = _is_interactive_tool(command_str, tool)
 
-            # Change to workspace directory
-            script_lines.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+            if is_interactive:
+                # For interactive tools (claude, codex, gemini), use bash -c to preserve stdin
+                # Build a single-line command with all setup
+                setup_commands = []
 
-            # Export environment variables
-            if ssh_command:
-                script_lines.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
-            for export_cmd in git_author_exports:
-                # Extract the export statement (remove "export " prefix for cleaner handling)
-                script_lines.append(export_cmd)
-            for export_cmd in codex_env_exports:
-                script_lines.append(export_cmd)
-            for export_cmd in claude_env_exports:
-                script_lines.append(export_cmd)
+                # Change to workspace directory
+                setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
 
-            # Clear and run the command
-            script_lines.append("clear")
-            script_lines.append(command_str)
+                # Export environment variables
+                if ssh_command:
+                    setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+                for export_cmd in git_author_exports:
+                    setup_commands.append(export_cmd)
+                for export_cmd in codex_env_exports:
+                    setup_commands.append(export_cmd)
+                for export_cmd in claude_env_exports:
+                    setup_commands.append(export_cmd)
 
-            # Create the sudo command with a heredoc
-            script_body = "\n".join(script_lines)
-            final_command = (
-                f"sudo -u {linux_username_for_session} {shell_cmd} <<'AIOPS_EOF'\n"
-                f"{script_body}\n"
-                f"AIOPS_EOF"
-            )
-            current_app.logger.info(
-                "Starting login shell as user %s in %s",
-                linux_username_for_session,
-                start_dir,
-            )
+                # Clear and run the command
+                setup_commands.append("clear")
+                setup_commands.append(command_str)
+
+                # Join commands with && and quote for bash -c
+                command_chain = " && ".join(setup_commands)
+                final_command = f"sudo -u {linux_username_for_session} {shell_cmd} -c {shlex.quote(command_chain)}"
+
+                current_app.logger.info(
+                    "Starting interactive tool as user %s in %s (preserving stdin)",
+                    linux_username_for_session,
+                    start_dir,
+                )
+            else:
+                # For non-interactive commands, use heredoc (original behavior)
+                script_lines = []
+
+                # Change to workspace directory
+                script_lines.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+
+                # Export environment variables
+                if ssh_command:
+                    script_lines.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+                for export_cmd in git_author_exports:
+                    script_lines.append(export_cmd)
+                for export_cmd in codex_env_exports:
+                    script_lines.append(export_cmd)
+                for export_cmd in claude_env_exports:
+                    script_lines.append(export_cmd)
+
+                # Clear and run the command
+                script_lines.append("clear")
+                script_lines.append(command_str)
+
+                # Create the sudo command with a heredoc
+                script_body = "\n".join(script_lines)
+                final_command = (
+                    f"sudo -u {linux_username_for_session} {shell_cmd} <<'AIOPS_EOF'\n"
+                    f"{script_body}\n"
+                    f"AIOPS_EOF"
+                )
+                current_app.logger.info(
+                    "Starting login shell as user %s in %s",
+                    linux_username_for_session,
+                    start_dir,
+                )
         else:
             # Running as syseng - use the original approach
             if ssh_command:

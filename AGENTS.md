@@ -1,4 +1,4 @@
-# Project Overview _(version 0.1.3)_
+# Project Overview _(version 0.1.4)_
 
 aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
 AI-assisted tmux sessions, and Ansible automation. Platform engineers use it to synchronise issues,
@@ -338,6 +338,42 @@ ls -la /home/ivo/workspace/aiops
 
 This allows `syseng` to stat paths and read .git metadata while keeping files secure.
 
+## Issue Management & Status Normalization
+
+aiops aggregates issues from multiple providers (GitHub, GitLab, Jira) and normalizes their statuses for unified filtering and display.
+
+### Status Normalization
+
+The `normalize_issue_status()` function (`app/services/issues/utils.py`) maps provider-specific statuses to standardized keys:
+
+**Open Issues** - Mapped to status key `"open"`:
+- GitHub: `open`
+- GitLab: `opened` (note the past tense)
+- Jira: `todo`, `To Do`, `In Progress`, `In Review`
+- Generic tokens: `open`, `opened`, `todo`, `doing`, `backlog`, `triage`, `progress`, `review`, `active`, `blocked`, `pending`
+
+**Closed Issues** - Mapped to status key `"closed"`:
+- All providers: `closed`, `done`, `resolved`, `fixed`, `complete`, `merged`, `shipped`, `deployed`, `cancelled`
+
+This normalization ensures that the `/issues` page groups similar statuses together, so users see all actionable work items under a single "Open" filter regardless of the source provider.
+
+### Dashboard Workspace Display
+
+Project cards on the dashboard now display the workspace path where code changes are monitored:
+
+```
+floads
+Last modified by Ivo Marino on Nov 13, 2025 • 11:07 UTC (branch main)
+/home/ivo/workspace/aiops
+```
+
+This path indicates:
+- The actual filesystem location of the user's working copy
+- Where git operations (pull, push, commit) are executed
+- Where the workspace is checked for uncommitted changes
+
+The workspace path is retrieved from `get_repo_status()` service (`app/services/git_service.py`) which returns `workspace_path: repo.working_dir` in the status dictionary.
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization
@@ -359,10 +395,33 @@ Use imperative commit subjects like `Add tenant creation form validation`, split
 Keep secrets in `.env` (gitignored) and surface only safe defaults through `.env.example`. Record public SSH keys via the admin UI; when private keys must live with the app, import them with `.venv/bin/flask --app manage.py seed-identities --owner-email <admin@domain>` so they’re copied into `instance/keys/` with `chmod 600`. Review new dependencies for license compliance and known CVEs, recording findings in the PR. When exposing AI or Ansible commands, update the allowlists in `app/config.py` and document production overrides in `docs/`.
 
 ## Agent Session Context
+
+aiops generates issue-specific context files to help AI agents understand what they're working on. The `AGENTS.override.md` file is automatically created in the user's workspace with issue details, requirements, and project context.
+
+### Workspace-Aware Context Files
+
+**Important**: When clicking "Populate AGENTS.override.md" from the issues page, the file is created in the **logged-in user's workspace**, not in the Flask app directory.
+
+For example, if user `ivo@floads.io` (Linux user `ivo`) clicks the button for the `aiops` project:
+- **File created at**: `/home/ivo/workspace/aiops/AGENTS.override.md`
+- **File ownership**: `ivo:ivo`
+- **Operations**: Executed via `sudo -n -u ivo tee /path/to/file`
+
+Implementation details (`app/services/agent_context.py`):
+- `write_tracked_issue_context()` accepts an `identity_user` parameter
+- When provided, resolves the user's workspace via `get_workspace_path(project, user)`
+- Uses `run_as_user()` from sudo service to read/write files as the target user
+- Reads existing `AGENTS.md` base instructions via sudo
+- Writes merged content (base + issue context) to user's workspace
+
+This ensures AI agents work with the actual code location and file ownership is correct.
+
+### Manual Context Management
+
 - Refresh project guidance in `AGENTS.override.md` with `python3 scripts/agent_context.py write --issue <ID> --title "<short blurb>" <<'EOF'`.
 - Append new notes for the same issue by rerunning the command with the `append` subcommand.
 - Clear the override file between issues with `python3 scripts/agent_context.py clear`.
-- Use the "Populate AGENTS.override.md" button next to an issue in the project dashboard to refresh the repository context.
+- Use the "Populate AGENTS.override.md" button next to an issue in the project dashboard to refresh the repository context (creates file in your workspace).
 - When you start a Codex session, ask the agent to read `AGENTS.override.md` so it loads the latest instructions before doing work.
 
 ## Current Issue Context

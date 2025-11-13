@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shlex
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from textwrap import dedent
@@ -8,6 +9,8 @@ from typing import Any, Iterable
 
 from ..models import ExternalIssue, Project, User
 from .issues.utils import format_issue_datetime, summarize_issue
+from .sudo_service import SudoError, run_as_user
+from .workspace_service import get_workspace_path, resolve_linux_username
 
 BASE_CONTEXT_FILENAME = "AGENTS.md"
 DEFAULT_CONTEXT_FILENAME = "AGENTS.override.md"
@@ -415,12 +418,35 @@ def write_tracked_issue_context(
     identity_user: User | None = None,
 ) -> Path:
     """Update a tracked AGENTS.override.md file with the latest context for the selected issue."""
-    repo_path = Path(project.local_path)
-    if not repo_path.exists():
-        repo_path.mkdir(parents=True, exist_ok=True)
+    # Use user's workspace if identity_user is provided, otherwise use project.local_path
+    if identity_user is not None:
+        workspace_path = get_workspace_path(project, identity_user)
+        if workspace_path is None:
+            raise RuntimeError(
+                f"Cannot determine workspace path for user {identity_user.email}"
+            )
+        repo_path = workspace_path
+        # For user workspaces, require that the workspace is already initialized
+        if not repo_path.exists():
+            raise RuntimeError(
+                f"Workspace not initialized at {repo_path}. "
+                "Please initialize the workspace first."
+            )
+    else:
+        repo_path = Path(project.local_path)
+        if not repo_path.exists():
+            repo_path.mkdir(parents=True, exist_ok=True)
 
     context_path = repo_path / filename
-    base_content = _load_base_instructions(repo_path)
+    # Get linux username if using user workspace
+    linux_username = None
+    if identity_user is not None:
+        linux_username = resolve_linux_username(identity_user)
+        if not linux_username:
+            raise RuntimeError(
+                f"Cannot determine Linux username for user {identity_user.email}"
+            )
+    base_content = _load_base_instructions(repo_path, linux_username=linux_username)
     issue_content = render_issue_context(
         project,
         primary_issue,
@@ -436,12 +462,33 @@ def write_tracked_issue_context(
         f"{ISSUE_CONTEXT_END}"
     )
 
+    # Read existing content (using sudo if needed for user workspace)
     existing = ""
-    if context_path.exists():
-        existing = context_path.read_text(encoding="utf-8")
-        stripped_existing = existing.rstrip()
+    if identity_user is not None:
+        # User workspace - use sudo to read file
+        try:
+            result = run_as_user(
+                linux_username,
+                ["test", "-f", str(context_path)],
+                check=False,
+                timeout=5.0,
+            )
+            file_exists = result.success
+            if file_exists:
+                result = run_as_user(
+                    linux_username,
+                    ["cat", str(context_path)],
+                    timeout=10.0,
+                )
+                existing = result.stdout
+        except SudoError as exc:
+            raise RuntimeError(f"Failed to read workspace file: {exc}") from exc
     else:
-        stripped_existing = ""
+        # Legacy path - direct file access
+        if context_path.exists():
+            existing = context_path.read_text(encoding="utf-8")
+
+    stripped_existing = existing.rstrip() if existing else ""
 
     if stripped_existing:
         cleaned = _remove_existing_issue_context(stripped_existing)
@@ -458,8 +505,34 @@ def write_tracked_issue_context(
     sections.append(appended_section.rstrip())
 
     updated = "\n\n---\n\n".join(section for section in sections if section)
+    final_content = updated.rstrip() + "\n"
 
-    context_path.write_text(updated.rstrip() + "\n", encoding="utf-8")
+    # Write content (using sudo if needed for user workspace)
+    if identity_user is not None:
+        # User workspace - use sudo to write file via tee
+        try:
+            cmd = [
+                "sudo",
+                "-n",
+                "-u",
+                linux_username,
+                "tee",
+                str(context_path),
+            ]
+            result = subprocess.run(
+                cmd,
+                input=final_content,
+                capture_output=True,
+                text=True,
+                timeout=10.0,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(f"Failed to write workspace file: {exc}") from exc
+    else:
+        # Legacy path - direct file write
+        context_path.write_text(final_content, encoding="utf-8")
+
     return context_path
 
 
@@ -556,11 +629,46 @@ def _remove_existing_issue_context(source: str) -> str:
     return cleaned_prefix or cleaned_suffix
 
 
-def _load_base_instructions(repo_path: Path) -> str:
+def _load_base_instructions(
+    repo_path: Path, *, linux_username: str | None = None
+) -> str:
+    """Load base instructions from AGENTS.md file.
+
+    Args:
+        repo_path: Path to repository root
+        linux_username: If provided, use sudo to read file as this user
+
+    Returns:
+        Content of AGENTS.md with issue context removed
+    """
     base_path = repo_path / BASE_CONTEXT_FILENAME
-    if not base_path.exists():
-        return ""
-    raw = base_path.read_text(encoding="utf-8").rstrip()
+
+    # Check if file exists and read it (using sudo if needed)
+    if linux_username is not None:
+        # User workspace - use sudo
+        try:
+            result = run_as_user(
+                linux_username,
+                ["test", "-f", str(base_path)],
+                check=False,
+                timeout=5.0,
+            )
+            if not result.success:
+                return ""
+            result = run_as_user(
+                linux_username,
+                ["cat", str(base_path)],
+                timeout=10.0,
+            )
+            raw = result.stdout.rstrip()
+        except SudoError:
+            return ""
+    else:
+        # Legacy path - direct file access
+        if not base_path.exists():
+            return ""
+        raw = base_path.read_text(encoding="utf-8").rstrip()
+
     return _remove_existing_issue_context(raw)
 
 

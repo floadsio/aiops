@@ -147,14 +147,29 @@ class Config:
         "CODEX_UPDATE_COMMAND", "sudo npm install -g codex"
     )
     CODEX_BREW_PACKAGE = os.getenv("CODEX_BREW_PACKAGE", "")
+    CODEX_VERSION_COMMAND = os.getenv("CODEX_VERSION_COMMAND", "codex --version")
+    CODEX_LATEST_VERSION_COMMAND = os.getenv(
+        "CODEX_LATEST_VERSION_COMMAND",
+        "npm view codex version",
+    )
     GEMINI_UPDATE_COMMAND = os.getenv(
         "GEMINI_UPDATE_COMMAND", "sudo npm install -g gemini-cli"
     )
     GEMINI_BREW_PACKAGE = os.getenv("GEMINI_BREW_PACKAGE", "")
+    GEMINI_VERSION_COMMAND = os.getenv("GEMINI_VERSION_COMMAND", "gemini --version")
+    GEMINI_LATEST_VERSION_COMMAND = os.getenv(
+        "GEMINI_LATEST_VERSION_COMMAND",
+        "npm view gemini-cli version",
+    )
     CLAUDE_UPDATE_COMMAND = os.getenv(
         "CLAUDE_UPDATE_COMMAND", "sudo npm install -g @anthropic-ai/claude-code"
     )
     CLAUDE_BREW_PACKAGE = os.getenv("CLAUDE_BREW_PACKAGE", "claude-code")
+    CLAUDE_VERSION_COMMAND = os.getenv("CLAUDE_VERSION_COMMAND", "claude --version")
+    CLAUDE_LATEST_VERSION_COMMAND = os.getenv(
+        "CLAUDE_LATEST_VERSION_COMMAND",
+        "npm view @anthropic-ai/claude-code version",
+    )
     # Linux user switching for tmux sessions
     USE_LOGIN_SHELL = os.getenv("USE_LOGIN_SHELL", "true").lower() in {
         "1",

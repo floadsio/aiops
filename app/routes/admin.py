@@ -74,7 +74,11 @@ from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
     extract_issue_description,
 )
-from ..services.ai_cli_update_service import CLICommandError, run_ai_tool_update
+from ..services.ai_cli_update_service import (
+    CLICommandError,
+    get_ai_tool_versions,
+    run_ai_tool_update,
+)
 from ..services.branch_state import (
     BranchSwitchError,
     configure_branch_form,
@@ -789,6 +793,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
                 "title": "Codex CLI",
                 "description": "Install or upgrade the Codex CLI without shell access.",
                 "actions": codex_actions,
+                "versions": get_ai_tool_versions("codex"),
             }
         )
 
@@ -817,6 +822,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
                 "title": "Gemini CLI",
                 "description": "Upgrade the Gemini CLI for browser-based terminals.",
                 "actions": gemini_actions,
+                "versions": get_ai_tool_versions("gemini"),
             }
         )
 
@@ -845,6 +851,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
                 "title": "Claude CLI",
                 "description": "Keep the Claude CLI current for tmux and browser sessions.",
                 "actions": claude_actions,
+                "versions": get_ai_tool_versions("claude"),
             }
         )
 

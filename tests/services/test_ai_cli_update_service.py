@@ -8,6 +8,8 @@ from app import create_app
 from app.config import Config
 from app.services.ai_cli_update_service import (
     CLICommandError,
+    CLICommandResult,
+    get_ai_tool_versions,
     run_ai_tool_update,
 )
 
@@ -60,3 +62,46 @@ def test_run_ai_tool_update_rejects_unknown_source(app):
     with app.app_context():
         with pytest.raises(CLICommandError):
             run_ai_tool_update("codex", "invalid")
+
+
+def test_get_ai_tool_versions_returns_outputs(app, monkeypatch):
+    calls: list[str] = []
+
+    def fake_run(command, *, timeout):
+        calls.append(command)
+        return CLICommandResult(command, stdout="2.0.0\n", stderr="", returncode=0)
+
+    monkeypatch.setattr(
+        "app.services.ai_cli_update_service.run_cli_command",
+        fake_run,
+    )
+
+    with app.app_context():
+        info = get_ai_tool_versions("codex")
+
+    assert info.installed == "2.0.0"
+    assert info.latest == "2.0.0"
+    assert info.installed_error is None
+    assert info.latest_error is None
+    assert calls == [
+        app.config["CODEX_VERSION_COMMAND"],
+        app.config["CODEX_LATEST_VERSION_COMMAND"],
+    ]
+
+
+def test_get_ai_tool_versions_handles_failures(app, monkeypatch):
+    def fake_run(command, *, timeout):
+        return CLICommandResult(command, stdout="", stderr="boom", returncode=1)
+
+    monkeypatch.setattr(
+        "app.services.ai_cli_update_service.run_cli_command",
+        fake_run,
+    )
+
+    with app.app_context():
+        info = get_ai_tool_versions("gemini")
+
+    assert info.installed is None
+    assert info.installed_error == "boom"
+    assert info.latest is None
+    assert info.latest_error == "boom"

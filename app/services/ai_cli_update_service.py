@@ -25,6 +25,14 @@ class CLICommandResult:
         return self.returncode == 0
 
 
+@dataclass(frozen=True)
+class AIToolVersionInfo:
+    installed: str | None = None
+    latest: str | None = None
+    installed_error: str | None = None
+    latest_error: str | None = None
+
+
 def _project_root() -> Path:
     return Path(current_app.root_path).parent.resolve()
 
@@ -89,6 +97,38 @@ def run_cli_command(raw_command: str, *, timeout: int = 900) -> CLICommandResult
     )
 
 
+def _summarize_output(result: CLICommandResult) -> str:
+    parts = []
+    for chunk in (result.stdout, result.stderr):
+        if chunk:
+            stripped = chunk.strip()
+            if stripped:
+                parts.append(stripped)
+    combined = "\n".join(parts)
+    if not combined:
+        return ""
+    return combined.splitlines()[0]
+
+
+def _run_version_command(
+    command: str | None,
+    *,
+    timeout: int,
+) -> tuple[str | None, str | None]:
+    command_text = (command or "").strip()
+    if not command_text:
+        return None, "Version command not configured."
+    try:
+        result = run_cli_command(command_text, timeout=timeout)
+    except CLICommandError as exc:
+        return None, str(exc)
+
+    output = _summarize_output(result)
+    if result.ok:
+        return output or f"Command exited with {result.returncode}.", None
+    return None, output or f"Command exited with {result.returncode}."
+
+
 def _brew_upgrade_command(package_name: str | None) -> str:
     package = (package_name or "").strip()
     if not package:
@@ -118,6 +158,39 @@ def _resolve_update_command(tool: str, source: str) -> str:
             raise CLICommandError(f"Unsupported update source '{source}' for {tool}.")
 
 
+def get_ai_tool_versions(tool: str, *, timeout: int = 15) -> AIToolVersionInfo:
+    config = current_app.config
+    normalized = tool.lower().strip()
+
+    match normalized:
+        case "codex":
+            installed_command = config.get("CODEX_VERSION_COMMAND")
+            latest_command = config.get("CODEX_LATEST_VERSION_COMMAND")
+        case "gemini":
+            installed_command = config.get("GEMINI_VERSION_COMMAND")
+            latest_command = config.get("GEMINI_LATEST_VERSION_COMMAND")
+        case "claude":
+            installed_command = config.get("CLAUDE_VERSION_COMMAND")
+            latest_command = config.get("CLAUDE_LATEST_VERSION_COMMAND")
+        case _:
+            return AIToolVersionInfo()
+
+    installed, installed_error = _run_version_command(
+        installed_command,
+        timeout=timeout,
+    )
+    latest, latest_error = _run_version_command(
+        latest_command,
+        timeout=timeout,
+    )
+    return AIToolVersionInfo(
+        installed=installed,
+        latest=latest,
+        installed_error=installed_error,
+        latest_error=latest_error,
+    )
+
+
 def run_ai_tool_update(tool: str, source: str, *, timeout: int = 900) -> CLICommandResult:
     command = _resolve_update_command(tool, source)
     if not command:
@@ -130,6 +203,8 @@ def run_ai_tool_update(tool: str, source: str, *, timeout: int = 900) -> CLIComm
 __all__ = [
     "CLICommandError",
     "CLICommandResult",
+    "AIToolVersionInfo",
     "run_ai_tool_update",
     "run_cli_command",
+    "get_ai_tool_versions",
 ]

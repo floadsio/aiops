@@ -324,6 +324,30 @@
       <article class="settings-card">
         <h3>{{ card.title }}</h3>
         <p>{{ card.description }}</p>
+        {% if card.versions %}
+        <div class="ai-tool-version-grid">
+          <div>
+            <div class="ai-tool-version-label">Installed</div>
+            {% if card.versions.installed %}
+              <code>{{ card.versions.installed }}</code>
+            {% elif card.versions.installed_error %}
+              <span class="text-muted">{{ card.versions.installed_error }}</span>
+            {% else %}
+              <span class="text-muted">Unknown</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="ai-tool-version-label">Available</div>
+            {% if card.versions.latest %}
+              <code>{{ card.versions.latest }}</code>
+            {% elif card.versions.latest_error %}
+              <span class="text-muted">{{ card.versions.latest_error }}</span>
+            {% else %}
+              <span class="text-muted">Unknown</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
         <div class="ai-tool-actions">
           {% for action in card.actions %}
           <div class="ai-tool-action">

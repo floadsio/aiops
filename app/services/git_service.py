@@ -160,6 +160,12 @@ def _resolve_project_ssh_key_path(
     return None
 
 
+def resolve_project_ssh_key_path(project: Project) -> Optional[str]:
+    """Expose the sanitized SSH key path for a project or its tenant."""
+
+    return _resolve_project_ssh_key_path(project)
+
+
 def _ensure_known_hosts_file() -> Optional[str]:
     instance_path = getattr(current_app, "instance_path", None)
     if not instance_path:

@@ -427,12 +427,12 @@ def test_sudo_command(user_email: Optional[str] = None) -> None:
     # Test 2: Check passwordless sudo
     click.echo("\n1. Testing passwordless sudo access...")
     try:
-        result = subprocess.run(
+        passwordless_result = subprocess.run(
             ["sudo", "-n", "true"],
             capture_output=True,
             timeout=5,
         )
-        if result.returncode == 0:
+        if passwordless_result.returncode == 0:
             click.echo("   ✓ Passwordless sudo is configured")
         else:
             click.echo("   ✗ Passwordless sudo is NOT configured")
@@ -460,8 +460,8 @@ def test_sudo_command(user_email: Optional[str] = None) -> None:
 
         # Test sudo access as the target user
         try:
-            result = run_as_user(linux_username, ["whoami"], timeout=5)
-            if result.success and linux_username in result.stdout:
+            sudo_check = run_as_user(linux_username, ["whoami"], timeout=5)
+            if sudo_check.success and linux_username in sudo_check.stdout:
                 click.echo(f"   ✓ Can run commands as {linux_username}")
             else:
                 click.echo(f"   ✗ Failed to run commands as {linux_username}")
@@ -507,14 +507,14 @@ def test_sudo_command(user_email: Optional[str] = None) -> None:
         # Test git safe directory configuration
         click.echo("\n4. Testing git safe directory configuration...")
         try:
-            result = subprocess.run(
+            git_config = subprocess.run(
                 ["git", "config", "--global", "--get-all", "safe.directory"],
                 capture_output=True,
                 text=True,
                 timeout=5,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                safe_dirs = result.stdout.strip().split("\n")
+            if git_config.returncode == 0 and git_config.stdout.strip():
+                safe_dirs = git_config.stdout.strip().split("\n")
                 click.echo(f"   Git safe directories configured: {len(safe_dirs)}")
                 for safe_dir in safe_dirs[:5]:  # Show first 5
                     click.echo(f"     - {safe_dir}")

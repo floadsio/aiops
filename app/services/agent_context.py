@@ -467,20 +467,20 @@ def write_tracked_issue_context(
     if identity_user is not None:
         # User workspace - use sudo to read file
         try:
-            result = run_as_user(
+            sudo_result = run_as_user(
                 linux_username,
                 ["test", "-f", str(context_path)],
                 check=False,
                 timeout=5.0,
             )
-            file_exists = result.success
+            file_exists = sudo_result.success
             if file_exists:
-                result = run_as_user(
+                sudo_result = run_as_user(
                     linux_username,
                     ["cat", str(context_path)],
                     timeout=10.0,
                 )
-                existing = result.stdout
+                existing = sudo_result.stdout
         except SudoError as exc:
             raise RuntimeError(f"Failed to read workspace file: {exc}") from exc
     else:
@@ -519,7 +519,7 @@ def write_tracked_issue_context(
                 "tee",
                 str(context_path),
             ]
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 input=final_content,
                 capture_output=True,

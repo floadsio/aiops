@@ -9,7 +9,7 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 from flask import (
@@ -170,6 +170,9 @@ from ..services.tmux_service import (
 )
 from ..services.update_service import UpdateError, run_update_script
 from ..services.workspace_service import get_workspace_path
+
+ChoiceItem = tuple[Any, str] | tuple[Any, str, dict[str, Any]]
+ChoiceList = list[ChoiceItem]
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -821,7 +824,7 @@ def manage_settings():
                 return None
             timestamp = int(expiry)
             if timestamp > 10**12:  # milliseconds
-                timestamp /= 1000
+                timestamp //= 1000
             dt = datetime.fromtimestamp(timestamp, tz=timezone.utc).astimezone()
             return dt.strftime("%b %d, %Y • %H:%M %Z")
         except (ValueError, json.JSONDecodeError):
@@ -1848,9 +1851,9 @@ def update_user(user_id: int):
     form = UserUpdateForm()
     # Populate Linux user choices before validation
     available_linux_users = get_available_linux_users()
-    form.linux_username.choices = [("", "None")] + [
-        (u, u) for u in available_linux_users
-    ]
+    linux_choice_items: ChoiceList = [("", "None")]
+    linux_choice_items.extend((user, user) for user in available_linux_users)
+    form.linux_username.choices = linux_choice_items
 
     if not form.validate_on_submit():
         error_messages = [
@@ -2955,13 +2958,15 @@ def edit_ssh_key(key_id: int):
         try:
             fingerprint = compute_fingerprint(public_key)
         except ValueError as exc:  # noqa: BLE001
-            form.public_key.errors.append(str(exc))
+            public_key_errors = cast(list[str], form.public_key.errors)
+            public_key_errors.append(str(exc))
         else:
             existing = SSHKey.query.filter(
                 SSHKey.fingerprint == fingerprint, SSHKey.id != ssh_key.id
             ).first()
             if existing:
-                form.public_key.errors.append(
+                public_key_errors = cast(list[str], form.public_key.errors)
+                public_key_errors.append(
                     "Another key with this fingerprint already exists."
                 )
             else:
@@ -2982,9 +2987,8 @@ def edit_ssh_key(key_id: int):
                         "Failed to update SSH private key: %s", exc
                     )
                     if private_key_raw:
-                        form.private_key.errors.append(
-                            "Failed to store private key on disk."
-                        )
+                        private_key_errors = cast(list[str], form.private_key.errors)
+                        private_key_errors.append("Failed to store private key on disk.")
                     else:
                         flash("Unable to update private key material.", "danger")
                 else:

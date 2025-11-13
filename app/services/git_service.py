@@ -21,7 +21,8 @@ log = logging.getLogger(__name__)
 
 def _project_slug(project: Project) -> str:
     name = getattr(project, "name", "") or f"project-{project.id}"
-    slug = name.lower().translate(str.maketrans({c: "-" for c in " ./\\:"}))
+    translation_map: dict[str, str | int] = {c: "-" for c in " ./\\:"}
+    slug = name.lower().translate(str.maketrans(translation_map))
     while "--" in slug:
         slug = slug.replace("--", "-")
     slug = slug.strip("-")
@@ -389,9 +390,9 @@ def run_git_action(
                 pull_results = remote.pull(target)
             if pull_results:
                 pull_messages: list[str] = []
-                for result in pull_results:
-                    summary = getattr(result, "summary", None) or getattr(
-                        result, "note", None
+                for pull_result in pull_results:
+                    summary = getattr(pull_result, "summary", None) or getattr(
+                        pull_result, "note", None
                     )
                     if summary:
                         pull_messages.append(summary.strip())
@@ -413,9 +414,9 @@ def run_git_action(
                 push_results = remote.push(target)
             if push_results:
                 push_messages: list[str] = []
-                for result in push_results:
-                    summary = getattr(result, "summary", None) or getattr(
-                        result, "note", None
+                for push_result in push_results:
+                    summary = getattr(push_result, "summary", None) or getattr(
+                        push_result, "note", None
                     )
                     if summary:
                         push_messages.append(summary.strip())

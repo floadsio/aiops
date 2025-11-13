@@ -318,11 +318,17 @@ def create_session(
     if pane is None:
         raise RuntimeError("Unable to access tmux pane for project window.")
 
+    # For per-user sessions, don't inject project SSH keys - let users use their own
+    # For system sessions (syseng), use project SSH keys
+    use_project_ssh_keys = linux_username_for_session is None
+
     git_env = build_project_git_env(project)
     for key, value in git_env.items():
         if value:
             os.environ[key] = value
-    ssh_command = git_env.get("GIT_SSH_COMMAND")
+
+    # Only pass SSH command to user sessions if we want to use project keys
+    ssh_command = git_env.get("GIT_SSH_COMMAND") if use_project_ssh_keys else None
 
     # Determine start directory (needed for both child and parent processes)
     start_dir = current_app.instance_path

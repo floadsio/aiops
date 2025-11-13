@@ -118,9 +118,12 @@ def initialize_workspace(project, user) -> Path:
 
     Raises:
         WorkspaceError: If workspace cannot be created
-    """
-    from .git_service import build_project_git_env
 
+    Note:
+        Users must have their own SSH keys configured in ~/.ssh/ for
+        git authentication. Project SSH keys are not used for per-user
+        workspace operations to ensure proper file permissions.
+    """
     workspace_path = get_workspace_path(project, user)
     if not workspace_path:
         linux_username = resolve_linux_username(user)
@@ -152,14 +155,16 @@ def initialize_workspace(project, user) -> Path:
         raise WorkspaceError(str(exc)) from exc
 
     # Clone repository using sudo as the target user
+    # Note: We don't pass project SSH keys here. Users should configure their own
+    # SSH keys in ~/.ssh/ for git authentication. This ensures proper permissions
+    # and aligns with the per-user workspace architecture.
     try:
-        env = build_project_git_env(project)
         _git_clone_via_sudo(
             linux_username,
             project.repo_url,
             str(workspace_path),
             project.default_branch,
-            env,
+            env=None,  # Let user's own SSH keys handle authentication
         )
         log.info(
             "Initialized workspace for project %s, user %s at %s",

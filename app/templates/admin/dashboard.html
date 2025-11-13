@@ -775,15 +775,19 @@
 {% endblock %}
 {% block content %}
 <section class="dashboard-search" aria-label="Dashboard search">
-  <input
-    type="search"
-    id="dashboard-search-input"
-    name="q"
-    value="{{ dashboard_query }}"
-    placeholder="Search tenants or projects…"
-    autocomplete="off"
-    data-search-endpoint="{{ dashboard_search_endpoint }}"
-  >
+  <form method="get" action="{{ url_for('admin.dashboard') }}" style="margin: 0;">
+    <input
+      type="search"
+      id="dashboard-search-input"
+      name="q"
+      value="{{ dashboard_query }}"
+      placeholder="Search tenants or projects…"
+      autocomplete="off"
+    >
+    {% if request.args.get('tmux_scope') %}
+      <input type="hidden" name="tmux_scope" value="{{ request.args.get('tmux_scope') }}">
+    {% endif %}
+  </form>
 </section>
 
 <section class="dashboard-section">

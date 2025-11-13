@@ -87,7 +87,7 @@ ISSUE_STATUS_MAX_LENGTH = ExternalIssue.status.property.columns[0].type.length
 
 def update_issue_status(issue_id: int, status: Optional[str]) -> ExternalIssue:
     """Update the stored status for a synced issue."""
-    issue = ExternalIssue.query.get(issue_id)
+    issue: ExternalIssue | None = ExternalIssue.query.get(issue_id)  # type: ignore[assignment]
     if issue is None:
         raise IssueUpdateError("Issue not found.")
 
@@ -122,7 +122,7 @@ def sync_project_integration(
     if force_full:
         effective_since = since
     else:
-        effective_since = since or project_integration.last_synced_at
+        effective_since = since or project_integration.last_synced_at  # type: ignore[assignment]
     try:
         payloads = fetcher(integration, project_integration, effective_since)
     except IssueSyncError:
@@ -164,7 +164,7 @@ def sync_project_integration(
         issue.raw_payload = payload.raw
         updated_issues.append(issue)
 
-    project_integration.last_synced_at = now
+    project_integration.last_synced_at = now  # type: ignore[assignment]
     db.session.flush()
     return updated_issues
 
@@ -207,7 +207,7 @@ def sync_tenant_integrations(
 ) -> Dict[int, List[ExternalIssue]]:
     results: Dict[int, List[ExternalIssue]] = {}
     for p_integration in tenant_integrations:
-        results[p_integration.id] = sync_project_integration(
+        results[p_integration.id] = sync_project_integration(  # type: ignore[index]
             p_integration,
             force_full=force_full,
         )
@@ -270,7 +270,7 @@ def test_integration_connection(
 
 
 # Prevent pytest from auto-collecting this helper as a test.
-test_integration_connection.__test__ = False
+test_integration_connection.__test__ = False  # type: ignore[attr-defined]
 
 
 def create_issue_for_project_integration(

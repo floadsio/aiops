@@ -593,10 +593,13 @@ def project_ai_console(project_id: int):
     tmux_session_name = _current_tmux_session_name()
 
     form = AIRunForm()
-    choices = [
-        ("", "Manual Shell"),
-    ] + [(key, key.capitalize()) for key in current_app.config["ALLOWED_AI_TOOLS"]]
-    form.ai_tool.choices = choices
+    allowed_tools = current_app.config["ALLOWED_AI_TOOLS"]
+    preferred_order = ["claude", "codex", "gemini", "aider"]
+    ordered_keys: list[str] = [key for key in preferred_order if key in allowed_tools]
+    ordered_keys.extend(key for key in allowed_tools if key not in ordered_keys)
+    tool_choices = [(key, key.capitalize()) for key in ordered_keys]
+    tool_choices.append(("", "Shell"))
+    form.ai_tool.choices = tool_choices
     default_tool = current_app.config.get("DEFAULT_AI_TOOL", "claude")
     if default_tool in current_app.config["ALLOWED_AI_TOOLS"]:
         form.ai_tool.data = default_tool

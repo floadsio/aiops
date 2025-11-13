@@ -9,9 +9,11 @@ This replaces the shared managed checkout model.
 from __future__ import annotations
 
 import logging
+import shlex
 from pathlib import Path
 from typing import Any, Optional
 
+from .git_service import resolve_project_ssh_key_path
 from .linux_users import get_user_home_directory, resolve_linux_username
 from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
 
@@ -33,11 +35,18 @@ def _project_slug(project) -> str:
     return slug or f"project-{project.id}"
 
 
-def _build_workspace_git_env(env: Optional[dict[str, str]] = None) -> dict[str, str]:
+def _build_workspace_git_env(
+    env: Optional[dict[str, str]] = None,
+    *,
+    ssh_key_path: str | None = None,
+) -> dict[str, str]:
     """Ensure git commands accept new host keys automatically."""
-    default_env = {
-        "GIT_SSH_COMMAND": "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
-    }
+
+    command = ["ssh"]
+    if ssh_key_path:
+        command.extend(["-i", shlex.quote(ssh_key_path), "-o", "IdentitiesOnly=yes"])
+    command.extend(["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new"])
+    default_env = {"GIT_SSH_COMMAND": " ".join(command)}
     if not env:
         return default_env
 
@@ -52,6 +61,8 @@ def _git_clone_via_sudo(
     target_path: str,
     branch: str,
     env: Optional[dict[str, str]] = None,
+    *,
+    ssh_key_path: str | None = None,
 ) -> None:
     """Clone a git repository using sudo to run as the target user.
 
@@ -66,7 +77,7 @@ def _git_clone_via_sudo(
         WorkspaceError: If git clone fails
     """
     try:
-        git_env = _build_workspace_git_env(env)
+        git_env = _build_workspace_git_env(env, ssh_key_path=ssh_key_path)
         run_as_user(
             linux_username,
             ["git", "clone", "--branch", branch, repo_url, target_path],
@@ -139,9 +150,10 @@ def initialize_workspace(project, user) -> Path:
         WorkspaceError: If workspace cannot be created
 
     Note:
-        Users must have their own SSH keys configured in ~/.ssh/ for
-        git authentication. Project SSH keys are not used for per-user
-        workspace operations to ensure proper file permissions.
+        When a project or tenant SSH key is available it will be used for the
+        initial clone so shared credentials continue to work for per-user
+        workspaces. If no managed key is configured, the user's own SSH setup
+        in ~/.ssh/ is used instead.
     """
     workspace_path = get_workspace_path(project, user)
     if not workspace_path:
@@ -173,17 +185,18 @@ def initialize_workspace(project, user) -> Path:
     except SudoError as exc:
         raise WorkspaceError(str(exc)) from exc
 
-    # Clone repository using sudo as the target user
-    # Note: We don't pass project SSH keys here. Users should configure their own
-    # SSH keys in ~/.ssh/ for git authentication. This ensures proper permissions
-    # and aligns with the per-user workspace architecture.
+    ssh_key_path = resolve_project_ssh_key_path(project)
+
+    # Clone repository using sudo as the target user. Prefer the project/tenant
+    # SSH key so users can work with repos that rely on centrally managed access.
     try:
         _git_clone_via_sudo(
             linux_username,
             project.repo_url,
             str(workspace_path),
             project.default_branch,
-            env=None,  # Let user's own SSH keys handle authentication
+            env=None,
+            ssh_key_path=ssh_key_path,
         )
         log.info(
             "Initialized workspace for project %s, user %s at %s",

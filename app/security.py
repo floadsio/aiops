@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from flask_login import UserMixin
+from flask_login import UserMixin  # type: ignore
 from werkzeug.security import check_password_hash, generate_password_hash
 
 

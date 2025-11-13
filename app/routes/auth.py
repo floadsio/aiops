@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from flask import Blueprint, redirect, render_template, request, url_for
-from flask_login import current_user, login_required, login_user, logout_user
+from flask_login import current_user, login_required, login_user, logout_user  # type: ignore
 
 from ..forms.auth import LoginForm
 from ..models import User

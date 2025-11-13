@@ -22,6 +22,15 @@ def _ensure_gemini_approval_mode(command: str, mode: str | None) -> str:
     return f"{command} --approval-mode {mode}"
 
 
+def _get_int_env_var(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     INSTANCE_PATH = INSTANCE_PATH
@@ -48,8 +57,8 @@ class Config:
     }
     DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "claude")
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")
-    DEFAULT_AI_ROWS = int(os.getenv("DEFAULT_AI_ROWS", "30"))
-    DEFAULT_AI_COLS = int(os.getenv("DEFAULT_AI_COLS", "100"))
+    DEFAULT_AI_ROWS = _get_int_env_var("DEFAULT_AI_ROWS", 30)
+    DEFAULT_AI_COLS = _get_int_env_var("DEFAULT_AI_COLS", 100)
     USE_TMUX_FOR_AI_SESSIONS = os.getenv(
         "USE_TMUX_FOR_AI_SESSIONS", "true"
     ).lower() in {
@@ -75,11 +84,7 @@ class Config:
     )
     SEMAPHORE_BASE_URL = os.getenv("SEMAPHORE_BASE_URL")
     SEMAPHORE_API_TOKEN = os.getenv("SEMAPHORE_API_TOKEN")
-    SEMAPHORE_DEFAULT_PROJECT_ID = (
-        int(os.getenv("SEMAPHORE_DEFAULT_PROJECT_ID"))
-        if os.getenv("SEMAPHORE_DEFAULT_PROJECT_ID")
-        else None
-    )
+    SEMAPHORE_DEFAULT_PROJECT_ID = _get_int_env_var("SEMAPHORE_DEFAULT_PROJECT_ID", 0)
     SEMAPHORE_VERIFY_TLS = os.getenv("SEMAPHORE_VERIFY_TLS", "true").lower() in {
         "1",
         "true",

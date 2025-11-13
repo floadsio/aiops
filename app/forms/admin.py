@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from flask_wtf import FlaskForm
+from flask_wtf import FlaskForm  # type: ignore
 from wtforms import (
     BooleanField,
     HiddenField,

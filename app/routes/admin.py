@@ -22,7 +22,7 @@ from flask import (
     request,
     url_for,
 )
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required  # type: ignore
 from markupsafe import Markup, escape
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
@@ -169,6 +169,7 @@ from ..services.tmux_service import (
     sync_project_windows,
 )
 from ..services.update_service import UpdateError, run_update_script
+from ..services.workspace_service import get_workspace_path
 
 admin_bp = Blueprint("admin", __name__, template_folder="../templates/admin")
 
@@ -557,6 +558,8 @@ def dashboard():
                 )
                 if window.target:
                     tracked_tmux_targets.add(window.target)
+
+                workspace_path = get_workspace_path(project, _current_user_obj())
                 window_project_map.setdefault(
                     window.target,
                     {
@@ -564,6 +567,9 @@ def dashboard():
                         "project_name": project.name,
                         "tenant_name": tenant_name,
                         "tenant_color": tenant_color,
+                        "workspace_path": str(workspace_path)
+                        if workspace_path
+                        else None,
                     },
                 )
         except TmuxServiceError as exc:

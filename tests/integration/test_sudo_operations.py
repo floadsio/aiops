@@ -8,8 +8,6 @@ Skip these tests in CI unless CI is configured with proper sudo access.
 """
 
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
 

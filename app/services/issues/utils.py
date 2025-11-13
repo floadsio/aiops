@@ -15,10 +15,11 @@ from ...models import ExternalIssue, TenantIntegration
 
 DEFAULT_TIMEOUT_SECONDS = 15.0
 
+_github_module: Any | None = None
 try:  # pragma: no cover - optional dependency
-    import github as _github_module  # type: ignore import-not-found
+    import github as _github_module  # noqa: F401
 except ImportError:  # pragma: no cover - optional dependency
-    _github_module = None
+    pass
 
 
 def _ensure_github_module_placeholder() -> None:
@@ -284,9 +285,9 @@ def _integration_proxy(
 
 def _verify_github_credentials(api_token: str, base_url: Optional[str]) -> str:
     try:
-        from github import Github  # type: ignore import-not-found
+        from github import Github
         from github.GithubException import (
-            GithubException,  # type: ignore import-not-found
+            GithubException,
         )
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise ProviderTestError(
@@ -320,8 +321,8 @@ def _verify_github_credentials(api_token: str, base_url: Optional[str]) -> str:
 
 def _verify_gitlab_credentials(api_token: str, base_url: Optional[str]) -> str:
     try:
-        from gitlab import Gitlab  # type: ignore import-not-found
-        from gitlab import exceptions as gitlab_exc  # type: ignore import-not-found
+        from gitlab import Gitlab
+        from gitlab import exceptions as gitlab_exc
     except ImportError as exc:  # pragma: no cover - optional dependency
         raise ProviderTestError(
             "GitLab support requires python-gitlab. Install dependencies with 'make sync'."

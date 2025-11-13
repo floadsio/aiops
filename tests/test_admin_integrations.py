@@ -18,11 +18,6 @@ from app.models import (
     User,
 )
 from app.security import hash_password
-from app.services.claude_config_service import ClaudeConfigError
-from app.services.claude_update_service import ClaudeUpdateError
-from app.services.codex_config_service import CodexConfigError
-from app.services.gemini_config_service import GeminiConfigError
-from app.services.gemini_update_service import GeminiUpdateError
 from app.services.key_service import resolve_private_key_path
 from app.services.migration_service import MigrationError
 from app.services.tmux_service import TmuxServiceError
@@ -407,7 +402,7 @@ def test_admin_tmux_resync_success(app, client, login_admin, monkeypatch):
 
     calls = {}
 
-    def fake_sync(projects, session_name=None):
+    def fake_sync(projects, session_name=None, linux_username=None):
         calls["count"] = len(projects)
         return DummyResult()
 
@@ -424,7 +419,7 @@ def test_admin_tmux_resync_success(app, client, login_admin, monkeypatch):
 
 
 def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
-    def fake_sync(projects, session_name=None):
+    def fake_sync(projects, session_name=None, linux_username=None):
         raise TmuxServiceError("tmux unavailable")
 
     monkeypatch.setattr("app.routes.admin.sync_project_windows", fake_sync)
@@ -436,270 +431,6 @@ def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"tmux unavailable" in response.data
-
-
-def test_admin_gemini_update_success(app, client, login_admin, monkeypatch):
-    class DummyResult:
-        command = "sudo npm install -g @google/gemini-cli"
-        returncode = 0
-        stdout = "ok"
-        stderr = ""
-
-        @property
-        def ok(self):
-            return True
-
-    monkeypatch.setattr("app.routes.admin.install_latest_gemini", lambda: DummyResult())
-
-    response = client.post(
-        "/admin/settings/gemini/update",
-        data={"submit": "Install latest Gemini"},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"Gemini CLI update succeeded" in response.data
-
-
-def test_admin_gemini_update_failure(app, client, login_admin, monkeypatch):
-    def fake_update():
-        raise GeminiUpdateError("npm missing")
-
-    monkeypatch.setattr("app.routes.admin.install_latest_gemini", fake_update)
-
-    response = client.post(
-        "/admin/settings/gemini/update",
-        data={"submit": "Install latest Gemini"},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"npm missing" in response.data
-
-
-def test_admin_gemini_accounts_save(
-    app, client, login_admin, admin_user_id, monkeypatch
-):
-    saved = {}
-
-    def fake_save(payload, *, user_id=None):
-        saved["payload"] = payload
-        saved["user_id"] = user_id
-
-    monkeypatch.setattr("app.routes.admin.save_google_accounts", fake_save)
-
-    response = client.post(
-        "/admin/settings/gemini/accounts",
-        data={
-            "payload": "{}",
-            "user_id": str(admin_user_id),
-            "next": "/admin/settings",
-        },
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert saved["payload"] == "{}"
-    assert saved["user_id"] == admin_user_id
-
-
-def test_admin_gemini_accounts_error(
-    app, client, login_admin, admin_user_id, monkeypatch
-):
-    def fake_save(payload, *, user_id=None):
-        raise GeminiConfigError("bad json")
-
-    monkeypatch.setattr("app.routes.admin.save_google_accounts", fake_save)
-
-    response = client.post(
-        "/admin/settings/gemini/accounts",
-        data={"payload": "{}", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"bad json" in response.data
-
-
-def test_admin_gemini_oauth_save(app, client, login_admin, admin_user_id, monkeypatch):
-    saved = {}
-
-    def fake_save(payload, *, user_id=None):
-        saved["payload"] = payload
-        saved["user_id"] = user_id
-
-    monkeypatch.setattr("app.routes.admin.save_oauth_creds", fake_save)
-
-    response = client.post(
-        "/admin/settings/gemini/oauth",
-        data={"payload": "{}", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert saved["payload"] == "{}"
-    assert saved["user_id"] == admin_user_id
-
-
-def test_admin_gemini_oauth_error(app, client, login_admin, admin_user_id, monkeypatch):
-    def fake_save(payload, *, user_id=None):
-        raise GeminiConfigError("invalid")
-
-    monkeypatch.setattr("app.routes.admin.save_oauth_creds", fake_save)
-
-    response = client.post(
-        "/admin/settings/gemini/oauth",
-        data={"payload": "{}", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"invalid" in response.data
-
-
-def test_admin_gemini_settings_save(
-    app, client, login_admin, admin_user_id, monkeypatch
-):
-    saved = {}
-
-    def fake_save(payload, *, user_id=None):
-        saved["payload"] = payload
-        saved["user_id"] = user_id
-
-    monkeypatch.setattr("app.routes.admin.save_settings_json", fake_save)
-
-    response = client.post(
-        "/admin/settings/gemini/settings",
-        data={"payload": "{}", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert saved["payload"] == "{}"
-    assert saved["user_id"] == admin_user_id
-
-
-def test_admin_gemini_settings_error(
-    app, client, login_admin, admin_user_id, monkeypatch
-):
-    def fake_save(payload, *, user_id=None):
-        raise GeminiConfigError("broken settings")
-
-    monkeypatch.setattr("app.routes.admin.save_settings_json", fake_save)
-
-    response = client.post(
-        "/admin/settings/gemini/settings",
-        data={"payload": "{}", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"broken settings" in response.data
-
-
-def test_admin_claude_update_success(app, client, login_admin, monkeypatch):
-    class DummyResult:
-        command = "sudo npm install -g @anthropic-ai/claude-code"
-        returncode = 0
-        stdout = "ok"
-        stderr = ""
-
-        @property
-        def ok(self):
-            return True
-
-    monkeypatch.setattr("app.routes.admin.install_latest_claude", lambda: DummyResult())
-
-    response = client.post(
-        "/admin/settings/claude/update",
-        data={"submit": "Install latest Claude"},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"Claude CLI update succeeded" in response.data
-
-
-def test_admin_claude_update_failure(app, client, login_admin, monkeypatch):
-    def fake_update():
-        raise ClaudeUpdateError("npm missing")
-
-    monkeypatch.setattr("app.routes.admin.install_latest_claude", fake_update)
-
-    response = client.post(
-        "/admin/settings/claude/update",
-        data={"submit": "Install latest Claude"},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"npm missing" in response.data
-
-
-def test_admin_claude_key_save(app, client, login_admin, admin_user_id, monkeypatch):
-    saved = {}
-
-    def fake_save(payload, *, user_id=None):
-        saved["payload"] = payload
-        saved["user_id"] = user_id
-
-    monkeypatch.setattr("app.routes.admin.save_claude_api_key", fake_save)
-
-    response = client.post(
-        "/admin/settings/claude/key",
-        data={
-            "payload": "token",
-            "user_id": str(admin_user_id),
-            "next": "/admin/settings",
-        },
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert saved["payload"] == "token"
-    assert saved["user_id"] == admin_user_id
-
-
-def test_admin_claude_key_error(app, client, login_admin, admin_user_id, monkeypatch):
-    def fake_save(payload, *, user_id=None):
-        raise ClaudeConfigError("invalid key")
-
-    monkeypatch.setattr("app.routes.admin.save_claude_api_key", fake_save)
-
-    response = client.post(
-        "/admin/settings/claude/key",
-        data={"payload": "token", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"invalid key" in response.data
-
-
-def test_admin_codex_auth_save(app, client, login_admin, admin_user_id, monkeypatch):
-    captured = {}
-
-    def fake_save(payload, user_id=None):
-        captured["payload"] = payload
-        captured["user_id"] = user_id
-
-    monkeypatch.setattr("app.routes.admin.save_codex_auth", fake_save)
-
-    response = client.post(
-        "/admin/settings/codex/auth",
-        data={
-            "payload": "{}",
-            "user_id": str(admin_user_id),
-            "next": "/admin/settings",
-        },
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert captured["payload"] == "{}"
-    assert captured["user_id"] == admin_user_id
-
-
-def test_admin_codex_auth_error(app, client, login_admin, admin_user_id, monkeypatch):
-    def fake_save(payload, user_id=None):
-        raise CodexConfigError("bad codex auth")
-
-    monkeypatch.setattr("app.routes.admin.save_codex_auth", fake_save)
-
-    response = client.post(
-        "/admin/settings/codex/auth",
-        data={"payload": "{}", "user_id": str(admin_user_id)},
-        follow_redirects=True,
-    )
-    assert response.status_code == 200
-    assert b"bad codex auth" in response.data
 
 
 def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):
@@ -1060,7 +791,7 @@ def test_dashboard_orders_projects_by_last_activity(
         "app.routes.admin.list_windows_for_aliases", lambda *_, **__: []
     )
 
-    def fake_status(project):
+    def fake_status(project, user=None):
         timestamp = (
             newer.isoformat() if project.name == "fresh-project" else older.isoformat()
         )
@@ -1132,7 +863,9 @@ def test_dashboard_tenant_filter_limits_projects(
     monkeypatch.setattr(
         "app.routes.admin.list_windows_for_aliases", lambda *args, **kwargs: []
     )
-    monkeypatch.setattr("app.routes.admin.get_repo_status", lambda project: {})
+    monkeypatch.setattr(
+        "app.routes.admin.get_repo_status", lambda project, user=None: {}
+    )
 
     with app.app_context():
         tenant_one = Tenant.query.filter_by(name="tenant-one").first()

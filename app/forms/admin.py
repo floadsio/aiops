@@ -218,66 +218,6 @@ class QuickBranchSwitchForm(FlaskForm):
     submit = SubmitField("Switch & Restart")
 
 
-class CodexUpdateForm(FlaskForm):
-    next = HiddenField()
-    submit = SubmitField("Update Codex CLI")
-
-
-class GeminiUpdateForm(FlaskForm):
-    next = HiddenField()
-    submit = SubmitField("Update Gemini CLI")
-
-
-class ClaudeUpdateForm(FlaskForm):
-    next = HiddenField()
-    submit = SubmitField("Update Claude CLI")
-
-
-class GeminiAccountsForm(FlaskForm):
-    payload = TextAreaField(
-        "google_accounts.json", validators=[DataRequired()], render_kw={"rows": 6}
-    )
-    user_id = HiddenField(validators=[DataRequired()])
-    next = HiddenField()
-    submit = SubmitField("Save google_accounts.json")
-
-
-class GeminiOAuthForm(FlaskForm):
-    payload = TextAreaField(
-        "oauth_creds.json", validators=[DataRequired()], render_kw={"rows": 6}
-    )
-    user_id = HiddenField(validators=[DataRequired()])
-    next = HiddenField()
-    submit = SubmitField("Save oauth_creds.json")
-
-
-class CodexAuthForm(FlaskForm):
-    payload = TextAreaField(
-        "Codex auth.json", validators=[DataRequired()], render_kw={"rows": 6}
-    )
-    user_id = HiddenField(validators=[DataRequired()])
-    next = HiddenField()
-    submit = SubmitField("Save Codex auth.json")
-
-
-class ClaudeApiKeyForm(FlaskForm):
-    payload = TextAreaField(
-        "Claude API key", validators=[DataRequired()], render_kw={"rows": 3}
-    )
-    user_id = HiddenField(validators=[DataRequired()])
-    next = HiddenField()
-    submit = SubmitField("Save Claude API Key")
-
-
-class GeminiSettingsForm(FlaskForm):
-    payload = TextAreaField(
-        "settings.json", validators=[DataRequired()], render_kw={"rows": 8}
-    )
-    user_id = HiddenField(validators=[DataRequired()])
-    next = HiddenField()
-    submit = SubmitField("Save settings.json")
-
-
 class MigrationRunForm(FlaskForm):
     next = HiddenField()
     submit = SubmitField("Run Database Migrations")

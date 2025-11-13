@@ -22,6 +22,19 @@
   <input type="hidden" id="tmux_target" />
   <label>{{ form.ai_tool.label }} {{ form.ai_tool(id="ai_tool") }}</label>
   <label>Command <input type="text" id="command" value="{{ default_codex_command }}" /></label>
+  <div id="codex_access_wrap" class="codex-access" hidden>
+    <label>
+      <span>Codex permissions</span>
+      <select id="codex_access">
+        <option value="on-failure">Safe (read/write on request)</option>
+        <option value="full">Full access (allow pushes & scripts)</option>
+      </select>
+    </label>
+    <p class="text-muted codex-access__note">
+      Safe mode lets Codex suggest commands but asks before running destructive steps.
+      Full access enables `git push`, package installs, etc. Only use when you understand the impact.
+    </p>
+  </div>
   <label>{{ form.prompt.label }} {{ form.prompt(id="initial_prompt", rows=4, placeholder="Optional one-shot instruction to send when the session starts") }}</label>
   <div class="grid">
     <button type="submit" id="start-session">Start Session</button>
@@ -82,6 +95,27 @@
     font-weight: 400;
     font-style: normal;
     font-display: swap;
+  }
+  .codex-access {
+    margin: 0 0 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(148, 163, 184, 0.08);
+  }
+  [data-theme="dark"] .codex-access {
+    background: rgba(148, 163, 184, 0.15);
+    border-color: rgba(148, 163, 184, 0.4);
+  }
+  .codex-access label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin: 0;
+  }
+  .codex-access__note {
+    margin: 0.35rem 0 0;
+    font-size: 0.85rem;
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -150,6 +184,9 @@
   const commandInput = document.getElementById('command');
   const promptInput = document.getElementById('initial_prompt');
   const aiToolCommands = {{ ai_tool_commands|tojson }};
+  const codexAccessWrap = document.getElementById('codex_access_wrap');
+  const codexAccessSelect = document.getElementById('codex_access');
+  const codexAccessValues = new Set(['on-failure', 'full']);
   const sessionStorageKey = `aiops-session-context-${projectId}`;
   let storedSessionContext = null;
   let plannedPrompt = '';
@@ -168,12 +205,69 @@
     if (force || commandAutofill || !currentValue) {
       commandInput.value = targetCommand;
       commandAutofill = true;
+      if (toolValue === 'codex') {
+        syncCodexAccessFromCommand();
+      }
+    }
+  }
+
+  function getCodexAccessValue(command) {
+    if (!command) {
+      return 'on-failure';
+    }
+    const match = command.match(/-a\s+([^\s]+)/);
+    return match ? match[1] : 'on-failure';
+  }
+
+  function syncCodexAccessFromCommand() {
+    if (!codexAccessSelect || !commandInput) {
+      return;
+    }
+    const value = getCodexAccessValue(commandInput.value || '');
+    if (codexAccessValues.has(value)) {
+      codexAccessSelect.value = value;
+    }
+  }
+
+  function applyCodexAccess(value) {
+    if (!commandInput) {
+      return;
+    }
+    const base = (aiToolCommands && aiToolCommands.codex) || 'codex';
+    const current = (commandInput.value || '').trim();
+    const replacement = `-a ${value}`;
+    if (!current) {
+      commandInput.value = `${base} ${replacement}`.trim();
+      return;
+    }
+    const pattern = /-a\s+[^\s]+/;
+    if (pattern.test(current)) {
+      commandInput.value = current.replace(pattern, replacement);
+    } else {
+      commandInput.value = `${current} ${replacement}`.trim();
+    }
+    commandAutofill = false;
+  }
+
+  function toggleCodexAccessVisibility() {
+    if (!codexAccessWrap) {
+      return;
+    }
+    const isCodex = aiToolSelect && aiToolSelect.value === 'codex';
+    codexAccessWrap.hidden = !isCodex;
+    if (isCodex) {
+      syncCodexAccessFromCommand();
     }
   }
 
   if (commandInput) {
     commandInput.addEventListener('input', () => {
       commandAutofill = false;
+    });
+    commandInput.addEventListener('change', () => {
+      if (aiToolSelect && aiToolSelect.value === 'codex') {
+        syncCodexAccessFromCommand();
+      }
     });
   }
 
@@ -182,9 +276,21 @@
       const value = event.target.value;
       if (!value) {
         commandAutofill = false;
+      } else {
+        applyToolDefault(value);
+      }
+      toggleCodexAccessVisibility();
+    });
+  }
+  toggleCodexAccessVisibility();
+
+  if (codexAccessSelect) {
+    codexAccessSelect.addEventListener('change', event => {
+      const value = event.target.value;
+      if (!codexAccessValues.has(value)) {
         return;
       }
-      applyToolDefault(value);
+      applyCodexAccess(value);
     });
   }
 
@@ -215,6 +321,9 @@
     if (context.command && commandInput) {
       commandInput.value = context.command;
       commandAutofill = false;
+      if (aiToolSelect && aiToolSelect.value === 'codex') {
+        syncCodexAccessFromCommand();
+      }
     }
     if (typeof context.prompt === 'string') {
       plannedPrompt = context.prompt;
@@ -232,6 +341,7 @@
     if (context.tmuxTarget && tmuxTargetInput) {
       tmuxTargetInput.value = context.tmuxTarget;
     }
+    toggleCodexAccessVisibility();
     return Boolean(context.autoStart);
   }
 

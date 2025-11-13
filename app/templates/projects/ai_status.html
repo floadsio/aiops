@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}AI Tool Status{% endblock %}
+{% block content %}
+<h1>AI Tool Status</h1>
+<p class="text-muted">Check your Claude CLI capacity directly from the control panel. Status commands run as your Linux user{% if linux_username %} (<code>{{ linux_username }}</code>){% endif %}.</p>
+
+<article class="contrast" style="padding:1.5rem;">
+  <header style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;justify-content:space-between;">
+    <div>
+      <h2 style="margin:0;">Claude CLI</h2>
+      <p class="text-muted" style="margin:0;">Runs <code>claude -p status</code> to inspect session availability.</p>
+    </div>
+    <div>
+      <a href="{{ url_for('projects.ai_status_overview') }}" class="secondary" role="button">Refresh</a>
+    </div>
+  </header>
+  <hr>
+    {% if claude_status %}
+      <p><strong>Command</strong>: <code>{{ claude_status.command }}</code></p>
+      <p>
+        <strong>Exit code</strong>:
+        {% if claude_status.success %}
+          <span style="color:var(--pico-color-success,#047857);">0 (OK)</span>
+        {% else %}
+          <span style="color:var(--pico-color-danger,#b91c1c);">{{ claude_status.returncode }}</span>
+        {% endif %}
+      </p>
+      {% if claude_status.stdout %}
+        <h3>Output</h3>
+        <pre>{{ claude_status.stdout }}</pre>
+      {% endif %}
+      {% if claude_status.stderr %}
+        <h3>Errors</h3>
+        <pre>{{ claude_status.stderr }}</pre>
+      {% endif %}
+      {% if not claude_status.stdout and not claude_status.stderr %}
+        <p>No output was produced.</p>
+      {% endif %}
+    {% else %}
+      <p class="text-muted">{{ claude_error or "Unable to fetch Claude status." }}</p>
+    {% endif %}
+</article>
+{% endblock %}

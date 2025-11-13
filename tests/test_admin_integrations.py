@@ -18,6 +18,7 @@ from app.models import (
     User,
 )
 from app.security import hash_password
+from app.services.ai_status_service import AIStatusError, ToolStatus
 from app.services.key_service import resolve_private_key_path
 from app.services.migration_service import MigrationError
 from app.services.tmux_service import TmuxServiceError
@@ -431,6 +432,36 @@ def test_admin_tmux_resync_error(app, client, login_admin, monkeypatch):
     )
     assert response.status_code == 200
     assert b"tmux unavailable" in response.data
+
+
+def test_ai_status_page_shows_claude_output(client, login_admin, monkeypatch):
+    dummy_status = ToolStatus(
+        tool="Claude",
+        command="claude -p status",
+        stdout="Session limit reached ∙ resets 4pm",
+        stderr="",
+        returncode=0,
+    )
+
+    monkeypatch.setattr(
+        "app.routes.projects.get_claude_status", lambda user: dummy_status
+    )
+
+    response = client.get("/projects/ai/status")
+    assert response.status_code == 200
+    assert b"Session limit reached" in response.data
+    assert b"Exit code" in response.data
+
+
+def test_ai_status_page_handles_error(client, login_admin, monkeypatch):
+    def fake_status(user):
+        raise AIStatusError("No Linux user mapping")
+
+    monkeypatch.setattr("app.routes.projects.get_claude_status", fake_status)
+
+    response = client.get("/projects/ai/status")
+    assert response.status_code == 200
+    assert b"No Linux user mapping" in response.data
 
 
 def test_admin_project_branch_checkout(app, client, login_admin, monkeypatch):

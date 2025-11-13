@@ -321,8 +321,23 @@
                     issue_id=issue.id
                   ) }}"
                   data-context='{{ issue.codex_payload|tojson }}'
+                  data-tool="claude"
                 >
-                  Start Codex Session
+                  Claude
+                </button>
+                <button
+                  type="button"
+                  class="secondary start-codex-session"
+                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id) }}"
+                  data-prepare="{{ url_for(
+                    'projects.prepare_issue_context',
+                    project_id=project.id,
+                    issue_id=issue.id
+                  ) }}"
+                  data-context='{{ issue.codex_payload|tojson }}'
+                  data-tool="codex"
+                >
+                  Codex
                 </button>
                 <button
                   type="button"
@@ -447,6 +462,7 @@
         const target = button.dataset.target;
         const prepareEndpoint = button.dataset.prepare;
         const payloadRaw = button.dataset.context;
+        const toolOverride = button.dataset.tool;
         if (!target || !payloadRaw) {
           return;
         }
@@ -455,6 +471,11 @@
           payload = JSON.parse(payloadRaw);
         } catch (error) {
           return;
+        }
+
+        // Override the tool if specified on the button
+        if (toolOverride) {
+          payload.tool = toolOverride;
         }
 
         const finalize = (context) => {

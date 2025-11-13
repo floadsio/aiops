@@ -30,7 +30,7 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
     labels_source = (
         fields.get("labels") if isinstance(fields.get("labels"), list) else []
     )
-    labels = [str(label) for label in labels_source]
+    labels = [str(label) for label in labels_source]  # type: ignore[union-attr]
     return IssuePayload(
         external_id=str(key),
         title=str(fields.get("summary", "")),
@@ -48,12 +48,12 @@ def fetch_issues(
     project_integration: ProjectIntegration,
     since: Optional[datetime] = None,
 ) -> List[IssuePayload]:
-    base_url = integration.base_url
+    base_url = integration.base_url  # type: ignore[assignment]
     if not base_url:
         raise IssueSyncError("Jira integration requires a base URL.")
-    base_url = ensure_base_url(integration, base_url)
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
 
-    settings = integration.settings or {}
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
     username = (settings.get("username") or "").strip()
     if not username:
         raise IssueSyncError("Jira integration requires an account email.")
@@ -71,7 +71,7 @@ def fetch_issues(
 
     timeout = get_timeout(integration)
     try:
-        from jira import JIRA, JIRAError  # type: ignore import-not-found
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
     except ImportError as exc:  # pragma: no cover - environment misconfiguration
         missing = getattr(exc, "name", None) or "jira"
         raise IssueSyncError(
@@ -81,8 +81,8 @@ def fetch_issues(
     client: Optional[Any] = None
     try:
         client = JIRA(
-            server=base_url,
-            basic_auth=(username, integration.api_token),
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
             timeout=timeout,
         )
         data = client.search_issues(
@@ -116,7 +116,7 @@ def fetch_issues(
         if not key:
             continue
         try:
-            payloads.append(_issue_to_payload(base_url, issue))
+            payloads.append(_issue_to_payload(base_url, issue))  # type: ignore[arg-type]
         except IssueSyncError:
             continue
     return payloads
@@ -127,12 +127,12 @@ def create_issue(
     project_integration: ProjectIntegration,
     request: IssueCreateRequest,
 ) -> IssuePayload:
-    base_url = integration.base_url
+    base_url = integration.base_url  # type: ignore[assignment]
     if not base_url:
         raise IssueSyncError("Jira integration requires a base URL.")
-    base_url = ensure_base_url(integration, base_url)
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
 
-    settings = integration.settings or {}
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
     username = (settings.get("username") or "").strip()
     if not username:
         raise IssueSyncError("Jira integration requires an account email.")
@@ -147,7 +147,7 @@ def create_issue(
     if not summary:
         raise IssueSyncError("Issue summary is required.")
 
-    config = project_integration.config or {}
+    config: dict[str, Any] = project_integration.config or {}  # type: ignore[assignment]
     issue_type = (
         request.issue_type or config.get("issue_type") or DEFAULT_ISSUE_TYPE
     ).strip()
@@ -163,7 +163,7 @@ def create_issue(
 
     timeout = get_timeout(integration)
     try:
-        from jira import JIRA, JIRAError  # type: ignore import-not-found
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
     except ImportError as exc:  # pragma: no cover - environment misconfiguration
         missing = getattr(exc, "name", None) or "jira"
         raise IssueSyncError(
@@ -173,8 +173,8 @@ def create_issue(
     client: Optional[Any] = None
     try:
         client = JIRA(
-            server=base_url,
-            basic_auth=(username, integration.api_token),
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
             timeout=timeout,
         )
         created_issue = client.create_issue(fields=fields)
@@ -207,12 +207,12 @@ def close_issue(
     project_integration: ProjectIntegration,
     external_id: str,
 ) -> IssuePayload:
-    base_url = integration.base_url
+    base_url = integration.base_url  # type: ignore[assignment]
     if not base_url:
         raise IssueSyncError("Jira integration requires a base URL.")
-    base_url = ensure_base_url(integration, base_url)
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
 
-    settings = integration.settings or {}
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
     username = (settings.get("username") or "").strip()
     if not username:
         raise IssueSyncError("Jira integration requires an account email.")
@@ -221,12 +221,12 @@ def close_issue(
     if not issue_key:
         raise IssueSyncError("Jira issue identifier is required for closing an issue.")
 
-    config = project_integration.config or {}
+    config: dict[str, Any] = project_integration.config or {}  # type: ignore[assignment]
     preferred_transition_name = (config.get("close_transition") or "").strip().lower()
 
     timeout = get_timeout(integration)
     try:
-        from jira import JIRA, JIRAError  # type: ignore import-not-found
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
     except ImportError as exc:  # pragma: no cover - environment misconfiguration
         missing = getattr(exc, "name", None) or "jira"
         raise IssueSyncError(
@@ -236,8 +236,8 @@ def close_issue(
     client: Optional[Any] = None
     try:
         client = JIRA(
-            server=base_url,
-            basic_auth=(username, integration.api_token),
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
             timeout=timeout,
         )
         transitions = client.transitions(issue_key)

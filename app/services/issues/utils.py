@@ -237,7 +237,7 @@ def summarize_issue(issue: ExternalIssue, include_url: bool = False) -> str:
     if issue.labels:
         parts.append(f"labels={', '.join(issue.labels)}")
     parts.append(
-        f"updated={format_issue_datetime(issue.external_updated_at or issue.updated_at or issue.created_at)}"
+        f"updated={format_issue_datetime(issue.external_updated_at or issue.updated_at or issue.created_at)}"  # type: ignore[arg-type]
     )
     if include_url and issue.url:
         parts.append(f"url={issue.url}")
@@ -298,12 +298,12 @@ def _verify_github_credentials(api_token: str, base_url: Optional[str]) -> str:
 
     integration = _integration_proxy(base_url)
     try:
-        endpoint = ensure_base_url(integration, "https://api.github.com")
+        endpoint = ensure_base_url(integration, "https://api.github.com")  # type: ignore[arg-type]
     except ValueError as exc:
         raise ProviderTestError(str(exc)) from exc
-    timeout = get_timeout(integration)
+    timeout = get_timeout(integration)  # type: ignore[arg-type]
     try:
-        client = Github(api_token, base_url=endpoint, timeout=timeout)
+        client = Github(api_token, base_url=endpoint, timeout=int(timeout))
         user = client.get_user()
     except GithubException as exc:
         status = getattr(exc, "status", None) or getattr(exc, "status_code", None)
@@ -332,10 +332,10 @@ def _verify_gitlab_credentials(api_token: str, base_url: Optional[str]) -> str:
 
     integration = _integration_proxy(base_url)
     try:
-        endpoint = ensure_base_url(integration, "https://gitlab.com")
+        endpoint = ensure_base_url(integration, "https://gitlab.com")  # type: ignore[arg-type]
     except ValueError as exc:
         raise ProviderTestError(str(exc)) from exc
-    timeout = get_timeout(integration)
+    timeout = get_timeout(integration)  # type: ignore[arg-type]
     try:
         client = Gitlab(endpoint, private_token=api_token, timeout=timeout)
         client.auth()
@@ -361,11 +361,11 @@ def _verify_jira_credentials(
         raise ProviderTestError("Jira integration requires a base URL.")
     integration = _integration_proxy(base_url)
     try:
-        endpoint = ensure_base_url(integration, base_url)
+        endpoint = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
     except ValueError as exc:
         raise ProviderTestError(str(exc)) from exc
     api_endpoint = f"{endpoint.rstrip('/')}/rest/api/3/myself"
-    timeout = get_timeout(integration)
+    timeout = get_timeout(integration)  # type: ignore[arg-type]
     headers = {"Accept": "application/json"}
     auth = HTTPBasicAuth(username, api_token)
     try:

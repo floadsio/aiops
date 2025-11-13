@@ -55,6 +55,26 @@ def _build_workspace_git_env(
     return merged_env
 
 
+def _project_key_accessible_to_user(
+    linux_username: str,
+    ssh_key_path: str,
+) -> bool:
+    """Return True if the target user can read the configured project key."""
+
+    try:
+        result = run_as_user(
+            linux_username,
+            ["test", "-r", ssh_key_path],
+            timeout=5.0,
+            check=False,
+            capture_output=False,
+        )
+    except SudoError:
+        return False
+
+    return result.success
+
+
 def _git_clone_via_sudo(
     linux_username: str,
     repo_url: str,
@@ -186,6 +206,16 @@ def initialize_workspace(project, user) -> Path:
         raise WorkspaceError(str(exc)) from exc
 
     ssh_key_path = resolve_project_ssh_key_path(project)
+    selected_ssh_key = None
+    if ssh_key_path:
+        if _project_key_accessible_to_user(linux_username, ssh_key_path):
+            selected_ssh_key = ssh_key_path
+        else:
+            log.warning(
+                "Project SSH key at %s is not readable by user %s; falling back to user's own SSH config",
+                ssh_key_path,
+                linux_username,
+            )
 
     # Clone repository using sudo as the target user. Prefer the project/tenant
     # SSH key so users can work with repos that rely on centrally managed access.
@@ -196,7 +226,7 @@ def initialize_workspace(project, user) -> Path:
             str(workspace_path),
             project.default_branch,
             env=None,
-            ssh_key_path=ssh_key_path,
+            ssh_key_path=selected_ssh_key,
         )
         log.info(
             "Initialized workspace for project %s, user %s at %s",

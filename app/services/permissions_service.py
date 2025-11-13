@@ -9,10 +9,11 @@ users in their home directories.
 import grp
 import logging
 import stat
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+from .sudo_service import SudoError, chgrp, chmod
 
 logger = logging.getLogger(__name__)
 
@@ -322,28 +323,14 @@ def fix_permissions(instance_path: Path) -> PermissionCheckResult:
 
 def _fix_path_permissions(path: Path, mode: int, group: str) -> None:
     """Fix permissions and group ownership for a single path using sudo."""
-    # Change group ownership
     try:
-        subprocess.run(
-            ["sudo", "chgrp", group, str(path)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        raise PermissionsError(
-            f"Failed to change group to {group}: {exc.stderr}"
-        ) from exc
+        chgrp(str(path), group)
+    except SudoError as exc:
+        raise PermissionsError(f"Failed to change group to {group}: {exc}") from exc
 
-    # Change mode
     try:
-        subprocess.run(
-            ["sudo", "chmod", oct(mode)[2:], str(path)],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as exc:
-        raise PermissionsError(f"Failed to change mode to {oct(mode)}: {exc.stderr}") from exc
+        chmod(str(path), mode)
+    except SudoError as exc:
+        raise PermissionsError(f"Failed to change mode to {oct(mode)}: {exc}") from exc
 
     logger.info("Fixed permissions for %s: mode=%s group=%s", path, oct(mode), group)

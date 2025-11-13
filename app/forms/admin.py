@@ -238,6 +238,11 @@ class PermissionsFixForm(FlaskForm):
     submit = SubmitField("Fix Permissions")
 
 
+class AIToolUpdateForm(FlaskForm):
+    next = HiddenField()
+    source = HiddenField(validators=[DataRequired(), Length(max=32)])
+
+
 class ProjectBranchForm(FlaskForm):
     project_id = HiddenField(validators=[DataRequired()])
     branch_name = StringField("Branch", validators=[Length(max=128)])

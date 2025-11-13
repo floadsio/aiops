@@ -74,6 +74,7 @@ to restart the service automatically after a successful update.
 - Add Gemini (`gemini-cli`) to `ALLOWED_AI_TOOLS` automatically by setting `GEMINI_COMMAND` (defaults to `gemini`).
 - Add Claude (`claude`) to `ALLOWED_AI_TOOLS` by setting `CLAUDE_COMMAND` (defaults to `claude`). Store per-user Anthropic API keys via the admin settings and these keys are exported as `CLAUDE_CODE_OAUTH_TOKEN` before Claude sessions start.
 - Use Admin → Settings to check the Claude CLI status and run the `CLAUDE_UPDATE_COMMAND` (default `sudo npm install -g @anthropic-ai/claude-code`) without leaving the browser.
+- The AI Tool Maintenance cards on Admin → Settings run the configured npm or Homebrew updates for Codex, Gemini, and Claude. Override `CODEX_UPDATE_COMMAND`, `GEMINI_UPDATE_COMMAND`, and `CLAUDE_UPDATE_COMMAND`, plus optional `CODEX_BREW_PACKAGE`, `GEMINI_BREW_PACKAGE`, or `CLAUDE_BREW_PACKAGE`, in `.env`.
 - When tmux is installed, terminals attach to a per-tenant session (`<tenant>-shell`), reusing the same workspace on subsequent launches.
 - Configure defaults with `DEFAULT_AI_TOOL` and `DEFAULT_AI_SHELL` in `.env`; toggle multiplexing with `USE_TMUX_FOR_AI_SESSIONS`.
 - Use the admin settings cards to install or update Codex (`CODEX_UPDATE_COMMAND`) and Gemini (`GEMINI_UPDATE_COMMAND`) CLIs via npm.

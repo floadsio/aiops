@@ -148,6 +148,25 @@
     font-size: 0.9rem;
     color: #475569;
   }
+  .ai-tool-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .ai-tool-action form {
+    margin: 0;
+  }
+  .ai-tool-command {
+    font-size: 0.85rem;
+    color: #475569;
+  }
+  [data-theme="dark"] .ai-tool-command {
+    color: rgba(226, 232, 240, 0.75);
+  }
+  .ai-tool-command code {
+    display: inline-block;
+    margin-left: 0.25rem;
+  }
   [data-theme="dark"] .user-meta {
     color: rgba(226, 232, 240, 0.75);
   }
@@ -296,6 +315,36 @@
   </article>
     </div>
   </section>
+
+  {% if ai_tool_cards %}
+  <section class="settings-category">
+    <h2>AI Tool Maintenance</h2>
+    <div class="settings-grid-3">
+      {% for card in ai_tool_cards %}
+      <article class="settings-card">
+        <h3>{{ card.title }}</h3>
+        <p>{{ card.description }}</p>
+        <div class="ai-tool-actions">
+          {% for action in card.actions %}
+          <div class="ai-tool-action">
+            <form method="post" action="{{ url_for('admin.run_ai_tool_update_command', tool=card.key) }}">
+              {{ action.form.hidden_tag() }}
+              <button type="submit" class="secondary">{{ action.label }}</button>
+            </form>
+            <div class="ai-tool-command">
+              {{ action.helper }}
+              {% if action.command %}
+                <code>{{ action.command }}</code>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
 
     <section class="settings-category">
     <h2>User Management</h2>

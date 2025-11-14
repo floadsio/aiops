@@ -119,7 +119,7 @@ from ..services.permissions_service import (
     check_permissions,
     fix_permissions,
 )
-from ..services.tmux_metadata import get_tmux_tool, prune_tmux_tools
+from ..services.tmux_metadata import get_tmux_ssh_keys, get_tmux_tool, prune_tmux_tools
 from ..services.tmux_service import (
     TmuxServiceError,
     list_windows_for_aliases,
@@ -515,6 +515,7 @@ def dashboard():
                         "tenant_name": tenant_name,
                         "tenant_color": tenant_color,
                         "tool": tool_label,
+                        "ssh_keys": get_tmux_ssh_keys(window.target),
                     }
                 )
                 if window.target:
@@ -699,6 +700,7 @@ def dashboard():
                     "created": window.created,
                     "created_display": created_display,
                     "tool": get_tmux_tool(window.target),
+                    "ssh_keys": get_tmux_ssh_keys(window.target),
                     "project": window_project_map.get(window.target),
                 }
             )

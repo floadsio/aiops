@@ -28,8 +28,13 @@ from .services.gemini_config_service import (
     ensure_user_config,
     sync_credentials_to_cli_home,
 )
-from .services.git_service import build_project_git_env, resolve_project_ssh_key_path
-from .services.tmux_metadata import record_tmux_tool
+from .services.git_service import (
+    ProjectSSHKeyReference,
+    build_project_git_env,
+    resolve_project_ssh_key_path,
+    resolve_project_ssh_key_reference,
+)
+from .services.tmux_metadata import record_tmux_tool, record_tmux_ssh_keys
 from .services.tmux_service import ensure_project_window
 
 # Module-level logger for use in background threads
@@ -127,8 +132,8 @@ def _first_command_token(command: str | None) -> str | None:
     return tokens[0] if tokens else None
 
 
-def _load_project_ssh_key_material(project) -> str | None:
-    key_path = resolve_project_ssh_key_path(project)
+def _load_project_ssh_key_material(project, key_path: str | None = None) -> str | None:
+    key_path = key_path or resolve_project_ssh_key_path(project)
     if not key_path:
         return None
     try:
@@ -177,6 +182,40 @@ def _script_ssh_agent_commands(key_material: str) -> list[str]:
         *lines,
         "AIOPS_SSH_KEY",
     ]
+
+
+def _summarize_ssh_key_reference(
+    reference: ProjectSSHKeyReference | None,
+) -> dict[str, str | None] | None:
+    if reference is None:
+        return None
+    key_obj = reference.key
+    name = getattr(key_obj, "name", None)
+    fingerprint = getattr(key_obj, "fingerprint", None)
+    source = reference.source or "project"
+    source_label = {
+        "project": "Project key",
+        "tenant": "Tenant key",
+        "system": "System key",
+    }.get(source, "SSH key")
+    label_parts = [source_label]
+    if name:
+        label_parts.append(name)
+    label = " • ".join(label_parts)
+    fingerprint_short = None
+    if fingerprint:
+        label = f"{label} ({fingerprint})"
+        short_display = fingerprint[:23]
+        if len(fingerprint) > 23:
+            short_display = f"{fingerprint[:23]}..."
+        fingerprint_short = short_display
+    return {
+        "source": source,
+        "name": name,
+        "fingerprint": fingerprint,
+        "fingerprint_short": fingerprint_short or fingerprint,
+        "label": label,
+    }
 
 
 def _uses_gemini(command_str: str, tool: str | None) -> bool:
@@ -453,16 +492,28 @@ def create_session(
             os.environ[key] = value
 
     ssh_command = git_env.get("GIT_SSH_COMMAND")
+    key_reference = resolve_project_ssh_key_reference(project)
+    key_path_for_material = key_reference.path if key_reference else None
+    ssh_key_records: list[dict[str, str | None]] = []
     interactive_agent_commands: list[str] = []
     script_agent_commands: list[str] = []
     if linux_username_for_session and linux_username_for_session != "syseng":
         # Resolve managed SSH key material so we can load it into an ssh-agent for the user
         ssh_command = None
-        key_material = _load_project_ssh_key_material(project)
+        key_material = _load_project_ssh_key_material(
+            project, key_path=key_path_for_material
+        )
         if key_material:
             interactive_agent_commands = _interactive_ssh_agent_commands(key_material)
             script_agent_commands = _script_ssh_agent_commands(key_material)
             ssh_command = SSH_AGENT_SSH_COMMAND
+            key_summary = _summarize_ssh_key_reference(key_reference)
+            if key_summary:
+                ssh_key_records.append(key_summary)
+    elif key_reference:
+        key_summary = _summarize_ssh_key_reference(key_reference)
+        if key_summary:
+            ssh_key_records.append(key_summary)
 
     # Determine start directory (needed for both child and parent processes)
     start_dir = current_app.instance_path
@@ -642,6 +693,8 @@ def create_session(
 
     if tool:
         record_tmux_tool(session_record.tmux_target, tool)
+    if session_record.tmux_target:
+        record_tmux_ssh_keys(session_record.tmux_target, ssh_key_records)
     threading.Thread(target=_reader_loop, args=(session_record,), daemon=True).start()
     return session_record
 

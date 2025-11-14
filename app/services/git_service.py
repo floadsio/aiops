@@ -16,6 +16,8 @@ from git.remote import Remote
 from ..extensions import db
 from ..models import Project, SSHKey
 from ..services.key_service import resolve_private_key_path
+from .linux_users import resolve_linux_username
+from .sudo_service import SudoError, run_as_user
 
 log = logging.getLogger(__name__)
 
@@ -336,6 +338,37 @@ def _discard_local_changes(repo: Repo) -> list[str]:
     return steps
 
 
+def _build_user_git_env() -> dict[str, str]:
+    return {
+        "GIT_SSH_COMMAND": "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+    }
+
+
+def _run_git_command_as_user(
+    linux_username: str,
+    repo_path: Path,
+    args: list[str],
+    *,
+    env: Optional[dict[str, str]] = None,
+    timeout: float = 60.0,
+) -> str:
+    command = ["git", "-C", str(repo_path), *args]
+    result = run_as_user(
+        linux_username,
+        command,
+        env=env,
+        timeout=timeout,
+    )
+    output_parts: list[str] = []
+    stdout = (result.stdout or "").strip()
+    stderr = (result.stderr or "").strip()
+    if stdout:
+        output_parts.append(stdout)
+    if stderr:
+        output_parts.append(stderr)
+    return "\n".join(output_parts)
+
+
 def _select_remote(repo: Repo) -> Remote:
     if not repo.remotes:
         raise RuntimeError("Repository has no remotes configured.")
@@ -395,6 +428,70 @@ def commit_project_files(
     return True
 
 
+def _run_git_action_as_user(
+    repo: Repo,
+    project: Project,
+    action: str,
+    ref: Optional[str],
+    *,
+    clean: bool,
+    user: object,
+) -> str:
+    linux_username = resolve_linux_username(user)
+    if not linux_username:
+        raise RuntimeError(
+            f"Cannot determine Linux username for user {getattr(user, 'email', 'unknown')}"
+        )
+    workspace_dir = repo.working_tree_dir
+    if not workspace_dir:
+        raise RuntimeError("Repository working directory is not available.")
+
+    repo_path = Path(workspace_dir)
+    env = _build_user_git_env()
+
+    def _git(args: list[str], *, timeout: float = 60.0) -> str:
+        return _run_git_command_as_user(
+            linux_username,
+            repo_path,
+            args,
+            env=env,
+            timeout=timeout,
+        ).strip()
+
+    remote = _select_remote(repo)
+    target = ref or project.default_branch
+    if not target:
+        raise RuntimeError("No target branch specified for git action.")
+
+    try:
+        if action == "pull":
+            messages: list[str] = []
+            if clean:
+                _git(["reset", "--hard", "HEAD"])
+                messages.append("Executed: git reset --hard HEAD")
+                _git(["clean", "-fd"])
+                messages.append("Executed: git clean -fd")
+            messages.append(f"Pulling {remote.name}/{target} …")
+            pull_output = _git(["pull", remote.name, target], timeout=300.0)
+            if pull_output:
+                messages.append(pull_output)
+            status_output = _git(["status", "--short", "--branch"])
+            if status_output:
+                messages.append("Working tree status:\n" + status_output)
+            return "\n".join(messages)
+        if action == "push":
+            messages = [f"Pushing to {remote.name}/{target} …"]
+            push_output = _git(["push", remote.name, target], timeout=300.0)
+            messages.append(push_output or "Push completed.")
+            return "\n".join(messages)
+        if action == "status":
+            return _git(["status", "--short", "--branch"])
+    except SudoError as exc:
+        raise RuntimeError(f"Git action failed: {exc}") from exc
+
+    raise ValueError(f"Unsupported git action: {action}")
+
+
 def run_git_action(
     project: Project,
     action: str,
@@ -404,6 +501,15 @@ def run_git_action(
     user: Optional[object] = None,
 ) -> str:
     repo = ensure_repo_checkout(project, user=user)
+    if user is not None:
+        return _run_git_action_as_user(
+            repo,
+            project,
+            action,
+            ref,
+            clean=clean,
+            user=user,
+        )
     messages: list[str] = []
     invalid_keys: set[str] = set()
 

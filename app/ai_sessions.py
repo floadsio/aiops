@@ -1,18 +1,13 @@
 from __future__ import annotations
 
-import fcntl
 import os
-import pty
 import shlex
 import shutil
-import signal
-import struct
-import termios
 import threading
+import time
 import uuid
 from base64 import b64encode
 from queue import Empty, Queue
-from select import select
 from typing import Optional
 
 from flask import current_app
@@ -38,52 +33,67 @@ class AISession:
         project_id: int,
         user_id: int,
         command: str,
-        pid: int,
-        fd: int,
-        tmux_target: str | None = None,
+        tmux_target: str,
         tool: str | None = None,
     ):
         self.id = session_id
         self.project_id = project_id
         self.user_id = user_id
         self.command = command
-        self.pid = pid
-        self.fd = fd
         self.tmux_target = tmux_target
         self.tool = tool
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
         self.output_buffer: list[bytes] = []  # Buffer for session ID detection
         self.detected_session_id: str | None = None
+        self.last_line_count = 0  # Track pane history for incremental capture
 
     def close(self) -> None:
         if self.stop_event.is_set():
             return
         self.stop_event.set()
-        try:
-            os.close(self.fd)
-        except OSError:
-            pass
-        try:
-            os.kill(self.pid, signal.SIGTERM)
-        except OSError:
-            pass
-        try:
-            os.waitpid(self.pid, 0)
-        except ChildProcessError:
-            pass
 
 
 _sessions: dict[str, AISession] = {}
 _sessions_lock = threading.Lock()
 
 
-def _set_winsize(fd: int, rows: int, cols: int) -> None:
+def _get_pane_from_target(tmux_target: str):
+    """Get libtmux pane object from target string (session:window format)."""
     try:
-        packed = struct.pack("HHHH", rows, cols, 0, 0)
-        fcntl.ioctl(fd, termios.TIOCSWINSZ, packed)
-    except (OSError, ValueError):
-        pass
+        import libtmux
+    except ImportError:
+        return None
+
+    try:
+        # Parse target: "session_name:window_name"
+        if ":" not in tmux_target:
+            return None
+
+        session_name, window_name = tmux_target.split(":", 1)
+        server = libtmux.Server()
+
+        # Find session
+        session = next(
+            (s for s in server.sessions if s.get("session_name") == session_name),
+            None,
+        )
+        if not session:
+            return None
+
+        # Find window
+        window = next(
+            (w for w in session.windows if w.get("window_name") == window_name),
+            None,
+        )
+        if not window:
+            return None
+
+        # Get first pane (or attached pane)
+        pane = window.attached_pane or (window.panes[0] if window.panes else None)
+        return pane
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _resolve_command(tool: str | None, command: str | None) -> str:
@@ -232,55 +242,89 @@ def remove_session(session_id: str) -> None:
 
 
 def _reader_loop(session: AISession) -> None:
+    """Poll tmux pane for new output and queue it for streaming."""
     try:
+        pane = _get_pane_from_target(session.tmux_target)
+        if not pane:
+            current_app.logger.error(
+                "Unable to get pane for target %s", session.tmux_target
+            )
+            return
+
         while not session.stop_event.is_set():
-            r, _, _ = select([session.fd], [], [], 0.1)
-            if session.fd in r:
-                try:
-                    data = os.read(session.fd, 1024)
-                except OSError:
-                    break
-                if not data:
-                    break
-                session.queue.put(data)
+            try:
+                # Capture all pane history
+                captured_lines = pane.cmd("capture-pane", "-p").stdout
+                if not captured_lines:
+                    time.sleep(0.1)
+                    continue
 
-                # Buffer output for session ID detection (limit to ~50KB)
-                if len(session.output_buffer) < 50:
-                    session.output_buffer.append(data)
+                lines = captured_lines.split("\n")
+                current_line_count = len(lines)
 
-                    # Try to detect session ID if not already found
-                    if session.detected_session_id is None and session.tool:
-                        from .services.ai_session_service import detect_session_id, save_session
+                # Only process new lines since last capture
+                if current_line_count > session.last_line_count:
+                    new_lines = lines[session.last_line_count :]
+                    new_output = "\n".join(new_lines)
 
-                        # Decode and check recent output
-                        try:
-                            recent_text = b"".join(session.output_buffer[-10:]).decode("utf-8", errors="ignore")
-                            detected_id = detect_session_id(session.tool, recent_text)
+                    if new_output:
+                        data = new_output.encode("utf-8")
+                        session.queue.put(data)
 
-                            if detected_id:
-                                session.detected_session_id = detected_id
-                                current_app.logger.info(
-                                    "Detected %s session ID: %s",
-                                    session.tool,
-                                    detected_id,
+                        # Buffer output for session ID detection (limit to ~50KB)
+                        if len(session.output_buffer) < 50:
+                            session.output_buffer.append(data)
+
+                            # Try to detect session ID if not already found
+                            if session.detected_session_id is None and session.tool:
+                                from .services.ai_session_service import (
+                                    detect_session_id,
+                                    save_session,
                                 )
 
-                                # Save to database
+                                # Decode and check recent output
                                 try:
-                                    save_session(
-                                        project_id=session.project_id,
-                                        user_id=session.user_id,
-                                        tool=session.tool,
-                                        session_id=detected_id,
-                                        command=session.command,
-                                        tmux_target=session.tmux_target,
+                                    recent_text = b"".join(
+                                        session.output_buffer[-10:]
+                                    ).decode("utf-8", errors="ignore")
+                                    detected_id = detect_session_id(
+                                        session.tool, recent_text
                                     )
-                                except Exception as exc:  # noqa: BLE001
-                                    current_app.logger.error(
-                                        "Failed to save session to DB: %s", exc
-                                    )
-                        except Exception:  # noqa: BLE001
-                            pass  # Ignore decoding/detection errors
+
+                                    if detected_id:
+                                        session.detected_session_id = detected_id
+                                        current_app.logger.info(
+                                            "Detected %s session ID: %s",
+                                            session.tool,
+                                            detected_id,
+                                        )
+
+                                        # Save to database
+                                        try:
+                                            save_session(
+                                                project_id=session.project_id,
+                                                user_id=session.user_id,
+                                                tool=session.tool,
+                                                session_id=detected_id,
+                                                command=session.command,
+                                                tmux_target=session.tmux_target,
+                                            )
+                                        except Exception as exc:  # noqa: BLE001
+                                            current_app.logger.error(
+                                                "Failed to save session to DB: %s", exc
+                                            )
+                                except Exception:  # noqa: BLE001
+                                    pass  # Ignore decoding/detection errors
+
+                    session.last_line_count = current_line_count
+
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.debug(
+                    "Error capturing pane output: %s", exc
+                )
+
+            time.sleep(0.1)  # Poll interval
+
     finally:
         session.queue.put(None)
         session.stop_event.set()
@@ -381,43 +425,25 @@ def create_session(
         if workspace_path is not None:
             start_dir = str(workspace_path)
 
-    # Build tmux attach command (runs as syseng, the Flask app user)
-    exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
-
+    # No PTY fork needed - we'll send commands directly to the tmux pane
     session_id = uuid.uuid4().hex
+    tmux_target = f"{session_name}:{window_name}"
 
-    pid, fd = pty.fork()
-    if pid == 0:  # child process
+    # Resize pane if dimensions provided
+    if rows and cols:
         try:
-            os.chdir(start_dir)
-        except FileNotFoundError:
-            os.makedirs(start_dir, exist_ok=True)
-            os.chdir(start_dir)
-        os.environ.setdefault("TERM", "xterm-256color")
-        os.environ.pop("TMUX", None)
-        if rows and cols:
-            _set_winsize(1, rows, cols)
-
-        # tmux attach runs as the Flask app user (syseng)
-        # Commands inside the tmux pane will use sudo to run as the target Linux user
-        try:
-            os.execvp(exec_args[0], exec_args)
-        except FileNotFoundError:
-            os.write(1, f"Command not found: {exec_args[0]}\r\n".encode())
-            os._exit(1)
+            pane.cmd("resize-pane", "-x", str(cols), "-y", str(rows))
+        except Exception:  # noqa: BLE001
+            pass  # Best effort
 
     session_record = AISession(
         session_id,
         project.id,
         user_id,
         command_str,
-        pid,
-        fd,
-        f"{session_name}:{window_name}",
+        tmux_target,
         tool=tool,
     )
-    if rows and cols:
-        _set_winsize(fd, rows, cols)
     _register_session(session_record)
 
     should_bootstrap = created or tmux_target is None
@@ -551,22 +577,46 @@ def create_session(
 
 
 def write_to_session(session: AISession, data: str) -> None:
+    """Send input to the tmux pane."""
     if session.stop_event.is_set():
         return
-    os.write(session.fd, data.encode())
+
+    pane = _get_pane_from_target(session.tmux_target)
+    if not pane:
+        return
+
+    try:
+        # Send keys to the pane (literal=True to avoid key name interpretation)
+        pane.send_keys(data, literal=True, suppress_history=False)
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error(
+            "Failed to write to session %s: %s", session.id, exc
+        )
 
 
 def close_session(session: AISession) -> None:
+    """Close the AI session (stop monitoring, but leave tmux pane running)."""
     session.close()
     remove_session(session.id)
 
 
 def resize_session(session: AISession, rows: int, cols: int) -> None:
+    """Resize the tmux pane."""
     if session.stop_event.is_set():
         return
     if rows <= 0 or cols <= 0:
         return
-    _set_winsize(session.fd, rows, cols)
+
+    pane = _get_pane_from_target(session.tmux_target)
+    if not pane:
+        return
+
+    try:
+        pane.cmd("resize-pane", "-x", str(cols), "-y", str(rows))
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.debug(
+            "Failed to resize session %s: %s", session.id, exc
+        )
 
 
 def stream_session(session: AISession):

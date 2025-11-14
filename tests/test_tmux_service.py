@@ -1,6 +1,24 @@
 from app.services import tmux_service
 
 
+def test_session_name_prefers_linux_username():
+    class DummyUser:
+        def __init__(self):
+            self.linux_username = "ivo"
+            self.name = "Ivo Marino"
+
+    assert tmux_service.session_name_for_user(DummyUser()) == "ivo"
+
+
+def test_session_name_uses_first_token_of_full_name():
+    class DummyUser:
+        def __init__(self):
+            self.linux_username = None
+            self.name = "Ivo Marino"
+
+    assert tmux_service.session_name_for_user(DummyUser()) == "ivo"
+
+
 class _FakeWindow:
     def __init__(self, name: str):
         self._name = name

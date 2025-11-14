@@ -3,7 +3,7 @@ import shlex
 from types import SimpleNamespace
 
 from app import create_app
-from app.ai_sessions import create_session
+from app.ai_sessions import SSH_AGENT_SSH_COMMAND, create_session
 from app.config import Config
 from app.services.claude_config_service import save_claude_api_key
 from app.services.codex_config_service import save_codex_auth
@@ -485,6 +485,168 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
         assert (tmp_path / ".claude" / "api_key").read_text().strip() == "claude-token"
         stored_path = tmp_path / "instance" / "claude" / "user-505" / "api_key"
         assert stored_path.read_text().strip() == "claude-token"
+
+
+def test_per_user_session_injects_tenant_key_via_ssh_agent(monkeypatch, tmp_path):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
+        CODEX_CONFIG_DIR = str(tmp_path / ".codex")
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    with app.app_context():
+        project_path = tmp_path / "repos" / "demo"
+        project_path.mkdir(parents=True, exist_ok=True)
+        key_file = tmp_path / "instance" / "keys" / "tenant-key"
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        key_file.write_text(
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nline\n-----END OPENSSH PRIVATE KEY-----\n",
+            encoding="utf-8",
+        )
+        project = SimpleNamespace(
+            id=6,
+            name="Demo Project",
+            local_path=str(project_path),
+            tenant=SimpleNamespace(name="Tenant Beta"),
+            ssh_key=SimpleNamespace(private_key_path=str(key_file)),
+        )
+
+        pane = FakePane()
+        window = FakeWindow("demo-project-p8")
+        window._pane = pane
+        session_obj = FakeSession("aiops", window)
+
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
+        )
+        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
+        monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (1111, 22))
+        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
+
+        class DummyThread:
+            def __init__(self, *_, **__):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
+
+        class MockUser:
+            def __init__(self):
+                self.id = 606
+                self.email = "user@example.com"
+                self.name = "Tenant User"
+                self.linux_username = "devuser"
+
+        monkeypatch.setattr(
+            "app.ai_sessions.User.query.get", lambda user_id: MockUser(), raising=False
+        )
+
+        session = create_session(project, user_id=606, tool="codex")
+
+        command = pane.commands[0][0]
+        expected_tool = app.config["ALLOWED_AI_TOOLS"]["codex"]
+        assert session.command == expected_tool
+        assert "sudo -u devuser" in command
+        assert "ssh-agent -s" in command
+        assert "AIOPS_KEY_B64" in command
+        assert SSH_AGENT_SSH_COMMAND in command
+        assert expected_tool in command
+
+
+def test_per_user_session_ssh_agent_script_for_non_interactive(monkeypatch, tmp_path):
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    with app.app_context():
+        project_path = tmp_path / "repos" / "demo"
+        project_path.mkdir(parents=True, exist_ok=True)
+        key_file = tmp_path / "instance" / "keys" / "tenant-key"
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        key_file.write_text(
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nline\n-----END OPENSSH PRIVATE KEY-----\n",
+            encoding="utf-8",
+        )
+        project = SimpleNamespace(
+            id=7,
+            name="Demo Project",
+            local_path=str(project_path),
+            tenant=SimpleNamespace(name="Tenant Beta"),
+            ssh_key=SimpleNamespace(private_key_path=str(key_file)),
+        )
+
+        pane = FakePane()
+        window = FakeWindow("demo-project-p9")
+        window._pane = pane
+        session_obj = FakeSession("aiops", window)
+
+        monkeypatch.setattr(
+            "app.ai_sessions.ensure_project_window",
+            lambda project, window_name=None, session_name=None: (
+                session_obj,
+                window,
+                True,
+            ),
+        )
+        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
+        monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (3333, 21))
+        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
+
+        class DummyThread:
+            def __init__(self, *_, **__):
+                pass
+
+            def start(self):
+                pass
+
+        monkeypatch.setattr(
+            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
+        )
+        monkeypatch.setattr(
+            "app.ai_sessions._register_session", lambda session: session
+        )
+
+        class MockUser:
+            def __init__(self):
+                self.id = 707
+                self.email = "user@example.com"
+                self.name = "Tenant User"
+                self.linux_username = "devuser"
+
+        monkeypatch.setattr(
+            "app.ai_sessions.User.query.get", lambda user_id: MockUser(), raising=False
+        )
+
+        session = create_session(
+            project,
+            user_id=707,
+            command="/bin/true",
+        )
+
+        command = pane.commands[0][0]
+        assert session.command == "/bin/true"
+        assert "ssh-add <<'AIOPS_SSH_KEY'" in command
+        assert "-----BEGIN OPENSSH PRIVATE KEY-----" in command
+        assert "AIOPS_SSH_KEY" in command
+        assert SSH_AGENT_SSH_COMMAND in command
 
 
 def test_create_session_with_linux_user_switching(monkeypatch, tmp_path):

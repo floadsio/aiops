@@ -314,9 +314,9 @@ def project_detail(project_id: int):
     from ..services.workspace_service import get_workspace_status
     workspace_status = get_workspace_status(project, _current_user_obj())
 
-    codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
-        "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
-    )
+    ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+    default_ai_shell = current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
+    codex_command = ai_tool_commands.get("codex", default_ai_shell)
 
     def _format_timestamp(value):
         if value is None:
@@ -530,6 +530,8 @@ def project_detail(project_id: int):
         tenant_default_key=tenant_default_key,
         commit_history=commit_history,
         commit_history_error=commit_history_error,
+        ai_tool_commands=ai_tool_commands,
+        default_ai_shell=default_ai_shell,
     )
 
 
@@ -751,6 +753,8 @@ def prepare_issue_context(project_id: int, issue_id: int):
     ):
         abort(404)
 
+    request_payload = request.get_json(silent=True) or {}
+
     all_issues = sorted(
         ExternalIssue.query.join(ProjectIntegration)
         .filter(ProjectIntegration.project_id == project_id)
@@ -774,10 +778,34 @@ def prepare_issue_context(project_id: int, issue_id: int):
         )
         return jsonify({"error": f"Failed to write agent files: {exc}"}), 500
 
-    codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
-        "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
+    requested_tool_raw = request_payload.get("tool")
+    requested_tool = (
+        str(requested_tool_raw).strip().lower() if requested_tool_raw else ""
     )
-    command = codex_command
+    ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+    default_ai_shell = current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
+    configured_default_tool_raw = current_app.config.get("DEFAULT_AI_TOOL", "")
+    configured_default_tool = (
+        str(configured_default_tool_raw).strip().lower()
+        if configured_default_tool_raw
+        else ""
+    )
+
+    selected_tool: str | None = None
+    if requested_tool and requested_tool in ai_tool_commands:
+        selected_tool = requested_tool
+    elif "codex" in ai_tool_commands:
+        selected_tool = "codex"
+    elif configured_default_tool and configured_default_tool in ai_tool_commands:
+        selected_tool = configured_default_tool
+    elif ai_tool_commands:
+        selected_tool = next(iter(ai_tool_commands))
+
+    command = (
+        ai_tool_commands.get(selected_tool, default_ai_shell)
+        if selected_tool
+        else default_ai_shell
+    )
 
     tmux_session_name = _current_tmux_session_name()
     linux_username = _current_linux_username()
@@ -786,7 +814,7 @@ def prepare_issue_context(project_id: int, issue_id: int):
         {
             "prompt": prompt,
             "command": command,
-            "tool": "codex",
+            "tool": selected_tool or "",
             "agent_path": str(agents_path) if agents_path else None,
             "tmux_target": get_or_create_window_for_project(
                 project,

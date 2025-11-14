@@ -417,6 +417,7 @@
                       data-prepare="{{ issue.prepare_endpoint }}"
                       data-context='{{ issue.codex_payload|tojson }}'
                       data-tool="claude"
+                      data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
                     >
                       Claude
                     </button>
@@ -428,6 +429,7 @@
                       data-prepare="{{ issue.prepare_endpoint }}"
                       data-context='{{ issue.codex_payload|tojson }}'
                       data-tool="codex"
+                      data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
                     >
                       Codex
                     </button>
@@ -678,6 +680,7 @@
                 data-prepare="{{ issue.prepare_endpoint }}"
                 data-context='{{ issue.codex_payload|tojson }}'
                 data-tool="claude"
+                data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
               >
                 Claude
               </button>
@@ -689,6 +692,7 @@
                 data-prepare="{{ issue.prepare_endpoint }}"
                 data-context='{{ issue.codex_payload|tojson }}'
                 data-tool="codex"
+                data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
               >
                 Codex
               </button>
@@ -755,6 +759,7 @@
         const prepareEndpoint = button.dataset.prepare;
         const payloadRaw = button.dataset.context;
         const toolOverride = button.dataset.tool;
+        const commandOverride = button.dataset.command;
         if (!projectId || !target || !prepareEndpoint || !payloadRaw) {
           return;
         }
@@ -769,6 +774,9 @@
         // Override the tool if specified on the button
         if (toolOverride) {
           payload.tool = toolOverride;
+          if (commandOverride) {
+            payload.command = commandOverride;
+          }
         }
 
         const storageKey = `aiops-session-context-${projectId}`;
@@ -782,6 +790,11 @@
           window.location.href = target;
         };
 
+        const preparePayload = {};
+        if (payload.tool) {
+          preparePayload.tool = payload.tool;
+        }
+
         fetch(prepareEndpoint, {
           method: 'POST',
           headers: {
@@ -789,7 +802,7 @@
             ...(csrfTokenValue ? { 'X-CSRFToken': csrfTokenValue, 'X-CSRF-Token': csrfTokenValue } : {}),
           },
           credentials: 'same-origin',
-          body: JSON.stringify({}),
+          body: JSON.stringify(preparePayload),
         })
           .then((response) => (
             response.ok

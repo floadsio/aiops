@@ -1733,6 +1733,9 @@ def manage_issues():
     status_labels: dict[str, str] = {}
     issue_entries: list[dict[str, object]] = []
     provider_statuses: dict[str, set[str]] = defaultdict(set)
+    ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
+    default_ai_shell = current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
+    codex_command = ai_tool_commands.get("codex", default_ai_shell)
 
     for issue in sorted_issues:
         status_key, status_label = normalize_issue_status(issue.status)
@@ -1754,10 +1757,6 @@ def manage_issues():
 
         updated_reference = (
             issue.external_updated_at or issue.updated_at or issue.created_at
-        )
-
-        codex_command = current_app.config["ALLOWED_AI_TOOLS"].get(
-            "codex", current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
         )
 
         description_text = extract_issue_description(issue)
@@ -2106,6 +2105,8 @@ def manage_issues():
         issue_status_max_length=ISSUE_STATUS_MAX_LENGTH,
         current_view_url=current_view_url,
         current_user_name=current_user_name,
+        ai_tool_commands=ai_tool_commands,
+        default_ai_shell=default_ai_shell,
     )
 
 

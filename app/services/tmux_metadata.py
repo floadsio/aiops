@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Any, Iterable, Optional
 
 from flask import current_app
 
@@ -14,7 +14,7 @@ def _metadata_path() -> Path:
     return path
 
 
-def _load_metadata() -> dict[str, str]:
+def _load_metadata() -> dict[str, Any]:
     path = _metadata_path()
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -22,16 +22,26 @@ def _load_metadata() -> dict[str, str]:
         return {}
 
 
-def _save_metadata(data: dict[str, str]) -> None:
+def _save_metadata(data: dict[str, Any]) -> None:
     path = _metadata_path()
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def _normalize_entry(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    if isinstance(value, str):
+        return {"tool": value}
+    return {}
 
 
 def record_tmux_tool(target: str, tool: str) -> None:
     if not target:
         return
     data = _load_metadata()
-    data[target] = tool
+    entry = _normalize_entry(data.get(target))
+    entry["tool"] = tool
+    data[target] = entry
     _save_metadata(data)
 
 
@@ -39,7 +49,34 @@ def get_tmux_tool(target: str) -> Optional[str]:
     if not target:
         return None
     data = _load_metadata()
-    return data.get(target)
+    entry = data.get(target)
+    if isinstance(entry, dict):
+        return entry.get("tool")
+    if isinstance(entry, str):
+        return entry
+    return None
+
+
+def record_tmux_ssh_keys(target: str, keys: list[dict[str, Any]] | None) -> None:
+    if not target:
+        return
+    data = _load_metadata()
+    entry = _normalize_entry(data.get(target))
+    entry["ssh_keys"] = keys or []
+    data[target] = entry
+    _save_metadata(data)
+
+
+def get_tmux_ssh_keys(target: str) -> list[dict[str, Any]]:
+    if not target:
+        return []
+    data = _load_metadata()
+    entry = data.get(target)
+    if isinstance(entry, dict):
+        value = entry.get("ssh_keys")
+        if isinstance(value, list):
+            return value
+    return []
 
 
 def prune_tmux_tools(valid_targets: Iterable[str]) -> None:
@@ -53,4 +90,10 @@ def prune_tmux_tools(valid_targets: Iterable[str]) -> None:
     _save_metadata(data)
 
 
-__all__ = ["record_tmux_tool", "get_tmux_tool", "prune_tmux_tools"]
+__all__ = [
+    "record_tmux_tool",
+    "get_tmux_tool",
+    "record_tmux_ssh_keys",
+    "get_tmux_ssh_keys",
+    "prune_tmux_tools",
+]

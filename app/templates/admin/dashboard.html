@@ -859,6 +859,18 @@
             {% if window.tool %}
               <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>
             {% endif %}
+            {% if window.ssh_keys %}
+              <span class="tmux-meta">
+                <strong>SSH:</strong>
+                {% for key in window.ssh_keys %}
+                  {{ key.label }}{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </span>
+            {% else %}
+              <span class="tmux-meta text-muted">
+                SSH: user-provided keys
+              </span>
+            {% endif %}
             <span class="tmux-meta">
               {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
               {% if window.created_display %}
@@ -1059,6 +1071,18 @@
                       <span class="tmux-chip">{{ session.window }}</span>
                       {% if session.tool %}
                         <span class="tmux-chip tmux-chip--tool">{{ session.tool }}</span>
+                      {% endif %}
+                      {% if session.ssh_keys %}
+                        <span class="tmux-meta">
+                          <strong>SSH:</strong>
+                          {% for key in session.ssh_keys %}
+                            {{ key.label }}{% if not loop.last %}, {% endif %}
+                          {% endfor %}
+                        </span>
+                      {% else %}
+                        <span class="tmux-meta text-muted">
+                          SSH: user-provided keys
+                        </span>
                       {% endif %}
                       <span class="tmux-meta">
                         {{ session.panes }} pane{{ '' if session.panes == 1 else 's' }}

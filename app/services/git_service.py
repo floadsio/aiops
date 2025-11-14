@@ -4,6 +4,7 @@ import logging
 import os
 import shlex
 from contextlib import nullcontext
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -13,10 +14,19 @@ from git import GitCommandError, Repo, exc
 from git.remote import Remote
 
 from ..extensions import db
-from ..models import Project
+from ..models import Project, SSHKey
 from ..services.key_service import resolve_private_key_path
 
 log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class ProjectSSHKeyReference:
+    """Capture the SSH key information selected for a project."""
+
+    key: Optional[SSHKey]
+    path: str
+    source: Optional[str] = None
 
 
 def _project_slug(project: Project) -> str:
@@ -113,23 +123,20 @@ def _is_valid_private_key(path: Optional[str]) -> bool:
     return header.startswith("-----BEGIN")
 
 
-def _resolve_project_ssh_key_path(
+def _select_project_ssh_key(
     project: Project, *, invalid: Optional[set[str]] = None
-) -> Optional[str]:
+) -> tuple[Optional[str], Optional[SSHKey], Optional[str]]:
     invalid = invalid or set()
 
     project_key = getattr(project, "ssh_key", None)
     if project_key:
+        normalized_key = _normalize_private_key_path(project_key.private_key_path)
         if (
-            (
-                normalized_key := _normalize_private_key_path(
-                    project_key.private_key_path
-                )
-            )
+            normalized_key
             and _is_valid_private_key(str(normalized_key))
             and str(normalized_key) not in invalid
         ):
-            return str(normalized_key)
+            return str(normalized_key), project_key, "project"
         elif project_key.private_key_path:
             log.warning(
                 "Project %s references SSH key %s without usable private material; skipping.",
@@ -145,25 +152,45 @@ def _resolve_project_ssh_key_path(
             key=lambda key: getattr(key, "created_at", None) or datetime.min,
         )
         for key in sorted_keys:
+            normalized_key = _normalize_private_key_path(key.private_key_path)
             if (
-                (normalized_key := _normalize_private_key_path(key.private_key_path))
+                normalized_key
                 and _is_valid_private_key(str(normalized_key))
                 and str(normalized_key) not in invalid
             ):
-                return str(normalized_key)
+                return str(normalized_key), key, "tenant"
             elif key.private_key_path:
                 log.debug(
                     "Tenant %s SSH key %s lacks usable private material; skipping.",
                     tenant.id,
                     key.name,
                 )
-    return None
+
+    return None, None, None
+
+
+def _resolve_project_ssh_key_path(
+    project: Project, *, invalid: Optional[set[str]] = None
+) -> Optional[str]:
+    key_path, _, _ = _select_project_ssh_key(project, invalid=invalid)
+    return key_path
 
 
 def resolve_project_ssh_key_path(project: Project) -> Optional[str]:
     """Expose the sanitized SSH key path for a project or its tenant."""
 
     return _resolve_project_ssh_key_path(project)
+
+
+def resolve_project_ssh_key_reference(
+    project: Project,
+) -> Optional[ProjectSSHKeyReference]:
+    """Return the SSH key reference (model + path) selected for a project."""
+
+    key_path, key_obj, source = _select_project_ssh_key(project)
+    if not key_path:
+        return None
+    return ProjectSSHKeyReference(key=key_obj, path=key_path, source=source)
 
 
 def _ensure_known_hosts_file() -> Optional[str]:

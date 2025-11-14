@@ -4,10 +4,23 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 from ...models import ProjectIntegration, TenantIntegration
-from . import IssueCreateRequest, IssuePayload, IssueSyncError
+from . import (
+    IssueCommentPayload,
+    IssueCreateRequest,
+    IssuePayload,
+    IssueSyncError,
+)
 from .utils import ensure_base_url, get_timeout, parse_datetime
 
-DEFAULT_FIELDS = ["summary", "status", "assignee", "updated", "labels", "description"]
+DEFAULT_FIELDS = [
+    "summary",
+    "status",
+    "assignee",
+    "updated",
+    "labels",
+    "description",
+    "comment",
+]
 DEFAULT_EXPAND = ["renderedFields"]
 DEFAULT_ISSUE_TYPE = "Task"
 DEFAULT_CLOSE_TRANSITIONS = [
@@ -18,6 +31,9 @@ DEFAULT_CLOSE_TRANSITIONS = [
     "resolved",
     "complete",
 ]
+
+
+MAX_COMMENTS_PER_ISSUE = 20
 
 
 def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
@@ -40,6 +56,7 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
         labels=labels,
         external_updated_at=parse_datetime(fields.get("updated")),
         raw=issue,
+        comments=_extract_comment_payloads(fields),
     )
 
 
@@ -281,6 +298,31 @@ def _resolve_status(fields: dict) -> Optional[str]:
         name = status.get("name")
         return str(name) if name else None
     return None
+
+
+def _extract_comment_payloads(fields: dict) -> List[IssueCommentPayload]:
+    comments: List[IssueCommentPayload] = []
+    block = fields.get("comment")
+    entries = block.get("comments") if isinstance(block, dict) else None
+    if not isinstance(entries, list):
+        return comments
+    for entry in reversed(entries):
+        author_raw = entry.get("author") if isinstance(entry, dict) else None
+        author_name = None
+        if isinstance(author_raw, dict):
+            author_name = author_raw.get("displayName") or author_raw.get("name")
+        created_value = entry.get("updated") or entry.get("created")
+        comments.append(
+            IssueCommentPayload(
+                author=str(author_name) if author_name else None,
+                body=str(entry.get("body") or ""),
+                created_at=parse_datetime(created_value),
+                url=None,
+            )
+        )
+        if len(comments) >= MAX_COMMENTS_PER_ISSUE:
+            break
+    return comments
 
 
 def _format_jira_datetime(source: datetime) -> str:

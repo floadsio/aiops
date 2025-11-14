@@ -553,6 +553,35 @@
                     {% endif %}
                   </div>
                 </div>
+                <div>
+                  <h4>Recent Comments</h4>
+                  {% if issue.comment_count %}
+                    <ul class="issue-comments">
+                      {% for comment in issue.comments %}
+                        <li>
+                          <small>
+                            {% if comment.author %}
+                              {{ comment.author }}
+                            {% else %}
+                              <span class="text-muted">Unknown author</span>
+                            {% endif %}
+                            {% if comment.created_display %}
+                              • {{ comment.created_display }}
+                            {% endif %}
+                            {% if comment.url %}
+                              • <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>
+                            {% endif %}
+                          </small>
+                          <div class="issue-comment__body">
+                            {{ comment.body|e|replace('\n', '<br>')|safe }}
+                          </div>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  {% else %}
+                    <p class="text-muted">No comments cached.</p>
+                  {% endif %}
+                </div>
               </div>
             </td>
           </tr>

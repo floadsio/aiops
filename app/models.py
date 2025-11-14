@@ -191,6 +191,9 @@ class ExternalIssue(BaseModel, TimestampMixin):
     assignee: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     labels: Mapped[list[str]] = mapped_column(db.JSON, default=list, nullable=False)
+    comments: Mapped[list[dict[str, Any]]] = mapped_column(
+        db.JSON, default=list, nullable=False
+    )
     external_updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     raw_payload: Mapped[Optional[dict[str, Any]]] = mapped_column(db.JSON, nullable=True)

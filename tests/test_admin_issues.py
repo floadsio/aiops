@@ -137,6 +137,14 @@ def app(tmp_path):
                         }
                     }
                 },
+                comments=[
+                    {
+                        "author": "sam@example.com",
+                        "body": "Please attach the latest slow query logs.",
+                        "created_at": "2024-01-01T12:00:00+00:00",
+                        "url": "https://example.atlassian.net/browse/ISSUE-001?focusedCommentId=1",
+                    }
+                ],
             ),
             ExternalIssue(
                 project_integration_id=project_integration.id,
@@ -240,6 +248,14 @@ def test_issue_detail_row_includes_description(client, login_admin):
     assert MISSING_ISSUE_DETAILS_MESSAGE in body
     assert "issue-status-select" in body
     assert "Custom status…" in body
+
+
+def test_issue_comments_rendered(client, login_admin):
+    response = client.get("/admin/issues")
+    assert response.status_code == 200
+
+    body = response.get_data(as_text=True)
+    assert "Please attach the latest slow query logs." in body
 
 
 def test_admin_can_update_issue_status(client, login_admin, app):

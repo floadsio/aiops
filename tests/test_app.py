@@ -270,6 +270,14 @@ def test_project_detail_shows_external_issues(tmp_path):
             url="https://gitlab.example/project/issues/123",
             labels=["bug", "urgent"],
             external_updated_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
+            comments=[
+                {
+                    "author": "alice",
+                    "body": "Needs reproduction steps.",
+                    "created_at": "2024-01-02T12:00:00+00:00",
+                    "url": "https://gitlab.example/project/issues/123#note_1",
+                }
+            ],
         )
         db.session.add_all(
             [user, tenant, project, integration, project_integration, issue]
@@ -298,6 +306,7 @@ def test_project_detail_shows_external_issues(tmp_path):
     assert "Start Codex Session" in body
     assert "Recent Git History" in body
     assert "Initial commit" in body
+    assert "Needs reproduction steps." in body
 
 
 def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):

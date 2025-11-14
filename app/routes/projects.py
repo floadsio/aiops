@@ -57,6 +57,7 @@ from ..services.issues import (
     ASSIGN_PROVIDER_REGISTRY,
     CREATE_PROVIDER_REGISTRY,
     IssueSyncError,
+    serialize_issue_comments,
     assign_issue_for_project_integration,
     close_issue_for_project_integration,
     create_issue_for_project_integration,
@@ -325,6 +326,48 @@ def project_detail(project_id: int):
             timestamp = timestamp.replace(tzinfo=timezone.utc)
         return timestamp.astimezone().strftime("%b %d, %Y • %H:%M %Z")
 
+    def _parse_comment_timestamp(raw_value):
+        if raw_value is None:
+            return None
+        if isinstance(raw_value, datetime):
+            if raw_value.tzinfo is None:
+                return raw_value.replace(tzinfo=timezone.utc)
+            return raw_value.astimezone(timezone.utc)
+        if isinstance(raw_value, str):
+            text = raw_value.strip()
+            if not text:
+                return None
+            normalized = text.replace("Z", "+00:00")
+            try:
+                parsed = datetime.fromisoformat(normalized)
+            except ValueError:
+                return None
+            if parsed.tzinfo is None:
+                return parsed.replace(tzinfo=timezone.utc)
+            return parsed.astimezone(timezone.utc)
+        return None
+
+    def _prepare_comment_entries(raw_comments: list[dict[str, object]] | None):
+        entries: list[dict[str, object]] = []
+        if not raw_comments:
+            return entries
+        for comment in raw_comments:
+            if not isinstance(comment, dict):
+                continue
+            created_display = None
+            created_value = _parse_comment_timestamp(comment.get("created_at"))
+            if created_value:
+                created_display = _format_timestamp(created_value)
+            entries.append(
+                {
+                    "author": comment.get("author"),
+                    "body": comment.get("body") or "",
+                    "created_display": created_display,
+                    "url": comment.get("url"),
+                }
+            )
+        return entries
+
     issue_groups: list[dict[str, object]] = []
     total_issue_count = 0
     all_project_issues = [
@@ -416,20 +459,23 @@ def project_detail(project_id: int):
                 "status_key": status_key,
                 "can_assign": provider_key_lower in ASSIGN_PROVIDER_REGISTRY,
             }
-        issue_entries.append(
-            {
-                **issue_payload,
-                "codex_payload": {
-                    "prompt": "",
-                    "tool": "codex",
-                    "command": codex_command,
-                    "autoStart": True,
-                    "issueId": record.id,
-                    "agentPath": None,
-                    "tmuxTarget": None,
-                },
-            }
-        )
+            comments = _prepare_comment_entries(getattr(record, "comments", []))
+            issue_payload["comments"] = comments
+            issue_payload["comment_count"] = len(comments)
+            issue_entries.append(
+                {
+                    **issue_payload,
+                    "codex_payload": {
+                        "prompt": "",
+                        "tool": "codex",
+                        "command": codex_command,
+                        "autoStart": True,
+                        "issueId": record.id,
+                        "agentPath": None,
+                        "tmuxTarget": None,
+                    },
+                }
+            )
         total_issue_count += len(issue_entries)
         provider_key = integration.provider if integration else "unknown"
         provider_display = provider_key.capitalize() if provider_key else "Unknown"
@@ -832,6 +878,7 @@ def assign_issue(project_id: int, issue_id: int):
     issue.external_updated_at = payload.external_updated_at
     issue.last_seen_at = datetime.now(timezone.utc)
     issue.raw_payload = payload.raw
+    issue.comments = serialize_issue_comments(payload.comments)
     db.session.commit()
 
     assignee_display = payload.assignee or ", ".join(assignees)
@@ -866,6 +913,7 @@ def close_issue(project_id: int, issue_id: int):
     issue.external_updated_at = payload.external_updated_at
     issue.last_seen_at = datetime.now(timezone.utc)
     issue.raw_payload = payload.raw
+    issue.comments = serialize_issue_comments(payload.comments)
     db.session.commit()
 
     flash(f"Closed issue {issue.external_id}.", "success")

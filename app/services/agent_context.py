@@ -9,7 +9,7 @@ from typing import Any, Iterable
 
 from ..models import ExternalIssue, Project, User
 from .issues.utils import format_issue_datetime, summarize_issue
-from .sudo_service import SudoError, run_as_user
+from .sudo_service import SudoError, run_as_user, test_path
 from .workspace_service import get_workspace_path, resolve_linux_username
 
 BASE_CONTEXT_FILENAME = "AGENTS.md"
@@ -418,6 +418,7 @@ def write_tracked_issue_context(
     identity_user: User | None = None,
 ) -> Path:
     """Update a tracked AGENTS.override.md file with the latest context for the selected issue."""
+    linux_username: str | None = None
     # Use user's workspace if identity_user is provided, otherwise use project.local_path
     if identity_user is not None:
         workspace_path = get_workspace_path(project, identity_user)
@@ -426,8 +427,13 @@ def write_tracked_issue_context(
                 f"Cannot determine workspace path for user {identity_user.email}"
             )
         repo_path = workspace_path
+        linux_username = resolve_linux_username(identity_user)
+        if not linux_username:
+            raise RuntimeError(
+                f"Cannot determine Linux username for user {identity_user.email}"
+            )
         # For user workspaces, require that the workspace is already initialized
-        if not repo_path.exists():
+        if not test_path(linux_username, str(repo_path)):
             raise RuntimeError(
                 f"Workspace not initialized at {repo_path}. "
                 "Please initialize the workspace first."
@@ -438,14 +444,7 @@ def write_tracked_issue_context(
             repo_path.mkdir(parents=True, exist_ok=True)
 
     context_path = repo_path / filename
-    # Get linux username if using user workspace
-    linux_username = None
-    if identity_user is not None:
-        linux_username = resolve_linux_username(identity_user)
-        if not linux_username:
-            raise RuntimeError(
-                f"Cannot determine Linux username for user {identity_user.email}"
-            )
+    # Load base instructions, using sudo when linux_username is set
     base_content = _load_base_instructions(repo_path, linux_username=linux_username)
     issue_content = render_issue_context(
         project,

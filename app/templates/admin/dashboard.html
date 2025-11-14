@@ -1013,13 +1013,13 @@
         </div>
         <div class="issue-row-actions">
           {% if project %}
-            <a href="{{ url_for('projects.ai_console', project_id=project.id) }}?tool=claude&issue_id={{ issue.id }}" class="secondary">
+            <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=claude&issue_id={{ issue.id }}" class="secondary">
               Claude
             </a>
-            <a href="{{ url_for('projects.ai_console', project_id=project.id) }}?tool=codex&issue_id={{ issue.id }}" class="secondary">
+            <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=codex&issue_id={{ issue.id }}" class="secondary">
               Codex
             </a>
-            <a href="{{ url_for('projects.ai_console', project_id=project.id) }}?tool=gemini&issue_id={{ issue.id }}" class="secondary">
+            <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=gemini&issue_id={{ issue.id }}" class="secondary">
               Gemini
             </a>
             <form method="post" action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">

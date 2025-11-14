@@ -549,7 +549,7 @@
                   <h4>Issue Description</h4>
                   <div class="issue-detail__description">
                     {% if issue.description_available %}
-                      {{ issue.description|e|replace('\n', '<br>')|safe }}
+                      {{ issue.description|render_issue_content }}
                     {% else %}
                       <span class="text-muted">{{ issue.description_fallback }}</span>
                     {% endif %}
@@ -575,7 +575,7 @@
                             {% endif %}
                           </small>
                           <div class="issue-comment__body">
-                            {{ comment.body|e|replace('\n', '<br>')|safe }}
+                            {{ comment.body|render_issue_content }}
                           </div>
                         </li>
                       {% endfor %}
@@ -660,7 +660,7 @@
           <summary>View details</summary>
           <div class="issue-card__description">
             {% if issue.description_available %}
-              {{ issue.description|e|replace('\n', '<br>')|safe }}
+              {{ issue.description|render_issue_content }}
             {% else %}
               <span class="text-muted">{{ issue.description_fallback }}</span>
             {% endif %}

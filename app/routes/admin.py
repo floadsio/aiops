@@ -1732,6 +1732,13 @@ def manage_issues():
     ).all()
 
     sorted_issues = sorted(issues, key=_issue_sort_key, reverse=True)
+
+    # Get pinned issues for the current user
+    from ..models import PinnedIssue
+    pinned_issue_ids = {
+        pinned.issue_id
+        for pinned in PinnedIssue.query.filter_by(user_id=current_user.id).all()
+    }
     tenant_counts: Counter[str] = Counter()
     tenant_labels: dict[str, str] = {}
     assignee_counts: Counter[str] = Counter()
@@ -1810,6 +1817,7 @@ def manage_issues():
                 "description_fallback": MISSING_ISSUE_DETAILS_MESSAGE,
                 "comments": comment_entries,
                 "comment_count": len(comment_entries),
+                "is_pinned": issue.id in pinned_issue_ids,
                 "prepare_endpoint": url_for(
                     "projects.prepare_issue_context",
                     project_id=project.id,

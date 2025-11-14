@@ -984,6 +984,10 @@ def pin_issue(project_id: int, issue_id: int):
     else:
         flash("Issue is already pinned.", "info")
 
+    # Redirect to the next URL if provided, otherwise back to project detail
+    next_url = request.args.get("next") or request.form.get("next")
+    if next_url:
+        return redirect(next_url)
     return redirect(url_for("projects.project_detail", project_id=project.id))
 
 
@@ -1013,6 +1017,10 @@ def unpin_issue(project_id: int, issue_id: int):
     else:
         flash("Issue is not pinned.", "info")
 
+    # Redirect to the next URL if provided, otherwise back to project detail
+    next_url = request.args.get("next") or request.form.get("next")
+    if next_url:
+        return redirect(next_url)
     return redirect(url_for("projects.project_detail", project_id=project.id))
 
 

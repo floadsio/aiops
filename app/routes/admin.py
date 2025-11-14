@@ -1735,6 +1735,7 @@ def manage_issues():
 
     # Get pinned issues for the current user
     from ..models import PinnedIssue
+
     pinned_issue_ids = {
         pinned.issue_id
         for pinned in PinnedIssue.query.filter_by(user_id=current_user.id).all()

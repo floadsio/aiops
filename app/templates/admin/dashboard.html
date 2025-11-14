@@ -815,6 +815,146 @@
 </section>
 
 {% if pinned_issues %}
+<style>
+  /* Pinned issues styling with dark mode support */
+  .pinned-issues-subtitle {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #64748b;
+  }
+  [data-theme="dark"] .pinned-issues-subtitle {
+    color: #94a3b8;
+  }
+  .issue-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 1.25rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+    background: #ffffff;
+    transition: all 0.2s ease;
+  }
+  .issue-row:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border-color: #cbd5e1;
+  }
+  [data-theme="dark"] .issue-row {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  [data-theme="dark"] .issue-row:hover {
+    border-color: #475569;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  }
+  .issue-row-content {
+    flex: 1;
+    min-width: 0;
+  }
+  .issue-row-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .issue-project-link {
+    font-weight: 600;
+    color: #0f172a;
+    text-decoration: none;
+  }
+  .issue-project-link:hover {
+    text-decoration: underline;
+  }
+  [data-theme="dark"] .issue-project-link {
+    color: #e2e8f0;
+  }
+  .issue-row-header .separator {
+    color: #cbd5e1;
+    margin: 0 0.4rem;
+  }
+  [data-theme="dark"] .issue-row-header .separator {
+    color: #475569;
+  }
+  .issue-id {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+  [data-theme="dark"] .issue-id {
+    color: #94a3b8;
+  }
+  .issue-title {
+    margin: 0.25rem 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  .issue-title-link {
+    color: #0f172a;
+    text-decoration: none;
+  }
+  .issue-title-link:hover {
+    color: #0969da;
+  }
+  [data-theme="dark"] .issue-title-link {
+    color: #e2e8f0;
+  }
+  [data-theme="dark"] .issue-title-link:hover {
+    color: #58a6ff;
+  }
+  .issue-row-meta {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+  [data-theme="dark"] .issue-row-meta {
+    color: #94a3b8;
+  }
+  .issue-status-badge {
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    background: #f1f5f9;
+    color: #475569;
+    font-weight: 500;
+  }
+  [data-theme="dark"] .issue-status-badge {
+    background: #334155;
+    color: #cbd5e1;
+  }
+  .issue-label-badge {
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    background: #ede9fe;
+    color: #7c3aed;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  [data-theme="dark"] .issue-label-badge {
+    background: #4c1d95;
+    color: #ddd6fe;
+  }
+  .issue-label-more {
+    color: #94a3b8;
+  }
+  [data-theme="dark"] .issue-label-more {
+    color: #64748b;
+  }
+  .issue-row-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-left: 1rem;
+  }
+  .issue-row-actions button,
+  .issue-row-actions a {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+</style>
 <section class="dashboard-section">
   <header>
     <div class="dashboard-section-heading">
@@ -824,7 +964,7 @@
           <strong style="margin:0;font-size:1rem;">{{ pinned_issues|length }}</strong>
         </span>
       </h2>
-      <p class="dashboard-section-subtitle" style="margin:0;font-size:0.9rem;color:#64748b;">Issues you've pinned for quick access</p>
+      <p class="pinned-issues-subtitle">Issues you've pinned for quick access</p>
     </div>
   </header>
   <div class="issue-list" style="margin-top:0;">
@@ -836,25 +976,21 @@
         <div class="issue-row-content">
           <div class="issue-row-header">
             {% if project %}
-              <a href="{{ url_for('projects.project_detail', project_id=project.id) }}" class="issue-project-link" style="font-weight:600;color:#0f172a;">
+              <a href="{{ url_for('projects.project_detail', project_id=project.id) }}" class="issue-project-link">
                 {{ project.name }}
               </a>
-              <span style="color:#cbd5e1;margin:0 0.4rem;">·</span>
+              <span class="separator">·</span>
             {% endif %}
-            <span class="issue-id" style="color:#64748b;font-size:0.9rem;">#{{ issue.external_id }}</span>
+            <span class="issue-id">#{{ issue.external_id }}</span>
           </div>
-          <h3 class="issue-title" style="margin:0.25rem 0 0.5rem;font-size:1rem;font-weight:500;">
-            {% if issue.url %}
-              <a href="{{ issue.url }}" target="_blank" rel="noopener" style="color:#0f172a;text-decoration:none;">
-                {{ issue.title }}
-              </a>
-            {% else %}
+          <h3 class="issue-title">
+            <a href="{{ url_for('admin.issues') }}?issue_id={{ issue.id }}" class="issue-title-link">
               {{ issue.title }}
-            {% endif %}
+            </a>
           </h3>
-          <div class="issue-row-meta" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center;font-size:0.85rem;color:#64748b;">
+          <div class="issue-row-meta">
             {% if issue.status %}
-              <span class="issue-status-badge" style="padding:0.15rem 0.5rem;border-radius:0.25rem;background:#f1f5f9;color:#475569;font-weight:500;">
+              <span class="issue-status-badge">
                 {{ issue.status }}
               </span>
             {% endif %}
@@ -864,12 +1000,12 @@
             {% if issue.labels %}
               <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
                 {% for label in issue.labels[:3] %}
-                  <span style="padding:0.15rem 0.5rem;border-radius:0.25rem;background:#ede9fe;color:#7c3aed;font-size:0.75rem;font-weight:500;">
+                  <span class="issue-label-badge">
                     {{ label }}
                   </span>
                 {% endfor %}
                 {% if issue.labels|length > 3 %}
-                  <span style="color:#94a3b8;">+{{ issue.labels|length - 3 }} more</span>
+                  <span class="issue-label-more">+{{ issue.labels|length - 3 }} more</span>
                 {% endif %}
               </div>
             {% endif %}
@@ -877,8 +1013,17 @@
         </div>
         <div class="issue-row-actions">
           {% if project %}
+            <a href="{{ url_for('projects.ai_console', project_id=project.id) }}?tool=claude&issue_id={{ issue.id }}" class="secondary">
+              Claude
+            </a>
+            <a href="{{ url_for('projects.ai_console', project_id=project.id) }}?tool=codex&issue_id={{ issue.id }}" class="secondary">
+              Codex
+            </a>
+            <a href="{{ url_for('projects.ai_console', project_id=project.id) }}?tool=gemini&issue_id={{ issue.id }}" class="secondary">
+              Gemini
+            </a>
             <form method="post" action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
-              <button type="submit" class="secondary" style="padding:0.4rem 0.8rem;font-size:0.85rem;">
+              <button type="submit" class="secondary outline">
                 Unpin
               </button>
             </form>

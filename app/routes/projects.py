@@ -650,6 +650,46 @@ def project_ai_console(project_id: int):
         return redirect(url_for("admin.dashboard"))
     tmux_session_name = _current_tmux_session_name()
 
+    # Check if issue_id is provided and populate AGENTS.override.md
+    issue_id_param = request.args.get("issue_id")
+    if issue_id_param:
+        try:
+            issue_id = int(issue_id_param)
+            issue = ExternalIssue.query.get(issue_id)
+            if (
+                issue
+                and issue.project_integration
+                and issue.project_integration.project_id == project_id
+            ):
+                # Populate AGENTS.override.md for this issue
+                from ..services.agent_context import write_tracked_issue_context
+
+                all_issues = sorted(
+                    ExternalIssue.query.join(ProjectIntegration)
+                    .filter(ProjectIntegration.project_id == project_id)
+                    .all(),
+                    key=_issue_sort_key,
+                    reverse=True,
+                )
+                try:
+                    write_tracked_issue_context(
+                        project,
+                        issue,
+                        all_issues,
+                        identity_user=getattr(current_user, "model", None),
+                    )
+                    flash(
+                        f"Issue context prepared: {issue.title} (#{issue.external_id})",
+                        "success",
+                    )
+                except OSError as exc:
+                    current_app.logger.exception(
+                        "Failed to update agent context for project %s", project.id
+                    )
+                    flash(f"Failed to prepare issue context: {exc}", "danger")
+        except (ValueError, TypeError):
+            pass  # Invalid issue_id, ignore
+
     form = AIRunForm()
     allowed_tools = current_app.config["ALLOWED_AI_TOOLS"]
     preferred_order = ["claude", "codex", "gemini", "aider"]

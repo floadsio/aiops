@@ -100,7 +100,235 @@
     .issue-detail__description {
       white-space: pre-wrap;
       font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    /* Markdown styling for issue descriptions */
+    .issue-detail__description h1,
+    .issue-detail__description h2,
+    .issue-detail__description h3,
+    .issue-detail__description h4,
+    .issue-detail__description h5,
+    .issue-detail__description h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    .issue-detail__description h1 { font-size: 1.75em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+    .issue-detail__description h2 { font-size: 1.5em; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.3em; }
+    .issue-detail__description h3 { font-size: 1.25em; }
+    .issue-detail__description h4 { font-size: 1.1em; }
+    .issue-detail__description h5 { font-size: 1em; }
+    .issue-detail__description h6 { font-size: 0.9em; color: #64748b; }
+    .issue-detail__description p {
+      margin-bottom: 1em;
+    }
+    .issue-detail__description code {
+      background-color: rgba(175, 184, 193, 0.2);
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 0.9em;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .issue-detail__description pre {
+      background-color: #f6f8fa;
+      border-radius: 6px;
+      padding: 16px;
+      overflow: auto;
+      margin: 1em 0;
+      font-size: 0.85em;
       line-height: 1.45;
+    }
+    .issue-detail__description pre code {
+      background-color: transparent;
+      padding: 0;
+      border-radius: 0;
+      font-size: 1em;
+    }
+    .issue-detail__description blockquote {
+      border-left: 4px solid #dfe2e5;
+      padding-left: 1em;
+      margin: 1em 0;
+      color: #6a737d;
+    }
+    .issue-detail__description ul,
+    .issue-detail__description ol {
+      padding-left: 2em;
+      margin-bottom: 1em;
+    }
+    .issue-detail__description li {
+      margin-bottom: 0.25em;
+    }
+    .issue-detail__description table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    .issue-detail__description table th,
+    .issue-detail__description table td {
+      border: 1px solid #dfe2e5;
+      padding: 0.5em 1em;
+    }
+    .issue-detail__description table th {
+      background-color: #f6f8fa;
+      font-weight: 600;
+    }
+    .issue-detail__description hr {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 1.5em 0;
+    }
+    .issue-detail__description a {
+      color: #0969da;
+      text-decoration: none;
+    }
+    .issue-detail__description a:hover {
+      text-decoration: underline;
+    }
+    /* Dark theme adjustments */
+    [data-theme="dark"] .issue-detail__description h1,
+    [data-theme="dark"] .issue-detail__description h2 {
+      border-bottom-color: #30363d;
+    }
+    [data-theme="dark"] .issue-detail__description h6 {
+      color: #8b949e;
+    }
+    [data-theme="dark"] .issue-detail__description code {
+      background-color: rgba(110, 118, 129, 0.4);
+    }
+    [data-theme="dark"] .issue-detail__description pre {
+      background-color: #161b22;
+    }
+    [data-theme="dark"] .issue-detail__description blockquote {
+      border-left-color: #3b434b;
+      color: #8b949e;
+    }
+    [data-theme="dark"] .issue-detail__description table th,
+    [data-theme="dark"] .issue-detail__description table td {
+      border-color: #30363d;
+    }
+    [data-theme="dark"] .issue-detail__description table th {
+      background-color: #161b22;
+    }
+    [data-theme="dark"] .issue-detail__description hr {
+      border-top-color: #30363d;
+    }
+    [data-theme="dark"] .issue-detail__description a {
+      color: #58a6ff;
+    }
+    /* Apply same Markdown styling to comment bodies */
+    .issue-comment__body {
+      white-space: pre-wrap;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .issue-comment__body h1,
+    .issue-comment__body h2,
+    .issue-comment__body h3,
+    .issue-comment__body h4,
+    .issue-comment__body h5,
+    .issue-comment__body h6 {
+      margin-top: 1.5em;
+      margin-bottom: 0.5em;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+    .issue-comment__body h1 { font-size: 1.5em; }
+    .issue-comment__body h2 { font-size: 1.3em; }
+    .issue-comment__body h3 { font-size: 1.15em; }
+    .issue-comment__body h4 { font-size: 1.05em; }
+    .issue-comment__body h5 { font-size: 0.95em; }
+    .issue-comment__body h6 { font-size: 0.85em; color: #64748b; }
+    .issue-comment__body p {
+      margin-bottom: 1em;
+    }
+    .issue-comment__body code {
+      background-color: rgba(175, 184, 193, 0.2);
+      padding: 0.2em 0.4em;
+      border-radius: 3px;
+      font-size: 0.9em;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .issue-comment__body pre {
+      background-color: #f6f8fa;
+      border-radius: 6px;
+      padding: 16px;
+      overflow: auto;
+      margin: 1em 0;
+      font-size: 0.85em;
+      line-height: 1.45;
+    }
+    .issue-comment__body pre code {
+      background-color: transparent;
+      padding: 0;
+      border-radius: 0;
+      font-size: 1em;
+    }
+    .issue-comment__body blockquote {
+      border-left: 4px solid #dfe2e5;
+      padding-left: 1em;
+      margin: 1em 0;
+      color: #6a737d;
+    }
+    .issue-comment__body ul,
+    .issue-comment__body ol {
+      padding-left: 2em;
+      margin-bottom: 1em;
+    }
+    .issue-comment__body li {
+      margin-bottom: 0.25em;
+    }
+    .issue-comment__body table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+    }
+    .issue-comment__body table th,
+    .issue-comment__body table td {
+      border: 1px solid #dfe2e5;
+      padding: 0.5em 1em;
+    }
+    .issue-comment__body table th {
+      background-color: #f6f8fa;
+      font-weight: 600;
+    }
+    .issue-comment__body hr {
+      border: 0;
+      border-top: 1px solid #e2e8f0;
+      margin: 1.5em 0;
+    }
+    .issue-comment__body a {
+      color: #0969da;
+      text-decoration: none;
+    }
+    .issue-comment__body a:hover {
+      text-decoration: underline;
+    }
+    [data-theme="dark"] .issue-comment__body h6 {
+      color: #8b949e;
+    }
+    [data-theme="dark"] .issue-comment__body code {
+      background-color: rgba(110, 118, 129, 0.4);
+    }
+    [data-theme="dark"] .issue-comment__body pre {
+      background-color: #161b22;
+    }
+    [data-theme="dark"] .issue-comment__body blockquote {
+      border-left-color: #3b434b;
+      color: #8b949e;
+    }
+    [data-theme="dark"] .issue-comment__body table th,
+    [data-theme="dark"] .issue-comment__body table td {
+      border-color: #30363d;
+    }
+    [data-theme="dark"] .issue-comment__body table th {
+      background-color: #161b22;
+    }
+    [data-theme="dark"] .issue-comment__body hr {
+      border-top-color: #30363d;
+    }
+    [data-theme="dark"] .issue-comment__body a {
+      color: #58a6ff;
     }
     .issue-detail__meta {
       display: grid;

@@ -73,7 +73,7 @@ def fetch_issues(
 
     payloads: List[IssuePayload] = []
     for issue in issues:
-        external_id = getattr(issue, "id", None)
+        external_id = getattr(issue, "iid", None)
         if not external_id:
             continue
         payloads.append(
@@ -124,9 +124,9 @@ def create_issue(
     except gitlab_exc.GitlabError as exc:
         raise IssueSyncError(str(exc)) from exc
 
-    external_id = getattr(issue, "id", None)
+    external_id = getattr(issue, "iid", None)
     if not external_id:
-        raise IssueSyncError("GitLab did not return an issue ID.")
+        raise IssueSyncError("GitLab did not return an issue IID.")
 
     return IssuePayload(
         external_id=str(external_id),
@@ -174,7 +174,7 @@ def close_issue(
     except gitlab_exc.GitlabError as exc:
         raise IssueSyncError(str(exc)) from exc
 
-    external_id_value = getattr(issue, "id", None) or identifier
+    external_id_value = getattr(issue, "iid", None) or identifier
     return IssuePayload(
         external_id=str(external_id_value),
         title=getattr(issue, "title", "") or "",

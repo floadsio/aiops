@@ -431,13 +431,49 @@ def create_session(
             if not api_key_content:
                 raise ValueError("No Claude API key found for user")
 
-            # Store key in temp file for this session (will be copied to user's home in child process)
+            # Store key in temp file for this session
             import tempfile
             temp_dir = Path(tempfile.gettempdir()) / f"claude-{user_id}"
-            temp_dir.mkdir(mode=0o700, exist_ok=True)
-            temp_key_file = temp_dir / "api_key"
-            temp_key_file.write_text(api_key_content + "\n", encoding="utf-8")
-            temp_key_file.chmod(0o600)
+
+            # Determine the target Linux user before creating the directory
+            user = User.query.get(user_id)
+            if user:
+                from .services.linux_users import resolve_linux_username
+                from .services.sudo_service import mkdir, run_as_user, test_path
+
+                linux_username = resolve_linux_username(user)
+
+                # Create temp directory as the target Linux user (not syseng)
+                # This ensures Claude CLI can create subdirectories like 'debug' later
+                if not test_path(linux_username, str(temp_dir)):
+                    mkdir(linux_username, str(temp_dir), mode=0o700)
+
+                # Write API key file as the target Linux user using tee with stdin
+                temp_key_file = temp_dir / "api_key"
+                import subprocess
+                subprocess.run(
+                    ["sudo", "-n", "-u", linux_username, "tee", str(temp_key_file)],
+                    input=f"{api_key_content}\n".encode(),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                    check=True,
+                    timeout=5.0,
+                )
+                # Set permissions via sudo
+                run_as_user(
+                    linux_username,
+                    ["chmod", "600", str(temp_key_file)],
+                    env=None,
+                    timeout=5.0,
+                    check=True,
+                    capture_output=True,
+                )
+            else:
+                # Fallback: create as syseng (old behavior)
+                temp_dir.mkdir(mode=0o700, exist_ok=True)
+                temp_key_file = temp_dir / "api_key"
+                temp_key_file.write_text(api_key_content + "\n", encoding="utf-8")
+                temp_key_file.chmod(0o600)
 
             claude_env_exports.append(
                 f"export CLAUDE_CONFIG_DIR={shlex.quote(str(temp_dir))}"

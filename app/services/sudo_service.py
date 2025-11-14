@@ -7,6 +7,7 @@ with consistent error handling, timeout management, and logging.
 from __future__ import annotations
 
 import logging
+import pwd
 import subprocess
 from dataclasses import dataclass
 
@@ -60,13 +61,24 @@ def run_as_user(
         >>> if result.success:
         ...     print(result.stdout)
     """
-    # Build sudo command: sudo -n -u username [env KEY=VAL ...] command
-    cmd = ["sudo", "-n", "-u", username]
+    try:
+        user_info = pwd.getpwnam(username)
+    except KeyError as exc:
+        raise SudoError(f"Unknown user: {username}") from exc
 
+    # Build sudo command: sudo -n -H -u username env KEY=VAL ... command
+    cmd = ["sudo", "-n", "-H", "-u", username, "env"]
+
+    env_vars = {
+        "HOME": user_info.pw_dir,
+        "USER": username,
+        "LOGNAME": username,
+    }
     if env:
-        cmd.append("env")
-        for key, value in env.items():
-            cmd.append(f"{key}={value}")
+        env_vars.update(env)
+
+    for key, value in env_vars.items():
+        cmd.append(f"{key}={value}")
 
     cmd.extend(command)
 

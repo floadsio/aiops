@@ -118,7 +118,7 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
 
 
 SSH_AGENT_SSH_COMMAND = (
-    "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes"
+    "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 )
 
 

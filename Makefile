@@ -9,7 +9,7 @@ FLASK_APP ?= manage.py
 FLASK_HOST ?= 127.0.0.1
 FLASK_PORT ?= 8060
 
-.PHONY: all venv sync sync-dev seed seed-identities format lint test check clean start start-dev dev stop restart status
+.PHONY: all venv sync sync-dev seed seed-identities format lint test check clean start start-dev start-prod dev stop restart status
 
 all: sync-dev start
 
@@ -97,6 +97,17 @@ start:
 
 start-dev dev:
 	FLASK_DEBUG=1 FLASK_ENV=development $(FLASK) --app $(FLASK_APP) --debug run --host $(FLASK_HOST) --port $(FLASK_PORT)
+
+start-prod:
+	@echo "Starting aiops with gunicorn on $(FLASK_HOST):$(FLASK_PORT)"
+	$(VENV_BIN)/gunicorn \
+		--bind $(FLASK_HOST):$(FLASK_PORT) \
+		--workers 4 \
+		--timeout 30 \
+		--access-logfile - \
+		--error-logfile - \
+		--log-level info \
+		"manage:app"
 
 stop:
 	@if [ -f $(PID_FILE) ]; then \

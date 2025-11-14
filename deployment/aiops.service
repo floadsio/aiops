@@ -1,0 +1,50 @@
+[Unit]
+Description=AI Ops Control Panel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=syseng
+Group=syseng
+WorkingDirectory=/home/syseng/aiops
+
+# Environment variables
+Environment="PATH=/home/syseng/.local/bin:/home/syseng/aiops/.venv/bin:/usr/bin:/bin"
+Environment="FLASK_APP=manage.py"
+
+# Gunicorn configuration
+# - 4 worker processes (adjust based on CPU cores: 2-4 x num_cores)
+# - 30 second timeout for long-running requests (git operations, AI sessions)
+# - Bind to all interfaces on port 8060 (change as needed)
+# - Access logs disabled for performance (use nginx/apache for access logs)
+ExecStart=/home/syseng/aiops/.venv/bin/gunicorn \
+    --bind 0.0.0.0:8060 \
+    --workers 4 \
+    --timeout 30 \
+    --access-logfile - \
+    --error-logfile - \
+    --log-level info \
+    "manage:app"
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=append:/home/syseng/aiops/logs/aiops.log
+StandardError=append:/home/syseng/aiops/logs/aiops.log
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/syseng/aiops/instance /home/syseng/aiops/logs
+ReadOnlyPaths=/home/syseng/aiops
+
+# Allow binding to ports below 1024 if needed
+# AmbientCapabilities=CAP_NET_BIND_SERVICE
+
+[Install]
+WantedBy=multi-user.target

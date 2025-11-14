@@ -4,8 +4,15 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 from ...models import ProjectIntegration, TenantIntegration
-from . import IssueCreateRequest, IssuePayload, IssueSyncError
+from . import (
+    IssueCommentPayload,
+    IssueCreateRequest,
+    IssuePayload,
+    IssueSyncError,
+)
 from .utils import ensure_base_url
+
+MAX_COMMENTS_PER_ISSUE = 20
 
 
 def _build_client(integration: TenantIntegration, base_url: str | None = None):
@@ -175,6 +182,8 @@ def _issue_to_payload(issue: Any) -> IssuePayload:
     if updated_at and updated_at.tzinfo is None:
         updated_at = updated_at.replace(tzinfo=timezone.utc)
 
+    comments = _collect_issue_comments(issue)
+
     return IssuePayload(
         external_id=str(number),
         title=issue.title or "",
@@ -184,6 +193,7 @@ def _issue_to_payload(issue: Any) -> IssuePayload:
         labels=labels,
         external_updated_at=updated_at,
         raw=getattr(issue, "raw_data", {}) or {},
+        comments=comments,
     )
 
 
@@ -193,3 +203,38 @@ def _resolve_assignee(issue: Any) -> Optional[str]:
         return None
     login = getattr(assignee, "login", None) or getattr(assignee, "name", None)
     return str(login) if login else None
+
+
+def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:
+    try:
+        from github.GithubException import GithubException
+    except Exception:  # pragma: no cover - PyGithub missing
+        GithubException = Exception  # type: ignore[assignment]
+
+    comments: List[IssueCommentPayload] = []
+    try:
+        paginated = issue.get_comments()
+    except GithubException:
+        return comments
+
+    for comment in paginated:
+        author = None
+        user = getattr(comment, "user", None)
+        if user is not None:
+            author = getattr(user, "login", None) or getattr(user, "name", None)
+        created_at = getattr(comment, "created_at", None)
+        if created_at and created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        comments.append(
+            IssueCommentPayload(
+                author=str(author) if author else None,
+                body=getattr(comment, "body", "") or "",
+                created_at=created_at,
+                url=getattr(comment, "html_url", None),
+            )
+        )
+        if len(comments) > MAX_COMMENTS_PER_ISSUE:
+            comments.pop(0)
+
+    comments.reverse()
+    return comments

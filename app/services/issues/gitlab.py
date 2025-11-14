@@ -4,8 +4,15 @@ from datetime import datetime, timezone
 from typing import Any, List, Optional
 
 from ...models import ProjectIntegration, TenantIntegration
-from . import IssueCreateRequest, IssuePayload, IssueSyncError
+from . import (
+    IssueCommentPayload,
+    IssueCreateRequest,
+    IssuePayload,
+    IssueSyncError,
+)
 from .utils import ensure_base_url, get_timeout, parse_datetime
+
+MAX_COMMENTS_PER_ISSUE = 20
 
 
 def _build_client(integration: TenantIntegration, base_url: str | None = None):
@@ -79,6 +86,7 @@ def fetch_issues(
                 labels=[str(label) for label in getattr(issue, "labels", [])],
                 external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
                 raw=issue.attributes if hasattr(issue, "attributes") else {},
+                comments=_collect_issue_comments(issue),
             )
         )
     return payloads
@@ -129,6 +137,7 @@ def create_issue(
         labels=[str(label) for label in getattr(issue, "labels", [])],
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.attributes if hasattr(issue, "attributes") else {},
+        comments=_collect_issue_comments(issue),
     )
 
 
@@ -175,6 +184,7 @@ def close_issue(
         labels=[str(label) for label in getattr(issue, "labels", [])],
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.attributes if hasattr(issue, "attributes") else {},
+        comments=_collect_issue_comments(issue),
     )
 
 
@@ -189,3 +199,48 @@ def _resolve_assignee(issue_payload: Any) -> Optional[str]:
             name = primary.get("name") or primary.get("username")
             return str(name) if name else None
     return None
+
+
+def _collect_issue_comments(issue_payload: Any) -> List[IssueCommentPayload]:
+    try:
+        from gitlab import exceptions as gitlab_exc
+    except Exception:  # pragma: no cover - dependency missing
+        gitlab_exc = None  # type: ignore[assignment]
+
+    comments: List[IssueCommentPayload] = []
+    if not hasattr(issue_payload, "notes"):
+        return comments
+
+    list_kwargs: dict[str, Any] = {
+        "order_by": "created_at",
+        "sort": "desc",
+        "per_page": MAX_COMMENTS_PER_ISSUE,
+        "all": True,
+    }
+
+    try:
+        notes = issue_payload.notes.list(**list_kwargs)
+    except Exception as exc:  # noqa: BLE001
+        if gitlab_exc and isinstance(exc, gitlab_exc.GitlabError):
+            return comments
+        return comments
+
+    for note in notes:
+        if getattr(note, "system", False):
+            continue
+        author = getattr(note, "author", None)
+        author_name = None
+        if isinstance(author, dict):
+            author_name = author.get("name") or author.get("username")
+        comments.append(
+            IssueCommentPayload(
+                author=str(author_name) if author_name else None,
+                body=getattr(note, "body", "") or "",
+                created_at=parse_datetime(getattr(note, "created_at", None)),
+                url=getattr(note, "web_url", None),
+            )
+        )
+        if len(comments) >= MAX_COMMENTS_PER_ISSUE:
+            break
+
+    return comments

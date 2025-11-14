@@ -302,6 +302,28 @@ def _coerce_timestamp(value: Any) -> datetime | None:
     return None
 
 
+def _prepare_comment_entries(raw_comments: list[dict[str, Any]] | None):
+    entries: list[dict[str, Any]] = []
+    if not raw_comments:
+        return entries
+    for comment in raw_comments:
+        if not isinstance(comment, dict):
+            continue
+        created_display = None
+        created_value = _coerce_timestamp(comment.get("created_at"))
+        if created_value:
+            created_display = _format_issue_timestamp(created_value)
+        entries.append(
+            {
+                "author": comment.get("author"),
+                "body": comment.get("body") or "",
+                "created_display": created_display,
+                "url": comment.get("url"),
+            }
+        )
+    return entries
+
+
 def _current_tmux_session_name() -> str:
     user_obj = getattr(current_user, "model", None)
     if user_obj is None and getattr(current_user, "is_authenticated", False):
@@ -1739,6 +1761,7 @@ def manage_issues():
         )
 
         description_text = extract_issue_description(issue)
+        comment_entries = _prepare_comment_entries(getattr(issue, "comments", []))
 
         issue_entries.append(
             {
@@ -1764,6 +1787,8 @@ def manage_issues():
                 "description": description_text,
                 "description_available": bool(description_text),
                 "description_fallback": MISSING_ISSUE_DETAILS_MESSAGE,
+                "comments": comment_entries,
+                "comment_count": len(comment_entries),
                 "prepare_endpoint": url_for(
                     "projects.prepare_issue_context",
                     project_id=project.id,

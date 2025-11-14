@@ -17,6 +17,7 @@ from app.models import (
 from app.security import hash_password
 from app.services.issues import (
     PROVIDER_REGISTRY,
+    IssueCommentPayload,
     IssuePayload,
     sync_project_integration,
 )
@@ -88,6 +89,14 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
             labels=["bug", "urgent"],
             external_updated_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
             raw={"id": 123},
+            comments=[
+                IssueCommentPayload(
+                    author="alice",
+                    body="Initial context.",
+                    created_at=datetime(2024, 1, 1, 10, tzinfo=timezone.utc),
+                    url="https://gitlab.example/issues/123#note_1",
+                )
+            ],
         )
 
         second_payload = IssuePayload(
@@ -99,6 +108,14 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
             labels=["bug"],
             external_updated_at=datetime(2024, 1, 2, tzinfo=timezone.utc),
             raw={"id": 123, "state": "closed"},
+            comments=[
+                IssueCommentPayload(
+                    author="bob",
+                    body="Fixed in main.",
+                    created_at=datetime(2024, 1, 2, 9, tzinfo=timezone.utc),
+                    url="https://gitlab.example/issues/123#note_2",
+                )
+            ],
         )
 
         monkeypatch.setitem(PROVIDER_REGISTRY, "gitlab", lambda *_: [first_payload])
@@ -110,6 +127,14 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
         assert issue.assignee == "alice"
         assert issue.last_seen_at is not None
         assert project_integration.last_synced_at is not None
+        assert issue.comments == [
+            {
+                "author": "alice",
+                "body": "Initial context.",
+                "url": "https://gitlab.example/issues/123#note_1",
+                "created_at": "2024-01-01T10:00:00+00:00",
+            }
+        ]
 
         monkeypatch.setitem(PROVIDER_REGISTRY, "gitlab", lambda *_: [second_payload])
         sync_project_integration(project_integration)
@@ -120,6 +145,14 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
         assert issue.assignee == "bob"
         assert issue.labels == ["bug"]
         assert issue.external_updated_at == datetime(2024, 1, 2, tzinfo=timezone.utc)
+        assert issue.comments == [
+            {
+                "author": "bob",
+                "body": "Fixed in main.",
+                "url": "https://gitlab.example/issues/123#note_2",
+                "created_at": "2024-01-02T09:00:00+00:00",
+            }
+        ]
 
 
 def test_sync_issues_command_invokes_service(tmp_path, monkeypatch):

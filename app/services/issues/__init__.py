@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
@@ -8,6 +8,14 @@ from flask import current_app
 
 from ...extensions import db
 from ...models import ExternalIssue, ProjectIntegration, TenantIntegration
+
+
+@dataclass(slots=True)
+class IssueCommentPayload:
+    author: Optional[str]
+    body: str
+    created_at: Optional[datetime]
+    url: Optional[str]
 
 
 @dataclass(slots=True)
@@ -20,6 +28,7 @@ class IssuePayload:
     labels: List[str]
     external_updated_at: Optional[datetime]
     raw: Dict[str, Any]
+    comments: List[IssueCommentPayload] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -83,6 +92,30 @@ def utcnow() -> datetime:
 
 
 ISSUE_STATUS_MAX_LENGTH = ExternalIssue.status.property.columns[0].type.length
+_UTC = timezone.utc
+
+
+def serialize_issue_comments(
+    comments: List[IssueCommentPayload],
+) -> List[Dict[str, Any]]:
+    serialized: List[Dict[str, Any]] = []
+    for comment in comments:
+        created_at = comment.created_at
+        if created_at:
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=_UTC)
+            created_value = created_at.astimezone(_UTC).isoformat()
+        else:
+            created_value = None
+        serialized.append(
+            {
+                "author": comment.author,
+                "body": comment.body,
+                "url": comment.url,
+                "created_at": created_value,
+            }
+        )
+    return serialized
 
 
 def update_issue_status(issue_id: int, status: Optional[str]) -> ExternalIssue:
@@ -162,6 +195,7 @@ def sync_project_integration(
         issue.external_updated_at = payload.external_updated_at
         issue.last_seen_at = now
         issue.raw_payload = payload.raw
+        issue.comments = serialize_issue_comments(payload.comments)
         updated_issues.append(issue)
 
     project_integration.last_synced_at = now  # type: ignore[assignment]

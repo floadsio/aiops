@@ -350,6 +350,37 @@
                 >
                   Populate AGENTS.override.md
                 </button>
+                {% if issue.comment_count %}
+                  <details class="issue-comment-thread">
+                    <summary>
+                      {{ issue.comment_count }}
+                      comment{{ '' if issue.comment_count == 1 else 's' }} synced
+                      from tracker
+                    </summary>
+                    <ul class="issue-comments">
+                      {% for comment in issue.comments %}
+                        <li>
+                          <small>
+                            {% if comment.author %}
+                              {{ comment.author }}
+                            {% else %}
+                              <span class="text-muted">Unknown author</span>
+                            {% endif %}
+                            {% if comment.created_display %}
+                              • {{ comment.created_display }}
+                            {% endif %}
+                            {% if comment.url %}
+                              • <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>
+                            {% endif %}
+                          </small>
+                          <div class="issue-comment__body">
+                            {{ comment.body|e|replace('\n', '<br />')|safe }}
+                          </div>
+                        </li>
+                      {% endfor %}
+                    </ul>
+                  </details>
+                {% endif %}
                 {% if issue.can_assign %}
                   <form
                     method="post"

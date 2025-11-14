@@ -327,11 +327,23 @@ def create_session(
     claude_env_exports: list[str] = []
     if uses_claude:
         try:
-            from .services.claude_config_service import ensure_claude_api_key
+            from .services.claude_config_service import load_claude_api_key
 
-            cli_dir, _ = ensure_claude_api_key(user_id)
+            # Get the API key content
+            api_key_content = load_claude_api_key(user_id=user_id)
+            if not api_key_content:
+                raise ValueError("No Claude API key found for user")
+
+            # Store key in temp file for this session (will be copied to user's home in child process)
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir()) / f"claude-{user_id}"
+            temp_dir.mkdir(mode=0o700, exist_ok=True)
+            temp_key_file = temp_dir / "api_key"
+            temp_key_file.write_text(api_key_content + "\n", encoding="utf-8")
+            temp_key_file.chmod(0o600)
+
             claude_env_exports.append(
-                f"export CLAUDE_CONFIG_DIR={shlex.quote(str(cli_dir))}"
+                f"export CLAUDE_CONFIG_DIR={shlex.quote(str(temp_dir))}"
             )
         except Exception as exc:  # noqa: BLE001
             current_app.logger.warning(

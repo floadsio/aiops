@@ -51,6 +51,13 @@ def _normalize_session_name(session_name: Optional[str]) -> str:
     return slug or "session"
 
 
+def _first_token(value: str) -> str:
+    stripped = value.strip()
+    if not stripped:
+        return ""
+    return stripped.split()[0]
+
+
 def session_name_for_user(user: Optional[object]) -> str:
     """
     Derive a tmux session name for the given user object.
@@ -58,7 +65,27 @@ def session_name_for_user(user: Optional[object]) -> str:
     We favor the user's configured name, then username/email, falling back to an ID.
     """
     if user is not None:
-        for attr in ("name", "username", "email"):
+        linux_username = getattr(user, "linux_username", None)
+        if not linux_username:
+            try:
+                from .linux_users import resolve_linux_username
+            except Exception:  # pragma: no cover - import errors handled elsewhere
+                pass
+            else:
+                try:
+                    linux_username = resolve_linux_username(user)
+                except Exception:  # pragma: no cover - best effort resolution
+                    linux_username = None
+        if linux_username:
+            return _normalize_session_name(str(linux_username))
+
+        name = getattr(user, "name", None)
+        if name:
+            short_name = _first_token(str(name))
+            if short_name:
+                return _normalize_session_name(short_name)
+
+        for attr in ("username", "email"):
             value = getattr(user, attr, None)
             if value:
                 return _normalize_session_name(str(value))

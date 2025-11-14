@@ -12,6 +12,7 @@ import termios
 import threading
 import uuid
 from base64 import b64encode
+from pathlib import Path
 from queue import Empty, Queue
 from select import select
 from typing import Optional
@@ -27,7 +28,7 @@ from .services.gemini_config_service import (
     ensure_user_config,
     sync_credentials_to_cli_home,
 )
-from .services.git_service import build_project_git_env
+from .services.git_service import build_project_git_env, resolve_project_ssh_key_path
 from .services.tmux_metadata import record_tmux_tool
 from .services.tmux_service import ensure_project_window
 
@@ -111,6 +112,11 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
     return fallback_shell
 
 
+SSH_AGENT_SSH_COMMAND = (
+    "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes"
+)
+
+
 def _first_command_token(command: str | None) -> str | None:
     if not command:
         return None
@@ -119,6 +125,48 @@ def _first_command_token(command: str | None) -> str | None:
     except ValueError:
         return None
     return tokens[0] if tokens else None
+
+
+def _load_project_ssh_key_material(project) -> str | None:
+    key_path = resolve_project_ssh_key_path(project)
+    if not key_path:
+        return None
+    try:
+        data = Path(key_path).read_text(encoding="utf-8")
+    except OSError as exc:
+        current_app.logger.warning(
+            "Unable to read SSH key at %s for project %s: %s",
+            key_path,
+            getattr(project, "id", "unknown"),
+            exc,
+        )
+        return None
+    sanitized = data.strip()
+    return sanitized or None
+
+
+def _interactive_ssh_agent_commands(key_material: str) -> list[str]:
+    encoded_key = b64encode(key_material.encode("utf-8")).decode("ascii")
+    return [
+        'eval "$(ssh-agent -s)" >/dev/null',
+        "trap 'ssh-agent -k >/dev/null 2>&1' EXIT",
+        "(cat <<'AIOPS_KEY_B64' | base64 -d | ssh-add - >/dev/null\n"
+        f"{encoded_key}\n"
+        "AIOPS_KEY_B64)",
+    ]
+
+
+def _script_ssh_agent_commands(key_material: str) -> list[str]:
+    lines = key_material.splitlines()
+    if not lines:
+        return []
+    return [
+        'eval "$(ssh-agent -s)" >/dev/null',
+        "trap 'ssh-agent -k >/dev/null 2>&1' EXIT",
+        "ssh-add <<'AIOPS_SSH_KEY'",
+        *lines,
+        "AIOPS_SSH_KEY",
+    ]
 
 
 def _uses_gemini(command_str: str, tool: str | None) -> bool:
@@ -389,17 +437,22 @@ def create_session(
     if pane is None:
         raise RuntimeError("Unable to access tmux pane for project window.")
 
-    # For per-user sessions, don't inject project SSH keys - let users use their own
-    # For system sessions (syseng), use project SSH keys
-    use_project_ssh_keys = linux_username_for_session is None
-
     git_env = build_project_git_env(project)
     for key, value in git_env.items():
         if value:
             os.environ[key] = value
 
-    # Only pass SSH command to user sessions if we want to use project keys
-    ssh_command = git_env.get("GIT_SSH_COMMAND") if use_project_ssh_keys else None
+    ssh_command = git_env.get("GIT_SSH_COMMAND")
+    interactive_agent_commands: list[str] = []
+    script_agent_commands: list[str] = []
+    if linux_username_for_session and linux_username_for_session != "syseng":
+        # Resolve managed SSH key material so we can load it into an ssh-agent for the user
+        ssh_command = None
+        key_material = _load_project_ssh_key_material(project)
+        if key_material:
+            interactive_agent_commands = _interactive_ssh_agent_commands(key_material)
+            script_agent_commands = _script_ssh_agent_commands(key_material)
+            ssh_command = SSH_AGENT_SSH_COMMAND
 
     # Determine start directory (needed for both child and parent processes)
     start_dir = current_app.instance_path
@@ -477,6 +530,8 @@ def create_session(
                     setup_commands.append(export_cmd)
                 for export_cmd in claude_env_exports:
                     setup_commands.append(export_cmd)
+                for agent_cmd in interactive_agent_commands:
+                    setup_commands.append(agent_cmd)
 
                 # Clear and run the command
                 setup_commands.append("clear")
@@ -507,6 +562,8 @@ def create_session(
                     script_lines.append(export_cmd)
                 for export_cmd in claude_env_exports:
                     script_lines.append(export_cmd)
+                for agent_cmd in script_agent_commands:
+                    script_lines.append(agent_cmd)
 
                 # Clear and run the command
                 script_lines.append("clear")

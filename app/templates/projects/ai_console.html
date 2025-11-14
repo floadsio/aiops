@@ -202,6 +202,55 @@
   let pendingPrompt = false;
   let commandAutofill = true;
 
+  function stripHtmlTags(text) {
+    if (!text) {
+      return '';
+    }
+    return text
+      .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  async function parseJsonResponse(response, {
+    errorMessage = 'Request failed.',
+    invalidBodyMessage = 'Server returned an invalid response.',
+  } = {}) {
+    const rawText = await response.text();
+    const trimmed = rawText ? rawText.trim() : '';
+    let parsed = null;
+
+    if (trimmed) {
+      try {
+        parsed = JSON.parse(trimmed);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    if (!response.ok) {
+      const message =
+        (parsed && (parsed.error || parsed.message || parsed.detail)) ||
+        stripHtmlTags(trimmed) ||
+        `${errorMessage}${response.status ? ` (status ${response.status})` : ''}`;
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+
+    if (parsed !== null) {
+      return parsed;
+    }
+
+    if (!trimmed) {
+      return {};
+    }
+
+    throw new Error(invalidBodyMessage);
+  }
+
   function applyToolDefault(toolValue, { force = false } = {}) {
     if (!commandInput || !toolValue) {
       return;
@@ -651,14 +700,10 @@
       credentials: 'same-origin',
       body: JSON.stringify(payload)
     })
-      .then(response => {
-        if (!response.ok) {
-          return response.json().then(data => {
-            throw new Error(data.error || 'Failed to start session');
-          });
-        }
-        return response.json();
-      })
+      .then(response => parseJsonResponse(response, {
+        errorMessage: 'Failed to start session',
+        invalidBodyMessage: 'The server returned an invalid session response.',
+      }))
       .then(data => {
         sessionId = data.session_id;
         const label = selectedTmuxTarget ? `tmux:${selectedTmuxTarget}` : (tool ? tool : (command || 'shell'));
@@ -1023,11 +1068,10 @@
         }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to load sessions');
-      }
-
-      const data = await response.json();
+      const data = await parseJsonResponse(response, {
+        errorMessage: 'Failed to load sessions',
+        invalidBodyMessage: 'Received an invalid sessions response.',
+      });
       const sessions = data.sessions || [];
 
       if (sessions.length === 0) {
@@ -1108,11 +1152,10 @@
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to resume session');
-      }
-
-      const data = await response.json();
+      const data = await parseJsonResponse(response, {
+        errorMessage: 'Failed to resume session',
+        invalidBodyMessage: 'Received an invalid resume response.',
+      });
       sessionId = data.session_id;
 
       // Start streaming from the new session

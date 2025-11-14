@@ -57,10 +57,10 @@ from ..services.issues import (
     ASSIGN_PROVIDER_REGISTRY,
     CREATE_PROVIDER_REGISTRY,
     IssueSyncError,
-    serialize_issue_comments,
     assign_issue_for_project_integration,
     close_issue_for_project_integration,
     create_issue_for_project_integration,
+    serialize_issue_comments,
     sync_project_integration,
 )
 from ..services.issues.utils import normalize_issue_status
@@ -312,6 +312,7 @@ def project_detail(project_id: int):
 
     # Get workspace status for current user
     from ..services.workspace_service import get_workspace_status
+
     workspace_status = get_workspace_status(project, _current_user_obj())
 
     ai_tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
@@ -373,6 +374,13 @@ def project_detail(project_id: int):
     all_project_issues = [
         issue for link in project.issue_integrations for issue in link.issues
     ]
+
+    from ..models import PinnedIssue
+
+    pinned_issue_ids = {
+        pinned.issue_id
+        for pinned in PinnedIssue.query.filter_by(user_id=_current_user_obj().id).all()
+    }
 
     status_counts: Counter[str] = Counter()
     status_labels: dict[str, str] = {}
@@ -458,6 +466,7 @@ def project_detail(project_id: int):
                 "updated_display": updated_display,
                 "status_key": status_key,
                 "can_assign": provider_key_lower in ASSIGN_PROVIDER_REGISTRY,
+                "is_pinned": record.id in pinned_issue_ids,
             }
             comments = _prepare_comment_entries(getattr(record, "comments", []))
             issue_payload["comments"] = comments
@@ -582,9 +591,7 @@ def edit_agents_file(project_id: int):
                 commit_message = (form.commit_message.data or "").strip()
                 if not commit_message:
                     commit_errors = cast(list[str], form.commit_message.errors)
-                    commit_errors.append(
-                        "Commit message is required to push changes."
-                    )
+                    commit_errors.append("Commit message is required to push changes.")
                 else:
                     try:
                         committed = commit_project_files(
@@ -648,7 +655,9 @@ def project_ai_console(project_id: int):
     preferred_order = ["claude", "codex", "gemini", "aider"]
     ordered_keys: list[str] = [key for key in preferred_order if key in allowed_tools]
     ordered_keys.extend(key for key in allowed_tools if key not in ordered_keys)
-    tool_choices: list[tuple[str, str]] = [(key, key.capitalize()) for key in ordered_keys]
+    tool_choices: list[tuple[str, str]] = [
+        (key, key.capitalize()) for key in ordered_keys
+    ]
     tool_choices.append(("", "Shell"))
     form.ai_tool.choices = tool_choices  # type: ignore[assignment]
     default_tool = current_app.config.get("DEFAULT_AI_TOOL", "claude")
@@ -948,6 +957,65 @@ def close_issue(project_id: int, issue_id: int):
     return redirect(url_for("projects.project_detail", project_id=project.id))
 
 
+@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/pin", methods=["POST"])
+@login_required
+def pin_issue(project_id: int, issue_id: int):
+    from ..models import PinnedIssue
+
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    integration = issue.project_integration
+    if integration is None or integration.project_id != project_id:
+        abort(404)
+
+    existing = PinnedIssue.query.filter_by(
+        user_id=current_user.model.id, issue_id=issue_id
+    ).first()
+
+    if not existing:
+        pinned = PinnedIssue(user_id=current_user.model.id, issue_id=issue_id)
+        db.session.add(pinned)
+        db.session.commit()
+        flash(f"Pinned issue: {issue.title}", "success")
+    else:
+        flash("Issue is already pinned.", "info")
+
+    return redirect(url_for("projects.project_detail", project_id=project.id))
+
+
+@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/unpin", methods=["POST"])
+@login_required
+def unpin_issue(project_id: int, issue_id: int):
+    from ..models import PinnedIssue
+
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    integration = issue.project_integration
+    if integration is None or integration.project_id != project_id:
+        abort(404)
+
+    pinned = PinnedIssue.query.filter_by(
+        user_id=current_user.model.id, issue_id=issue_id
+    ).first()
+
+    if pinned:
+        db.session.delete(pinned)
+        db.session.commit()
+        flash(f"Unpinned issue: {issue.title}", "success")
+    else:
+        flash("Issue is not pinned.", "info")
+
+    return redirect(url_for("projects.project_detail", project_id=project.id))
+
+
 @projects_bp.route("/<int:project_id>/ai/session", methods=["POST"])
 @login_required
 def start_ai_session(project_id: int):
@@ -1078,7 +1146,9 @@ def list_resumable_sessions(project_id: int):
     )
 
 
-@projects_bp.route("/<int:project_id>/ai/sessions/<int:db_session_id>/resume", methods=["POST"])
+@projects_bp.route(
+    "/<int:project_id>/ai/sessions/<int:db_session_id>/resume", methods=["POST"]
+)
 @login_required
 def resume_ai_session(project_id: int, db_session_id: int):
     """Resume an AI session by creating a new tmux session with the resume command."""

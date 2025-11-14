@@ -750,6 +750,23 @@ def dashboard():
 
     pending_tasks = sum(p for p in [0])  # placeholder for task count
     prune_tmux_tools(tracked_tmux_targets)
+
+    from ..models import PinnedIssue
+
+    pinned_issues = (
+        PinnedIssue.query.filter_by(user_id=_current_user_obj().id)
+        .join(ExternalIssue)
+        .join(ProjectIntegration)
+        .options(
+            selectinload(PinnedIssue.issue)
+            .selectinload(ExternalIssue.project_integration)
+            .selectinload(ProjectIntegration.project)
+        )
+        .order_by(PinnedIssue.pinned_at.desc())
+        .limit(10)
+        .all()
+    )
+
     return render_template(
         "admin/dashboard.html",
         tenants=tenants,
@@ -768,6 +785,7 @@ def dashboard():
         tenant_filter_active=tenant_filter_active,
         tenant_filter_label=tenant_filter_label,
         tenant_filter_value=tenant_filter_raw,
+        pinned_issues=pinned_issues,
     )
 
 
@@ -835,7 +853,9 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
             "brew",
             label="Update via Homebrew",
             helper="Runs brew upgrade for GEMINI_BREW_PACKAGE.",
-            command=f"brew upgrade {gemini_brew_package}" if gemini_brew_package else "",
+            command=f"brew upgrade {gemini_brew_package}"
+            if gemini_brew_package
+            else "",
         )
     )
     gemini_actions = [action for action in gemini_actions if action]
@@ -864,7 +884,9 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
             "brew",
             label="Update via Homebrew",
             helper="Runs brew upgrade for CLAUDE_BREW_PACKAGE.",
-            command=f"brew upgrade {claude_brew_package}" if claude_brew_package else "",
+            command=f"brew upgrade {claude_brew_package}"
+            if claude_brew_package
+            else "",
         )
     )
     claude_actions = [action for action in claude_actions if action]
@@ -1877,7 +1899,7 @@ def manage_issues():
         tenant_filter = "all"
 
     # Get current user's name for "My Issues" matching
-    current_user_name = current_user.name if hasattr(current_user, 'name') else None
+    current_user_name = current_user.name if hasattr(current_user, "name") else None
 
     # Handle assignee filter
     if assignee_raw_filter and assignee_raw_filter.lower() != "all":
@@ -2651,7 +2673,9 @@ def edit_ssh_key(key_id: int):
                     )
                     if private_key_raw:
                         private_key_errors = cast(list[str], form.private_key.errors)
-                        private_key_errors.append("Failed to store private key on disk.")
+                        private_key_errors.append(
+                            "Failed to store private key on disk."
+                        )
                     else:
                         flash("Unable to update private key material.", "danger")
                 else:

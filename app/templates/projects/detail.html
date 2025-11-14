@@ -409,6 +409,25 @@
                     <button type="submit" class="secondary outline">Close Issue</button>
                   </form>
                 {% endif %}
+                {% if issue.is_pinned %}
+                  <form
+                    method="post"
+                    class="inline-form"
+                    action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}"
+                  >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit" class="tertiary outline" style="color:#f59e0b;">★ Unpin</button>
+                  </form>
+                {% else %}
+                  <form
+                    method="post"
+                    class="inline-form"
+                    action="{{ url_for('projects.pin_issue', project_id=project.id, issue_id=issue.id) }}"
+                  >
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                    <button type="submit" class="tertiary outline">☆ Pin</button>
+                  </form>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>

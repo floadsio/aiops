@@ -4,6 +4,10 @@
 
 set -e
 
+# Get the directory where this script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_FILE="$SCRIPT_DIR/aiops.service"
+
 # Default values
 DEFAULT_USER="syseng"
 DEFAULT_INSTALL_DIR="/home/syseng/aiops"
@@ -18,6 +22,12 @@ echo "  User: $SERVICE_USER"
 echo "  Installation directory: $INSTALL_DIR"
 echo "  Service file: $SERVICE_FILE"
 echo
+
+# Verify template file exists
+if [ ! -f "$TEMPLATE_FILE" ]; then
+    echo "Error: Template file not found at $TEMPLATE_FILE"
+    exit 1
+fi
 
 # Verify user exists
 if ! id "$SERVICE_USER" >/dev/null 2>&1; then
@@ -53,7 +63,7 @@ sed -e "s|User=syseng|User=$SERVICE_USER|g" \
     -e "s|WorkingDirectory=/home/syseng/aiops|WorkingDirectory=$INSTALL_DIR|g" \
     -e "s|/home/syseng/.local/bin:/home/syseng/aiops/.venv/bin|$HOME/.local/bin:$INSTALL_DIR/.venv/bin|g" \
     -e "s|/home/syseng/aiops|$INSTALL_DIR|g" \
-    aiops.service > "$SERVICE_FILE"
+    "$TEMPLATE_FILE" > "$SERVICE_FILE"
 
 echo "Service file installed to $SERVICE_FILE"
 

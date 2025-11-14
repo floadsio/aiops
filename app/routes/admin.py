@@ -1519,7 +1519,11 @@ def refresh_project_git(project_id: int):
     clean_requested = bool(form.clean_submit.data)
     branch_name = (form.branch.data or "").strip() or None
     try:
-        output = run_git_action(project, "pull", ref=branch_name, clean=clean_requested)
+        # Use current user's workspace for git operations
+        user_obj = getattr(current_user, "model", None)
+        output = run_git_action(
+            project, "pull", ref=branch_name, clean=clean_requested, user=user_obj
+        )
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("Git pull failed for project_id=%s", project_id)
         flash(f"Git pull failed: {exc}", "danger")

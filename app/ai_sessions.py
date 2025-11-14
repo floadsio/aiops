@@ -147,12 +147,18 @@ def _load_project_ssh_key_material(project) -> str | None:
 
 def _interactive_ssh_agent_commands(key_material: str) -> list[str]:
     encoded_key = b64encode(key_material.encode("utf-8")).decode("ascii")
+    heredoc_script = "\n".join(
+        [
+            "(cat <<'AIOPS_KEY_B64' | base64 -d | ssh-add - >/dev/null",
+            encoded_key,
+            "AIOPS_KEY_B64",
+            ")",
+        ]
+    )
     return [
         'eval "$(ssh-agent -s)" >/dev/null',
         "trap 'ssh-agent -k >/dev/null 2>&1' EXIT",
-        "(cat <<'AIOPS_KEY_B64' | base64 -d | ssh-add - >/dev/null\n"
-        f"{encoded_key}\n"
-        "AIOPS_KEY_B64)",
+        heredoc_script,
     ]
 
 

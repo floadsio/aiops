@@ -109,9 +109,7 @@ def run_as_user(
             f"Command timed out after {timeout}s as user {username}: {command[0]}"
         ) from exc
     except FileNotFoundError as exc:
-        raise SudoError(
-            f"Command not found for user {username}: {command[0]}"
-        ) from exc
+        raise SudoError(f"Command not found for user {username}: {command[0]}") from exc
 
 
 def test_path(username: str, path: str, *, timeout: float = 5.0) -> bool:
@@ -137,7 +135,9 @@ def test_path(username: str, path: str, *, timeout: float = 5.0) -> bool:
         return False
 
 
-def mkdir(username: str, path: str, *, parents: bool = True, timeout: float = 10.0) -> None:
+def mkdir(
+    username: str, path: str, *, parents: bool = True, timeout: float = 10.0
+) -> None:
     """Create a directory as a specific user.
 
     Args:

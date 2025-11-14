@@ -85,7 +85,9 @@ def run_cli_command(raw_command: str, *, timeout: int = 900) -> CLICommandResult
             f"Command '{parts[0]}' not found. Check your CLI installation."
         ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise CLICommandError(f"CLI command timed out after {timeout} seconds.") from exc
+        raise CLICommandError(
+            f"CLI command timed out after {timeout} seconds."
+        ) from exc
     except OSError as exc:
         raise CLICommandError(f"Failed to execute CLI command: {exc}") from exc
 
@@ -191,7 +193,9 @@ def get_ai_tool_versions(tool: str, *, timeout: int = 15) -> AIToolVersionInfo:
     )
 
 
-def run_ai_tool_update(tool: str, source: str, *, timeout: int = 900) -> CLICommandResult:
+def run_ai_tool_update(
+    tool: str, source: str, *, timeout: int = 900
+) -> CLICommandResult:
     command = _resolve_update_command(tool, source)
     if not command:
         raise CLICommandError(

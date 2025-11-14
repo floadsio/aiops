@@ -521,7 +521,9 @@ def test_sudo_command(user_email: Optional[str] = None) -> None:
             else:
                 click.echo("   ⚠ No git safe directories configured")
                 click.echo("     This may cause 'dubious ownership' errors")
-                click.echo("     Run: sudo -u syseng git config --global --add safe.directory '*'")
+                click.echo(
+                    "     Run: sudo -u syseng git config --global --add safe.directory '*'"
+                )
         except Exception as e:
             click.echo(f"   ✗ Error checking git config: {e}")
 

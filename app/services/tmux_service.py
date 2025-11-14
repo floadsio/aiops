@@ -169,9 +169,7 @@ def ensure_project_window(
     linux_username: Optional[str] = None,
     user: Optional[object] = None,
 ):
-    session = _ensure_session(
-        session_name=session_name, linux_username=linux_username
-    )
+    session = _ensure_session(session_name=session_name, linux_username=linux_username)
     if session is None:
         raise TmuxServiceError("Unable to create shared tmux session.")
     window_name = window_name or _project_window_name(project)

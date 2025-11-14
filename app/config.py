@@ -44,6 +44,7 @@ def _ensure_codex_flags(
         tokens = shlex.split(command)
     except ValueError:
         return command
+
     def ensure_flag(flag: str, value: str | None) -> None:
         if not value:
             return
@@ -59,9 +60,11 @@ def _ensure_codex_flags(
                     tokens.insert(idx + 1, value)
                 return
         tokens.extend([flag, value])
+
     ensure_flag("--sandbox", sandbox_mode)
     ensure_flag("--ask-for-approval", approval_mode)
     return shlex.join(tokens)
+
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
@@ -186,6 +189,7 @@ class Config:
     _mapping_env = os.getenv("LINUX_USER_MAPPING", "")
     if _mapping_env:
         import json
+
         try:
             LINUX_USER_MAPPING = json.loads(_mapping_env)
         except (json.JSONDecodeError, ValueError):

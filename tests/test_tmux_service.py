@@ -53,7 +53,9 @@ def test_list_windows_include_all_sessions(monkeypatch):
         _FakeSession("user-alpha", [_FakeWindow("demo-alpha-p1")]),
         _FakeSession("user-beta", [_FakeWindow("demo-beta-p2")]),
     ]
-    monkeypatch.setattr(tmux_service, "_get_server", lambda linux_username=None: _FakeServer(sessions))
+    monkeypatch.setattr(
+        tmux_service, "_get_server", lambda linux_username=None: _FakeServer(sessions)
+    )
 
     windows = tmux_service.list_windows_for_aliases("demo", include_all_sessions=True)
 

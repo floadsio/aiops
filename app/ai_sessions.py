@@ -146,7 +146,11 @@ def _load_project_ssh_key_material(project) -> str | None:
 
 
 def _interactive_ssh_agent_commands(key_material: str) -> list[str]:
-    encoded_key = b64encode(key_material.encode("utf-8")).decode("ascii")
+    normalized_key = key_material
+    # ssh-add/libcrypto expects newline-terminated key material
+    if not normalized_key.endswith("\n"):
+        normalized_key = f"{normalized_key}\n"
+    encoded_key = b64encode(normalized_key.encode("utf-8")).decode("ascii")
     heredoc_script = "\n".join(
         [
             "(cat <<'AIOPS_KEY_B64' | base64 -d | ssh-add - >/dev/null",

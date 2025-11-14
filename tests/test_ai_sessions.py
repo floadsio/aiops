@@ -1,9 +1,14 @@
+import base64
 import json
 import shlex
 from types import SimpleNamespace
 
 from app import create_app
-from app.ai_sessions import SSH_AGENT_SSH_COMMAND, create_session
+from app.ai_sessions import (
+    SSH_AGENT_SSH_COMMAND,
+    _interactive_ssh_agent_commands,
+    create_session,
+)
 from app.config import Config
 from app.services.claude_config_service import save_claude_api_key
 from app.services.codex_config_service import save_codex_auth
@@ -56,6 +61,17 @@ class FakeSession:
         if key == "session_name":
             return self._name
         return None
+
+
+def test_interactive_agent_commands_include_trailing_newline():
+    key_material = "-----BEGIN KEY-----\nline-1\n-----END KEY-----"
+    commands = _interactive_ssh_agent_commands(key_material)
+    heredoc = commands[-1]
+    parts = heredoc.splitlines()
+    encoded_line = parts[1]
+    decoded = base64.b64decode(encoded_line.encode("ascii")).decode("utf-8")
+    assert decoded.endswith("\n")
+    assert decoded.rstrip("\n") == key_material
 
 
 def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):

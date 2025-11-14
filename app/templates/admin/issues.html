@@ -255,6 +255,15 @@
       .issues-card-list {
         display: grid;
       }
+      /* Make pin/unpin buttons visible and full-width on mobile */
+      .issues-actions .inline-form {
+        display: block !important;
+        width: 100%;
+      }
+      .issues-actions .inline-form button {
+        width: 100%;
+        justify-content: center;
+      }
     }
   </style>
 {% endblock %}
@@ -408,6 +417,27 @@
             <td>
               {% if issue.project_id %}
                 <div class="issues-actions">
+                  {% if issue.is_pinned %}
+                    <form
+                      method="post"
+                      class="inline-form"
+                      action="{{ url_for('projects.unpin_issue', project_id=issue.project_id, issue_id=issue.id) }}"
+                    >
+                      <input type="hidden" name="next" value="{{ current_view_url }}" />
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                      <button type="submit" class="tertiary outline" style="color:#f59e0b;">★ Unpin</button>
+                    </form>
+                  {% else %}
+                    <form
+                      method="post"
+                      class="inline-form"
+                      action="{{ url_for('projects.pin_issue', project_id=issue.project_id, issue_id=issue.id) }}"
+                    >
+                      <input type="hidden" name="next" value="{{ current_view_url }}" />
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                      <button type="submit" class="tertiary outline">☆ Pin</button>
+                    </form>
+                  {% endif %}
                   {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
                     <button
                       type="button"
@@ -671,6 +701,27 @@
         </details>
         {% if issue.project_id %}
           <div class="issues-actions">
+            {% if issue.is_pinned %}
+              <form
+                method="post"
+                class="inline-form"
+                action="{{ url_for('projects.unpin_issue', project_id=issue.project_id, issue_id=issue.id) }}"
+              >
+                <input type="hidden" name="next" value="{{ current_view_url }}" />
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="tertiary outline" style="color:#f59e0b;">★ Unpin</button>
+              </form>
+            {% else %}
+              <form
+                method="post"
+                class="inline-form"
+                action="{{ url_for('projects.pin_issue', project_id=issue.project_id, issue_id=issue.id) }}"
+              >
+                <input type="hidden" name="next" value="{{ current_view_url }}" />
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="tertiary outline">☆ Pin</button>
+              </form>
+            {% endif %}
             {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
               <button
                 type="button"

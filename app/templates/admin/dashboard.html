@@ -984,7 +984,7 @@
             <span class="issue-id">#{{ issue.external_id }}</span>
           </div>
           <h3 class="issue-title">
-            <a href="{{ url_for('admin.issues') }}?issue_id={{ issue.id }}" class="issue-title-link">
+            <a href="{{ url_for('admin.manage_issues') }}?issue_id={{ issue.id }}" class="issue-title-link">
               {{ issue.title }}
             </a>
           </h3>

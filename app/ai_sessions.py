@@ -34,7 +34,7 @@ from .services.git_service import (
     resolve_project_ssh_key_path,
     resolve_project_ssh_key_reference,
 )
-from .services.tmux_metadata import record_tmux_tool, record_tmux_ssh_keys
+from .services.tmux_metadata import record_tmux_ssh_keys, record_tmux_tool
 from .services.tmux_service import ensure_project_window
 
 # Module-level logger for use in background threads
@@ -117,9 +117,7 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
     return fallback_shell
 
 
-SSH_AGENT_SSH_COMMAND = (
-    "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
-)
+SSH_AGENT_SSH_COMMAND = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
 
 
 def _first_command_token(command: str | None) -> str | None:
@@ -351,11 +349,16 @@ def _reader_loop(session: AISession) -> None:
 
                     # Try to detect session ID if not already found
                     if session.detected_session_id is None and session.tool:
-                        from .services.ai_session_service import detect_session_id, save_session
+                        from .services.ai_session_service import (
+                            detect_session_id,
+                            save_session,
+                        )
 
                         # Decode and check recent output
                         try:
-                            recent_text = b"".join(session.output_buffer[-10:]).decode("utf-8", errors="ignore")
+                            recent_text = b"".join(session.output_buffer[-10:]).decode(
+                                "utf-8", errors="ignore"
+                            )
                             detected_id = detect_session_id(session.tool, recent_text)
 
                             if detected_id:
@@ -433,6 +436,7 @@ def create_session(
 
             # Store key in temp file for this session
             import tempfile
+
             temp_dir = Path(tempfile.gettempdir()) / f"claude-{user_id}"
 
             # Determine the target Linux user before creating the directory
@@ -451,6 +455,7 @@ def create_session(
                 # Write API key file as the target Linux user using tee with stdin
                 temp_key_file = temp_dir / "api_key"
                 import subprocess
+
                 subprocess.run(
                     ["sudo", "-n", "-u", linux_username, "tee", str(temp_key_file)],
                     input=f"{api_key_content}\n".encode(),
@@ -501,6 +506,7 @@ def create_session(
     git_author_exports: list[str] = []
     if user:
         from .services.linux_users import resolve_linux_username
+
         linux_username_for_session = resolve_linux_username(user)
         git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
         git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
@@ -616,11 +622,15 @@ def create_session(
                 setup_commands = []
 
                 # Change to workspace directory
-                setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+                setup_commands.append(
+                    f"cd {shlex.quote(start_dir)} 2>/dev/null || true"
+                )
 
                 # Export environment variables
                 if ssh_command:
-                    setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+                    setup_commands.append(
+                        f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
+                    )
                 for export_cmd in git_author_exports:
                     setup_commands.append(export_cmd)
                 for export_cmd in codex_env_exports:
@@ -652,7 +662,9 @@ def create_session(
 
                 # Export environment variables
                 if ssh_command:
-                    script_lines.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+                    script_lines.append(
+                        f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
+                    )
                 for export_cmd in git_author_exports:
                     script_lines.append(export_cmd)
                 for export_cmd in codex_env_exports:
@@ -712,7 +724,9 @@ def create_session(
             try:
                 pane.send_keys("clear", enter=True)
             except Exception:  # noqa: BLE001
-                current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
+                current_app.logger.debug(
+                    "Unable to clear tmux pane for %s", window_name
+                )
             final_command = command_str
 
         try:

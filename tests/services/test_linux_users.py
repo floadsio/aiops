@@ -265,7 +265,6 @@ class TestGetUserHomeDirectory:
             result = get_user_home_directory(user)
             assert result is None
 
-
     def test_resolve_with_per_user_linux_username(self, tmp_path):
         """Test per-user linux_username takes precedence over mapping."""
         from app import create_app

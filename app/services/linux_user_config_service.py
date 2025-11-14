@@ -6,9 +6,8 @@ Provides functions to load and save the Linux user mapping from/to the database
 
 from __future__ import annotations
 
-from app.models import SystemConfig
 from app.extensions import db
-
+from app.models import SystemConfig
 
 # Configuration key for Linux user mapping
 LINUX_USER_MAPPING_KEY = "linux_user_mapping"

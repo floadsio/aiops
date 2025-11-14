@@ -38,9 +38,7 @@ class TestRunAsUser:
     @patch("app.services.sudo_service.subprocess.run")
     def test_run_as_user_success(self, mock_run):
         """Test successful command execution."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="success", stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="success", stderr="")
 
         result = run_as_user("testuser", ["ls", "-la"])
 
@@ -56,9 +54,7 @@ class TestRunAsUser:
     @patch("app.services.sudo_service.subprocess.run")
     def test_run_as_user_with_env(self, mock_run):
         """Test command execution with environment variables."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="", stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         result = run_as_user(
             "testuser",
@@ -86,9 +82,7 @@ class TestRunAsUser:
     @patch("app.services.sudo_service.subprocess.run")
     def test_run_as_user_with_custom_timeout(self, mock_run):
         """Test command execution with custom timeout."""
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout="", stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
 
         result = run_as_user("testuser", ["sleep", "1"], timeout=60.0)
 
@@ -155,9 +149,7 @@ class TestTestPath:
     @patch("app.services.sudo_service.run_as_user")
     def test_test_path_exists(self, mock_run_as_user):
         """Test checking for existing path."""
-        mock_run_as_user.return_value = SudoResult(
-            returncode=0, stdout="", stderr=""
-        )
+        mock_run_as_user.return_value = SudoResult(returncode=0, stdout="", stderr="")
 
         result = test_path("testuser", "/home/testuser/file.txt")
 
@@ -172,9 +164,7 @@ class TestTestPath:
     @patch("app.services.sudo_service.run_as_user")
     def test_test_path_not_exists(self, mock_run_as_user):
         """Test checking for non-existing path."""
-        mock_run_as_user.return_value = SudoResult(
-            returncode=1, stdout="", stderr=""
-        )
+        mock_run_as_user.return_value = SudoResult(returncode=1, stdout="", stderr="")
 
         result = test_path("testuser", "/home/testuser/nonexistent.txt")
 
@@ -196,9 +186,7 @@ class TestMkdir:
     @patch("app.services.sudo_service.run_as_user")
     def test_mkdir_with_parents(self, mock_run_as_user):
         """Test creating directory with parent directories."""
-        mock_run_as_user.return_value = SudoResult(
-            returncode=0, stdout="", stderr=""
-        )
+        mock_run_as_user.return_value = SudoResult(returncode=0, stdout="", stderr="")
 
         mkdir("testuser", "/home/testuser/path/to/dir")
 
@@ -211,9 +199,7 @@ class TestMkdir:
     @patch("app.services.sudo_service.run_as_user")
     def test_mkdir_without_parents(self, mock_run_as_user):
         """Test creating directory without parent directories."""
-        mock_run_as_user.return_value = SudoResult(
-            returncode=0, stdout="", stderr=""
-        )
+        mock_run_as_user.return_value = SudoResult(returncode=0, stdout="", stderr="")
 
         mkdir("testuser", "/home/testuser/dir", parents=False)
 
@@ -381,9 +367,7 @@ class TestRmRf:
     @patch("app.services.sudo_service.run_as_user")
     def test_rm_rf_success(self, mock_run_as_user):
         """Test successful recursive removal."""
-        mock_run_as_user.return_value = SudoResult(
-            returncode=0, stdout="", stderr=""
-        )
+        mock_run_as_user.return_value = SudoResult(returncode=0, stdout="", stderr="")
 
         rm_rf("testuser", "/home/testuser/old_dir")
 

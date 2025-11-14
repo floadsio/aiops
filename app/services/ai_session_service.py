@@ -11,7 +11,6 @@ from flask import current_app
 from ..extensions import db
 from ..models import AISession, Project, User
 
-
 # Regex patterns to extract session IDs from tool output
 SESSION_ID_PATTERNS = {
     "claude": re.compile(

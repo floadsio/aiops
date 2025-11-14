@@ -217,7 +217,9 @@ def project_git_action(project_id: int):
         return jsonify({"error": "Unsupported git action."}), 400
 
     try:
-        output = run_git_action(project, action, ref=ref, clean=clean, user=_current_user_obj())
+        output = run_git_action(
+            project, action, ref=ref, clean=clean, user=_current_user_obj()
+        )
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 400
 
@@ -239,11 +241,13 @@ def init_project_workspace(project_id: int):
 
     try:
         workspace_path = initialize_workspace(project, user)
-        return jsonify({
-            "success": True,
-            "path": str(workspace_path),
-            "message": f"Workspace initialized at {workspace_path}"
-        })
+        return jsonify(
+            {
+                "success": True,
+                "path": str(workspace_path),
+                "message": f"Workspace initialized at {workspace_path}",
+            }
+        )
     except WorkspaceError as exc:
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
@@ -395,10 +399,12 @@ def list_ai_sessions():
     # Convert to summary format
     session_list = [get_session_summary(session) for session in sessions]
 
-    return jsonify({
-        "sessions": session_list,
-        "count": len(session_list),
-    })
+    return jsonify(
+        {
+            "sessions": session_list,
+            "count": len(session_list),
+        }
+    )
 
 
 @api_bp.post("/ai/sessions/<int:db_session_id>/resume")
@@ -455,10 +461,12 @@ def resume_ai_session(db_session_id: int):
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
-    return jsonify({
-        "session_id": session.id,
-        "message": f"Resumed {db_session.tool} session in project {project.name}",
-    }), 201
+    return jsonify(
+        {
+            "session_id": session.id,
+            "message": f"Resumed {db_session.tool} session in project {project.name}",
+        }
+    ), 201
 
 
 csrf.exempt(api_bp)

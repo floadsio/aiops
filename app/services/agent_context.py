@@ -443,7 +443,9 @@ def render_issue_context(
         project_context_marker = "## Project Context"
         if issue_desc_marker in content and project_context_marker in content:
             parts = content.split(project_context_marker, 1)
-            content = f"{parts[0]}\n\n{comments_block}\n\n{project_context_marker}{parts[1]}"
+            content = (
+                f"{parts[0]}\n\n{comments_block}\n\n{project_context_marker}{parts[1]}"
+            )
     git_identity_section = _render_git_identity_section(identity_user)
     if git_identity_section:
         content = f"{content}\n\n{git_identity_section.strip()}"

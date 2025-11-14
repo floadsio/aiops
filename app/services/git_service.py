@@ -379,7 +379,10 @@ def _select_remote(repo: Repo) -> Remote:
 
 
 def commit_project_files(
-    project: Project, files: list[Path | str], message: str, user: Optional[object] = None
+    project: Project,
+    files: list[Path | str],
+    message: str,
+    user: Optional[object] = None,
 ) -> bool:
     """Stage the provided files, commit them, and return True if a commit was created."""
     repo = ensure_repo_checkout(project, user=user)
@@ -665,7 +668,10 @@ def delete_project_branch(
 
 
 def checkout_or_create_branch(
-    project: Project, branch: str, base: Optional[str] = None, user: Optional[object] = None
+    project: Project,
+    branch: str,
+    base: Optional[str] = None,
+    user: Optional[object] = None,
 ) -> bool:
     branch = (branch or "").strip()
     if not branch:
@@ -700,7 +706,10 @@ def checkout_or_create_branch(
 
 
 def merge_branch(
-    project: Project, source_branch: str, target_branch: str, user: Optional[object] = None
+    project: Project,
+    source_branch: str,
+    target_branch: str,
+    user: Optional[object] = None,
 ) -> None:
     source_branch = (source_branch or "").strip()
     target_branch = (target_branch or "").strip()

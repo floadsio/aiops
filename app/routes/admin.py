@@ -1684,6 +1684,8 @@ def manage_issues():
     sorted_issues = sorted(issues, key=_issue_sort_key, reverse=True)
     tenant_counts: Counter[str] = Counter()
     tenant_labels: dict[str, str] = {}
+    assignee_counts: Counter[str] = Counter()
+    assignee_labels: dict[str, str] = {}
     for issue in issues:
         tenant = None
         if issue.project_integration and issue.project_integration.project:
@@ -1692,6 +1694,12 @@ def manage_issues():
         tenant_label = tenant.name if tenant else "Unknown tenant"
         tenant_counts[tenant_key] += 1
         tenant_labels.setdefault(tenant_key, tenant_label)
+
+        # Track assignees
+        assignee_key = issue.assignee if issue.assignee else "__unassigned__"
+        assignee_label = issue.assignee if issue.assignee else "Unassigned"
+        assignee_counts[assignee_key] += 1
+        assignee_labels.setdefault(assignee_key, assignee_label)
 
     status_counts: Counter[str] = Counter()
     status_labels: dict[str, str] = {}
@@ -1810,6 +1818,7 @@ def manage_issues():
 
     raw_filter = (request.args.get("status") or "").strip().lower()
     tenant_raw_filter = (request.args.get("tenant") or "").strip()
+    assignee_raw_filter = (request.args.get("assignee") or "").strip()
     raw_sort = (request.args.get("sort") or "").strip().lower()
     sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
     raw_direction = (request.args.get("direction") or "").strip().lower()
@@ -1837,13 +1846,38 @@ def manage_issues():
     else:
         tenant_filter = "all"
 
+    # Get current user's name for "My Issues" matching
+    current_user_name = current_user.name if hasattr(current_user, 'name') else None
+
+    # Handle assignee filter
+    if assignee_raw_filter and assignee_raw_filter.lower() != "all":
+        if assignee_raw_filter == "__me__":
+            # Special filter for "My Issues"
+            assignee_filter = "__me__"
+        elif assignee_raw_filter in assignee_labels:
+            assignee_filter = assignee_raw_filter
+        else:
+            assignee_filter = "all"
+    else:
+        assignee_filter = "all"
+
     def _matches(entry: dict[str, object]) -> bool:
         if status_filter != "all" and entry.get("status_key") != status_filter:
             return False
         if tenant_filter != "all":
             entry_tenant = entry.get("tenant_id")
             entry_key = str(entry_tenant) if entry_tenant is not None else "__unknown__"
-            return entry_key == tenant_filter
+            if entry_key != tenant_filter:
+                return False
+        if assignee_filter != "all":
+            entry_assignee = entry.get("assignee") or "__unassigned__"
+            if assignee_filter == "__me__":
+                # Match current user's name
+                if current_user_name and entry.get("assignee") == current_user_name:
+                    return True
+                return False
+            elif entry_assignee != assignee_filter:
+                return False
         return True
 
     filtered_issues = [entry for entry in issue_entries if _matches(entry)]
@@ -1935,6 +1969,46 @@ def manage_issues():
         else tenant_labels.get(tenant_filter, tenant_filter)
     )
 
+    # Build assignee options
+    assignee_options = [
+        {
+            "value": "all",
+            "label": "All assignees",
+            "count": total_issue_full_count,
+        }
+    ]
+
+    # Add "My Issues" option if user has a name
+    if current_user_name:
+        my_issues_count = sum(
+            1 for entry in issue_entries if entry.get("assignee") == current_user_name
+        )
+        assignee_options.append(
+            {
+                "value": "__me__",
+                "label": f"My Issues ({current_user_name})",
+                "count": my_issues_count,
+            }
+        )
+
+    # Add all other assignees
+    for key, label in sorted(assignee_labels.items(), key=lambda item: item[1].lower()):
+        assignee_options.append(
+            {
+                "value": key,
+                "label": label,
+                "count": assignee_counts.get(key, 0),
+            }
+        )
+
+    assignee_filter_label = (
+        "All assignees"
+        if assignee_filter == "all"
+        else f"My Issues ({current_user_name})"
+        if assignee_filter == "__me__"
+        else assignee_labels.get(assignee_filter, assignee_filter)
+    )
+
     sort_state = {"key": sort_key, "direction": sort_direction}
     sort_columns = [dict(column) for column in ISSUE_SORT_COLUMNS]
 
@@ -1943,6 +2017,8 @@ def manage_issues():
         base_query_params["status"] = status_filter
     if "tenant" in request.args:
         base_query_params["tenant"] = tenant_filter
+    if "assignee" in request.args:
+        base_query_params["assignee"] = assignee_filter
 
     sort_headers: dict[str, dict[str, object]] = {}
     for column in sort_columns:
@@ -1986,6 +2062,9 @@ def manage_issues():
         tenant_filter=tenant_filter,
         tenant_filter_label=tenant_filter_label,
         tenant_options=tenant_options,
+        assignee_filter=assignee_filter,
+        assignee_filter_label=assignee_filter_label,
+        assignee_options=assignee_options,
         total_issue_count=total_issue_count,
         total_issue_full_count=total_issue_full_count,
         sort_columns=sort_columns,
@@ -1995,6 +2074,7 @@ def manage_issues():
         sort_direction=sort_direction,
         issue_status_max_length=ISSUE_STATUS_MAX_LENGTH,
         current_view_url=current_view_url,
+        current_user_name=current_user_name,
     )
 
 

@@ -89,8 +89,8 @@ This allows git to access any repository regardless of ownership.
 
 ```bash
 # As syseng user
-sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/aiops'
-sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/floads/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/floads/aiops'
 ```
 
 Add each user's workspace explicitly.
@@ -111,7 +111,7 @@ chmod o+rx /home/ivo
 chmod o+rx /home/ivo/workspace
 
 # Workspace directories can remain user-owned
-ls -la /home/ivo/workspace/aiops
+ls -la /home/ivo/workspace/floads/aiops
 # drwxrwxr-x 10 ivo ivo 4096 Nov 13 06:16 aiops
 ```
 
@@ -210,7 +210,7 @@ sudo -n -u ivo whoami
 
 ```bash
 # As syseng user
-sudo -n -u ivo test -e /home/ivo/workspace/aiops
+sudo -n -u ivo test -e /home/ivo/workspace/floads/aiops
 echo $?  # Should be 0 if workspace exists
 ```
 
@@ -218,7 +218,7 @@ echo $?  # Should be 0 if workspace exists
 
 ```bash
 # As syseng user
-sudo -n -u ivo git -C /home/ivo/workspace/aiops status
+sudo -n -u ivo git -C /home/ivo/workspace/floads/aiops status
 # Should show git status without errors
 ```
 

@@ -1,7 +1,7 @@
 """Service for managing per-user workspace directories.
 
 Each user gets their own workspace for each project at:
-/home/{linux_username}/workspace/{project_slug}/
+/home/{linux_username}/workspace/{tenant_slug}/{project_slug}/
 
 This replaces the shared managed checkout model.
 """
@@ -24,15 +24,42 @@ class WorkspaceError(RuntimeError):
     """Raised when workspace operations fail."""
 
 
-def _project_slug(project) -> str:
-    """Generate a filesystem-safe slug from project name."""
-    name = getattr(project, "name", "") or f"project-{project.id}"
+def _slugify(value: str, fallback: str) -> str:
+    """Return a filesystem-safe slug for the provided value."""
     translation_map: dict[str, str | int] = {c: "-" for c in " ./\\:@"}
-    slug = name.lower().translate(str.maketrans(translation_map))
+    slug = value.lower().translate(str.maketrans(translation_map))
     while "--" in slug:
         slug = slug.replace("--", "-")
     slug = slug.strip("-")
-    return slug or f"project-{project.id}"
+    return slug or fallback
+
+
+def _project_slug(project) -> str:
+    """Generate a filesystem-safe slug from project name."""
+    name = getattr(project, "name", "") or f"project-{project.id}"
+    return _slugify(name, f"project-{project.id}")
+
+
+def _tenant_slug(project) -> str:
+    """Generate a filesystem-safe slug for the owning tenant."""
+    tenant = getattr(project, "tenant", None)
+    tenant_name = getattr(tenant, "name", "") if tenant else ""
+    tenant_id = getattr(project, "tenant_id", None)
+    fallback = f"tenant-{tenant_id}" if tenant_id is not None else "tenant"
+    return _slugify(tenant_name, fallback)
+
+
+def _path_exists_for_user(path: Path, user) -> bool:
+    """Check if a path exists, falling back to sudo when permissions block access."""
+    try:
+        return path.exists()
+    except PermissionError:
+        if not user:
+            return False
+        linux_username = resolve_linux_username(user)
+        if not linux_username:
+            return False
+        return test_path(linux_username, str(path))
 
 
 def _build_workspace_git_env(
@@ -119,15 +146,26 @@ def get_workspace_path(project, user) -> Optional[Path]:
         Path to workspace directory, or None if user has no Linux mapping
 
     Example:
-        /home/ivo/workspace/aiops/
+        /home/ivo/workspace/floads/aiops/
     """
     home_dir = get_user_home_directory(user)
     if not home_dir:
         return None
 
     project_slug = _project_slug(project)
-    workspace_path = Path(home_dir) / "workspace" / project_slug
-    return workspace_path
+    tenant_slug = _tenant_slug(project)
+    workspace_root = Path(home_dir) / "workspace"
+    preferred_path = workspace_root / tenant_slug / project_slug
+    legacy_path = workspace_root / project_slug
+
+    # Prefer the tenant-aware layout when it already exists, fall back to the legacy
+    # single-directory layout for users who have not migrated yet.
+    if _path_exists_for_user(preferred_path, user):
+        return preferred_path
+    if preferred_path != legacy_path and _path_exists_for_user(legacy_path, user):
+        return legacy_path
+
+    return preferred_path
 
 
 def workspace_exists(project, user) -> bool:

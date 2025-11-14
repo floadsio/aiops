@@ -151,14 +151,14 @@ Current user: syseng
    Linux username: ivo
    ✓ Can run commands as ivo
 
-3. Testing workspace access at: /home/ivo/workspace/aiops
+3. Testing workspace access at: /home/ivo/workspace/floads/aiops
    ✓ /home/ivo: o+x permission set
    ✓ /home/ivo/workspace: o+x permission set
    ✓ Can access workspace via sudo
 
 4. Testing git safe directory configuration...
    Git safe directories configured: 1
-     - /home/ivo/workspace/aiops
+     - /home/ivo/workspace/floads/aiops
 
 === Sudo Configuration Test Complete ===
 ```
@@ -181,7 +181,7 @@ Added comprehensive "Sudo Service Architecture" section:
 **Critical Addition:**
 ```
 **CRITICAL: All code modifications must be made in your personal workspace**
-at `/home/{username}/workspace/aiops/`, NOT in the running Flask instance
+at `/home/{username}/workspace/{tenant_slug}/{project}/`, NOT in the running Flask instance
 at `/home/syseng/aiops/`.
 ```
 

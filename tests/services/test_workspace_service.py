@@ -184,3 +184,71 @@ def test_initialize_workspace_falls_back_when_key_unreadable(monkeypatch, tmp_pa
 
     assert result == workspace_dir
     assert captured["ssh_key_path"] is None
+
+
+def test_get_workspace_path_prefers_tenant_layout(monkeypatch, tmp_path):
+    project = SimpleNamespace(
+        id=7,
+        name="K8s Infra",
+        tenant=SimpleNamespace(name="Prod Fleet"),
+        tenant_id=15,
+    )
+    user = SimpleNamespace(email="ivo@example.com")
+
+    monkeypatch.setattr(
+        workspace_service,
+        "get_user_home_directory",
+        lambda *_: str(tmp_path),
+    )
+
+    path = workspace_service.get_workspace_path(project, user)
+
+    assert path == tmp_path / "workspace" / "prod-fleet" / "k8s-infra"
+
+
+def test_get_workspace_path_falls_back_to_legacy_layout(monkeypatch, tmp_path):
+    project = SimpleNamespace(
+        id=3,
+        name="K8s Infra",
+        tenant=SimpleNamespace(name="Prod Fleet"),
+        tenant_id=15,
+    )
+    user = SimpleNamespace(email="ivo@example.com")
+
+    monkeypatch.setattr(
+        workspace_service,
+        "get_user_home_directory",
+        lambda *_: str(tmp_path),
+    )
+
+    legacy_path = tmp_path / "workspace" / "k8s-infra"
+    legacy_path.mkdir(parents=True)
+
+    path = workspace_service.get_workspace_path(project, user)
+
+    assert path == legacy_path
+
+
+def test_get_workspace_path_prefers_new_layout_when_both_exist(monkeypatch, tmp_path):
+    project = SimpleNamespace(
+        id=4,
+        name="AI Platform",
+        tenant=SimpleNamespace(name="Floads"),
+        tenant_id=1,
+    )
+    user = SimpleNamespace(email="michael@example.com")
+
+    monkeypatch.setattr(
+        workspace_service,
+        "get_user_home_directory",
+        lambda *_: str(tmp_path),
+    )
+
+    preferred = tmp_path / "workspace" / "floads" / "ai-platform"
+    preferred.mkdir(parents=True)
+    legacy = tmp_path / "workspace" / "ai-platform"
+    legacy.mkdir(parents=True)
+
+    path = workspace_service.get_workspace_path(project, user)
+
+    assert path == preferred

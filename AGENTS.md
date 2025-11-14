@@ -10,8 +10,8 @@ live under `ansible/`.
 ## How Agents Should Work Here
 
 - **CRITICAL: Working Directory Context** — aiops uses **per-user workspaces** for all development work.
-  When running in a tmux session, you'll be in your personal workspace at `/home/{username}/workspace/{project}/`
-  (e.g., `/home/ivo/workspace/aiops/`). This is where you edit code, commit, and push changes.
+  When running in a tmux session, you'll be in your personal workspace at `/home/{username}/workspace/{tenant_slug}/{project}/`
+  (e.g., `/home/ivo/workspace/floads/aiops/`). This is where you edit code, commit, and push changes.
   **NEVER modify files in `/home/syseng/aiops` directly**, as that is the running aiops Flask instance.
   Each user has their own isolated workspace with their own git configuration and shell environment.
   Check your current directory with `pwd` if uncertain.
@@ -62,7 +62,7 @@ live under `ansible/`.
   5. Set `USE_LOGIN_SHELL=true` (default) to load user configs when spawning shells
   The child process will call `os.setuid()` and `os.setgid()` to switch to the target Linux user before
   executing tmux. Each shell gets its own `HOME`, `USER`, and `LOGNAME` environment variables.
-- **Per-User Workspaces** — Each user has their own workspace directory at `/home/{username}/workspace/{project}/`
+- **Per-User Workspaces** — Each user has their own workspace directory at `/home/{username}/workspace/{tenant_slug}/{project}/`
   where they clone and work on projects. Workspaces must be initialized before use:
   ```bash
   # Initialize workspace for a user and project
@@ -89,7 +89,7 @@ live under `ansible/`.
 
 ## Sudo Service Architecture
 
-**CRITICAL: All code modifications must be made in your personal workspace** at `/home/{username}/workspace/aiops/`,
+**CRITICAL: All code modifications must be made in your personal workspace** at `/home/{username}/workspace/floads/aiops/`,
 NOT in the running Flask instance at `/home/syseng/aiops/`. The running instance is for the Flask application
 server only. Always use `pwd` to verify you're in your workspace before editing files.
 
@@ -167,7 +167,7 @@ if result.success:
 
 **test_path()** - Check if a path exists:
 ```python
-if test_path("ivo", "/home/ivo/workspace/aiops/.git"):
+if test_path("ivo", "/home/ivo/workspace/floads/aiops/.git"):
     print("Workspace initialized")
 ```
 
@@ -331,8 +331,8 @@ add them to git's safe directory list:
 
 ```bash
 # As syseng user
-sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/aiops'
-sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/floads/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/floads/aiops'
 
 # Or use wildcard (Git 2.36+)
 sudo -u syseng git config --global --add safe.directory '*'
@@ -350,7 +350,7 @@ chmod o+rx /home/ivo
 chmod o+rx /home/ivo/workspace
 
 # Workspace itself can remain user-owned
-ls -la /home/ivo/workspace/aiops
+ls -la /home/ivo/workspace/floads/aiops
 # drwxrwxr-x 10 ivo ivo 4096 Nov 13 06:16 aiops
 ```
 
@@ -382,7 +382,7 @@ Project cards on the dashboard now display the workspace path where code changes
 ```
 floads
 Last modified by Ivo Marino on Nov 13, 2025 • 11:07 UTC (branch main)
-/home/ivo/workspace/aiops
+/home/ivo/workspace/floads/aiops
 ```
 
 This path indicates:
@@ -428,7 +428,7 @@ aiops generates issue-specific context files to help AI agents understand what t
 **Important**: When clicking "Populate AGENTS.override.md" from the issues page, the file is created in the **logged-in user's workspace**, not in the Flask app directory.
 
 For example, if user `ivo@floads.io` (Linux user `ivo`) clicks the button for the `aiops` project:
-- **File created at**: `/home/ivo/workspace/aiops/AGENTS.override.md`
+- **File created at**: `/home/ivo/workspace/floads/aiops/AGENTS.override.md`
 - **File ownership**: `ivo:ivo`
 - **Operations**: Executed via `sudo -n -u ivo tee /path/to/file`
 

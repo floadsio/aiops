@@ -299,6 +299,55 @@ def _extract_issue_description(
     return _search_nested_text(payload)
 
 
+def _format_issue_comments(comments: list[dict[str, Any]]) -> str:
+    """Format issue comments into Markdown for inclusion in agent context.
+
+    Args:
+        comments: List of comment dictionaries with keys: author, body, created_at, url
+
+    Returns:
+        Formatted markdown string with all comments, or empty string if no comments
+    """
+    if not comments:
+        return ""
+
+    formatted_comments: list[str] = []
+    for comment in comments:
+        author = comment.get("author") or "Unknown"
+        body = comment.get("body", "").strip()
+        created_at = comment.get("created_at")
+        url = comment.get("url")
+
+        if not body:
+            continue
+
+        # Format timestamp if available
+        timestamp = ""
+        if created_at:
+            if isinstance(created_at, str):
+                timestamp = created_at
+            else:
+                timestamp = format_issue_datetime(created_at)
+
+        # Build comment header
+        header = f"**{author}**"
+        if timestamp:
+            header += f" on {timestamp}"
+        if url:
+            header += f" ([link]({url}))"
+
+        # Format comment body with indentation
+        formatted_body = body.strip()
+
+        # Combine header and body
+        formatted_comments.append(f"{header}\n\n{formatted_body}")
+
+    if not formatted_comments:
+        return ""
+
+    return "\n\n---\n\n".join(formatted_comments)
+
+
 def render_issue_context(
     project: Project,
     primary_issue: ExternalIssue,
@@ -340,6 +389,20 @@ def render_issue_context(
         else MISSING_ISSUE_DETAILS_MESSAGE
     )
 
+    # Format issue comments
+    comments = primary_issue.comments or []
+    comments_section = _format_issue_comments(comments)
+    comments_block = ""
+    if comments_section:
+        comment_count = len([c for c in comments if c.get("body", "").strip()])
+        comments_block = dedent(
+            f"""
+            ## Issue Comments ({comment_count})
+
+            {comments_section}
+            """
+        ).strip()
+
     content = dedent(
         f"""
         # {primary_issue.external_id} - {primary_issue.title}
@@ -373,6 +436,14 @@ def render_issue_context(
         5. Summarize modifications and verification commands when you finish.
         """
     ).strip()
+    # Add comments section after Issue Description if available
+    if comments_block:
+        # Insert comments section after Issue Description
+        issue_desc_marker = "## Issue Description"
+        project_context_marker = "## Project Context"
+        if issue_desc_marker in content and project_context_marker in content:
+            parts = content.split(project_context_marker, 1)
+            content = f"{parts[0]}\n\n{comments_block}\n\n{project_context_marker}{parts[1]}"
     git_identity_section = _render_git_identity_section(identity_user)
     if git_identity_section:
         content = f"{content}\n\n{git_identity_section.strip()}"

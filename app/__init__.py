@@ -15,6 +15,7 @@ from .routes.api import api_bp
 from .routes.auth import auth_bp
 from .routes.projects import projects_bp
 from .services.branch_state import configure_branch_form
+from .template_utils import register_template_filters
 from .version import __version__
 
 
@@ -38,6 +39,7 @@ def create_app(
     register_extensions(app)
     register_blueprints(app)
     register_cli_commands(app)
+    register_template_filters(app)
 
     app.config.setdefault("AIOPS_VERSION", __version__)
 

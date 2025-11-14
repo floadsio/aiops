@@ -309,7 +309,7 @@ def test_project_detail_shows_external_issues(tmp_path):
     assert "Needs reproduction steps." in body
 
 
-def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
+def _setup_issue_context_app(tmp_path):
     class TestConfig(Config):
         TESTING = True
         WTF_CSRF_ENABLED = False
@@ -386,6 +386,12 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
         project_id = Project.query.filter_by(name="demo-project").first().id
         issue_id = ExternalIssue.query.filter_by(external_id="123").first().id
 
+    return app, client, project_id, issue_id
+
+
+def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
+    app, client, project_id, issue_id = _setup_issue_context_app(tmp_path)
+
     monkeypatch.setattr(
         "app.routes.projects.get_or_create_window_for_project",
         lambda project, session_name=None: SimpleNamespace(target="aiops:demo-window"),
@@ -409,6 +415,23 @@ def test_prepare_issue_context_creates_agent(tmp_path, monkeypatch):
     assert "## Git Identity" in local_contents
     assert "Owner" in local_contents
     assert "owner@example.com" in local_contents
+
+
+def test_prepare_issue_context_respects_tool_override(tmp_path, monkeypatch):
+    app, client, project_id, issue_id = _setup_issue_context_app(tmp_path)
+
+    monkeypatch.setattr(
+        "app.routes.projects.get_or_create_window_for_project",
+        lambda project, session_name=None: SimpleNamespace(target="aiops:demo-window"),
+    )
+
+    response = client.post(
+        f"/projects/{project_id}/issues/{issue_id}/prepare", json={"tool": "claude"}
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["tool"] == "claude"
+    assert data["command"] == app.config["ALLOWED_AI_TOOLS"]["claude"]
 
 
 def test_populate_agents_md_updates_context(tmp_path, monkeypatch):

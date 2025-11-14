@@ -20,11 +20,24 @@
         justify-content: center;
         margin-top: 0.35rem;
         margin-right: 0;
+        /* Ensure minimum touch target size for iOS */
+        min-height: 44px;
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
       }
       article.contrast ul li > .inline-form {
         width: 100%;
         margin-top: 0.35rem;
         margin-right: 0;
+      }
+      /* Make pin/unpin buttons full-width and properly sized on mobile */
+      article.contrast ul li > .inline-form button {
+        width: 100%;
+        justify-content: center;
+        min-height: 44px;
+        font-size: 1rem;
+        padding: 0.5rem 1rem;
+        margin-left: 0;
       }
     }
     .git-history-list {

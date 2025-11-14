@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import shlex
 import shutil
@@ -24,6 +25,9 @@ from .services.gemini_config_service import (
 from .services.git_service import build_project_git_env
 from .services.tmux_metadata import record_tmux_tool
 from .services.tmux_service import ensure_project_window
+
+# Module-level logger for use in background threads
+logger = logging.getLogger(__name__)
 
 
 class AISession:
@@ -246,7 +250,7 @@ def _reader_loop(session: AISession) -> None:
     try:
         pane = _get_pane_from_target(session.tmux_target)
         if not pane:
-            current_app.logger.error(
+            logger.error(
                 "Unable to get pane for target %s", session.tmux_target
             )
             return
@@ -293,7 +297,7 @@ def _reader_loop(session: AISession) -> None:
 
                                     if detected_id:
                                         session.detected_session_id = detected_id
-                                        current_app.logger.info(
+                                        logger.info(
                                             "Detected %s session ID: %s",
                                             session.tool,
                                             detected_id,
@@ -310,7 +314,7 @@ def _reader_loop(session: AISession) -> None:
                                                 tmux_target=session.tmux_target,
                                             )
                                         except Exception as exc:  # noqa: BLE001
-                                            current_app.logger.error(
+                                            logger.error(
                                                 "Failed to save session to DB: %s", exc
                                             )
                                 except Exception:  # noqa: BLE001
@@ -319,7 +323,7 @@ def _reader_loop(session: AISession) -> None:
                     session.last_line_count = current_line_count
 
             except Exception as exc:  # noqa: BLE001
-                current_app.logger.debug(
+                logger.debug(
                     "Error capturing pane output: %s", exc
                 )
 

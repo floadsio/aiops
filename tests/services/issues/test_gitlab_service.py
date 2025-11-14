@@ -65,7 +65,8 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
         if created_issue:
             return created_issue(payload)
         data = {
-            "id": 1,
+            "id": 99999,
+            "iid": 1,
             "title": payload.get("title"),
             "state": "opened",
             "web_url": "https://gitlab.example/project/-/issues/1",
@@ -77,7 +78,7 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
 
     def get_wrapper(identifier):
         for issue in issues:
-            if str(getattr(issue, "id", "")) == str(identifier):
+            if str(getattr(issue, "iid", "")) == str(identifier):
                 return issue
         raise IssueSyncError("Issue not found")
 
@@ -103,7 +104,8 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
 def test_fetch_issues(monkeypatch):
     issues = [
         FakeIssue(
-            id=101,
+            id=12345,
+            iid=101,
             title="Fix CI",
             state="opened",
             web_url="https://gitlab.example/project/-/issues/101",
@@ -131,7 +133,8 @@ def test_fetch_issues(monkeypatch):
 def test_create_issue(monkeypatch):
     def created_issue(payload):
         data = {
-            "id": 42,
+            "id": 99999,
+            "iid": 42,
             "title": payload.get("title"),
             "state": "opened",
             "web_url": "https://gitlab.example/project/-/issues/42",
@@ -162,7 +165,8 @@ def test_create_issue(monkeypatch):
 
 def test_close_issue(monkeypatch):
     issue = FakeIssue(
-        id=77,
+        id=88888,
+        iid=77,
         title="Legacy cleanup",
         state="opened",
         web_url="https://gitlab.example/project/-/issues/77",

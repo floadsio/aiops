@@ -258,11 +258,14 @@ def _is_interactive_tool(command_str: str, tool: str | None) -> bool:
     Interactive tools like Claude Code, Codex, and Gemini CLI use terminal UI libraries
     (Ink, etc.) that require raw mode access to stdin. These cannot work with heredoc
     input redirection.
+
+    Plain bash/shell commands also need to run interactively to keep the shell alive.
     """
     return (
         _uses_claude(command_str, tool)
         or _uses_codex(command_str, tool)
         or _uses_gemini(command_str, tool)
+        or command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
     )
 
 
@@ -619,7 +622,9 @@ def create_session(
 
             if is_interactive:
                 # For interactive tools (claude, codex, gemini), use bash -c to preserve stdin
-                # Build a single-line command with all setup
+                # For plain shells (bash, zsh), exec the shell directly after setup
+                is_plain_shell = command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
+
                 setup_commands = []
 
                 # Change to workspace directory
@@ -641,9 +646,15 @@ def create_session(
                 for agent_cmd in interactive_agent_commands:
                     setup_commands.append(agent_cmd)
 
-                # Clear and run the command
+                # Clear screen
                 setup_commands.append("clear")
-                setup_commands.append(command_str)
+
+                # For plain shells, exec the shell to replace the process
+                # For AI tools, just run the command
+                if is_plain_shell:
+                    setup_commands.append(f"exec {command_str}")
+                else:
+                    setup_commands.append(command_str)
 
                 # Join commands with && and quote for bash -c
                 command_chain = " && ".join(setup_commands)

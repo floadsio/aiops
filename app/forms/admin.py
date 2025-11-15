@@ -349,3 +349,32 @@ class LinuxUserMappingForm(FlaskForm):
         },
     )
     submit = SubmitField("Save Linux User Mapping")
+
+
+class UserIdentityMapForm(FlaskForm):
+    """Form for managing user identity mappings across issue providers."""
+
+    user_id = SelectField("User", coerce=int, validators=[DataRequired()])
+    github_username = StringField(
+        "GitHub Username",
+        validators=[Optional(), Length(max=255)],
+        render_kw={"placeholder": "octocat"},
+    )
+    gitlab_username = StringField(
+        "GitLab Username",
+        validators=[Optional(), Length(max=255)],
+        render_kw={"placeholder": "username"},
+    )
+    jira_account_id = StringField(
+        "Jira Account ID",
+        validators=[Optional(), Length(max=255)],
+        render_kw={"placeholder": "5a1234567890abcdef123456"},
+    )
+    submit = SubmitField("Save Identity Mapping")
+
+
+class UserIdentityMapDeleteForm(FlaskForm):
+    """Form for deleting user identity mappings."""
+
+    user_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Delete Identity Mapping")

@@ -143,6 +143,8 @@ def create_issue(
     integration: TenantIntegration,
     project_integration: ProjectIntegration,
     request: IssueCreateRequest,
+    *,
+    assignee_account_id: str | None = None,
 ) -> IssuePayload:
     base_url = integration.base_url  # type: ignore[assignment]
     if not base_url:
@@ -177,6 +179,9 @@ def create_issue(
         fields["description"] = request.description
     if request.labels:
         fields["labels"] = request.labels
+    if assignee_account_id:
+        # Jira requires accountId for assignee
+        fields["assignee"] = {"accountId": assignee_account_id}
 
     timeout = get_timeout(integration)
     try:

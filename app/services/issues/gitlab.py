@@ -69,7 +69,8 @@ def fetch_issues(
         status = getattr(exc, "response_code", "unknown")
         raise IssueSyncError(f"GitLab API error: {status}") from exc
     except gitlab_exc.GitlabError as exc:
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     payloads: List[IssuePayload] = []
     for issue in issues:
@@ -138,7 +139,8 @@ def create_issue(
         status = getattr(exc, "response_code", "unknown")
         raise IssueSyncError(f"GitLab API error: {status}") from exc
     except gitlab_exc.GitlabError as exc:
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     external_id = getattr(issue, "iid", None)
     if not external_id:
@@ -188,7 +190,8 @@ def close_issue(
         status = getattr(exc, "response_code", "unknown")
         raise IssueSyncError(f"GitLab API error: {status}") from exc
     except gitlab_exc.GitlabError as exc:
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     external_id_value = getattr(issue, "iid", None) or identifier
     return IssuePayload(

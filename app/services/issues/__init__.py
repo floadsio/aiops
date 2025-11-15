@@ -167,7 +167,8 @@ def sync_project_integration(
             project_integration.id,
             provider_key,
         )
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     existing_issues = {
         issue.external_id: issue
@@ -232,7 +233,8 @@ def close_issue_for_project_integration(
             provider_key,
             external_id,
         )
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
 
 def sync_tenant_integrations(
@@ -287,7 +289,8 @@ def assign_issue_for_project_integration(
             provider_key,
             external_id,
         )
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
 
 def test_integration_connection(
@@ -301,7 +304,8 @@ def test_integration_connection(
             provider, api_token, base_url, username=username
         )
     except ProviderTestError as exc:
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
 
 # Prevent pytest from auto-collecting this helper as a test.
@@ -390,4 +394,5 @@ def create_issue_for_project_integration(
             project_integration.id,
             provider_key,
         )
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc

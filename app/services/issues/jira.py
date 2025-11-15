@@ -115,7 +115,8 @@ def fetch_issues(
         message = getattr(exc, "text", None) or str(exc)
         raise IssueSyncError(f"Jira API error: {message}") from exc
     except Exception as exc:  # pragma: no cover - unexpected failures
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
     finally:
         if client is not None:
             try:
@@ -215,7 +216,8 @@ def create_issue(
         message = getattr(exc, "text", None) or str(exc)
         raise IssueSyncError(f"Jira API error: {message}") from exc
     except Exception as exc:  # pragma: no cover - unexpected failures
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
     finally:
         if client is not None:
             try:
@@ -280,7 +282,8 @@ def close_issue(
         message = getattr(exc, "text", None) or str(exc)
         raise IssueSyncError(f"Jira API error: {message}") from exc
     except Exception as exc:  # pragma: no cover - unexpected failures
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
     finally:
         if client is not None:
             try:

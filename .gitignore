@@ -13,5 +13,6 @@ instance/
 coverage.xml
 /logs/
 AGENTS.local.md
+AGENTS.override.md
 codex_issue_notes.md
 _local.sh

@@ -190,6 +190,14 @@ def project_detail(project_id: int):
     link_by_id = {link.id: link for link in project.issue_integrations}
     supported_providers = set(CREATE_PROVIDER_REGISTRY.keys())
 
+    # Get all users for assignee dropdown
+    from ..models import User
+
+    all_users = User.query.order_by(User.name).all()
+    user_choices = [(0, "— No Assignee —")] + [
+        (user.id, f"{user.name} ({user.email})") for user in all_users
+    ]
+
     issue_create_forms: dict[int, IssueCreateForm] = {}
     for link in project.issue_integrations:
         integration = link.integration
@@ -201,6 +209,7 @@ def project_detail(project_id: int):
         if integration and integration.enabled and provider_key in supported_providers:
             form = IssueCreateForm(prefix=f"create-{link.id}")
             form.integration_id.data = str(link.id)
+            form.assignee_user_id.choices = user_choices
             if not form.is_submitted():
                 default_issue_type = (link.config or {}).get("issue_type")
                 if default_issue_type:
@@ -265,6 +274,9 @@ def project_detail(project_id: int):
                 labels = [
                     label.strip() for label in labels_raw.split(",") if label.strip()
                 ]
+                assignee_user_id = form.assignee_user_id.data or None
+                if assignee_user_id == 0:
+                    assignee_user_id = None
 
                 try:
                     payload = create_issue_for_project_integration(
@@ -273,6 +285,7 @@ def project_detail(project_id: int):
                         description=description,
                         issue_type=issue_type_value,
                         labels=labels or None,
+                        assignee_user_id=assignee_user_id,
                     )
                     sync_project_integration(link)
                     db.session.commit()

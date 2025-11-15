@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}User Identity Mappings | aiops Control Panel{% endblock %}
+{% block content %}
+<h1>User Identity Mappings</h1>
+<p class="text-muted">Map aiops users to their identities on GitHub, GitLab, and Jira for correct issue assignment.</p>
+
+<h2>Existing Mappings</h2>
+<div class="table-scroll">
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>GitHub Username</th>
+        <th>GitLab Username</th>
+        <th>Jira Account ID</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mapping in identity_maps %}
+      <tr>
+        <td>
+          <strong>{{ mapping.user.name }}</strong><br>
+          <small class="text-muted">{{ mapping.user.email }}</small>
+        </td>
+        <td>
+          {% if mapping.github_username %}
+            <code>{{ mapping.github_username }}</code>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if mapping.gitlab_username %}
+            <code>{{ mapping.gitlab_username }}</code>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if mapping.jira_account_id %}
+            <code>{{ mapping.jira_account_id }}</code>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>{{ mapping.updated_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>
+          <form
+            method="post"
+            action="{{ url_for('admin.delete_user_identity_mapping', user_id=mapping.user_id) }}"
+            class="inline-form"
+          >
+            {{ delete_forms[mapping.user_id].csrf_token }}
+            {{ delete_forms[mapping.user_id].user_id(value=mapping.user_id) }}
+            <button type="submit" class="link-button danger" onclick="return confirm('Delete identity mapping for {{ mapping.user.name }}?')">
+              Delete
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6">No identity mappings configured.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2>Add or Update Identity Mapping</h2>
+<form method="post">
+  {{ form.hidden_tag() }}
+  <label>
+    {{ form.user_id.label }}
+    {{ form.user_id() }}
+    {% for error in form.user_id.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.github_username.label }}
+    {{ form.github_username() }}
+    <small class="text-muted">GitHub username (e.g., octocat)</small>
+    {% for error in form.github_username.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.gitlab_username.label }}
+    {{ form.gitlab_username() }}
+    <small class="text-muted">GitLab username</small>
+    {% for error in form.gitlab_username.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <label>
+    {{ form.jira_account_id.label }}
+    {{ form.jira_account_id() }}
+    <small class="text-muted">Jira account ID (not email!). Find this in Jira user profile.</small>
+    {% for error in form.jira_account_id.errors %}
+      <span class="error">{{ error }}</span>
+    {% endfor %}
+  </label>
+  <button type="submit">{{ form.submit.label.text }}</button>
+</form>
+
+<div class="info-box" style="margin-top: 2rem;">
+  <h3>About User Identity Mappings</h3>
+  <p>
+    User identity mappings allow aiops to correctly assign issues when creating them on external platforms.
+    Each aiops user can have different usernames or account IDs on GitHub, GitLab, and Jira.
+  </p>
+  <ul>
+    <li><strong>GitHub:</strong> Use the GitHub username (e.g., "octocat")</li>
+    <li><strong>GitLab:</strong> Use the GitLab username</li>
+    <li><strong>Jira:</strong> Use the Jira account ID (found in user profile, not the email address)</li>
+  </ul>
+  <p class="text-muted">
+    Leave fields blank if the user doesn't have an account on a particular platform.
+    When creating issues, aiops will skip assignee if no mapping exists.
+  </p>
+</div>
+{% endblock %}

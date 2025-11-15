@@ -52,27 +52,61 @@ class FakeGithubIssue:
         if "state" in kwargs:
             self.state = kwargs["state"]
 
+    def get_comments(self):
+        return []
+
 
 class FakeRepo:
-    def __init__(self, issues: List[FakeGithubIssue]):
+    def __init__(self, issues: List[FakeGithubIssue], milestones=None):
         self._issues = issues
         self.created_payload = None
         self.closed_numbers: List[int] = []
+        self._milestones = milestones or []
 
     def get_issues(self, **_):
         return self._issues
 
-    def create_issue(self, title, body=None, labels=None):
+    def get_milestones(self, **_):
+        return self._milestones
+
+    def create_issue(self, **kwargs):
+        title = kwargs.get("title", "")
+        body_value = kwargs.get("body")
+        if not isinstance(body_value, str):
+            body_value = None
+        labels_value = kwargs.get("labels")
+        if not isinstance(labels_value, list):
+            labels_value = []
+        milestone_value = kwargs.get("milestone")
+        normalized_milestone = milestone_value if isinstance(milestone_value, int) else None
         issue = FakeGithubIssue(
             number=200,
             title=title,
             state="open",
             html_url="https://github.com/org/repo/issues/200",
-            labels=labels or [],
+            labels=labels_value,
             updated_at=datetime(2024, 10, 11, tzinfo=timezone.utc),
         )
-        self.created_payload = {"title": title, "body": body, "labels": labels}
+        self.created_payload = {
+            "title": title,
+            "body": body_value,
+            "labels": labels_value,
+            "milestone": normalized_milestone,
+        }
         return issue
+
+    def get_issue(self, number):
+        for issue in self._issues:
+            if issue.number == number:
+                self.closed_numbers.append(number)
+                return issue
+        raise IssueSyncError("Issue not found")
+
+
+class FakeMilestone:
+    def __init__(self, number: int, title: str):
+        self.number = number
+        self.title = title
 
     def get_issue(self, number):
         for issue in self._issues:
@@ -134,13 +168,25 @@ def test_create_issue(monkeypatch):
     )
     payload = github_service.create_issue(integration, project_integration, request)
 
-    assert repo.created_payload == {
-        "title": "Add feature",
-        "body": "Details",
-        "labels": ["enhancement"],
-    }
+    assert repo.created_payload["title"] == "Add feature"
+    assert repo.created_payload["body"] == "Details"
+    assert repo.created_payload["labels"] == ["enhancement"]
+    assert repo.created_payload["milestone"] is None
     assert payload.external_id == "200"
     assert payload.title == "Add feature"
+
+
+def test_create_issue_resolves_milestone(monkeypatch):
+    repo = FakeRepo([], milestones=[FakeMilestone(8, "Sprint Board")])
+    _install_fake_client(monkeypatch, repo)
+
+    integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
+    project_integration = SimpleNamespace(external_identifier="org/repo", config={})
+
+    request = IssueCreateRequest(summary="Ship work", milestone="Sprint Board")
+    github_service.create_issue(integration, project_integration, request)
+
+    assert repo.created_payload["milestone"] == 8
 
 
 def test_close_issue(monkeypatch):

@@ -47,6 +47,7 @@ from ..services.ansible_runner import (
     get_semaphore_templates,
     run_ansible_playbook,
 )
+from ..services.ai_status_service import AIStatusError, get_claude_status
 from ..services.git_service import (
     commit_project_files,
     get_project_commit_history,
@@ -134,9 +135,20 @@ def ai_status_overview():
         "last_updated": user.claude_usage_last_updated,
     }
 
+    claude_status = None
+    claude_status_error = None
+    try:
+        claude_status = get_claude_status(user)
+    except AIStatusError as exc:
+        claude_status_error = str(exc)
+    except Exception as exc:  # pragma: no cover - unexpected failures
+        claude_status_error = f"Unable to fetch Claude status: {exc}"
+
     return render_template(
         "projects/ai_status.html",
         claude_usage=claude_usage,
+        claude_status=claude_status,
+        claude_status_error=claude_status_error,
         linux_username=_current_linux_username(),
     )
 

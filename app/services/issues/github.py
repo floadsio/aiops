@@ -12,7 +12,49 @@ from . import (
 )
 from .utils import ensure_base_url
 
+try:  # pragma: no cover - import guard for optional dependency
+    from github.GithubException import GithubException as GithubAPIException
+except Exception:  # pragma: no cover - fallback stub for type checking
+    class GithubAPIException(Exception):  # type: ignore[no-redef]
+        """Fallback GitHub exception stub when PyGithub is unavailable."""
+
+        pass
+
 MAX_COMMENTS_PER_ISSUE = 20
+
+
+def _resolve_milestone_number(repo: Any, reference: str | None) -> int | None:
+    if not reference:
+        return None
+    text = str(reference).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        try:
+            return int(text)
+        except ValueError:
+            return None
+
+    try:
+        milestones = repo.get_milestones(state="all")
+    except GithubAPIException:
+        return None
+    except Exception:  # pragma: no cover - best effort matching
+        return None
+
+    target = text.lower()
+    for milestone in milestones:
+        title = getattr(milestone, "title", "") or ""
+        if str(title).strip().lower() != target:
+            continue
+        number = getattr(milestone, "number", None)
+        if number is None:
+            continue
+        try:
+            return int(number)
+        except (TypeError, ValueError):
+            continue
+    return None
 
 
 def _format_github_error(exc: Any) -> str:
@@ -58,8 +100,6 @@ def fetch_issues(
 
     client = _build_client(integration)
     try:
-        from github.GithubException import GithubException
-
         repo = client.get_repo(repo_path)
         # Build kwargs for get_issues - only include 'since' if provided
         issues_kwargs: dict[str, Any] = {
@@ -71,7 +111,7 @@ def fetch_issues(
             since_value = since if since.tzinfo else since.replace(tzinfo=timezone.utc)
             issues_kwargs["since"] = since_value
         issues = repo.get_issues(**issues_kwargs)
-    except GithubException as exc:
+    except GithubAPIException as exc:
         raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
@@ -104,18 +144,26 @@ def create_issue(
 
     client = _build_client(integration)
     try:
-        from github.GithubException import GithubException
+        from github.GithubObject import NotSet
 
         repo = client.get_repo(repo_path)
-        labels = request.labels or None
-        assignees = [assignee] if assignee else None
+        milestone_value = _resolve_milestone_number(repo, request.milestone)
+
+        # PyGithub's create_issue uses NotSet for optional parameters
+        # Passing None will fail assertions, so we must use NotSet for omitted values
+        body = request.description if request.description else NotSet
+        labels = request.labels if request.labels else NotSet
+        assignees = [assignee] if assignee else NotSet
+        milestone = milestone_value if milestone_value is not None else NotSet
+
         issue = repo.create_issue(
             title=summary,
-            body=request.description or None,
+            body=body,
             labels=labels,
+            milestone=milestone,
             assignees=assignees,
         )
-    except GithubException as exc:
+    except GithubAPIException as exc:
         raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
@@ -142,13 +190,11 @@ def close_issue(
 
     client = _build_client(integration)
     try:
-        from github.GithubException import GithubException
-
         repo = client.get_repo(repo_path)
         issue = repo.get_issue(number=issue_number)
         issue.edit(state="closed")
         issue = repo.get_issue(number=issue_number)
-    except GithubException as exc:
+    except GithubAPIException as exc:
         raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
@@ -176,13 +222,11 @@ def assign_issue(
 
     client = _build_client(integration)
     try:
-        from github.GithubException import GithubException
-
         repo = client.get_repo(repo_path)
         issue = repo.get_issue(number=issue_number)
         issue.edit(assignees=assignees)
         issue = repo.get_issue(number=issue_number)
-    except GithubException as exc:
+    except GithubAPIException as exc:
         raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
@@ -231,15 +275,10 @@ def _resolve_assignee(issue: Any) -> Optional[str]:
 
 
 def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:
-    try:
-        from github.GithubException import GithubException
-    except Exception:  # pragma: no cover - PyGithub missing
-        GithubException = Exception  # type: ignore[assignment,misc]
-
     comments: List[IssueCommentPayload] = []
     try:
         paginated = issue.get_comments()
-    except GithubException:
+    except GithubAPIException:
         return comments
 
     for comment in paginated:

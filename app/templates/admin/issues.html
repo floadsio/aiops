@@ -493,6 +493,110 @@
         justify-content: center;
       }
     }
+    .issue-create-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      z-index: 1000;
+    }
+    .issue-create-modal.is-open {
+      display: flex;
+    }
+    .issue-create-modal__dialog {
+      background: var(--surface, #fff);
+      color: inherit;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      width: min(720px, 100%);
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+    }
+    [data-theme="dark"] .issue-create-modal__dialog {
+      background: rgba(15, 23, 42, 0.95);
+    }
+    .issue-create-modal__close {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      color: inherit;
+    }
+    .issue-create-form .form-group {
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+    .issue-create-form label {
+      font-weight: 600;
+    }
+    .issue-create-form input[type="text"],
+    .issue-create-form select,
+    .issue-create-form textarea {
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      border-radius: 0.65rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(255, 255, 255, 0.92);
+    }
+    [data-theme="dark"] .issue-create-form input[type="text"],
+    [data-theme="dark"] .issue-create-form select,
+    [data-theme="dark"] .issue-create-form textarea {
+      background: rgba(15, 23, 42, 0.75);
+      border-color: rgba(148, 163, 184, 0.5);
+      color: rgba(226, 232, 240, 0.95);
+    }
+    .issue-create-form textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    .issue-create-summary {
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.75rem;
+      background: rgba(241, 245, 249, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+    [data-theme="dark"] .issue-create-summary {
+      background: rgba(30, 41, 59, 0.75);
+      border-color: rgba(148, 163, 184, 0.3);
+    }
+    .form-hint {
+      font-size: 0.85rem;
+      color: rgba(71, 85, 105, 0.9);
+    }
+    [data-theme="dark"] .form-hint {
+      color: rgba(226, 232, 240, 0.65);
+    }
+    .form-error {
+      font-size: 0.85rem;
+      color: #dc2626;
+    }
+    .issue-create-custom-fields {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.4);
+    }
+    .issue-create-assignee select option.is-disabled {
+      color: rgba(148, 163, 184, 0.8);
+    }
+    .issue-create-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+      margin-top: 1.25rem;
+    }
   </style>
 {% endblock %}
 {% block content %}
@@ -525,6 +629,16 @@
     <input type="hidden" name="direction" value="{{ sort_state.direction }}">
   </form>
 
+  {% set has_issue_targets = issue_create_form.project_integration_id.choices|length > 0 %}
+  <button
+    type="button"
+    class="primary"
+    data-issue-create-open
+    {% if not has_issue_targets %}disabled title="Link a project integration before creating issues"{% endif %}
+  >
+    New Issue
+  </button>
+
   {% if current_user_name %}
     <a href="{{ url_for('admin.manage_issues', status=status_filter if status_filter != 'all' else None, tenant=tenant_filter if tenant_filter != 'all' else None, assignee='__me__', sort=sort_state.key, direction=sort_state.direction) }}" class="secondary" role="button">
       My Issues
@@ -538,6 +652,156 @@
       Force Full Resync
     </button>
   </form>
+</div>
+
+<div
+  id="issue-create-modal"
+  class="issue-create-modal{% if issue_create_modal_open %} is-open{% endif %}"
+  data-options='{{ issue_create_options|tojson }}'
+  data-custom-values='{{ issue_custom_field_values|tojson }}'
+  data-custom-errors='{{ issue_custom_field_errors|tojson }}'
+>
+  <div
+    class="issue-create-modal__dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="issue-create-title"
+  >
+    <button type="button" class="issue-create-modal__close" data-issue-create-dismiss aria-label="Close issue form">
+      &times;
+    </button>
+    <h2 id="issue-create-title">Create New Issue</h2>
+    {% if has_issue_targets %}
+      <form method="post" class="issue-create-form" action="{{ url_for('admin.manage_issues') }}" novalidate>
+        {{ issue_create_form.hidden_tag() }}
+        <div class="form-group">
+          <label for="issue-create-target">Project</label>
+          <select
+            id="issue-create-target"
+            name="{{ issue_create_form.project_integration_id.name }}"
+            data-issue-create-target
+            required
+          >
+            {% set selected_target = issue_create_form.project_integration_id.data %}
+            {% for value, label in issue_create_form.project_integration_id.choices %}
+              <option value="{{ value }}" {% if value == selected_target %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+          {% if issue_create_form.project_integration_id.errors %}
+            <div class="form-error">{{ issue_create_form.project_integration_id.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="issue-create-summary" data-issue-create-summary>
+          <p>Select a project integration to load provider-specific fields.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="issue-create-summary-input">Title</label>
+          {{ issue_create_form.summary(id="issue-create-summary-input") }}
+          {% if issue_create_form.summary.errors %}
+            <div class="form-error">{{ issue_create_form.summary.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label for="issue-create-description">Description</label>
+          {{ issue_create_form.description(id="issue-create-description") }}
+          {% if issue_create_form.description.errors %}
+            <div class="form-error">{{ issue_create_form.description.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group" data-issue-field="issue-type">
+          <label for="issue-create-type">Issue Type (Jira)</label>
+          {{ issue_create_form.issue_type(id="issue-create-type") }}
+          <p class="form-hint">Defaults to the integration's configured issue type.</p>
+          {% if issue_create_form.issue_type.errors %}
+            <div class="form-error">{{ issue_create_form.issue_type.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group" data-issue-field="milestone">
+          <label for="issue-create-milestone">Milestone</label>
+          {{ issue_create_form.milestone(id="issue-create-milestone") }}
+          <p class="form-hint">GitHub accepts number or title; GitLab matches the milestone title.</p>
+          {% if issue_create_form.milestone.errors %}
+            <div class="form-error">{{ issue_create_form.milestone.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group" data-issue-field="priority">
+          <label for="issue-create-priority">Priority (Jira)</label>
+          {{ issue_create_form.priority(id="issue-create-priority") }}
+          {% if issue_create_form.priority.errors %}
+            <div class="form-error">{{ issue_create_form.priority.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group">
+          <label for="issue-create-labels">Labels / Tags</label>
+          {{ issue_create_form.labels(id="issue-create-labels") }}
+          {% if issue_create_form.labels.errors %}
+            <div class="form-error">{{ issue_create_form.labels.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="form-group issue-create-assignee">
+          <label for="issue-create-assignee">Assignee</label>
+          <select
+            id="issue-create-assignee"
+            name="{{ issue_create_form.assignee_user_id.name }}"
+            data-issue-create-assignee
+          >
+            {% set selected_assignee = issue_create_form.assignee_user_id.data or 0 %}
+            {% for value, label in issue_create_form.assignee_user_id.choices %}
+              {% if value == 0 %}
+                <option value="0" {% if selected_assignee == 0 %}selected{% endif %}>{{ label }}</option>
+              {% else %}
+                {% set capability = issue_create_capabilities.get(value, {}) %}
+                <option
+                  value="{{ value }}"
+                  data-has-github="{{ 1 if capability.get('github') else 0 }}"
+                  data-has-gitlab="{{ 1 if capability.get('gitlab') else 0 }}"
+                  data-has-jira="{{ 1 if capability.get('jira') else 0 }}"
+                  {% if selected_assignee == value %}selected{% endif %}
+                >
+                  {{ label }}
+                </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <p class="form-hint">Only users with mapped identities for the provider can be assigned.</p>
+          {% if issue_create_form.assignee_user_id.errors %}
+            <div class="form-error">{{ issue_create_form.assignee_user_id.errors[0] }}</div>
+          {% endif %}
+        </div>
+
+        <div class="issue-create-custom-fields" data-custom-fields-wrapper hidden>
+          <p class="form-hint">Additional required fields for the selected provider.</p>
+          <div data-custom-fields></div>
+        </div>
+
+        <div class="issue-create-actions">
+          <button type="button" class="secondary outline" data-issue-create-dismiss>Cancel</button>
+          <button
+            type="submit"
+            class="primary"
+            name="{{ issue_create_form.submit.name }}"
+            value="1"
+          >
+            {{ issue_create_form.submit.label.text }}
+          </button>
+        </div>
+      </form>
+    {% else %}
+      <p class="text-muted">
+        No project integrations with issue creation support are configured yet. Link a project to GitHub, GitLab, or Jira to enable this form.
+      </p>
+    {% endif %}
+  </div>
 </div>
 
 {% if issues %}
@@ -1154,6 +1418,189 @@
           });
       });
     });
+
+    const creationModal = document.getElementById('issue-create-modal');
+    if (creationModal) {
+      const openButtons = document.querySelectorAll('[data-issue-create-open]');
+      const closeSelectors = creationModal.querySelectorAll('[data-issue-create-dismiss]');
+      const targetSelect = creationModal.querySelector('[data-issue-create-target]');
+      const summaryBlock = creationModal.querySelector('[data-issue-create-summary]');
+      const issueTypeGroup = creationModal.querySelector('[data-issue-field="issue-type"]');
+      const issueTypeInput = creationModal.querySelector('#issue-create-type');
+      const milestoneGroup = creationModal.querySelector('[data-issue-field="milestone"]');
+      const priorityGroup = creationModal.querySelector('[data-issue-field="priority"]');
+      const customFieldsWrapper = creationModal.querySelector('[data-custom-fields-wrapper]');
+      const customFieldsHost = creationModal.querySelector('[data-custom-fields]');
+      const assigneeSelect = creationModal.querySelector('[data-issue-create-assignee]');
+      const integrationOptions = JSON.parse(creationModal.dataset.options || '[]');
+      const integrationMap = new Map(
+        integrationOptions.map((option) => [String(option.id), option]),
+      );
+      const customValues = JSON.parse(creationModal.dataset.customValues || '{}');
+      const customErrors = JSON.parse(creationModal.dataset.customErrors || '{}');
+      const providerCapabilityKeys = {
+        github: 'hasGithub',
+        gitlab: 'hasGitlab',
+        jira: 'hasJira',
+      };
+
+      const toggleModal = (open) => {
+        creationModal.classList.toggle('is-open', open);
+        if (open && targetSelect) {
+          targetSelect.focus();
+        }
+      };
+
+      openButtons.forEach((button) => {
+        if (button.disabled) {
+          return;
+        }
+        button.addEventListener('click', () => toggleModal(true));
+      });
+
+      closeSelectors.forEach((button) => {
+        button.addEventListener('click', () => toggleModal(false));
+      });
+      creationModal.addEventListener('click', (event) => {
+        if (event.target === creationModal) {
+          toggleModal(false);
+        }
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && creationModal.classList.contains('is-open')) {
+          toggleModal(false);
+        }
+      });
+
+      const updateSummary = (meta) => {
+        if (!summaryBlock) {
+          return;
+        }
+        if (!meta) {
+          summaryBlock.innerHTML = '<p>Select a project integration to load provider-specific fields.</p>';
+          return;
+        }
+        summaryBlock.innerHTML = `
+          <p><strong>${meta.project_name}</strong></p>
+          <p>${meta.tenant_name} • ${meta.provider_label}</p>
+        `;
+      };
+
+      const updateFieldVisibility = (meta) => {
+        const supports = meta?.supports || {};
+        if (issueTypeGroup) {
+          issueTypeGroup.hidden = !supports.issue_type;
+        }
+        if (issueTypeInput) {
+          issueTypeInput.placeholder = meta?.issue_type_default
+            ? `Default: ${meta.issue_type_default}`
+            : '';
+        }
+        if (milestoneGroup) {
+          milestoneGroup.hidden = !supports.milestone;
+        }
+        if (priorityGroup) {
+          priorityGroup.hidden = !supports.priority;
+        }
+      };
+
+      const renderCustomFields = (meta) => {
+        if (!customFieldsWrapper || !customFieldsHost) {
+          return;
+        }
+        customFieldsHost.innerHTML = '';
+        const fields = meta?.custom_fields || [];
+        if (!meta || !meta.supports?.custom_fields || fields.length === 0) {
+          customFieldsWrapper.hidden = true;
+          return;
+        }
+        customFieldsWrapper.hidden = false;
+        fields.forEach((field) => {
+          const group = document.createElement('div');
+          group.className = 'form-group';
+          const label = document.createElement('label');
+          const labelSuffix = field.required ? ' *' : '';
+          label.htmlFor = `${field.input_name}-${meta.id}`;
+          label.textContent = `${field.label}${labelSuffix}`;
+          let input;
+          if (field.type === 'select') {
+            input = document.createElement('select');
+            input.appendChild(new Option('Select…', ''));
+            (field.options || []).forEach((option) => {
+              const opt = document.createElement('option');
+              opt.value = option.value;
+              opt.textContent = option.label;
+              input.appendChild(opt);
+            });
+          } else {
+            input = document.createElement('input');
+            input.type = field.type === 'number' ? 'number' : 'text';
+          }
+          input.name = field.input_name;
+          input.id = `${field.input_name}-${meta.id}`;
+          if (field.required) {
+            input.required = true;
+          }
+          if (customValues[field.input_name] !== undefined) {
+            input.value = customValues[field.input_name];
+          }
+          group.appendChild(label);
+          group.appendChild(input);
+          if (field.description) {
+            const hint = document.createElement('p');
+            hint.className = 'form-hint';
+            hint.textContent = field.description;
+            group.appendChild(hint);
+          }
+          if (customErrors[field.input_name]) {
+            const error = document.createElement('div');
+            error.className = 'form-error';
+            error.textContent = customErrors[field.input_name];
+            group.appendChild(error);
+          }
+          customFieldsHost.appendChild(group);
+        });
+      };
+
+      const updateAssigneeOptions = (provider) => {
+        if (!assigneeSelect) {
+          return;
+        }
+        const datasetKey = providerCapabilityKeys[provider] || null;
+        const options = assigneeSelect.querySelectorAll('option');
+        options.forEach((option) => {
+          if (!datasetKey || option.value === '0') {
+            option.disabled = false;
+            option.classList.remove('is-disabled');
+            return;
+          }
+          const allowed = option.dataset[datasetKey];
+          const isEnabled = allowed === undefined || allowed === '1';
+          option.disabled = !isEnabled;
+          option.classList.toggle('is-disabled', !isEnabled);
+        });
+        if (assigneeSelect.selectedOptions.length && assigneeSelect.selectedOptions[0].disabled) {
+          assigneeSelect.value = '0';
+        }
+      };
+
+      const applyIntegrationMeta = () => {
+        const selectedId = targetSelect ? String(targetSelect.value || '') : '';
+        const meta = integrationMap.get(selectedId);
+        updateSummary(meta);
+        updateFieldVisibility(meta);
+        renderCustomFields(meta);
+        updateAssigneeOptions(meta ? meta.provider : null);
+      };
+
+      if (targetSelect) {
+        targetSelect.addEventListener('change', applyIntegrationMeta);
+        applyIntegrationMeta();
+      }
+      if (creationModal.classList.contains('is-open')) {
+        toggleModal(true);
+      }
+    }
 
     const statusForms = document.querySelectorAll('[data-issue-status-form]');
     statusForms.forEach(form => {

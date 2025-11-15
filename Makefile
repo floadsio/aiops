@@ -9,6 +9,8 @@ FLASK_APP ?= manage.py
 FLASK_HOST ?= 127.0.0.1
 FLASK_PORT ?= 8060
 
+export PYTHONPATH := $(CURDIR)$(if $(PYTHONPATH),:$(PYTHONPATH),)
+
 .PHONY: all venv sync sync-dev seed seed-identities format lint test check clean start start-dev start-prod dev stop restart status
 
 all: sync-dev start

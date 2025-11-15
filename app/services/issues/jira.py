@@ -180,9 +180,21 @@ def create_issue(
         fields["description"] = request.description
     if request.labels:
         fields["labels"] = request.labels
+    if request.priority:
+        priority_name = request.priority.strip()
+        if priority_name:
+            fields["priority"] = {"name": priority_name}
     if assignee_account_id:
         # Jira requires accountId for assignee
         fields["assignee"] = {"accountId": assignee_account_id}
+    if request.custom_fields:
+        for field_id, value in request.custom_fields.items():
+            if value is None:
+                continue
+            key = str(field_id).strip()
+            if not key:
+                continue
+            fields[key] = value
 
     timeout = get_timeout(integration)
     try:

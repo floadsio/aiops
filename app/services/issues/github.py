@@ -15,6 +15,23 @@ from .utils import ensure_base_url
 MAX_COMMENTS_PER_ISSUE = 20
 
 
+def _format_github_error(exc: Any) -> str:
+    """Format a GithubException into a readable error message."""
+    status = getattr(exc, "status", "unknown")
+    data = getattr(exc, "data", {}) if hasattr(exc, "data") else {}
+    message = data.get("message") if isinstance(data, dict) else None
+
+    # Build error message with all available context
+    error_parts = [f"GitHub API error {status}"]
+    if message:
+        error_parts.append(message)
+    elif data and str(data) != "{}":
+        # If no message but we have data, show the full data
+        error_parts.append(str(data))
+
+    return " - ".join(error_parts)
+
+
 def _build_client(integration: TenantIntegration, base_url: str | None = None):
     try:
         from github import Github
@@ -55,10 +72,7 @@ def fetch_issues(
             issues_kwargs["since"] = since_value
         issues = repo.get_issues(**issues_kwargs)
     except GithubException as exc:
-        status = getattr(exc, "status", "unknown")
-        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
-        error_detail = f": {message}" if message else ""
-        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
+        raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
         raise IssueSyncError(error_msg) from exc
@@ -102,10 +116,7 @@ def create_issue(
             assignees=assignees,
         )
     except GithubException as exc:
-        status = getattr(exc, "status", "unknown")
-        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
-        error_detail = f": {message}" if message else ""
-        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
+        raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
         raise IssueSyncError(error_msg) from exc
@@ -138,10 +149,7 @@ def close_issue(
         issue.edit(state="closed")
         issue = repo.get_issue(number=issue_number)
     except GithubException as exc:
-        status = getattr(exc, "status", "unknown")
-        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
-        error_detail = f": {message}" if message else ""
-        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
+        raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
         raise IssueSyncError(error_msg) from exc
@@ -175,10 +183,7 @@ def assign_issue(
         issue.edit(assignees=assignees)
         issue = repo.get_issue(number=issue_number)
     except GithubException as exc:
-        status = getattr(exc, "status", "unknown")
-        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
-        error_detail = f": {message}" if message else ""
-        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
+        raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
         raise IssueSyncError(error_msg) from exc

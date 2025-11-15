@@ -83,6 +83,13 @@ class IssueCreateForm(FlaskForm):
         validators=[Optional(), Length(max=512)],
         description="Comma-separated labels.",
     )
+    assignee_user_id = SelectField(
+        "Assignee",
+        coerce=int,
+        validators=[Optional()],
+        choices=[],
+        description="User to assign the issue to (requires identity mapping).",
+    )
     submit = SubmitField("Create Issue")
 
 

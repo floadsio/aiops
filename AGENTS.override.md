@@ -456,129 +456,42 @@ This ensures AI agents work with the actual code location and file ownership is 
 
 NOTE: Generated issue context. Update before publishing if needed.
 
-# 1 - Add Cross-Platform Issue Creation + User Mapping Support in aiops
+# 6 - Issue: Add Close Button to Pinned Issues on Dashboard
 
-        _Updated: 2025-11-15 14:03:39Z_
+        _Updated: 2025-11-15 18:45:45Z_
 
         ## Issue Snapshot
         - Provider: github
-        - Status: open
+        - Status: closed
         - Assignee: ivomarino
-        - Labels: enhancement
-        - Source: https://github.com/floadsio/aiops/issues/1
-        - Last Synced: 2025-11-15 13:15 UTC
+        - Labels: none
+        - Source: https://github.com/floadsio/aiops/issues/6
+        - Last Synced: 2025-11-15 17:33 UTC
 
         ## Issue Description
-        Summary
+        ✅ Issue: Add Close Button to Pinned Issues on Dashboard
 
-Enhance aiops to support creating new issues directly from the aiops Issues page across GitHub, GitLab, and Jira, with full metadata control (title, description, labels/tags, assignee, priority, etc.).
-To correctly assign issues to developers, aiops must first introduce a User Identity Mapping system linking aiops users to their identities on GitHub, GitLab, and Jira.
+Description
 
-This issue depends on the implementation of the User Identity Mapping module (see below).
+Pinned issues displayed on the Dashboard currently cannot be closed directly from the pinned-issues list.
+To improve workflow efficiency, add a “Close Issue” button next to each pinned issue item.
 
-⸻
+Requirements
+	•	Add a small close icon/button (e.g., ❌ or 🗙) next to each pinned issue.
+	•	When clicked:
+	•	Close the issue in the corresponding service (GitHub, GitLab, or Jira).
+	•	Update local AIops issue state immediately.
+	•	The UI should update without page reload.
+	•	Show a confirmation modal before closing:
+	•	“Are you sure you want to close this issue?”
+	•	After successful closure:
+	•	Show a success toast.
+	•	Remove the issue from the pinned list automatically.
 
-Part A — New Feature: Unified Issue Creation UI (GitHub, GitLab, Jira)
-
-Goal
-
-From any tenant’s Issues page in aiops, users should be able to create issues directly in the connected services:
-	•	GitHub repositories
-	•	GitLab projects
-	•	Jira projects
-
-The UI should allow selecting the target platform, tenant project, and repository/project.
-
-User-Facing Capabilities
-
-When creating an issue, the user can specify:
-
-Field	GitHub	GitLab	Jira
-Title	✔️	✔️	✔️
-Description	✔️ (Markdown)	✔️ (Markdown)	✔️ (Jira formatting)
-Labels / Tags	✔️	✔️	✔️ (Jira labels)
-Assignee	✔️	✔️	✔️
-Priority	❌	✔️	✔️
-Milestone	✔️	✔️	❌ (not applicable)
-Issue Type	❌	❌	✔️ (Bug, Task, Epic, etc.)
-
-Logic Requirements
-	•	aiops must auto-select the correct API client based on the selected platform.
-	•	aiops must use the User Identity Mapping (see Part B) to match the aiops user to the proper assignee id for:
-	•	GitHub usernames
-	•	GitLab usernames
-	•	Jira account IDs (not emails!)
-	•	If a mapping is missing, aiops must warn:
-“Cannot assign issue to user because mapping is missing. Create mapping in Admin → User Mapping.”
-
-Success Criteria
-	•	Users can create issues seamlessly from the UI.
-	•	Metadata is validated before submission.
-	•	Errors (wrong token, permission denied, missing user mapping) are shown clearly.
-	•	Created issues appear immediately in the aiops Issues list after sync.
-
-⸻
-
-Part B — Core Dependency: User Identity Mapping Module
-
-Goal
-
-aiops needs a way to map internal aiops users (ivo, michael, etc.) to their identities on external platforms.
-
-This module will allow aiops to correctly assign issues, attribute commits, and filter user-specific tasks.
-
-Data Structure Example
-
-{
-  "aiops_user": "michael",
-  "github_username": "michael-dev",
-  "gitlab_username": "michael.gitlab",
-  "jira_account_id": "5599aabb112233445566"
-}
-
-UI Requirements
-
-Add a new Admin → User Mapping page:
-	•	List existing mappings
-	•	Create/edit/delete mappings
-	•	Test connection (validate account ID exists, optional)
-
-Validation Rules
-	•	GitHub username must exist (check via GitHub REST API)
-	•	GitLab username must exist (check via GitLab Users API)
-	•	Jira users must be stored by accountId, not email
-
-Backend Requirements
-	•	New database table: user_identity_map
-	•	aiops must reference this table whenever:
-	•	Fetching issues
-	•	Creating issues
-	•	Assigning issues
-	•	Rendering avatars / user names
-	•	If mapping is missing for an issue:
-	•	aiops displays: “Unmapped user”
-	•	UI link: “Create mapping”
-
-⸻
-
-Dependencies
-
-This issue has two sequential phases:
-	1.	Implement the User Identity Mapping module (Part B)
-→ Required first, otherwise issue assignment will fail.
-	2.	Implement the Unified Issue Creation UI (Part A)
-→ Uses the mapping to correctly assign issues.
-
-⸻
-
-Acceptance Criteria
-	•	✔ aiops has a full User Identity Mapping system
-	•	✔ Admin can configure GitHub/GitLab/Jira identities per aiops user
-	•	✔ Issue creation works across all platforms
-	•	✔ All metadata fields correctly map to the external API
-	•	✔ Assignments work using the mapping table
-	•	✔ Errors are user-friendly and actionable
-	•	✔ All created issues appear inside aiops immediately
+Notes
+	•	Use the existing integration tokens and identity mappings.
+	•	Respect the permissions/scopes required by the provider.
+	•	Ensure error handling if the provider rejects the close action.
 
         ## Project Context
         - Project: aiops
@@ -586,7 +499,11 @@ Acceptance Criteria
         - Local Path: instance/repos/aiops
 
         ## Other Known Issues
-        None listed.
+        - [github] 5: Issue: Add Project Filter to Issues Page; status=closed; assignee=ivomarino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/5
+- [github] 3: Feature: Create New Issues Directly from the AIops Issues Page; status=closed; assignee=ivomarino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/3
+- [github] 4: Issue: Improve UI Responsiveness + Redesign Main Menu Layout; status=open; assignee=ivomarino; labels=enhancement; updated=2025-11-15 14:52 UTC; url=https://github.com/floadsio/aiops/issues/4
+- [github] 1: Add Cross-Platform Issue Creation + User Mapping Support in aiops; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-15 14:41 UTC; url=https://github.com/floadsio/aiops/issues/1
+- [github] 2: Test issue - organization token; status=closed; updated=2025-11-15 14:36 UTC; url=https://github.com/floadsio/aiops/issues/2
 
         ## Workflow Reminders
         1. Confirm the acceptance criteria with the external issue tracker.

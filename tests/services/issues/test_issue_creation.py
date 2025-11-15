@@ -75,7 +75,7 @@ def test_create_issue_for_project_integration(tmp_path, monkeypatch):
 
         captured = {}
 
-        def fake_creator(integration_obj, project_integration_obj, request):
+        def fake_creator(integration_obj, project_integration_obj, request, **_):
             captured["integration"] = integration_obj
             captured["project_integration"] = project_integration_obj
             captured["request"] = request
@@ -98,6 +98,9 @@ def test_create_issue_for_project_integration(tmp_path, monkeypatch):
             description="Create infra",
             issue_type="Task",
             labels=["infra"],
+            milestone="Sprint 42",
+            priority="High",
+            custom_fields={"customfield_10011": 3},
         )
 
         assert payload.external_id == "DEVOPS-100"
@@ -105,6 +108,9 @@ def test_create_issue_for_project_integration(tmp_path, monkeypatch):
         assert captured["request"].description == "Create infra"
         assert captured["request"].issue_type == "Task"
         assert captured["request"].labels == ["infra"]
+        assert captured["request"].milestone == "Sprint 42"
+        assert captured["request"].priority == "High"
+        assert captured["request"].custom_fields == {"customfield_10011": 3}
 
 
 def test_create_issue_for_project_integration_unsupported(tmp_path):

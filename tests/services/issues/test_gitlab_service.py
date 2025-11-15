@@ -53,15 +53,20 @@ class FakeIssue:
                 self.attributes["state"] = "closed"
 
 
-def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
+def _install_fake_client(
+    monkeypatch, *, issues=None, created_issue=None, milestones=None
+):
     issues = issues or []
+    milestones = milestones or []
 
     project = SimpleNamespace()
+    project._created_payloads: list[dict] = []
 
     def list_wrapper(**_):
         return issues
 
     def create_wrapper(payload):
+        project._created_payloads.append(payload)
         if created_issue:
             return created_issue(payload)
         data = {
@@ -85,6 +90,7 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
     project.issues = SimpleNamespace(
         list=list_wrapper, create=create_wrapper, get=get_wrapper
     )
+    project.milestones = SimpleNamespace(list=lambda **_: milestones)
 
     class FakeProjects:
         def __init__(self, project_ref):
@@ -99,6 +105,7 @@ def _install_fake_client(monkeypatch, *, issues=None, created_issue=None):
         "app.services.issues.gitlab._build_client",
         lambda integration, base_url=None: fake_client,
     )
+    return project
 
 
 def test_fetch_issues(monkeypatch):
@@ -144,7 +151,7 @@ def test_create_issue(monkeypatch):
         }
         return FakeIssue(**data)
 
-    _install_fake_client(
+    project = _install_fake_client(
         monkeypatch, issues=[], created_issue=lambda payload: created_issue(payload)
     )
 
@@ -161,6 +168,27 @@ def test_create_issue(monkeypatch):
     assert payload.external_id == "42"
     assert payload.title == "Add pipeline"
     assert payload.labels == ["ci"]
+    assert project._created_payloads[-1]["title"] == "Add pipeline"
+
+
+def test_create_issue_includes_milestone(monkeypatch):
+    milestone = SimpleNamespace(id=77, title="Sprint Alpha")
+    project = _install_fake_client(
+        monkeypatch,
+        issues=[],
+        milestones=[milestone],
+    )
+
+    integration = SimpleNamespace(api_token="token", settings={}, base_url=None)
+    project_integration = SimpleNamespace(
+        external_identifier="group/project", config={}
+    )
+
+    request = IssueCreateRequest(summary="Tag release", milestone="Sprint Alpha")
+    gitlab_service.create_issue(integration, project_integration, request)
+
+    payload = project._created_payloads[-1]
+    assert payload["milestone_id"] == 77
 
 
 def test_close_issue(monkeypatch):

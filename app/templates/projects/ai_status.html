@@ -88,4 +88,31 @@
     </p>
   {% endif %}
 </article>
+
+<article class="contrast" style="padding:1.5rem;margin-top:1.5rem;">
+  <header style="display:flex;flex-wrap:wrap;gap:1rem;align-items:center;justify-content:space-between;">
+    <div>
+      <h2 style="margin:0;">Claude CLI Status</h2>
+      <p class="text-muted" style="margin:0;">Latest status output from <code>claude</code> CLI.</p>
+    </div>
+  </header>
+  <hr>
+
+  {% if claude_status %}
+    <p><strong>Command:</strong> <code>{{ claude_status.command or 'claude' }}</code></p>
+    {% if claude_status.stdout %}
+      <p><strong>Output</strong></p>
+      <pre style="white-space:pre-wrap;">{{ claude_status.stdout }}</pre>
+    {% endif %}
+    {% if claude_status.stderr %}
+      <p><strong>Errors</strong></p>
+      <pre style="white-space:pre-wrap;color:#dc2626;">{{ claude_status.stderr }}</pre>
+    {% endif %}
+    <p><strong>Exit code:</strong> {{ claude_status.returncode }}</p>
+  {% elif claude_status_error %}
+    <p class="text-danger">{{ claude_status_error }}</p>
+  {% else %}
+    <p class="text-muted">Claude CLI status is unavailable.</p>
+  {% endif %}
+</article>
 {% endblock %}

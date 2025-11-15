@@ -37,6 +37,9 @@ class IssueCreateRequest:
     description: Optional[str] = None
     issue_type: Optional[str] = None
     labels: Optional[List[str]] = None
+    priority: Optional[str] = None
+    milestone: Optional[str] = None
+    custom_fields: Optional[Dict[str, Any]] = None
 
 
 class IssueSyncError(Exception):
@@ -318,6 +321,9 @@ def create_issue_for_project_integration(
     description: Optional[str] = None,
     issue_type: Optional[str] = None,
     labels: Optional[List[str]] = None,
+    milestone: Optional[str] = None,
+    priority: Optional[str] = None,
+    custom_fields: Optional[Dict[str, Any]] = None,
     *,
     assignee_user_id: Optional[int] = None,
 ) -> IssuePayload:
@@ -339,6 +345,9 @@ def create_issue_for_project_integration(
         description=description,
         issue_type=issue_type,
         labels=list(labels) if labels is not None else None,
+        milestone=milestone,
+        priority=priority,
+        custom_fields=dict(custom_fields) if custom_fields is not None else None,
     )
 
     # Resolve assignee from user identity mapping if provided

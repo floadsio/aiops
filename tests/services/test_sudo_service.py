@@ -4,6 +4,7 @@ import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
+from types import SimpleNamespace
 
 from app.services.sudo_service import (
     SudoError,
@@ -14,8 +15,29 @@ from app.services.sudo_service import (
     mkdir,
     rm_rf,
     run_as_user,
-    test_path,
+    test_path as sudo_test_path,
 )
+
+
+@pytest.fixture(autouse=True)
+def fake_getpwnam(monkeypatch):
+    def _fake_getpwnam(_username):
+        return SimpleNamespace(
+            pw_uid=1000, pw_gid=1000, pw_dir="/home/testuser", pw_shell="/bin/bash"
+        )
+
+    monkeypatch.setattr("app.services.sudo_service.pwd.getpwnam", _fake_getpwnam)
+
+
+def _build_expected_sudo(command: list[str], extra_env: list[str] | None = None):
+    env_vars = [
+        "HOME=/home/testuser",
+        "USER=testuser",
+        "LOGNAME=testuser",
+    ]
+    if extra_env:
+        env_vars.extend(extra_env)
+    return ["sudo", "-n", "-H", "-u", "testuser", "env", *env_vars, *command]
 
 
 class TestSudoResult:
@@ -45,7 +67,7 @@ class TestRunAsUser:
         assert result.success
         assert result.stdout == "success"
         mock_run.assert_called_once_with(
-            ["sudo", "-n", "-u", "testuser", "ls", "-la"],
+            _build_expected_sudo(["ls", "-la"]),
             capture_output=True,
             text=True,
             timeout=30.0,
@@ -64,16 +86,7 @@ class TestRunAsUser:
 
         assert result.success
         mock_run.assert_called_once_with(
-            [
-                "sudo",
-                "-n",
-                "-u",
-                "testuser",
-                "env",
-                "GIT_SSH_COMMAND=ssh -i key",
-                "git",
-                "status",
-            ],
+            _build_expected_sudo(["git", "status"], ["GIT_SSH_COMMAND=ssh -i key"]),
             capture_output=True,
             text=True,
             timeout=30.0,
@@ -88,7 +101,7 @@ class TestRunAsUser:
 
         assert result.success
         mock_run.assert_called_once_with(
-            ["sudo", "-n", "-u", "testuser", "sleep", "1"],
+            _build_expected_sudo(["sleep", "1"]),
             capture_output=True,
             text=True,
             timeout=60.0,
@@ -151,7 +164,7 @@ class TestTestPath:
         """Test checking for existing path."""
         mock_run_as_user.return_value = SudoResult(returncode=0, stdout="", stderr="")
 
-        result = test_path("testuser", "/home/testuser/file.txt")
+        result = sudo_test_path("testuser", "/home/testuser/file.txt")
 
         assert result is True
         mock_run_as_user.assert_called_once_with(
@@ -166,7 +179,7 @@ class TestTestPath:
         """Test checking for non-existing path."""
         mock_run_as_user.return_value = SudoResult(returncode=1, stdout="", stderr="")
 
-        result = test_path("testuser", "/home/testuser/nonexistent.txt")
+        result = sudo_test_path("testuser", "/home/testuser/nonexistent.txt")
 
         assert result is False
 
@@ -175,7 +188,7 @@ class TestTestPath:
         """Test handling SudoError in test_path."""
         mock_run_as_user.side_effect = SudoError("sudo failed")
 
-        result = test_path("testuser", "/some/path")
+        result = sudo_test_path("testuser", "/some/path")
 
         assert result is False
 

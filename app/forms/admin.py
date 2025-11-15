@@ -188,6 +188,52 @@ class ProjectIssueSyncForm(FlaskForm):
     submit = SubmitField("Refresh Issues")
 
 
+class IssueDashboardCreateForm(FlaskForm):
+    project_integration_id = SelectField(
+        "Project",
+        coerce=int,
+        validators=[DataRequired()],
+        description="Select the integration to create an issue for.",
+    )
+    summary = StringField(
+        "Title",
+        validators=[DataRequired(), Length(max=255)],
+        render_kw={"placeholder": "Describe the bug or feature"},
+    )
+    description = TextAreaField(
+        "Description",
+        validators=[Optional(), Length(max=5000)],
+        render_kw={"rows": 5},
+    )
+    issue_type = StringField(
+        "Issue Type",
+        validators=[Optional(), Length(max=128)],
+        description="Jira only. Defaults to the integration's type if left blank.",
+    )
+    labels = StringField(
+        "Labels / Tags",
+        validators=[Optional(), Length(max=512)],
+        description="Comma-separated labels (GitHub/GitLab/Jira).",
+    )
+    assignee_user_id = SelectField(
+        "Assignee",
+        coerce=int,
+        validators=[Optional()],
+        description="Requires a mapped identity for the selected provider.",
+    )
+    milestone = StringField(
+        "Milestone",
+        validators=[Optional(), Length(max=255)],
+        description="GitHub accepts number or title; GitLab matches milestone title.",
+    )
+    priority = StringField(
+        "Priority",
+        validators=[Optional(), Length(max=128)],
+        description="Jira priority name (e.g. Highest, High, Medium).",
+    )
+    submit = SubmitField("Create Issue")
+
+
 class ProjectGitRefreshForm(FlaskForm):
     project_id = HiddenField(validators=[DataRequired()])
     branch = StringField("Branch", validators=[Length(max=128)])

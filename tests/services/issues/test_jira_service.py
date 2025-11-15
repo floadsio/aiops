@@ -211,6 +211,8 @@ def test_create_issue_uses_jira_client(monkeypatch):
         summary="Create new pipeline task",
         description="Automate the deployment.",
         labels=["automation"],
+        priority="High",
+        custom_fields={"customfield_10011": 5},
     )
     payload = jira_service.create_issue(integration, project_integration, request)
 
@@ -224,6 +226,8 @@ def test_create_issue_uses_jira_client(monkeypatch):
         == jira_service.DEFAULT_ISSUE_TYPE
     )
     assert captured["create_fields"]["labels"] == ["automation"]
+    assert captured["create_fields"]["priority"] == {"name": "High"}
+    assert captured["create_fields"]["customfield_10011"] == 5
     assert "issue_invoked" not in captured
     assert captured["closed"] is True
     assert payload.external_id == "DEVOPS-2"

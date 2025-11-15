@@ -9,7 +9,7 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Mapping, cast
 from urllib.parse import urlparse
 
 from flask import (
@@ -33,6 +33,7 @@ from ..extensions import db
 from ..forms.admin import (
     AIToolUpdateForm,
     CreateUserForm,
+    IssueDashboardCreateForm,
     LinuxUserMappingForm,
     MigrationRunForm,
     PermissionsCheckForm,
@@ -99,7 +100,9 @@ from ..services.git_service import (
     run_git_action,
 )
 from ..services.issues import (
+    CREATE_PROVIDER_REGISTRY,
     ISSUE_STATUS_MAX_LENGTH,
+    create_issue_for_project_integration,
     IssueSyncError,
     IssueUpdateError,
     sync_project_integration,
@@ -149,6 +152,176 @@ def admin_required(func):
         return func(*args, **kwargs)
 
     return login_required(wrapper)
+
+
+def _custom_field_input_name(field_key: str) -> str:
+    safe = "".join(
+        ch if ch.isalnum() or ch in {"_", "-", "."} else "_"
+        for ch in field_key
+    )
+    return f"custom_field__{safe}"
+
+
+def _normalize_custom_fields(config: dict[str, Any] | None) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    if not config:
+        return entries
+    raw_fields = config.get("custom_fields")
+    if not isinstance(raw_fields, list):
+        return entries
+    for raw in raw_fields:
+        if not isinstance(raw, dict):
+            continue
+        key = str(raw.get("key") or raw.get("id") or "").strip()
+        if not key:
+            continue
+        label = str(raw.get("label") or key)
+        field_type = str(raw.get("type") or "text").lower()
+        if field_type not in {"text", "number", "select"}:
+            field_type = "text"
+        normalized_options: list[dict[str, str]] = []
+        options = raw.get("options")
+        if isinstance(options, list):
+            for option in options:
+                if isinstance(option, dict):
+                    value = option.get("value")
+                    label_text = option.get("label") or value
+                else:
+                    value = option
+                    label_text = option
+                if value is None:
+                    continue
+                normalized_options.append(
+                    {"value": str(value), "label": str(label_text)}
+                )
+        entries.append(
+            {
+                "key": key,
+                "label": label,
+                "type": field_type,
+                "required": bool(raw.get("required")),
+                "description": raw.get("description"),
+                "options": normalized_options,
+                "input_name": _custom_field_input_name(key),
+            }
+        )
+    return entries
+
+
+def _build_issue_creation_targets() -> tuple[
+    dict[int, ProjectIntegration], list[tuple[int, str]], list[dict[str, Any]]
+]:
+    query = (
+        ProjectIntegration.query.options(
+            selectinload(ProjectIntegration.project).selectinload(Project.tenant),
+            selectinload(ProjectIntegration.integration),
+        )
+        .join(ProjectIntegration.integration)
+        .filter(TenantIntegration.enabled.is_(True))
+    )
+    link_by_id: dict[int, ProjectIntegration] = {}
+    choices: list[tuple[int, str]] = []
+    metadata: list[dict[str, Any]] = []
+    for link in query.all():
+        integration = link.integration
+        project = link.project
+        if integration is None or project is None:
+            continue
+        provider_key = (integration.provider or "").lower()
+        if provider_key not in CREATE_PROVIDER_REGISTRY:
+            continue
+        tenant = project.tenant
+        tenant_label = tenant.name if tenant else "Unknown tenant"
+        provider_label = integration.name or integration.provider or "Integration"
+        display_label = f"{tenant_label} → {project.name} ({provider_label})"
+        link_by_id[link.id] = link
+        choices.append((link.id, display_label))
+        config = link.config or {}
+        custom_fields = _normalize_custom_fields(config)
+        metadata.append(
+            {
+                "id": link.id,
+                "provider": provider_key,
+                "provider_label": provider_label,
+                "project_name": project.name,
+                "tenant_name": tenant_label,
+                "issue_type_default": config.get("issue_type"),
+                "custom_fields": custom_fields,
+                "supports": {
+                    "milestone": provider_key in {"github", "gitlab"},
+                    "priority": provider_key == "jira",
+                    "issue_type": provider_key == "jira",
+                    "custom_fields": bool(custom_fields),
+                },
+            }
+        )
+    choices.sort(key=lambda entry: entry[1].lower())
+    metadata.sort(key=lambda entry: entry["project_name"].lower())
+    return link_by_id, choices, metadata
+
+
+def _build_assignee_choices() -> tuple[
+    list[tuple[int, str]], dict[int, UserIdentityMap], dict[int, dict[str, bool]]
+]:
+    users = User.query.order_by(User.name).all()
+    user_ids = [user.id for user in users]
+    identity_map: dict[int, UserIdentityMap] = {}
+    if user_ids:
+        for entry in UserIdentityMap.query.filter(
+            UserIdentityMap.user_id.in_(user_ids)
+        ).all():
+            identity_map[entry.user_id] = entry
+    choices: list[tuple[int, str]] = [(0, "— No Assignee —")]
+    capability: dict[int, dict[str, bool]] = {}
+    for user in users:
+        label = f"{user.name} ({user.email})"
+        choices.append((user.id, label))
+        identity = identity_map.get(user.id)
+        capability[user.id] = {
+            "github": bool(identity and identity.github_username),
+            "gitlab": bool(identity and identity.gitlab_username),
+            "jira": bool(identity and identity.jira_account_id),
+        }
+    return choices, identity_map, capability
+
+
+def _extract_custom_field_values(
+    field_defs: list[dict[str, Any]], form_data: Mapping[str, Any]
+) -> tuple[dict[str, Any], dict[str, str]]:
+    values: dict[str, Any] = {}
+    errors: dict[str, str] = {}
+    for field in field_defs:
+        input_name = field.get("input_name")
+        key = field.get("key")
+        if not input_name or not key:
+            continue
+        raw_value = form_data.get(input_name, "")
+        text_value = str(raw_value).strip()
+        if not text_value:
+            if field.get("required"):
+                errors[input_name] = "This field is required."
+            continue
+        field_type = field.get("type", "text")
+        if field_type == "number":
+            try:
+                if "." in text_value:
+                    processed: Any = float(text_value)
+                else:
+                    processed = int(text_value)
+            except ValueError:
+                errors[input_name] = "Enter a valid number."
+                continue
+            values[key] = processed
+        elif field_type == "select":
+            options = field.get("options") or []
+            allowed = {option.get("value") for option in options if option.get("value")}
+            if text_value not in allowed:
+                errors[input_name] = "Select a valid option."
+                continue
+            values[key] = text_value
+        else:
+            values[key] = text_value
+    return values, errors
 
 
 def _private_key_dir() -> Path:
@@ -1722,9 +1895,138 @@ def manage_tenants():
     )
 
 
-@admin_bp.route("/issues", methods=["GET"])
+@admin_bp.route("/issues", methods=["GET", "POST"])
 @admin_required
 def manage_issues():
+    (
+        creation_link_map,
+        creation_choices,
+        creation_metadata,
+    ) = _build_issue_creation_targets()
+    (
+        assignee_choices,
+        identity_lookup,
+        assignee_capabilities,
+    ) = _build_assignee_choices()
+
+    issue_create_form = IssueDashboardCreateForm(prefix="issue-create")
+    issue_create_form.project_integration_id.choices = creation_choices
+    issue_create_form.assignee_user_id.choices = assignee_choices
+    if (
+        creation_choices
+        and issue_create_form.project_integration_id.data is None
+        and request.method == "GET"
+    ):
+        issue_create_form.project_integration_id.data = creation_choices[0][0]
+    custom_field_values = (
+        {key: value for key, value in request.form.items() if key.startswith("custom_field__")}
+        if request.method == "POST"
+        else {}
+    )
+    custom_field_errors: dict[str, str] = {}
+    issue_create_modal_open = bool(
+        request.method == "POST" and issue_create_form.submit.data
+    )
+    if issue_create_form.submit.data:
+        form_valid = issue_create_form.validate_on_submit()
+        link = creation_link_map.get(issue_create_form.project_integration_id.data)
+        if link is None:
+            issue_create_form.project_integration_id.errors.append(
+                "Please choose a project integration."
+            )
+            form_valid = False
+        custom_payload: dict[str, Any] | None = None
+        field_definitions = _normalize_custom_fields(link.config or {}) if link else []
+        if link:
+            custom_payload, custom_field_errors = _extract_custom_field_values(
+                field_definitions, request.form
+            )
+            if custom_field_errors:
+                form_valid = False
+
+        assignee_user_id = issue_create_form.assignee_user_id.data or 0
+        provider_key = (
+            (link.integration.provider or "").lower()
+            if link and link.integration
+            else ""
+        )
+        if assignee_user_id and provider_key:
+            identity = identity_lookup.get(assignee_user_id)
+            has_mapping = False
+            if provider_key == "github":
+                has_mapping = bool(identity and identity.github_username)
+            elif provider_key == "gitlab":
+                has_mapping = bool(identity and identity.gitlab_username)
+            elif provider_key == "jira":
+                has_mapping = bool(identity and identity.jira_account_id)
+            if not has_mapping:
+                issue_create_form.assignee_user_id.errors.append(
+                    "Selected user lacks the required identity mapping."
+                )
+                form_valid = False
+
+        if form_valid and link is not None:
+            summary = (issue_create_form.summary.data or "").strip()
+            description = (issue_create_form.description.data or "").strip() or None
+            issue_type_value = (
+                (issue_create_form.issue_type.data or "").strip() or None
+            )
+            labels_raw = issue_create_form.labels.data or ""
+            labels = [
+                label.strip() for label in labels_raw.split(",") if label.strip()
+            ]
+            milestone_value = (issue_create_form.milestone.data or "").strip() or None
+            priority_value = (issue_create_form.priority.data or "").strip() or None
+            assignee_value = assignee_user_id or None
+            try:
+                payload = create_issue_for_project_integration(
+                    link,
+                    summary=summary,
+                    description=description,
+                    issue_type=issue_type_value,
+                    labels=labels or None,
+                    milestone=milestone_value,
+                    priority=priority_value,
+                    custom_fields=(custom_payload or None),
+                    assignee_user_id=assignee_value,
+                )
+                sync_project_integration(link)
+                db.session.commit()
+            except IssueSyncError as exc:
+                db.session.rollback()
+                flash(f"Failed to create issue: {exc}", "danger")
+            except Exception:  # noqa: BLE001
+                db.session.rollback()
+                current_app.logger.exception(
+                    "Issue creation failed for project_integration_id=%s",
+                    link.id,
+                )
+                flash("Unexpected error while creating the issue.", "danger")
+            else:
+                issue_create_modal_open = False
+                integration = link.integration
+                provider_display = (
+                    (
+                        integration.name
+                        or (integration.provider or "Integration").title()
+                    )
+                    if integration
+                    else "Integration"
+                )
+                current_app.logger.info(
+                    "Issue %s created via %s by user_id=%s",
+                    payload.external_id,
+                    provider_display,
+                    current_user.id,
+                )
+                flash(
+                    f"Created issue {payload.external_id} via {provider_display}.",
+                    "success",
+                )
+                return redirect(url_for("admin.manage_issues"))
+        elif request.method == "POST" and issue_create_form.submit.data:
+            flash("Please correct the errors in the issue form.", "danger")
+
     issues = ExternalIssue.query.options(
         selectinload(ExternalIssue.project_integration)
         .selectinload(ProjectIntegration.project)
@@ -2141,6 +2443,12 @@ def manage_issues():
         current_user_name=current_user_name,
         ai_tool_commands=ai_tool_commands,
         default_ai_shell=default_ai_shell,
+        issue_create_form=issue_create_form,
+        issue_create_options=creation_metadata,
+        issue_create_modal_open=issue_create_modal_open,
+        issue_create_capabilities=assignee_capabilities,
+        issue_custom_field_values=custom_field_values,
+        issue_custom_field_errors=custom_field_errors,
     )
 
 

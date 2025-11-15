@@ -4,12 +4,61 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
+from app.services import agent_context as agent_context_module
 from app.services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
     extract_issue_description,
     render_issue_context,
     write_tracked_issue_context,
 )
+@pytest.fixture
+def user_workspace(monkeypatch, tmp_path):
+    workspace_root = tmp_path / "workspace"
+    workspace_root.mkdir(parents=True, exist_ok=True)
+    (workspace_root / "AGENTS.md").write_text("# Base Instructions\n", encoding="utf-8")
+
+    def fake_get_workspace_path(project, user):
+        return workspace_root
+
+    def fake_resolve_linux_username(user):
+        return "testuser"
+
+    def fake_test_path(username, path):
+        return Path(path).exists()
+
+    def fake_run_as_user(username, command, **kwargs):
+        if command[:2] == ["test", "-f"]:
+            target = Path(command[-1])
+            return SimpleNamespace(success=target.exists(), stdout="")
+        if command[0] == "cat":
+            target = Path(command[1])
+            stdout = target.read_text(encoding="utf-8") if target.exists() else ""
+            return SimpleNamespace(success=True, stdout=stdout)
+        raise AssertionError(f"Unexpected sudo command: {command}")
+
+    original_subprocess_run = agent_context_module.subprocess.run
+
+    def fake_subprocess_run(cmd, *, input=None, **kwargs):
+        if len(cmd) >= 5 and cmd[-2] == "tee":
+            target_path = Path(cmd[-1])
+            target_path.write_text(input or "", encoding="utf-8")
+            return SimpleNamespace(returncode=0)
+        return original_subprocess_run(cmd, input=input, **kwargs)
+
+    monkeypatch.setattr(
+        agent_context_module, "get_workspace_path", fake_get_workspace_path
+    )
+    monkeypatch.setattr(
+        agent_context_module, "resolve_linux_username", fake_resolve_linux_username
+    )
+    monkeypatch.setattr(agent_context_module, "test_path", fake_test_path)
+    monkeypatch.setattr(agent_context_module, "run_as_user", fake_run_as_user)
+    monkeypatch.setattr(agent_context_module.subprocess, "run", fake_subprocess_run)
+
+    return workspace_root
+
 
 
 class ProjectStub:
@@ -42,6 +91,7 @@ def _make_issue(
         created_at=now,
         project_integration=project_integration,
         raw_payload=raw_payload or {},
+        comments=[],
     )
 
 
@@ -133,8 +183,10 @@ def test_extract_issue_description_handles_absent_text():
     assert extract_issue_description(issue) is None
 
 
-def test_write_tracked_issue_context_includes_git_identity(tmp_path):
-    project = ProjectStub(local_path=str(tmp_path / "repo"))
+def test_write_tracked_issue_context_includes_git_identity(
+    tmp_path, user_workspace
+):
+    project = ProjectStub(local_path=str(user_workspace))
     Path(project.local_path).mkdir(parents=True, exist_ok=True)
     issue = _make_issue("github", external_id="123")
     identity = SimpleNamespace(name="Owner One", email="owner@example.com")

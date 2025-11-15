@@ -15,6 +15,42 @@ from .utils import ensure_base_url, get_timeout, parse_datetime
 MAX_COMMENTS_PER_ISSUE = 20
 
 
+def _resolve_gitlab_milestone(project: Any, reference: str | None, gitlab_exc: Any) -> int | None:
+    if not reference:
+        return None
+    text = str(reference).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        try:
+            return int(text)
+        except ValueError:
+            return None
+    try:
+        milestones = project.milestones.list(
+            search=text,
+            per_page=100,
+            order_by="updated_at",
+            sort="desc",
+        )
+    except gitlab_exc.GitlabError:
+        return None
+
+    target = text.lower()
+    for milestone in milestones or []:
+        title = getattr(milestone, "title", "") or ""
+        if str(title).strip().lower() != target:
+            continue
+        identifier = getattr(milestone, "id", None) or getattr(milestone, "iid", None)
+        if identifier is None:
+            continue
+        try:
+            return int(identifier)
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 def _build_client(integration: TenantIntegration, base_url: str | None = None):
     try:
         from gitlab import Gitlab
@@ -120,6 +156,9 @@ def create_issue(
             payload["description"] = request.description
         if request.labels:
             payload["labels"] = request.labels
+        milestone_id = _resolve_gitlab_milestone(project, request.milestone, gitlab_exc)
+        if milestone_id is not None:
+            payload["milestone_id"] = milestone_id
         if assignee:
             # GitLab requires user ID, but we'll pass username and let it resolve
             # Search for user by username to get their ID

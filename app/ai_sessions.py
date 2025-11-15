@@ -450,7 +450,8 @@ def create_session(
                 # Create temp directory as the target Linux user (not syseng)
                 # This ensures Claude CLI can create subdirectories like 'debug' later
                 if not test_path(linux_username, str(temp_dir)):
-                    mkdir(linux_username, str(temp_dir), mode=0o700)
+                    mkdir(linux_username, str(temp_dir))
+                    run_as_user(linux_username, ["chmod", "700", str(temp_dir)])
 
                 # Write API key file as the target Linux user using tee with stdin
                 temp_key_file = temp_dir / "api_key"

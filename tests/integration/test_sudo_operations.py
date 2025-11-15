@@ -8,17 +8,23 @@ Skip these tests in CI unless CI is configured with proper sudo access.
 """
 
 import os
+import sys
+from pathlib import Path
 
 import pytest
 
-from app.services.sudo_service import (
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from app.services.sudo_service import (  # noqa: E402
     SudoError,
     chgrp,
     chmod,
     mkdir,
     rm_rf,
     run_as_user,
-    test_path,
+    test_path as sudo_test_path,
 )
 
 # Skip all tests in this module if not running as a user with sudo access
@@ -99,13 +105,13 @@ class TestPathOperations:
         test_file = temp_test_dir / "test_file.txt"
         test_file.write_text("test content")
 
-        assert test_path(test_username, str(test_file))
+        assert sudo_test_path(test_username, str(test_file))
 
     def test_test_path_not_exists(self, test_username, temp_test_dir):
         """Test checking for non-existing path."""
         nonexistent = temp_test_dir / "nonexistent.txt"
 
-        assert not test_path(test_username, str(nonexistent))
+        assert not sudo_test_path(test_username, str(nonexistent))
 
     def test_mkdir_creates_directory(self, test_username, temp_test_dir):
         """Test directory creation."""
@@ -178,12 +184,12 @@ class TestWorkspaceSimulation:
         assert workspace_path.exists()
 
         # Verify we can check if it exists via sudo
-        assert test_path(test_username, str(workspace_path))
+        assert sudo_test_path(test_username, str(workspace_path))
 
         # Create a .git directory to simulate initialized workspace
         git_dir = workspace_path / ".git"
         mkdir(test_username, str(git_dir))
-        assert test_path(test_username, str(git_dir))
+        assert sudo_test_path(test_username, str(git_dir))
 
         # Cleanup
         rm_rf(test_username, str(workspace_path))
@@ -197,11 +203,11 @@ class TestWorkspaceSimulation:
         mkdir(test_username, str(workspace_path))
 
         # Simulate clone failure (no .git directory created)
-        assert test_path(test_username, str(workspace_path))
-        assert not test_path(test_username, str(workspace_path / ".git"))
+        assert sudo_test_path(test_username, str(workspace_path))
+        assert not sudo_test_path(test_username, str(workspace_path / ".git"))
 
         # Cleanup should remove the directory
-        if test_path(test_username, str(workspace_path)):
+        if sudo_test_path(test_username, str(workspace_path)):
             rm_rf(test_username, str(workspace_path))
 
         assert not workspace_path.exists()

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import fcntl
-import logging
 import os
 import pty
 import shlex
@@ -12,7 +11,6 @@ import termios
 import threading
 import uuid
 from base64 import b64encode
-from pathlib import Path
 from queue import Empty, Queue
 from select import select
 from typing import Optional
@@ -28,17 +26,9 @@ from .services.gemini_config_service import (
     ensure_user_config,
     sync_credentials_to_cli_home,
 )
-from .services.git_service import (
-    ProjectSSHKeyReference,
-    build_project_git_env,
-    resolve_project_ssh_key_path,
-    resolve_project_ssh_key_reference,
-)
-from .services.tmux_metadata import record_tmux_ssh_keys, record_tmux_tool
+from .services.git_service import build_project_git_env
+from .services.tmux_metadata import record_tmux_tool
 from .services.tmux_service import ensure_project_window
-
-# Module-level logger for use in background threads
-logger = logging.getLogger(__name__)
 
 
 class AISession:
@@ -51,7 +41,6 @@ class AISession:
         pid: int,
         fd: int,
         tmux_target: str | None = None,
-        tool: str | None = None,
     ):
         self.id = session_id
         self.project_id = project_id
@@ -60,11 +49,8 @@ class AISession:
         self.pid = pid
         self.fd = fd
         self.tmux_target = tmux_target
-        self.tool = tool
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
-        self.output_buffer: list[bytes] = []  # Buffer for session ID detection
-        self.detected_session_id: str | None = None
 
     def close(self) -> None:
         if self.stop_event.is_set():
@@ -117,9 +103,6 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
     return fallback_shell
 
 
-SSH_AGENT_SSH_COMMAND = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
-
-
 def _first_command_token(command: str | None) -> str | None:
     if not command:
         return None
@@ -128,92 +111,6 @@ def _first_command_token(command: str | None) -> str | None:
     except ValueError:
         return None
     return tokens[0] if tokens else None
-
-
-def _load_project_ssh_key_material(project, key_path: str | None = None) -> str | None:
-    key_path = key_path or resolve_project_ssh_key_path(project)
-    if not key_path:
-        return None
-    try:
-        data = Path(key_path).read_text(encoding="utf-8")
-    except OSError as exc:
-        current_app.logger.warning(
-            "Unable to read SSH key at %s for project %s: %s",
-            key_path,
-            getattr(project, "id", "unknown"),
-            exc,
-        )
-        return None
-    sanitized = data.strip()
-    return sanitized or None
-
-
-def _interactive_ssh_agent_commands(key_material: str) -> list[str]:
-    normalized_key = key_material
-    # ssh-add/libcrypto expects newline-terminated key material
-    if not normalized_key.endswith("\n"):
-        normalized_key = f"{normalized_key}\n"
-    encoded_key = b64encode(normalized_key.encode("utf-8")).decode("ascii")
-    heredoc_script = "\n".join(
-        [
-            "(cat <<'AIOPS_KEY_B64' | base64 -d | ssh-add - >/dev/null",
-            encoded_key,
-            "AIOPS_KEY_B64",
-            ")",
-        ]
-    )
-    return [
-        'eval "$(ssh-agent -s)" >/dev/null',
-        "trap 'ssh-agent -k >/dev/null 2>&1' EXIT",
-        heredoc_script,
-    ]
-
-
-def _script_ssh_agent_commands(key_material: str) -> list[str]:
-    lines = key_material.splitlines()
-    if not lines:
-        return []
-    return [
-        'eval "$(ssh-agent -s)" >/dev/null',
-        "trap 'ssh-agent -k >/dev/null 2>&1' EXIT",
-        "ssh-add <<'AIOPS_SSH_KEY'",
-        *lines,
-        "AIOPS_SSH_KEY",
-    ]
-
-
-def _summarize_ssh_key_reference(
-    reference: ProjectSSHKeyReference | None,
-) -> dict[str, str | None] | None:
-    if reference is None:
-        return None
-    key_obj = reference.key
-    name = getattr(key_obj, "name", None)
-    fingerprint = getattr(key_obj, "fingerprint", None)
-    source = reference.source or "project"
-    source_label = {
-        "project": "Project key",
-        "tenant": "Tenant key",
-        "system": "System key",
-    }.get(source, "SSH key")
-    label_parts = [source_label]
-    if name:
-        label_parts.append(name)
-    label = " • ".join(label_parts)
-    fingerprint_short = None
-    if fingerprint:
-        label = f"{label} ({fingerprint})"
-        short_display = fingerprint[:23]
-        if len(fingerprint) > 23:
-            short_display = f"{fingerprint[:23]}..."
-        fingerprint_short = short_display
-    return {
-        "source": source,
-        "name": name,
-        "fingerprint": fingerprint,
-        "fingerprint_short": fingerprint_short or fingerprint,
-        "label": label,
-    }
 
 
 def _uses_gemini(command_str: str, tool: str | None) -> bool:
@@ -345,49 +242,6 @@ def _reader_loop(session: AISession) -> None:
                 if not data:
                     break
                 session.queue.put(data)
-
-                # Buffer output for session ID detection (limit to ~50KB)
-                if len(session.output_buffer) < 50:
-                    session.output_buffer.append(data)
-
-                    # Try to detect session ID if not already found
-                    if session.detected_session_id is None and session.tool:
-                        from .services.ai_session_service import (
-                            detect_session_id,
-                            save_session,
-                        )
-
-                        # Decode and check recent output
-                        try:
-                            recent_text = b"".join(session.output_buffer[-10:]).decode(
-                                "utf-8", errors="ignore"
-                            )
-                            detected_id = detect_session_id(session.tool, recent_text)
-
-                            if detected_id:
-                                session.detected_session_id = detected_id
-                                logger.info(
-                                    "Detected %s session ID: %s",
-                                    session.tool,
-                                    detected_id,
-                                )
-
-                                # Save to database
-                                try:
-                                    save_session(
-                                        project_id=session.project_id,
-                                        user_id=session.user_id,
-                                        tool=session.tool,
-                                        session_id=detected_id,
-                                        command=session.command,
-                                        tmux_target=session.tmux_target,
-                                    )
-                                except Exception as exc:  # noqa: BLE001
-                                    logger.error(
-                                        "Failed to save session to DB: %s", exc
-                                    )
-                        except Exception:  # noqa: BLE001
-                            pass  # Ignore decoding/detection errors
     finally:
         session.queue.put(None)
         session.stop_event.set()
@@ -425,72 +279,8 @@ def create_session(
             codex_env_exports.append(
                 f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}"
             )
-    # Claude API key setup
-    uses_claude = _uses_claude(command_str, tool)
+    # Claude uses web auth, no token injection needed
     claude_env_exports: list[str] = []
-    if uses_claude:
-        try:
-            from .services.claude_config_service import load_claude_api_key
-
-            # Get the API key content
-            api_key_content = load_claude_api_key(user_id=user_id)
-            if not api_key_content:
-                raise ValueError("No Claude API key found for user")
-
-            # Store key in temp file for this session
-            import tempfile
-
-            temp_dir = Path(tempfile.gettempdir()) / f"claude-{user_id}"
-
-            # Determine the target Linux user before creating the directory
-            user = User.query.get(user_id)
-            if user:
-                from .services.linux_users import resolve_linux_username
-                from .services.sudo_service import mkdir, run_as_user, test_path
-
-                linux_username = resolve_linux_username(user)
-
-                # Create temp directory as the target Linux user (not syseng)
-                # This ensures Claude CLI can create subdirectories like 'debug' later
-                if not test_path(linux_username, str(temp_dir)):
-                    mkdir(linux_username, str(temp_dir))
-                    run_as_user(linux_username, ["chmod", "700", str(temp_dir)])
-
-                # Write API key file as the target Linux user using tee with stdin
-                temp_key_file = temp_dir / "api_key"
-                import subprocess
-
-                subprocess.run(
-                    ["sudo", "-n", "-u", linux_username, "tee", str(temp_key_file)],
-                    input=f"{api_key_content}\n".encode(),
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                    check=True,
-                    timeout=5.0,
-                )
-                # Set permissions via sudo
-                run_as_user(
-                    linux_username,
-                    ["chmod", "600", str(temp_key_file)],
-                    env=None,
-                    timeout=5.0,
-                    check=True,
-                    capture_output=True,
-                )
-            else:
-                # Fallback: create as syseng (old behavior)
-                temp_dir.mkdir(mode=0o700, exist_ok=True)
-                temp_key_file = temp_dir / "api_key"
-                temp_key_file.write_text(api_key_content + "\n", encoding="utf-8")
-                temp_key_file.chmod(0o600)
-
-            claude_env_exports.append(
-                f"export CLAUDE_CONFIG_DIR={shlex.quote(str(temp_dir))}"
-            )
-        except Exception as exc:  # noqa: BLE001
-            current_app.logger.warning(
-                "Claude credentials unavailable for user %s: %s", user_id, exc
-            )
 
     default_rows = current_app.config.get("DEFAULT_AI_ROWS", 30)
     default_cols = current_app.config.get("DEFAULT_AI_COLS", 100)
@@ -510,7 +300,6 @@ def create_session(
     git_author_exports: list[str] = []
     if user:
         from .services.linux_users import resolve_linux_username
-
         linux_username_for_session = resolve_linux_username(user)
         git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
         git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
@@ -532,34 +321,17 @@ def create_session(
     if pane is None:
         raise RuntimeError("Unable to access tmux pane for project window.")
 
+    # For per-user sessions, don't inject project SSH keys - let users use their own
+    # For system sessions (syseng), use project SSH keys
+    use_project_ssh_keys = linux_username_for_session is None
+
     git_env = build_project_git_env(project)
     for key, value in git_env.items():
         if value:
             os.environ[key] = value
 
-    ssh_command = git_env.get("GIT_SSH_COMMAND")
-    key_reference = resolve_project_ssh_key_reference(project)
-    key_path_for_material = key_reference.path if key_reference else None
-    ssh_key_records: list[dict[str, str | None]] = []
-    interactive_agent_commands: list[str] = []
-    script_agent_commands: list[str] = []
-    if linux_username_for_session and linux_username_for_session != "syseng":
-        # Resolve managed SSH key material so we can load it into an ssh-agent for the user
-        ssh_command = None
-        key_material = _load_project_ssh_key_material(
-            project, key_path=key_path_for_material
-        )
-        if key_material:
-            interactive_agent_commands = _interactive_ssh_agent_commands(key_material)
-            script_agent_commands = _script_ssh_agent_commands(key_material)
-            ssh_command = SSH_AGENT_SSH_COMMAND
-            key_summary = _summarize_ssh_key_reference(key_reference)
-            if key_summary:
-                ssh_key_records.append(key_summary)
-    elif key_reference:
-        key_summary = _summarize_ssh_key_reference(key_reference)
-        if key_summary:
-            ssh_key_records.append(key_summary)
+    # Only pass SSH command to user sessions if we want to use project keys
+    ssh_command = git_env.get("GIT_SSH_COMMAND") if use_project_ssh_keys else None
 
     # Determine start directory (needed for both child and parent processes)
     start_dir = current_app.instance_path
@@ -603,7 +375,6 @@ def create_session(
         pid,
         fd,
         f"{session_name}:{window_name}",
-        tool=tool,
     )
     if rows and cols:
         _set_winsize(fd, rows, cols)
@@ -628,23 +399,17 @@ def create_session(
                 setup_commands = []
 
                 # Change to workspace directory
-                setup_commands.append(
-                    f"cd {shlex.quote(start_dir)} 2>/dev/null || true"
-                )
+                setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
 
                 # Export environment variables
                 if ssh_command:
-                    setup_commands.append(
-                        f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
-                    )
+                    setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
                 for export_cmd in git_author_exports:
                     setup_commands.append(export_cmd)
                 for export_cmd in codex_env_exports:
                     setup_commands.append(export_cmd)
                 for export_cmd in claude_env_exports:
                     setup_commands.append(export_cmd)
-                for agent_cmd in interactive_agent_commands:
-                    setup_commands.append(agent_cmd)
 
                 # Clear screen
                 setup_commands.append("clear")
@@ -674,17 +439,13 @@ def create_session(
 
                 # Export environment variables
                 if ssh_command:
-                    script_lines.append(
-                        f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
-                    )
+                    script_lines.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
                 for export_cmd in git_author_exports:
                     script_lines.append(export_cmd)
                 for export_cmd in codex_env_exports:
                     script_lines.append(export_cmd)
                 for export_cmd in claude_env_exports:
                     script_lines.append(export_cmd)
-                for agent_cmd in script_agent_commands:
-                    script_lines.append(agent_cmd)
 
                 # Clear and run the command
                 script_lines.append("clear")
@@ -736,9 +497,7 @@ def create_session(
             try:
                 pane.send_keys("clear", enter=True)
             except Exception:  # noqa: BLE001
-                current_app.logger.debug(
-                    "Unable to clear tmux pane for %s", window_name
-                )
+                current_app.logger.debug("Unable to clear tmux pane for %s", window_name)
             final_command = command_str
 
         try:
@@ -755,8 +514,6 @@ def create_session(
 
     if tool:
         record_tmux_tool(session_record.tmux_target, tool)
-    if session_record.tmux_target:
-        record_tmux_ssh_keys(session_record.tmux_target, ssh_key_records)
     threading.Thread(target=_reader_loop, args=(session_record,), daemon=True).start()
     return session_record
 

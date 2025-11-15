@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import timezone
 from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user  # type: ignore
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 
 from ..ai_sessions import (
     close_session,
@@ -16,9 +18,10 @@ from ..ai_sessions import (
 )
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..extensions import csrf, db
-from ..models import Project, Tenant, User
+from ..models import ExternalIssue, Project, ProjectIntegration, Tenant, User
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
 from ..services.tmux_service import session_name_for_user
+from ..services.issues.utils import normalize_issue_status
 
 api_bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -66,6 +69,52 @@ def _project_to_dict(
     if include_status:
         payload["git_status"] = get_repo_status(project, user=_current_user_obj())
     return payload
+
+
+def _serialize_timestamp(value):
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat()
+
+
+def _issue_to_dict(issue: ExternalIssue) -> dict[str, Any]:
+    integration = (
+        issue.project_integration.integration if issue.project_integration else None
+    )
+    project = (
+        issue.project_integration.project if issue.project_integration else None
+    )
+    tenant = project.tenant if project else None
+    status_key, status_label = normalize_issue_status(issue.status)
+    updated_reference = (
+        issue.external_updated_at or issue.updated_at or issue.created_at
+    )
+    provider_key = (
+        (integration.provider or "").lower()
+        if integration and integration.provider
+        else ""
+    )
+    return {
+        "id": issue.id,
+        "external_id": issue.external_id,
+        "title": issue.title,
+        "status": issue.status,
+        "status_key": status_key,
+        "status_label": status_label,
+        "assignee": issue.assignee,
+        "url": issue.url,
+        "labels": issue.labels or [],
+        "provider": integration.provider if integration else None,
+        "provider_key": provider_key,
+        "integration_name": integration.name if integration else None,
+        "project_id": project.id if project else None,
+        "project_name": project.name if project else None,
+        "tenant_id": tenant.id if tenant else None,
+        "tenant_name": tenant.name if tenant else None,
+        "updated_at": _serialize_timestamp(updated_reference),
+    }
 
 
 def _slugify(name: str) -> str:
@@ -200,6 +249,53 @@ def get_project(project_id: int):
     if not _ensure_project_access(project):
         return jsonify({"error": "Access denied."}), 403
     return jsonify({"project": _project_to_dict(project, include_status=True)})
+
+
+@api_bp.get("/issues")
+def list_issues():
+    if not current_user.is_admin:
+        return jsonify({"error": "Access denied."}), 403
+
+    status_filter = (request.args.get("status") or "").strip().lower()
+    if status_filter == "all":
+        status_filter = ""
+    provider_filter = (
+        (request.args.get("provider") or request.args.get("source") or "")
+        .strip()
+        .lower()
+    )
+    if provider_filter == "all":
+        provider_filter = ""
+    project_id = request.args.get("project_id", type=int)
+    limit = request.args.get("limit", type=int)
+
+    query = ExternalIssue.query.options(
+        selectinload(ExternalIssue.project_integration)
+        .selectinload(ProjectIntegration.project)
+        .selectinload(Project.tenant),
+        selectinload(ExternalIssue.project_integration).selectinload(
+            ProjectIntegration.integration
+        ),
+    )
+    if project_id is not None:
+        query = query.join(ProjectIntegration).filter(
+            ProjectIntegration.project_id == project_id
+        )
+
+    issues = query.all()
+    payload: list[dict[str, Any]] = []
+    for issue in issues:
+        issue_payload = _issue_to_dict(issue)
+        if status_filter and issue_payload["status_key"] != status_filter:
+            continue
+        if provider_filter and issue_payload.get("provider_key") != provider_filter:
+            continue
+        payload.append(issue_payload)
+
+    if isinstance(limit, int) and limit > 0:
+        payload = payload[:limit]
+
+    return jsonify({"count": len(payload), "issues": payload})
 
 
 @api_bp.post("/projects/<int:project_id>/git")

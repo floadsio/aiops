@@ -618,6 +618,13 @@
         </option>
       {% endfor %}
     </select>
+    <select id="issue-project-filter" name="project" onchange="this.form.submit()" aria-label="Filter by project">
+      {% for option in project_options %}
+        <option value="{{ option.value }}" {% if option.value == project_filter %}selected{% endif %}>
+          {{ option.label }} ({{ option.count }})
+        </option>
+      {% endfor %}
+    </select>
     <select id="issue-assignee-filter" name="assignee" onchange="this.form.submit()" aria-label="Filter by assignee">
       {% for option in assignee_options %}
         <option value="{{ option.value }}" {% if option.value == assignee_filter %}selected{% endif %}>
@@ -640,7 +647,7 @@
   </button>
 
   {% if current_user_name %}
-    <a href="{{ url_for('admin.manage_issues', status=status_filter if status_filter != 'all' else None, tenant=tenant_filter if tenant_filter != 'all' else None, assignee='__me__', sort=sort_state.key, direction=sort_state.direction) }}" class="secondary" role="button">
+    <a href="{{ url_for('admin.manage_issues', status=status_filter if status_filter != 'all' else None, tenant=tenant_filter if tenant_filter != 'all' else None, project=project_filter if project_filter != 'all' else None, assignee='__me__', sort=sort_state.key, direction=sort_state.direction) }}" class="secondary" role="button">
       My Issues
     </a>
   {% endif %}
@@ -810,6 +817,12 @@
     issue{{ '' if total_issue_full_count == 1 else 's' }}
     {% if status_filter != 'all' %}
       (status: {{ status_filter_label }})
+    {% endif %}
+    {% if tenant_filter != 'all' %}
+      (tenant: {{ tenant_filter_label }})
+    {% endif %}
+    {% if project_filter != 'all' %}
+      (project: {{ project_filter_label }})
     {% endif %}
     {% if assignee_filter != 'all' %}
       (assignee: {{ assignee_filter_label }})

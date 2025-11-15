@@ -449,7 +449,7 @@ def _store_private_key_file(ssh_key: SSHKey, private_key: str) -> None:
             handle.write(sanitized)
             if not sanitized.endswith("\n"):
                 handle.write("\n")
-        os.chmod(destination, 0o640)
+        os.chmod(destination, 0o600)
     except OSError as exc:
         current_app.logger.error(
             "Failed to store private key for %s: %s", ssh_key.name, exc
@@ -2047,12 +2047,20 @@ def manage_issues():
     }
     tenant_counts: Counter[str] = Counter()
     tenant_labels: dict[str, str] = {}
+    project_counts: Counter[str] = Counter()
+    project_labels: dict[str, str] = {}
     assignee_counts: Counter[str] = Counter()
     assignee_labels: dict[str, str] = {}
     for issue in issues:
-        tenant = None
-        if issue.project_integration and issue.project_integration.project:
-            tenant = issue.project_integration.project.tenant
+        project = (
+            issue.project_integration.project if issue.project_integration else None
+        )
+        project_key = str(project.id) if project else "__unknown__"
+        project_label = project.name if project else "Unknown project"
+        project_counts[project_key] += 1
+        project_labels.setdefault(project_key, project_label)
+
+        tenant = project.tenant if project else None
         tenant_key = str(tenant.id) if tenant else "__unknown__"
         tenant_label = tenant.name if tenant else "Unknown tenant"
         tenant_counts[tenant_key] += 1
@@ -2113,6 +2121,7 @@ def manage_issues():
                 "integration_name": integration.name if integration else "",
                 "project_name": project.name if project else "",
                 "project_id": project.id if project else None,
+                "project_key": str(project.id) if project else "__unknown__",
                 "tenant_name": tenant.name if tenant else "",
                 "tenant_id": tenant.id if tenant else None,
                 "tenant_color": tenant.color if tenant else DEFAULT_TENANT_COLOR,
@@ -2184,6 +2193,7 @@ def manage_issues():
 
     raw_filter = (request.args.get("status") or "").strip().lower()
     tenant_raw_filter = (request.args.get("tenant") or "").strip()
+    project_raw_filter = (request.args.get("project") or "").strip()
     assignee_raw_filter = (request.args.get("assignee") or "").strip()
     raw_sort = (request.args.get("sort") or "").strip().lower()
     sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
@@ -2212,6 +2222,14 @@ def manage_issues():
     else:
         tenant_filter = "all"
 
+    if project_raw_filter and project_raw_filter.lower() != "all":
+        if project_raw_filter in project_labels:
+            project_filter = project_raw_filter
+        else:
+            project_filter = "all"
+    else:
+        project_filter = "all"
+
     # Get current user's name for "My Issues" matching
     current_user_name = current_user.name if hasattr(current_user, "name") else None
 
@@ -2234,6 +2252,10 @@ def manage_issues():
             entry_tenant = entry.get("tenant_id")
             entry_key = str(entry_tenant) if entry_tenant is not None else "__unknown__"
             if entry_key != tenant_filter:
+                return False
+        if project_filter != "all":
+            entry_project = entry.get("project_key") or "__unknown__"
+            if entry_project != project_filter:
                 return False
         if assignee_filter != "all":
             entry_assignee = entry.get("assignee") or "__unassigned__"
@@ -2335,6 +2357,29 @@ def manage_issues():
         else tenant_labels.get(tenant_filter, tenant_filter)
     )
 
+    project_options = [
+        {
+            "value": "all",
+            "label": "All projects",
+            "count": total_issue_full_count,
+        }
+    ]
+
+    for key, label in sorted(project_labels.items(), key=lambda item: item[1].lower()):
+        project_options.append(
+            {
+                "value": key,
+                "label": label,
+                "count": project_counts.get(key, 0),
+            }
+        )
+
+    project_filter_label = (
+        "All projects"
+        if project_filter == "all"
+        else project_labels.get(project_filter, project_filter)
+    )
+
     # Build assignee options
     assignee_options = [
         {
@@ -2383,6 +2428,8 @@ def manage_issues():
         base_query_params["status"] = status_filter
     if "tenant" in request.args:
         base_query_params["tenant"] = tenant_filter
+    if "project" in request.args:
+        base_query_params["project"] = project_filter
     if "assignee" in request.args:
         base_query_params["assignee"] = assignee_filter
 
@@ -2428,6 +2475,9 @@ def manage_issues():
         tenant_filter=tenant_filter,
         tenant_filter_label=tenant_filter_label,
         tenant_options=tenant_options,
+        project_filter=project_filter,
+        project_filter_label=project_filter_label,
+        project_options=project_options,
         assignee_filter=assignee_filter,
         assignee_filter_label=assignee_filter_label,
         assignee_options=assignee_options,

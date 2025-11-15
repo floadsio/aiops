@@ -746,13 +746,15 @@ def test_dashboard_refresh_project_git(app, client, login_admin, monkeypatch, tm
         db.session.add(project)
         db.session.commit()
         project_id = project.id
+        expected_user_id = user.id
 
     captured = {}
 
-    def fake_run(project_obj, action, ref=None, clean=False):
+    def fake_run(project_obj, action, ref=None, clean=False, user=None):
         captured["project"] = project_obj.id
         captured["action"] = action
         captured["clean"] = clean
+        captured["user"] = user.id if user else None
         return "Pulled"
 
     monkeypatch.setattr("app.routes.admin.run_git_action", fake_run)
@@ -767,6 +769,7 @@ def test_dashboard_refresh_project_git(app, client, login_admin, monkeypatch, tm
     assert captured["project"] == project_id
     assert captured["action"] == "pull"
     assert captured["clean"] is False
+    assert captured["user"] == expected_user_id
     assert b"Pulled latest changes" in response.data
 
 
@@ -787,13 +790,15 @@ def test_admin_can_clean_pull_project_repo(
         db.session.add(project)
         db.session.commit()
         project_id = project.id
+        expected_user_id = user.id
 
     captured = {}
 
-    def fake_run(project_obj, action, ref=None, clean=False):
+    def fake_run(project_obj, action, ref=None, clean=False, user=None):
         captured["project"] = project_obj.id
         captured["action"] = action
         captured["clean"] = clean
+        captured["user"] = user.id if user else None
         return "Clean Pull"
 
     monkeypatch.setattr("app.routes.admin.run_git_action", fake_run)
@@ -808,6 +813,7 @@ def test_admin_can_clean_pull_project_repo(
     assert captured["project"] == project_id
     assert captured["action"] == "pull"
     assert captured["clean"] is True
+    assert captured["user"] == expected_user_id
     assert b"Clean pull completed" in response.data
 
 

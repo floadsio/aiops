@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -200,6 +201,48 @@ def _positions_in_html(html: str, identifiers: list[str]) -> list[int]:
     return positions
 
 
+def _add_project_with_issue(app, slug: str, *, external_id: str, title: str):
+    repo_root = Path(app.config["REPO_STORAGE_PATH"])
+    repo_root.mkdir(parents=True, exist_ok=True)
+    with app.app_context():
+        user = User.query.filter_by(email="admin@example.com").one()
+        tenant = Tenant.query.first()
+        integration = TenantIntegration.query.first()
+
+        project = Project(
+            name=f"{slug}-project",
+            repo_url=f"https://example.com/{slug}.git",
+            default_branch="main",
+            local_path=str(repo_root / slug),
+            description=f"{slug.title()} project",
+            tenant_id=tenant.id,
+            owner_id=user.id,
+        )
+        db.session.add(project)
+        db.session.commit()
+
+        link = ProjectIntegration(
+            project_id=project.id,
+            integration_id=integration.id,
+            external_identifier=f"{slug}::repo",
+            config={},
+        )
+        db.session.add(link)
+        db.session.commit()
+
+        issue = ExternalIssue(
+            project_integration_id=link.id,
+            external_id=external_id,
+            title=title,
+            status="Open",
+            external_updated_at=datetime.now(timezone.utc),
+        )
+        db.session.add(issue)
+        db.session.commit()
+
+        return project.id, issue.external_id, issue.title
+
+
 def test_default_sorting_uses_updated_desc(client, login_admin):
     response = client.get("/admin/issues")
     assert response.status_code == 200
@@ -256,6 +299,45 @@ def test_issue_comments_rendered(client, login_admin):
 
     body = response.get_data(as_text=True)
     assert "Please attach the latest slow query logs." in body
+
+
+def test_project_filter_dropdown_present(client, login_admin):
+    response = client.get("/admin/issues")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert 'name="project"' in body
+    assert "All projects" in body
+
+
+def test_project_filter_limits_issues(client, login_admin, app):
+    project_id, _, new_title = _add_project_with_issue(
+        app,
+        "omega",
+        external_id="ISSUE-900",
+        title="Omega fix",
+    )
+
+    response = client.get(f"/admin/issues?project={project_id}")
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert new_title in body
+    assert "Delta outage" not in body
+
+
+def test_api_issues_can_filter_by_project(client, login_admin, app):
+    project_id, external_id, _ = _add_project_with_issue(
+        app,
+        "sigma",
+        external_id="ISSUE-901",
+        title="Sigma follow-up",
+    )
+
+    response = client.get(f"/api/issues?project_id={project_id}")
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["count"] == 1
+    assert data["issues"][0]["external_id"] == external_id
+    assert data["issues"][0]["project_id"] == project_id
 
 
 def test_admin_can_update_issue_status(client, login_admin, app):

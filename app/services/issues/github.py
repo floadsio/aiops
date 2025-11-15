@@ -56,9 +56,12 @@ def fetch_issues(
         issues = repo.get_issues(**issues_kwargs)
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
-        raise IssueSyncError(f"GitHub API error: {status}") from exc
+        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
+        error_detail = f": {message}" if message else ""
+        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
     except Exception as exc:  # noqa: BLE001
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     payloads: List[IssuePayload] = []
     for issue in issues:
@@ -100,9 +103,12 @@ def create_issue(
         )
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
-        raise IssueSyncError(f"GitHub API error: {status}") from exc
+        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
+        error_detail = f": {message}" if message else ""
+        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
     except Exception as exc:  # noqa: BLE001
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     return _issue_to_payload(issue)
 
@@ -133,9 +139,12 @@ def close_issue(
         issue = repo.get_issue(number=issue_number)
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
-        raise IssueSyncError(f"GitHub API error: {status}") from exc
+        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
+        error_detail = f": {message}" if message else ""
+        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
     except Exception as exc:  # noqa: BLE001
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     return _issue_to_payload(issue)
 
@@ -167,9 +176,12 @@ def assign_issue(
         issue = repo.get_issue(number=issue_number)
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
-        raise IssueSyncError(f"GitHub API error: {status}") from exc
+        message = getattr(exc, "data", {}).get("message") if hasattr(exc, "data") else None
+        error_detail = f": {message}" if message else ""
+        raise IssueSyncError(f"GitHub API error {status}{error_detail}") from exc
     except Exception as exc:  # noqa: BLE001
-        raise IssueSyncError(str(exc)) from exc
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
 
     return _issue_to_payload(issue)
 

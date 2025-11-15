@@ -96,6 +96,8 @@ def create_issue(
     integration: TenantIntegration,
     project_integration: ProjectIntegration,
     request: IssueCreateRequest,
+    *,
+    assignee: str | None = None,
 ) -> IssuePayload:
     project_ref = project_integration.external_identifier
     if not project_ref:
@@ -117,6 +119,20 @@ def create_issue(
             payload["description"] = request.description
         if request.labels:
             payload["labels"] = request.labels
+        if assignee:
+            # GitLab requires user ID, but we'll pass username and let it resolve
+            # Search for user by username to get their ID
+            try:
+                users = client.users.list(username=assignee, get_all=False)
+                if users:
+                    for user in users:
+                        if hasattr(user, "id") and hasattr(user, "username"):
+                            if user.username == assignee:
+                                payload["assignee_ids"] = [user.id]
+                                break
+            except gitlab_exc.GitlabError:
+                # If user lookup fails, skip assignee
+                pass
         issue = project.issues.create(payload)
     except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabCreateError) as exc:
         status = getattr(exc, "response_code", "unknown")

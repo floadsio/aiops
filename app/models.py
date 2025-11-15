@@ -312,6 +312,34 @@ class SystemConfig(BaseModel, TimestampMixin):
     value: Mapped[Optional[dict[str, Any]]] = mapped_column(db.JSON, nullable=True)
 
 
+class UserIdentityMap(BaseModel, TimestampMixin):
+    """Maps aiops users to their identities on external issue providers.
+
+    Used for correctly assigning issues and attributing work across
+    GitHub, GitLab, and Jira platforms.
+    """
+
+    __tablename__ = "user_identity_map"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    github_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    gitlab_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    jira_account_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    user: Mapped["User"] = relationship("User")
+
+    def __repr__(self) -> str:
+        return (
+            f"<UserIdentityMap user_id={self.user_id} "
+            f"github={self.github_username} "
+            f"gitlab={self.gitlab_username} "
+            f"jira={self.jira_account_id}>"
+        )
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

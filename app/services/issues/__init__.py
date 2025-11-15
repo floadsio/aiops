@@ -72,8 +72,9 @@ PROVIDER_REGISTRY: Dict[str, ProviderFunc] = {
 }
 
 CREATE_PROVIDER_REGISTRY: Dict[str, CreateProviderFunc] = {
-    "jira": jira.create_issue,
+    "github": github.create_issue,
     "gitlab": gitlab.create_issue,
+    "jira": jira.create_issue,
 }
 
 CLOSE_PROVIDER_REGISTRY: Dict[str, CloseProviderFunc] = {
@@ -313,6 +314,8 @@ def create_issue_for_project_integration(
     description: Optional[str] = None,
     issue_type: Optional[str] = None,
     labels: Optional[List[str]] = None,
+    *,
+    assignee_user_id: Optional[int] = None,
 ) -> IssuePayload:
     integration = project_integration.integration
     if integration is None:
@@ -334,8 +337,51 @@ def create_issue_for_project_integration(
         labels=list(labels) if labels is not None else None,
     )
 
+    # Resolve assignee from user identity mapping if provided
+    assignee_username: Optional[str] = None
+    assignee_account_id: Optional[str] = None
+    if assignee_user_id is not None:
+        from ..user_identity_service import (
+            resolve_github_username,
+            resolve_gitlab_username,
+            resolve_jira_account_id,
+        )
+
+        if provider_key == "github":
+            assignee_username = resolve_github_username(assignee_user_id)
+            if not assignee_username:
+                current_app.logger.warning(
+                    f"User {assignee_user_id} has no GitHub username mapped. "
+                    "Issue will be created without assignee."
+                )
+        elif provider_key == "gitlab":
+            assignee_username = resolve_gitlab_username(assignee_user_id)
+            if not assignee_username:
+                current_app.logger.warning(
+                    f"User {assignee_user_id} has no GitLab username mapped. "
+                    "Issue will be created without assignee."
+                )
+        elif provider_key == "jira":
+            assignee_account_id = resolve_jira_account_id(assignee_user_id)
+            if not assignee_account_id:
+                current_app.logger.warning(
+                    f"User {assignee_user_id} has no Jira account ID mapped. "
+                    "Issue will be created without assignee."
+                )
+
     try:
-        return creator(integration, project_integration, request)
+        # Call the provider's create_issue function with appropriate assignee parameter
+        if provider_key == "jira":
+            return creator(  # type: ignore[call-arg]
+                integration,
+                project_integration,
+                request,
+                assignee_account_id=assignee_account_id,
+            )
+        else:  # GitHub or GitLab
+            return creator(  # type: ignore[call-arg]
+                integration, project_integration, request, assignee=assignee_username
+            )
     except IssueSyncError:
         raise
     except Exception as exc:  # noqa: BLE001

@@ -56,6 +56,8 @@ from ..forms.admin import (
     TmuxResyncForm,
     UpdateApplicationForm,
     UserDeleteForm,
+    UserIdentityMapDeleteForm,
+    UserIdentityMapForm,
     UserResetPasswordForm,
     UserToggleAdminForm,
     UserUpdateForm,
@@ -68,6 +70,7 @@ from ..models import (
     Tenant,
     TenantIntegration,
     User,
+    UserIdentityMap,
 )
 from ..security import hash_password
 from ..services.agent_context import (
@@ -2735,3 +2738,88 @@ def delete_ssh_key(key_id: int):
     db.session.commit()
     flash("SSH key removed.", "success")
     return redirect(url_for("admin.manage_ssh_keys"))
+
+
+@admin_bp.route("/user-identity-mappings", methods=["GET", "POST"])
+@admin_required
+def manage_user_identity_mappings():
+    """Manage user identity mappings for external issue providers."""
+    from ..services.user_identity_service import (
+        UserIdentityError,
+        update_identity_map,
+    )
+
+    form = UserIdentityMapForm()
+    users = User.query.order_by(User.email).all()
+    form.user_id.choices = [(user.id, f"{user.name} ({user.email})") for user in users]
+
+    if form.validate_on_submit():
+        try:
+            update_identity_map(
+                user_id=form.user_id.data,
+                github_username=form.github_username.data or None,
+                gitlab_username=form.gitlab_username.data or None,
+                jira_account_id=form.jira_account_id.data or None,
+            )
+            db.session.commit()
+            flash("User identity mapping saved successfully.", "success")
+            return redirect(url_for("admin.manage_user_identity_mappings"))
+        except UserIdentityError as exc:
+            flash(str(exc), "danger")
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.exception("Failed to save user identity mapping.")
+            flash(f"Error saving identity mapping: {exc}", "danger")
+            db.session.rollback()
+
+    # Load existing mappings
+    identity_maps = UserIdentityMap.query.options(
+        selectinload(UserIdentityMap.user)
+    ).all()
+
+    # Create delete forms for each mapping
+    delete_forms = {
+        mapping.user_id: UserIdentityMapDeleteForm(user_id=str(mapping.user_id))
+        for mapping in identity_maps
+    }
+
+    return render_template(
+        "admin/user_identity_mappings.html",
+        form=form,
+        identity_maps=identity_maps,
+        delete_forms=delete_forms,
+    )
+
+
+@admin_bp.route("/user-identity-mappings/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def delete_user_identity_mapping(user_id: int):
+    """Delete a user identity mapping."""
+    from ..services.user_identity_service import delete_identity_map
+
+    form = UserIdentityMapDeleteForm()
+    if not form.validate_on_submit():
+        flash("Invalid delete request.", "danger")
+        return redirect(url_for("admin.manage_user_identity_mappings"))
+
+    try:
+        submitted_id = int(form.user_id.data)
+    except (TypeError, ValueError):
+        flash("Invalid user selection.", "warning")
+        return redirect(url_for("admin.manage_user_identity_mappings"))
+
+    if submitted_id != user_id:
+        flash("Mismatched user identifier.", "warning")
+        return redirect(url_for("admin.manage_user_identity_mappings"))
+
+    try:
+        if delete_identity_map(user_id):
+            db.session.commit()
+            flash("User identity mapping deleted.", "success")
+        else:
+            flash("User identity mapping not found.", "warning")
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Failed to delete user identity mapping.")
+        flash(f"Error deleting identity mapping: {exc}", "danger")
+        db.session.rollback()
+
+    return redirect(url_for("admin.manage_user_identity_mappings"))

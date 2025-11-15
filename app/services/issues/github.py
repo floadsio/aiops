@@ -72,6 +72,8 @@ def create_issue(
     integration: TenantIntegration,
     project_integration: ProjectIntegration,
     request: IssueCreateRequest,
+    *,
+    assignee: str | None = None,
 ) -> IssuePayload:
     repo_path = project_integration.external_identifier
     if not repo_path:
@@ -89,10 +91,12 @@ def create_issue(
 
         repo = client.get_repo(repo_path)
         labels = request.labels or None
+        assignees = [assignee] if assignee else None
         issue = repo.create_issue(
             title=summary,
             body=request.description or None,
             labels=labels,
+            assignees=assignees,
         )
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
@@ -213,7 +217,7 @@ def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:
     try:
         from github.GithubException import GithubException
     except Exception:  # pragma: no cover - PyGithub missing
-        GithubException = Exception  # type: ignore[assignment]
+        GithubException = Exception  # type: ignore[assignment,misc]
 
     comments: List[IssueCommentPayload] = []
     try:

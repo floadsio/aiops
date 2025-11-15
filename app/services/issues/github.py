@@ -44,12 +44,16 @@ def fetch_issues(
         from github.GithubException import GithubException
 
         repo = client.get_repo(repo_path)
-        since_value = None
+        # Build kwargs for get_issues - only include 'since' if provided
+        issues_kwargs: dict[str, Any] = {
+            "state": "all",
+            "sort": "updated",
+            "direction": "desc",
+        }
         if since:
             since_value = since if since.tzinfo else since.replace(tzinfo=timezone.utc)
-        issues = repo.get_issues(
-            state="all", sort="updated", direction="desc", since=since_value
-        )
+            issues_kwargs["since"] = since_value
+        issues = repo.get_issues(**issues_kwargs)
     except GithubException as exc:
         status = getattr(exc, "status", "unknown")
         raise IssueSyncError(f"GitHub API error: {status}") from exc

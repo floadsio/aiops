@@ -253,8 +253,20 @@ class GitLabIssueProvider(BaseIssueProvider):
     def add_comment(self, **_: Any) -> Dict[str, Any]:
         raise IssueSyncError("Adding comments to GitLab issues via API is not supported.")
 
-    def assign_issue(self, **_: Any) -> Dict[str, Any]:
-        raise IssueSyncError("Assigning GitLab issues via API is not supported yet.")
+    def assign_issue(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        assignee: str,
+    ) -> Dict[str, Any]:
+        payload = gitlab_provider.assign_issue(
+            self.integration,
+            project_integration,
+            issue_number,
+            assignee,
+        )
+        return _payload_to_dict(payload)
 
 
 class JiraIssueProvider(BaseIssueProvider):

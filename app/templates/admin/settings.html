@@ -461,6 +461,16 @@
                           {{ update_form.linux_username.label }}
                           {{ update_form.linux_username() }}
                         </label>
+                        <label>
+                          AIOPS CLI URL
+                          <input type="text" name="aiops_cli_url" value="{{ user.aiops_cli_url or '' }}" placeholder="http://localhost:5000">
+                          <small>URL for AIOPS CLI (injected into AI tool sessions)</small>
+                        </label>
+                        <label>
+                          AIOPS CLI API Key
+                          <input type="password" name="aiops_cli_api_key" value="{{ user.aiops_cli_api_key or '' }}" placeholder="aiops_...">
+                          <small>API key for AIOPS CLI (injected as AIOPS_API_KEY in tmux)</small>
+                        </label>
                         <label class="checkbox">
                           {{ update_form.is_admin() }}
                           {{ update_form.is_admin.label }}

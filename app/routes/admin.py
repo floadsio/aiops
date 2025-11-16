@@ -1671,6 +1671,12 @@ def update_user(user_id: int):
     linux_username = (form.linux_username.data or "").strip()
     user.linux_username = linux_username if linux_username else None
 
+    # Update AIOPS CLI credentials from request form
+    aiops_cli_url = request.form.get("aiops_cli_url", "").strip()
+    aiops_cli_api_key = request.form.get("aiops_cli_api_key", "").strip()
+    user.aiops_cli_url = aiops_cli_url if aiops_cli_url else None
+    user.aiops_cli_api_key = aiops_cli_api_key if aiops_cli_api_key else None
+
     try:
         db.session.commit()
     except IntegrityError:

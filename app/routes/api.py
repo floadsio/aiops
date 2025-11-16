@@ -405,15 +405,12 @@ def start_project_ai_session(project_id: int):
 
     user_id = _current_user_id()
     if user_id is None:
-        try:
-            user_id = int(current_user.get_id())  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            return jsonify({"error": "Unable to resolve current user."}), 400
+        return jsonify({"error": "Unable to resolve current user."}), 400
 
     # Use the current user's model directly for tmux session mapping
-    session_user = getattr(current_user, "model", None)
+    session_user = _current_user_obj()
     if not session_user:
-        session_user = User.query.get(user_id)
+        return jsonify({"error": "Unable to resolve current user."}), 400
     tmux_session_name = session_name_for_user(session_user)
 
     try:
@@ -539,7 +536,12 @@ def resume_ai_session(db_session_id: int):
     db_session = AISessionModel.query.get_or_404(db_session_id)
 
     # Verify user has access
-    if db_session.user_id != user_id and not current_user.is_admin:
+    session_user = _current_user_obj()
+    if not session_user:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    is_admin = session_user.is_admin if hasattr(session_user, "is_admin") else False
+    if db_session.user_id != user_id and not is_admin:
         return jsonify({"error": "Access denied."}), 403
 
     # Get the project
@@ -558,10 +560,7 @@ def resume_ai_session(db_session_id: int):
     # Use the same tmux target if available
     tmux_target = db_session.tmux_target
 
-    # Get session name for user
-    session_user = getattr(current_user, "model", None)
-    if not session_user:
-        session_user = User.query.get(user_id)
+    # Get session name for user (already resolved above)
     tmux_session_name = session_name_for_user(session_user)
 
     try:

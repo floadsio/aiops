@@ -4,7 +4,7 @@ from datetime import timezone
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from flask_login import current_user  # type: ignore
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -28,8 +28,16 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 @api_bp.before_request
 def require_authentication():
-    if not current_user.is_authenticated:
+    """Require authentication via session or API key."""
+    from ..services.api_auth import authenticate_request
+
+    user, api_key = authenticate_request()
+    if not user:
         return jsonify({"error": "Authentication required"}), 401
+
+    # Store authenticated user in g for use in route handlers
+    g.api_user = user
+    g.api_key = api_key
 
 
 def _current_user_obj():

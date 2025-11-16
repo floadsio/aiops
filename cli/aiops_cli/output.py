@@ -72,6 +72,8 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
                         value = json.dumps(value, indent=None)
                     else:
                         value = str(value)
+                    # Escape square brackets to prevent Rich markup parsing errors
+                    value = value.replace("[", r"\[").replace("]", r"\]")
                     row.append(value)
                 table.add_row(*row)
 
@@ -99,6 +101,9 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
                 value_display = json.dumps(value, indent=2)
             else:
                 value_display = str(value)
+
+            # Escape square brackets to prevent Rich markup parsing errors
+            value_display = value_display.replace("[", r"\[").replace("]", r"\]")
 
             table.add_row(key_display, value_display)
 

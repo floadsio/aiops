@@ -12,6 +12,7 @@ from .config import Config
 from .output import format_output
 
 console = Console()
+error_console = Console(stderr=True)
 
 
 def get_client(ctx: click.Context) -> APIClient:
@@ -70,9 +71,8 @@ def resolve_project_id(client: APIClient, project_identifier: str) -> int:
         raise click.ClickException(f"Project '{project_identifier}' not found")
 
     if len(matching_projects) > 1:
-        console.print(
+        error_console.print(
             f"[yellow]Warning:[/yellow] Multiple projects named '{project_identifier}' found, using first match",
-            file=sys.stderr,
         )
 
     return matching_projects[0]["id"]
@@ -105,9 +105,8 @@ def resolve_tenant_id(client: APIClient, tenant_identifier: str) -> int:
         raise click.ClickException(f"Tenant '{tenant_identifier}' not found")
 
     if len(matching_tenants) > 1:
-        console.print(
+        error_console.print(
             f"[yellow]Warning:[/yellow] Multiple tenants with slug '{tenant_identifier}' found, using first match",
-            file=sys.stderr,
         )
 
     return matching_tenants[0]["id"]
@@ -145,7 +144,7 @@ def auth_whoami(ctx: click.Context, output: Optional[str]) -> None:
         user = client.whoami()
         format_output(user, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -167,7 +166,7 @@ def auth_keys_list(ctx: click.Context, output: Optional[str]) -> None:
         keys = client.list_api_keys()
         format_output(keys, output_format, console, title="API Keys")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -202,7 +201,7 @@ def auth_keys_create(
         console.print("[yellow]Save this key - it won't be shown again![/yellow]\n")
         format_output(key_data, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -217,7 +216,7 @@ def auth_keys_delete(ctx: click.Context, key_id: int) -> None:
         client.delete_api_key(key_id)
         console.print(f"[green]API key {key_id} deleted successfully![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -267,7 +266,7 @@ def issues_list(
         columns = ["id", "external_id", "title", "status", "provider", "project_name", "assignee"]
         format_output(issues_data, output_format, console, title="Issues", columns=columns)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -285,7 +284,7 @@ def issues_get(ctx: click.Context, issue_id: int, output: Optional[str]) -> None
         issue = client.get_issue(issue_id)
         format_output(issue, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -319,7 +318,7 @@ def issues_create(
         console.print("[green]Issue created successfully![/green]")
         format_output(issue, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -350,7 +349,7 @@ def issues_update(
         console.print("[green]Issue updated successfully![/green]")
         format_output(issue, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -365,7 +364,7 @@ def issues_close(ctx: click.Context, issue_id: int) -> None:
         client.close_issue(issue_id)
         console.print(f"[green]Issue {issue_id} closed successfully![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -381,7 +380,7 @@ def issues_comment(ctx: click.Context, issue_id: int, body: str) -> None:
         client.add_issue_comment(issue_id, body)
         console.print(f"[green]Comment added to issue {issue_id}![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -397,7 +396,7 @@ def issues_assign(ctx: click.Context, issue_id: int, user: Optional[int]) -> Non
         client.assign_issue(issue_id, user)
         console.print(f"[green]Issue {issue_id} assigned successfully![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -450,23 +449,19 @@ def issues_work(
             try:
                 subprocess.run(["tmux", "attach-session", "-t", session_id], check=True)
             except subprocess.CalledProcessError as e:
-                console.print(
-                    f"[red]Error attaching to tmux:[/red] {e}",
-                    file=sys.stderr,
+                error_console.print(
+                    f"[red]Error attaching to tmux:[/red] {e}"
                 )
-                console.print(
-                    f"[yellow]You can manually attach with:[/yellow] tmux attach -t {session_id}",
-                    file=sys.stderr,
+                error_console.print(
+                    f"[yellow]You can manually attach with:[/yellow] tmux attach -t {session_id}"
                 )
                 sys.exit(1)
             except FileNotFoundError:
-                console.print(
-                    "[red]Error:[/red] tmux not found. Please install tmux to use --attach",
-                    file=sys.stderr,
+                error_console.print(
+                    "[red]Error:[/red] tmux not found. Please install tmux to use --attach"
                 )
-                console.print(
-                    "[yellow]Session is running. You can access it via the web UI.[/yellow]",
-                    file=sys.stderr,
+                error_console.print(
+                    "[yellow]Session is running. You can access it via the web UI.[/yellow]"
                 )
                 sys.exit(1)
         else:
@@ -476,7 +471,7 @@ def issues_work(
             console.print(f"[yellow]Or use tmux:[/yellow] tmux attach -t {session_id}")
 
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -507,7 +502,7 @@ def projects_list(ctx: click.Context, tenant: Optional[str], output: Optional[st
         projects_data = client.list_projects(tenant_id)
         format_output(projects_data, output_format, console, title="Projects")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -526,7 +521,7 @@ def projects_get(ctx: click.Context, project: str, output: Optional[str]) -> Non
         project_data = client.get_project(project_id)
         format_output(project_data, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -558,7 +553,7 @@ def projects_create(
         console.print("[green]Project created successfully![/green]")
         format_output(project, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -577,7 +572,7 @@ def projects_status(ctx: click.Context, project: str, output: Optional[str]) -> 
         status = client.git_status(project_id)
         format_output(status, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -606,7 +601,7 @@ def git_status(ctx: click.Context, project: str, output: Optional[str]) -> None:
         status = client.git_status(project_id)
         format_output(status, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -625,7 +620,7 @@ def git_pull(ctx: click.Context, project: str, ref: Optional[str]) -> None:
         if result.get("message"):
             console.print(result["message"])
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -644,7 +639,7 @@ def git_push(ctx: click.Context, project: str, ref: Optional[str]) -> None:
         if result.get("message"):
             console.print(result["message"])
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -663,7 +658,7 @@ def git_branches(ctx: click.Context, project: str, output: Optional[str]) -> Non
         branches = client.git_branches(project_id)
         format_output(branches, output_format, console, title="Branches")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -683,7 +678,7 @@ def git_branch_create(
         client.git_create_branch(project_id, name, from_branch)
         console.print(f"[green]Branch '{name}' created successfully![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -700,7 +695,7 @@ def git_checkout(ctx: click.Context, project: str, branch: str) -> None:
         client.git_checkout(project_id, branch)
         console.print(f"[green]Checked out branch '{branch}'![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -720,7 +715,7 @@ def git_commit(ctx: click.Context, project: str, message: str, files: Optional[s
         client.git_commit(project_id, message, file_list)
         console.print("[green]Commit created successfully![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -740,7 +735,7 @@ def git_files(ctx: click.Context, project: str, path: str, output: Optional[str]
         files = client.git_list_files(project_id, path)
         format_output(files, output_format, console, title="Files")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -757,7 +752,7 @@ def git_cat(ctx: click.Context, project: str, file_path: str) -> None:
         content = client.git_read_file(project_id, file_path)
         console.print(content)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -786,7 +781,7 @@ def workflow_claim(ctx: click.Context, issue_id: int, output: Optional[str]) -> 
         console.print(f"[green]Issue {issue_id} claimed successfully![/green]")
         format_output(result, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -805,7 +800,7 @@ def workflow_progress(
         client.workflow_update_progress(issue_id, status, comment)
         console.print(f"[green]Progress updated for issue {issue_id}![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -833,7 +828,7 @@ def workflow_submit(
         client.workflow_submit_changes(issue_id, project, message, file_list, comment)
         console.print(f"[green]Changes submitted for issue {issue_id}![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -849,7 +844,7 @@ def workflow_approve(ctx: click.Context, issue_id: int, message: Optional[str]) 
         client.workflow_request_approval(issue_id, message)
         console.print(f"[green]Approval requested for issue {issue_id}![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -865,7 +860,7 @@ def workflow_complete(ctx: click.Context, issue_id: int, summary: Optional[str])
         client.workflow_complete_issue(issue_id, summary)
         console.print(f"[green]Issue {issue_id} completed successfully![/green]")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -892,7 +887,7 @@ def tenants_list(ctx: click.Context, output: Optional[str]) -> None:
         tenants_data = client.list_tenants()
         format_output(tenants_data, output_format, console, title="Tenants")
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -911,7 +906,7 @@ def tenants_get(ctx: click.Context, tenant: str, output: Optional[str]) -> None:
         tenant_data = client.get_tenant(tenant_id)
         format_output(tenant_data, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 
@@ -938,7 +933,7 @@ def tenants_create(
         console.print("[green]Tenant created successfully![/green]")
         format_output(tenant, output_format, console)
     except APIError as exc:
-        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 
 

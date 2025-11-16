@@ -228,7 +228,7 @@ class APIClient:
             raise APIError("Failed to get project_id from claim-issue response")
 
         # Start AI session (uses legacy /api endpoint, not /api/v1)
-        payload = {}
+        payload = {"issue_id": issue_id}  # Track which issue this session is for
         if tool:
             payload["tool"] = tool
         if prompt:

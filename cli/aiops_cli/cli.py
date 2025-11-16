@@ -434,9 +434,13 @@ def issues_work(
         workspace_path = result.get("workspace_path")
         ssh_user = result.get("ssh_user")  # System user running Flask app (owns tmux)
         tmux_target = result.get("tmux_target")  # Actual tmux session:window to attach to
+        is_existing = result.get("existing", False)  # Whether reusing existing session
 
         console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
-        console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
+        if is_existing:
+            console.print(f"[green]✓[/green] Reusing existing AI session (session ID: {session_id})")
+        else:
+            console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
         if workspace_path:
             console.print(f"[blue]Workspace:[/blue] {workspace_path}")
 

@@ -7,6 +7,24 @@ thin blueprints, well-tested service helpers, and clear separation between confi
 models, and provider adapters. Secrets stay in `instance/` and `.env`, while infrastructure assets
 live under `ansible/`.
 
+## UI Framework & Styling
+
+aiops uses **[Pico CSS](https://picocss.com/)** as the base framework with custom **Material Design enhancements**:
+
+- **Pico CSS** provides semantic HTML styling, dark mode support, and minimal footprint (~10KB)
+- **Custom Material Design layer** adds professional polish with:
+  - Elevation shadows: `--shadow-1` through `--shadow-4` (4-level system)
+  - Color system: `--md-primary` (#1976d2), `--md-surface`, `--md-border`, `--md-surface-hover`
+  - Smooth transitions using `cubic-bezier(0.4, 0, 0.2, 1)` easing
+  - Micro-interactions: hover effects, active states, slide animations
+- **Collapsible sidebar navigation** similar to MkDocs Material and FastAPI docs
+  - Floating toggle button (☰/✕) that completely collapses sidebar to width: 0
+  - Active page indicators with auto-detection via JavaScript
+  - localStorage persistence for collapsed state
+- **All styling lives in `app/templates/base.html`** with minimal external dependencies
+- **Responsive design** with mobile/tablet/desktop breakpoints preserved
+- When making UI changes, maintain the Pico CSS + Material Design hybrid approach
+
 ## How Agents Should Work Here
 
 - **CRITICAL: Working Directory Context** — aiops uses **per-user workspaces** for all development work.

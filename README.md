@@ -131,6 +131,12 @@ Only tracked application code, tests, and documentation are pushed. Runtime arti
 - **SQLAlchemy Models** – represent users, tenants, projects, SSH keys, and automation tasks.
 - **Services** – encapsulate Git operations, AI assistant invocation, and Ansible execution.
 - **Task Queue (Planned)** – placeholder for future asynchronous execution (Celery or RQ).
+- **UI Framework** – [Pico CSS](https://picocss.com/) with custom Material Design enhancements
+  - Pico CSS provides semantic HTML styling and dark mode support
+  - Custom Material Design layer adds elevation shadows, color system, and micro-interactions
+  - CSS variables for theming: `--md-primary`, `--md-surface`, `--md-border`, `--shadow-1` through `--shadow-4`
+  - Fully responsive with collapsible sidebar navigation
+  - All styling lives in `app/templates/base.html` with minimal external dependencies
 
 ## Roadmap
 - Integrate background task processing for long-running AI and Ansible jobs.

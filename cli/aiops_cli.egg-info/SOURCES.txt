@@ -1,0 +1,13 @@
+README.md
+setup.py
+aiops_cli/__init__.py
+aiops_cli/cli.py
+aiops_cli/client.py
+aiops_cli/config.py
+aiops_cli/output.py
+aiops_cli.egg-info/PKG-INFO
+aiops_cli.egg-info/SOURCES.txt
+aiops_cli.egg-info/dependency_links.txt
+aiops_cli.egg-info/entry_points.txt
+aiops_cli.egg-info/requires.txt
+aiops_cli.egg-info/top_level.txt

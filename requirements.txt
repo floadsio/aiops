@@ -48,4 +48,5 @@ certifi>=2024.2.2
 Flask-Limiter>=3.5
 flasgger>=0.9.7
 jsonschema>=4.22
+attrs>=24.2
 marshmallow>=3.20

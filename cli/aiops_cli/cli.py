@@ -277,7 +277,7 @@ def issues_pinned(ctx: click.Context, output: Optional[str]) -> None:
             return
 
         # Show relevant columns for pinned issues
-        columns = ["id", "external_id", "title", "status_label", "project_name", "pinned_at"]
+        columns = ["id", "external_id", "title", "status_label", "project_name"]
         format_output(pinned_issues, output_format, console, title="Pinned Issues", columns=columns)
 
     except APIError as exc:

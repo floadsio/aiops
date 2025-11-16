@@ -83,7 +83,7 @@ def _format_table(
                 elif col in ("status", "provider", "tool", "pinned"):
                     # Status/enum fields - moderate width, no wrap
                     table.add_column(col_name, style="cyan", no_wrap=True, width=12)
-                elif col in ("created_at", "updated_at", "pinned_at", "started_at"):
+                elif col in ("started_at",):
                     # Timestamps - moderate width, no wrap
                     table.add_column(col_name, style="cyan", no_wrap=True, width=20)
                 else:

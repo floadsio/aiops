@@ -432,6 +432,7 @@ def issues_work(
 
         session_id = result.get("session_id")
         workspace_path = result.get("workspace_path")
+        ssh_user = result.get("ssh_user")  # System user running Flask app (owns tmux)
 
         console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
         console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
@@ -441,24 +442,52 @@ def issues_work(
         # If attach flag is set, attach to tmux session
         if attach:
             import subprocess
+            from urllib.parse import urlparse
 
             console.print("\n[yellow]Attaching to tmux session...[/yellow]")
             console.print("[dim]Press Ctrl+B then D to detach from tmux[/dim]\n")
 
+            # Derive SSH host from API URL (e.g., http://dev.floads:5000 -> dev.floads)
+            config: Config = ctx.obj["config"]
+            api_url = config.url
+            parsed_url = urlparse(api_url)
+            ssh_host = parsed_url.hostname
+
+            if not ssh_host:
+                error_console.print(
+                    "[red]Error:[/red] Could not derive SSH host from API URL"
+                )
+                error_console.print(
+                    f"[yellow]You can manually attach with:[/yellow] ssh {ssh_host or 'HOST'} -t tmux attach -t {session_id}"
+                )
+                sys.exit(1)
+
+            # Build SSH target with system user running Flask app (owns tmux server)
+            # e.g., syseng@dev.floads
+            if ssh_user:
+                ssh_target = f"{ssh_user}@{ssh_host}"
+            else:
+                # Fall back to just hostname if ssh_user not provided
+                ssh_target = ssh_host
+
             # The session_id is the tmux session name
             try:
-                subprocess.run(["tmux", "attach-session", "-t", session_id], check=True)
+                # SSH into remote host and attach to tmux session
+                subprocess.run(
+                    ["ssh", "-t", ssh_target, "tmux", "attach-session", "-t", session_id],
+                    check=True,
+                )
             except subprocess.CalledProcessError as e:
                 error_console.print(
                     f"[red]Error attaching to tmux:[/red] {e}"
                 )
                 error_console.print(
-                    f"[yellow]You can manually attach with:[/yellow] tmux attach -t {session_id}"
+                    f"[yellow]You can manually attach with:[/yellow] ssh {ssh_target} -t tmux attach -t {session_id}"
                 )
                 sys.exit(1)
             except FileNotFoundError:
                 error_console.print(
-                    "[red]Error:[/red] tmux not found. Please install tmux to use --attach"
+                    "[red]Error:[/red] ssh not found. Please install OpenSSH to use --attach"
                 )
                 error_console.print(
                     "[yellow]Session is running. You can access it via the web UI.[/yellow]"

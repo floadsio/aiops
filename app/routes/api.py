@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -394,6 +395,11 @@ def start_project_ai_session(project_id: int):
         session_user = User.query.get(user_id)
     tmux_session_name = session_name_for_user(session_user)
 
+    # For SSH attachment, return the system user running the Flask app (e.g., syseng)
+    # This is the user that owns the tmux server process, not the user inside the pane
+    import pwd
+    flask_system_user = pwd.getpwuid(os.getuid()).pw_name
+
     try:
         session = create_session(
             project,
@@ -411,7 +417,12 @@ def start_project_ai_session(project_id: int):
     if isinstance(prompt, str) and prompt.strip():
         write_to_session(session, prompt + "\n")
 
-    return jsonify({"session_id": session.id}), 201
+    response_data = {
+        "session_id": session.id,
+        "ssh_user": flask_system_user,  # User to SSH as (owns tmux server)
+    }
+
+    return jsonify(response_data), 201
 
 
 def _get_project_session(project_id: int, session_id: str):

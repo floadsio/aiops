@@ -254,6 +254,7 @@ class APIClient:
         result["project_id"] = project_id
         result["issue_id"] = issue_id
         result["workspace_path"] = workspace_data.get("path")
+        # linux_username already included in result from API response
 
         return result
 

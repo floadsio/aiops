@@ -401,6 +401,85 @@ def issues_assign(ctx: click.Context, issue_id: int, user: Optional[int]) -> Non
         sys.exit(1)
 
 
+@issues.command(name="work")
+@click.argument("issue_id", type=int)
+@click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), help="AI tool to use")
+@click.option("--prompt", help="Initial prompt to send to the AI")
+@click.option("--attach", is_flag=True, help="Attach to tmux session after starting")
+@click.pass_context
+def issues_work(
+    ctx: click.Context,
+    issue_id: int,
+    tool: Optional[str],
+    prompt: Optional[str],
+    attach: bool,
+) -> None:
+    """Start an AI session to work on an issue.
+
+    This command:
+    1. Claims the issue (assigns it to you)
+    2. Starts an AI tool session in tmux
+    3. Optionally attaches you directly to the tmux session
+
+    Example:
+        aiops issues work 123 --tool claude --attach
+        aiops issues work 456 --tool codex --prompt "Fix the authentication bug"
+    """
+    client = get_client(ctx)
+
+    try:
+        # Start AI session on the issue
+        result = client.start_ai_session_on_issue(issue_id, tool=tool, prompt=prompt)
+
+        session_id = result.get("session_id")
+        workspace_path = result.get("workspace_path")
+
+        console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
+        console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
+        if workspace_path:
+            console.print(f"[blue]Workspace:[/blue] {workspace_path}")
+
+        # If attach flag is set, attach to tmux session
+        if attach:
+            import subprocess
+
+            console.print("\n[yellow]Attaching to tmux session...[/yellow]")
+            console.print("[dim]Press Ctrl+B then D to detach from tmux[/dim]\n")
+
+            # The session_id is the tmux session name
+            try:
+                subprocess.run(["tmux", "attach-session", "-t", session_id], check=True)
+            except subprocess.CalledProcessError as e:
+                console.print(
+                    f"[red]Error attaching to tmux:[/red] {e}",
+                    file=sys.stderr,
+                )
+                console.print(
+                    f"[yellow]You can manually attach with:[/yellow] tmux attach -t {session_id}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            except FileNotFoundError:
+                console.print(
+                    "[red]Error:[/red] tmux not found. Please install tmux to use --attach",
+                    file=sys.stderr,
+                )
+                console.print(
+                    "[yellow]Session is running. You can access it via the web UI.[/yellow]",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        else:
+            console.print(
+                f"\n[yellow]To attach to the session:[/yellow] aiops issues work {issue_id} --attach"
+            )
+            console.print(f"[yellow]Or use tmux:[/yellow] tmux attach -t {session_id}")
+
+    except APIError as exc:
+        console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
+        sys.exit(1)
+
+
 # ============================================================================
 # PROJECTS COMMANDS
 # ============================================================================

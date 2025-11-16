@@ -204,6 +204,43 @@ class APIClient:
             payload["user_id"] = user_id
         return self.post(f"issues/{issue_id}/assign", json=payload)
 
+    def claim_issue(self, issue_id: int) -> dict[str, Any]:
+        """Claim an issue (assign to self and get workspace info)."""
+        return self.post("workflows/claim-issue", json={"issue_id": issue_id})
+
+    def start_ai_session_on_issue(
+        self,
+        issue_id: int,
+        tool: Optional[str] = None,
+        prompt: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Start an AI session for working on an issue.
+
+        This combines claim-issue workflow with starting an AI session.
+        """
+        # First claim the issue to get project info
+        claim_result = self.claim_issue(issue_id)
+        project_id = claim_result.get("project_id")
+
+        if not project_id:
+            raise APIError("Failed to get project_id from claim-issue response")
+
+        # Start AI session
+        payload = {}
+        if tool:
+            payload["tool"] = tool
+        if prompt:
+            payload["prompt"] = prompt
+
+        result = self.post(f"projects/{project_id}/ai/session", json=payload)
+
+        # Add project info to response
+        result["project_id"] = project_id
+        result["issue_id"] = issue_id
+        result["workspace_path"] = claim_result.get("workspace_path")
+
+        return result
+
     # Projects
     def list_projects(self, tenant_id: Optional[int] = None) -> list[dict[str, Any]]:
         """List projects."""

@@ -14,6 +14,7 @@ def format_output(
     format_type: str = "table",
     console: Optional[Console] = None,
     title: Optional[str] = None,
+    columns: Optional[list[str]] = None,
 ) -> None:
     """Format and display output.
 
@@ -22,6 +23,7 @@ def format_output(
         format_type: Output format (table, json, yaml)
         console: Rich console instance
         title: Optional title for table output
+        columns: Optional list of column names to display (only for table format)
     """
     if console is None:
         console = Console()
@@ -31,18 +33,24 @@ def format_output(
     elif format_type == "yaml":
         console.print(yaml.dump(data, default_flow_style=False))
     elif format_type == "table":
-        _format_table(data, console, title)
+        _format_table(data, console, title, columns)
     else:
         console.print(data)
 
 
-def _format_table(data: Any, console: Console, title: Optional[str] = None) -> None:
+def _format_table(
+    data: Any,
+    console: Console,
+    title: Optional[str] = None,
+    columns: Optional[list[str]] = None,
+) -> None:
     """Format data as a table.
 
     Args:
         data: Data to format
         console: Rich console instance
         title: Optional table title
+        columns: Optional list of column names to display
     """
     if isinstance(data, list):
         if not data:
@@ -54,15 +62,22 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
         if isinstance(first_item, dict):
             table = Table(title=title)
 
-            # Add columns from keys
-            columns = list(first_item.keys())
-            for col in columns:
+            # Determine which columns to display
+            if columns:
+                # Filter to only requested columns that exist
+                display_columns = [c for c in columns if c in first_item]
+            else:
+                # Use all columns from the data
+                display_columns = list(first_item.keys())
+
+            # Add columns to table
+            for col in display_columns:
                 table.add_column(col.replace("_", " ").title(), style="cyan")
 
             # Add rows
             for item in data:
                 row = []
-                for col in columns:
+                for col in display_columns:
                     value = item.get(col, "")
                     # Format value
                     if value is None:

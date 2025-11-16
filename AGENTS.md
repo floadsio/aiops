@@ -1,4 +1,4 @@
-# Project Overview _(version 0.1.8)_
+# Project Overview _(version 0.2.0)_
 
 aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
 AI-assisted tmux sessions, and Ansible automation. Platform engineers use it to synchronise issues,
@@ -24,6 +24,123 @@ aiops uses **[Pico CSS](https://picocss.com/)** as the base framework with custo
 - **All styling lives in `app/templates/base.html`** with minimal external dependencies
 - **Responsive design** with mobile/tablet/desktop breakpoints preserved
 - When making UI changes, maintain the Pico CSS + Material Design hybrid approach
+
+## AIops REST API
+
+aiops provides a comprehensive **REST API** (v1) for programmatic access to all major functionality. This API is designed for:
+- **AI agents** to autonomously manage issues, code, and workflows
+- **CLI clients** for scripting and automation
+- **Integration testing** during development
+
+### API Documentation
+
+- **Interactive API Docs**: http://localhost:5000/api/docs (Swagger UI)
+- **API Base Path**: `/api/v1`
+- **Authentication**: Token-based using API keys (see below)
+- **Rate Limiting**: 200 requests/day, 50 requests/hour per IP
+
+### Authentication
+
+1. Create an API key via the web UI or API endpoint:
+   ```bash
+   POST /api/v1/auth/keys
+   {
+     "name": "My API Key",
+     "scopes": ["read", "write"],
+     "expires_days": 90  # optional
+   }
+   ```
+
+2. Use the API key in requests:
+   ```bash
+   # Option 1: Bearer token
+   Authorization: Bearer aiops_your_api_key_here
+
+   # Option 2: X-API-Key header
+   X-API-Key: aiops_your_api_key_here
+   ```
+
+### Available Scopes
+
+- `read` - Read access to all resources
+- `write` - Create, update, and delete resources
+- `admin` - Full administrative access
+
+### Key API Endpoints
+
+#### Issue Management
+- `GET /api/v1/issues` - List issues with filtering
+- `POST /api/v1/issues` - Create issue on GitHub/GitLab/Jira
+- `PATCH /api/v1/issues/<id>` - Update issue
+- `POST /api/v1/issues/<id>/close` - Close issue
+- `POST /api/v1/issues/<id>/comments` - Add comment
+- `POST /api/v1/issues/<id>/assign` - Assign issue
+
+#### Git Operations
+- `GET /api/v1/projects/<id>/git/status` - Get repository status
+- `POST /api/v1/projects/<id>/git/pull` - Pull latest changes
+- `POST /api/v1/projects/<id>/git/push` - Push changes
+- `POST /api/v1/projects/<id>/git/commit` - Create commit
+- `GET /api/v1/projects/<id>/git/branches` - List branches
+- `POST /api/v1/projects/<id>/git/branches` - Create branch
+- `GET /api/v1/projects/<id>/files` - List files
+- `GET /api/v1/projects/<id>/files/<path>` - Read file
+
+#### AI Agent Workflows
+- `POST /api/v1/workflows/claim-issue` - Claim issue and get workspace info
+- `POST /api/v1/workflows/update-progress` - Update issue status with comment
+- `POST /api/v1/workflows/submit-changes` - Commit and comment on issue
+- `POST /api/v1/workflows/request-approval` - Request review
+- `POST /api/v1/workflows/complete-issue` - Mark issue complete and close
+
+#### Projects & Tenants
+- `GET /api/v1/tenants` - List tenants
+- `POST /api/v1/tenants` - Create tenant
+- `GET /api/v1/projects` - List projects
+- `POST /api/v1/projects` - Create project
+
+### Example AI Agent Workflow
+
+```bash
+# 1. Authenticate
+curl -H "Authorization: Bearer aiops_your_key" http://localhost:5000/api/v1/auth/me
+
+# 2. Claim an issue
+curl -X POST -H "Authorization: Bearer aiops_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{"issue_id": 42}' \\
+  http://localhost:5000/api/v1/workflows/claim-issue
+
+# 3. Initialize workspace (if needed)
+curl -X POST -H "Authorization: Bearer aiops_your_key" \\
+  http://localhost:5000/api/v1/projects/1/workspace/init
+
+# 4. Make changes, then commit
+curl -X POST -H "Authorization: Bearer aiops_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{"message": "Fix bug in authentication", "files": ["app/auth.py"]}' \\
+  http://localhost:5000/api/v1/projects/1/git/commit
+
+# 5. Submit changes and update issue
+curl -X POST -H "Authorization: Bearer aiops_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{"issue_id": 42, "project_id": 1, "commit_message": "Fix bug", "comment": "Bug fixed!"}' \\
+  http://localhost:5000/api/v1/workflows/submit-changes
+
+# 6. Complete the issue
+curl -X POST -H "Authorization: Bearer aiops_your_key" \\
+  -H "Content-Type: application/json" \\
+  -d '{"issue_id": 42, "summary": "Fixed authentication bug"}' \\
+  http://localhost:5000/api/v1/workflows/complete-issue
+```
+
+### Testing the API
+
+During development, you can test the API using:
+- **Swagger UI**: http://localhost:5000/api/docs (interactive documentation)
+- **curl**: Command-line HTTP requests (examples above)
+- **Python**: Using `requests` library
+- **Postman**: Import OpenAPI spec from `/api/v1/apispec.json`
 
 ## How Agents Should Work Here
 

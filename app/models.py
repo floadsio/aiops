@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import secrets
 from datetime import datetime
 from typing import Any, Optional
 
+import bcrypt
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -338,6 +340,117 @@ class UserIdentityMap(BaseModel, TimestampMixin):
             f"gitlab={self.gitlab_username} "
             f"jira={self.jira_account_id}>"
         )
+
+
+class APIKey(BaseModel, TimestampMixin):
+    """API keys for programmatic access to the AIops API.
+
+    Supports token-based authentication with scoped permissions.
+    """
+
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    key_hash: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    key_prefix: Mapped[str] = mapped_column(
+        String(16), nullable=False, index=True
+    )  # First 8 chars for identification
+    scopes: Mapped[list[str]] = mapped_column(
+        db.JSON, default=list, nullable=False
+    )  # e.g., ['read', 'write', 'admin']
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship("User")
+
+    @staticmethod
+    def generate_key() -> tuple[str, str, str]:
+        """Generate a new API key.
+
+        Returns:
+            tuple: (full_key, key_hash, key_prefix)
+                - full_key: The raw key to return to user (only shown once)
+                - key_hash: Hashed key to store in database
+                - key_prefix: First 8 chars for identification
+        """
+        # Generate a 32-byte random key and encode as hex
+        raw_key = secrets.token_hex(32)
+        full_key = f"aiops_{raw_key}"
+        key_prefix = full_key[:12]  # "aiops_" + first 6 hex chars
+
+        # Hash the key for storage
+        key_hash = bcrypt.hashpw(full_key.encode("utf-8"), bcrypt.gensalt()).decode(
+            "utf-8"
+        )
+
+        return full_key, key_hash, key_prefix
+
+    def verify_key(self, key: str) -> bool:
+        """Verify a provided API key against this record.
+
+        Args:
+            key: The raw API key to verify
+
+        Returns:
+            bool: True if key matches, False otherwise
+        """
+        try:
+            return bcrypt.checkpw(key.encode("utf-8"), self.key_hash.encode("utf-8"))
+        except (ValueError, TypeError):
+            return False
+
+    def has_scope(self, scope: str) -> bool:
+        """Check if this API key has a specific scope.
+
+        Args:
+            scope: The scope to check (e.g., 'read', 'write', 'admin')
+
+        Returns:
+            bool: True if key has the scope
+        """
+        if not self.is_active:
+            return False
+        if self.expires_at and datetime.utcnow() > self.expires_at:
+            return False
+        return scope in (self.scopes or []) or "admin" in (self.scopes or [])
+
+
+class APIAuditLog(BaseModel, TimestampMixin):
+    """Audit log for API requests.
+
+    Tracks all API calls for security and compliance.
+    """
+
+    __tablename__ = "api_audit_logs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    api_key_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("api_keys.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    method: Mapped[str] = mapped_column(String(10), nullable=False)
+    path: Mapped[str] = mapped_column(String(512), nullable=False, index=True)
+    query_params: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        db.JSON, nullable=True
+    )
+    request_body: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        db.JSON, nullable=True
+    )
+    response_status: Mapped[int] = mapped_column(Integer, nullable=False)
+    response_time_ms: Mapped[Optional[float]] = mapped_column(Integer, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    user: Mapped[Optional["User"]] = relationship("User")
+    api_key: Mapped[Optional["APIKey"]] = relationship("APIKey")
 
 
 @login_manager.user_loader

@@ -42,6 +42,10 @@ def require_authentication():
 
 def _current_user_obj():
     """Get the current user object for workspace operations."""
+    # Check API key authentication first
+    if hasattr(g, "api_user") and g.api_user:
+        return g.api_user
+    # Fall back to session authentication
     user_obj = getattr(current_user, "model", None)
     if user_obj is None and getattr(current_user, "is_authenticated", False):
         user_obj = current_user
@@ -185,13 +189,23 @@ def _resolve_project_owner(owner_id: int | None) -> User | None:
 
 
 def _current_user_id() -> int | None:
+    # Check API key authentication first
+    if hasattr(g, "api_user") and g.api_user:
+        return g.api_user.id
+    # Fall back to session authentication
     if hasattr(current_user, "model"):
         return getattr(current_user.model, "id", None)
     return getattr(current_user, "id", None)
 
 
 def _ensure_project_access(project: Project) -> bool:
-    if current_user.is_admin:
+    # Check API key authentication first
+    if hasattr(g, "api_user") and g.api_user:
+        if g.api_user.is_admin:
+            return True
+        return project.owner_id == g.api_user.id
+    # Fall back to session authentication
+    if current_user.is_authenticated and current_user.is_admin:
         return True
     return project.owner_id == _current_user_id()
 

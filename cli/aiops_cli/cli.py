@@ -43,6 +43,76 @@ def get_client(ctx: click.Context) -> APIClient:
     return APIClient(url, api_key)
 
 
+def resolve_project_id(client: APIClient, project_identifier: str) -> int:
+    """Resolve project name or ID to numeric ID.
+
+    Args:
+        client: API client
+        project_identifier: Project ID (numeric string) or name
+
+    Returns:
+        Project ID as integer
+
+    Raises:
+        click.ClickException: If project not found or multiple matches
+    """
+    # Check if it's a numeric ID
+    if project_identifier.isdigit():
+        return int(project_identifier)
+
+    # Look up project by name (case-insensitive)
+    projects = client.list_projects()
+    matching_projects = [
+        p for p in projects if p.get("name", "").lower() == project_identifier.lower()
+    ]
+
+    if not matching_projects:
+        raise click.ClickException(f"Project '{project_identifier}' not found")
+
+    if len(matching_projects) > 1:
+        console.print(
+            f"[yellow]Warning:[/yellow] Multiple projects named '{project_identifier}' found, using first match",
+            file=sys.stderr,
+        )
+
+    return matching_projects[0]["id"]
+
+
+def resolve_tenant_id(client: APIClient, tenant_identifier: str) -> int:
+    """Resolve tenant name or ID to numeric ID.
+
+    Args:
+        client: API client
+        tenant_identifier: Tenant ID (numeric string) or slug
+
+    Returns:
+        Tenant ID as integer
+
+    Raises:
+        click.ClickException: If tenant not found or multiple matches
+    """
+    # Check if it's a numeric ID
+    if tenant_identifier.isdigit():
+        return int(tenant_identifier)
+
+    # Look up tenant by slug (case-insensitive)
+    tenants = client.list_tenants()
+    matching_tenants = [
+        t for t in tenants if t.get("slug", "").lower() == tenant_identifier.lower()
+    ]
+
+    if not matching_tenants:
+        raise click.ClickException(f"Tenant '{tenant_identifier}' not found")
+
+    if len(matching_tenants) > 1:
+        console.print(
+            f"[yellow]Warning:[/yellow] Multiple tenants with slug '{tenant_identifier}' found, using first match",
+            file=sys.stderr,
+        )
+
+    return matching_tenants[0]["id"]
+
+
 @click.group()
 @click.pass_context
 def cli(ctx: click.Context) -> None:
@@ -185,22 +255,7 @@ def issues_list(
         # Resolve project name to ID if needed
         project_id = None
         if project:
-            # Check if it's a numeric ID
-            if project.isdigit():
-                project_id = int(project)
-            else:
-                # Look up project by name
-                projects = client.list_projects()
-                matching_projects = [p for p in projects if p.get("name", "").lower() == project.lower()]
-                if not matching_projects:
-                    console.print(f"[red]Error:[/red] Project '{project}' not found", file=sys.stderr)
-                    sys.exit(1)
-                if len(matching_projects) > 1:
-                    console.print(
-                        f"[yellow]Warning:[/yellow] Multiple projects named '{project}' found, using first match",
-                        file=sys.stderr,
-                    )
-                project_id = matching_projects[0]["id"]
+            project_id = resolve_project_id(client, project)
 
         issues_data = client.list_issues(
             status=status,
@@ -235,7 +290,7 @@ def issues_get(ctx: click.Context, issue_id: int, output: Optional[str]) -> None
 
 
 @issues.command(name="create")
-@click.option("--project", type=int, required=True, help="Project ID")
+@click.option("--project", required=True, help="Project ID or name")
 @click.option("--integration", type=int, required=True, help="Integration ID")
 @click.option("--title", required=True, help="Issue title")
 @click.option("--description", help="Issue description")
@@ -244,7 +299,7 @@ def issues_get(ctx: click.Context, issue_id: int, output: Optional[str]) -> None
 @click.pass_context
 def issues_create(
     ctx: click.Context,
-    project: int,
+    project: str,
     integration: int,
     title: str,
     description: Optional[str],
@@ -259,7 +314,8 @@ def issues_create(
     label_list = [label.strip() for label in labels.split(",")] if labels else None
 
     try:
-        issue = client.create_issue(project, integration, title, description, label_list)
+        project_id = resolve_project_id(client, project)
+        issue = client.create_issue(project_id, integration, title, description, label_list)
         console.print("[green]Issue created successfully![/green]")
         format_output(issue, output_format, console)
     except APIError as exc:
@@ -356,17 +412,20 @@ def projects() -> None:
 
 
 @projects.command(name="list")
-@click.option("--tenant", type=int, help="Filter by tenant ID")
+@click.option("--tenant", help="Filter by tenant ID or slug")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def projects_list(ctx: click.Context, tenant: Optional[int], output: Optional[str]) -> None:
+def projects_list(ctx: click.Context, tenant: Optional[str], output: Optional[str]) -> None:
     """List projects."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
-        projects_data = client.list_projects(tenant)
+        tenant_id = None
+        if tenant:
+            tenant_id = resolve_tenant_id(client, tenant)
+        projects_data = client.list_projects(tenant_id)
         format_output(projects_data, output_format, console, title="Projects")
     except APIError as exc:
         console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
@@ -374,18 +433,19 @@ def projects_list(ctx: click.Context, tenant: Optional[int], output: Optional[st
 
 
 @projects.command(name="get")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def projects_get(ctx: click.Context, project_id: int, output: Optional[str]) -> None:
+def projects_get(ctx: click.Context, project: str, output: Optional[str]) -> None:
     """Get project details."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
-        project = client.get_project(project_id)
-        format_output(project, output_format, console)
+        project_id = resolve_project_id(client, project)
+        project_data = client.get_project(project_id)
+        format_output(project_data, output_format, console)
     except APIError as exc:
         console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
         sys.exit(1)
@@ -394,7 +454,7 @@ def projects_get(ctx: click.Context, project_id: int, output: Optional[str]) -> 
 @projects.command(name="create")
 @click.option("--name", required=True, help="Project name")
 @click.option("--repo-url", required=True, help="Repository URL")
-@click.option("--tenant", type=int, required=True, help="Tenant ID")
+@click.option("--tenant", required=True, help="Tenant ID or slug")
 @click.option("--description", help="Project description")
 @click.option("--branch", default="main", help="Default branch (default: main)")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
@@ -403,7 +463,7 @@ def projects_create(
     ctx: click.Context,
     name: str,
     repo_url: str,
-    tenant: int,
+    tenant: str,
     description: Optional[str],
     branch: str,
     output: Optional[str],
@@ -414,7 +474,8 @@ def projects_create(
     output_format = output or config.output_format
 
     try:
-        project = client.create_project(name, repo_url, tenant, description, branch)
+        tenant_id = resolve_tenant_id(client, tenant)
+        project = client.create_project(name, repo_url, tenant_id, description, branch)
         console.print("[green]Project created successfully![/green]")
         format_output(project, output_format, console)
     except APIError as exc:
@@ -423,16 +484,17 @@ def projects_create(
 
 
 @projects.command(name="status")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def projects_status(ctx: click.Context, project_id: int, output: Optional[str]) -> None:
+def projects_status(ctx: click.Context, project: str, output: Optional[str]) -> None:
     """Get project git status."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
+        project_id = resolve_project_id(client, project)
         status = client.git_status(project_id)
         format_output(status, output_format, console)
     except APIError as exc:
@@ -451,16 +513,17 @@ def git() -> None:
 
 
 @git.command(name="status")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def git_status(ctx: click.Context, project_id: int, output: Optional[str]) -> None:
+def git_status(ctx: click.Context, project: str, output: Optional[str]) -> None:
     """Get git status."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
+        project_id = resolve_project_id(client, project)
         status = client.git_status(project_id)
         format_output(status, output_format, console)
     except APIError as exc:
@@ -469,14 +532,15 @@ def git_status(ctx: click.Context, project_id: int, output: Optional[str]) -> No
 
 
 @git.command(name="pull")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--ref", help="Branch or ref to pull")
 @click.pass_context
-def git_pull(ctx: click.Context, project_id: int, ref: Optional[str]) -> None:
+def git_pull(ctx: click.Context, project: str, ref: Optional[str]) -> None:
     """Pull git changes."""
     client = get_client(ctx)
 
     try:
+        project_id = resolve_project_id(client, project)
         result = client.git_pull(project_id, ref)
         console.print("[green]Pull successful![/green]")
         if result.get("message"):
@@ -487,14 +551,15 @@ def git_pull(ctx: click.Context, project_id: int, ref: Optional[str]) -> None:
 
 
 @git.command(name="push")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--ref", help="Branch or ref to push")
 @click.pass_context
-def git_push(ctx: click.Context, project_id: int, ref: Optional[str]) -> None:
+def git_push(ctx: click.Context, project: str, ref: Optional[str]) -> None:
     """Push git changes."""
     client = get_client(ctx)
 
     try:
+        project_id = resolve_project_id(client, project)
         result = client.git_push(project_id, ref)
         console.print("[green]Push successful![/green]")
         if result.get("message"):
@@ -505,16 +570,17 @@ def git_push(ctx: click.Context, project_id: int, ref: Optional[str]) -> None:
 
 
 @git.command(name="branches")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def git_branches(ctx: click.Context, project_id: int, output: Optional[str]) -> None:
+def git_branches(ctx: click.Context, project: str, output: Optional[str]) -> None:
     """List git branches."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
+        project_id = resolve_project_id(client, project)
         branches = client.git_branches(project_id)
         format_output(branches, output_format, console, title="Branches")
     except APIError as exc:
@@ -523,17 +589,18 @@ def git_branches(ctx: click.Context, project_id: int, output: Optional[str]) -> 
 
 
 @git.command(name="branch")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.argument("name")
 @click.option("--from", "from_branch", help="Create from branch")
 @click.pass_context
 def git_branch_create(
-    ctx: click.Context, project_id: int, name: str, from_branch: Optional[str]
+    ctx: click.Context, project: str, name: str, from_branch: Optional[str]
 ) -> None:
     """Create git branch."""
     client = get_client(ctx)
 
     try:
+        project_id = resolve_project_id(client, project)
         client.git_create_branch(project_id, name, from_branch)
         console.print(f"[green]Branch '{name}' created successfully![/green]")
     except APIError as exc:
@@ -542,14 +609,15 @@ def git_branch_create(
 
 
 @git.command(name="checkout")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.argument("branch")
 @click.pass_context
-def git_checkout(ctx: click.Context, project_id: int, branch: str) -> None:
+def git_checkout(ctx: click.Context, project: str, branch: str) -> None:
     """Checkout git branch."""
     client = get_client(ctx)
 
     try:
+        project_id = resolve_project_id(client, project)
         client.git_checkout(project_id, branch)
         console.print(f"[green]Checked out branch '{branch}'![/green]")
     except APIError as exc:
@@ -558,17 +626,18 @@ def git_checkout(ctx: click.Context, project_id: int, branch: str) -> None:
 
 
 @git.command(name="commit")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.argument("message")
 @click.option("--files", help="Comma-separated list of files")
 @click.pass_context
-def git_commit(ctx: click.Context, project_id: int, message: str, files: Optional[str]) -> None:
+def git_commit(ctx: click.Context, project: str, message: str, files: Optional[str]) -> None:
     """Create git commit."""
     client = get_client(ctx)
 
     file_list = [f.strip() for f in files.split(",")] if files else None
 
     try:
+        project_id = resolve_project_id(client, project)
         client.git_commit(project_id, message, file_list)
         console.print("[green]Commit created successfully![/green]")
     except APIError as exc:
@@ -577,17 +646,18 @@ def git_commit(ctx: click.Context, project_id: int, message: str, files: Optiona
 
 
 @git.command(name="files")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.option("--path", default="", help="Path to list")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def git_files(ctx: click.Context, project_id: int, path: str, output: Optional[str]) -> None:
+def git_files(ctx: click.Context, project: str, path: str, output: Optional[str]) -> None:
     """List files in repository."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
+        project_id = resolve_project_id(client, project)
         files = client.git_list_files(project_id, path)
         format_output(files, output_format, console, title="Files")
     except APIError as exc:
@@ -596,14 +666,15 @@ def git_files(ctx: click.Context, project_id: int, path: str, output: Optional[s
 
 
 @git.command(name="cat")
-@click.argument("project_id", type=int)
+@click.argument("project")
 @click.argument("file_path")
 @click.pass_context
-def git_cat(ctx: click.Context, project_id: int, file_path: str) -> None:
+def git_cat(ctx: click.Context, project: str, file_path: str) -> None:
     """Read file from repository."""
     client = get_client(ctx)
 
     try:
+        project_id = resolve_project_id(client, project)
         content = client.git_read_file(project_id, file_path)
         console.print(content)
     except APIError as exc:
@@ -747,18 +818,19 @@ def tenants_list(ctx: click.Context, output: Optional[str]) -> None:
 
 
 @tenants.command(name="get")
-@click.argument("tenant_id", type=int)
+@click.argument("tenant")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
-def tenants_get(ctx: click.Context, tenant_id: int, output: Optional[str]) -> None:
+def tenants_get(ctx: click.Context, tenant: str, output: Optional[str]) -> None:
     """Get tenant details."""
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
     try:
-        tenant = client.get_tenant(tenant_id)
-        format_output(tenant, output_format, console)
+        tenant_id = resolve_tenant_id(client, tenant)
+        tenant_data = client.get_tenant(tenant_id)
+        format_output(tenant_data, output_format, console)
     except APIError as exc:
         console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
         sys.exit(1)

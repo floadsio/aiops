@@ -58,6 +58,7 @@ jsonschema>=4.22
 jsonschema-specifications>=2023.3.6
 referencing>=0.28
 rpds-py>=0.7.1
+ordered-set>=4.1
 attrs>=24.2
 PyYAML>=6.0
 marshmallow>=3.20

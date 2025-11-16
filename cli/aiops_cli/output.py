@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 import yaml
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 
@@ -72,8 +73,8 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
                         value = json.dumps(value, indent=None)
                     else:
                         value = str(value)
-                    # Escape square brackets to prevent Rich markup parsing errors
-                    value = value.replace("[", "\\[").replace("]", "\\]")
+                    # Escape markup to prevent Rich parsing errors
+                    value = escape(value)
                     row.append(value)
                 table.add_row(*row)
 
@@ -102,8 +103,8 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
             else:
                 value_display = str(value)
 
-            # Escape square brackets to prevent Rich markup parsing errors
-            value_display = value_display.replace("[", "\\[").replace("]", "\\]")
+            # Escape markup to prevent Rich parsing errors
+            value_display = escape(value_display)
 
             table.add_row(key_display, value_display)
 

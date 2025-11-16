@@ -415,6 +415,7 @@ def start_project_ai_session(project_id: int):
     rows = data.get("rows")
     cols = data.get("cols")
     tmux_target = (data.get("tmux_target") or "").strip() or None
+    issue_id = data.get("issue_id")  # Optional: track which issue this session is for
 
     user_id = _current_user_id()
     if user_id is None:
@@ -423,38 +424,54 @@ def start_project_ai_session(project_id: int):
         except (TypeError, ValueError):
             return jsonify({"error": "Unable to resolve current user."}), 400
 
-    # Use the current user's model directly for tmux session mapping
-    session_user = getattr(current_user, "model", None)
-    if not session_user:
-        session_user = User.query.get(user_id)
-    tmux_session_name = session_name_for_user(session_user)
+    # Check if there's already an active session for this issue
+    from ..ai_sessions import find_session_for_issue
+    existing_session = None
+    if issue_id:
+        existing_session = find_session_for_issue(issue_id, user_id, project_id)
 
     # For SSH attachment, return the system user running the Flask app (e.g., syseng)
     # This is the user that owns the tmux server process, not the user inside the pane
     import pwd
     flask_system_user = pwd.getpwuid(os.getuid()).pw_name
 
-    try:
-        session = create_session(
-            project,
-            user_id,
-            tool=tool,
-            command=command,
-            rows=rows if isinstance(rows, int) else None,
-            cols=cols if isinstance(cols, int) else None,
-            tmux_target=tmux_target,
-            tmux_session_name=tmux_session_name,
-        )
-    except ValueError as exc:
-        return jsonify({"error": str(exc)}), 400
+    if existing_session:
+        # Reuse existing session
+        session = existing_session
+        was_created = False
+    else:
+        # Create new session
+        # Use the current user's model directly for tmux session mapping
+        session_user = getattr(current_user, "model", None)
+        if not session_user:
+            session_user = User.query.get(user_id)
+        tmux_session_name = session_name_for_user(session_user)
 
-    if isinstance(prompt, str) and prompt.strip():
+        try:
+            session = create_session(
+                project,
+                user_id,
+                tool=tool,
+                command=command,
+                rows=rows if isinstance(rows, int) else None,
+                cols=cols if isinstance(cols, int) else None,
+                tmux_target=tmux_target,
+                tmux_session_name=tmux_session_name,
+                issue_id=issue_id,
+            )
+            was_created = True
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+
+    # Only send prompt if a new session was created
+    if was_created and isinstance(prompt, str) and prompt.strip():
         write_to_session(session, prompt + "\n")
 
     response_data = {
         "session_id": session.id,
         "tmux_target": session.tmux_target,  # Actual tmux session:window to attach to
         "ssh_user": flask_system_user,  # User to SSH as (owns tmux server)
+        "existing": not was_created,  # Indicate if this is an existing session
     }
 
     return jsonify(response_data), 201

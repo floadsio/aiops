@@ -41,6 +41,7 @@ class AISession:
         pid: int,
         fd: int,
         tmux_target: str | None = None,
+        issue_id: int | None = None,
     ):
         self.id = session_id
         self.project_id = project_id
@@ -49,6 +50,7 @@ class AISession:
         self.pid = pid
         self.fd = fd
         self.tmux_target = tmux_target
+        self.issue_id = issue_id
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
 
@@ -225,6 +227,29 @@ def get_session(session_id: str) -> Optional[AISession]:
         return _sessions.get(session_id)
 
 
+def find_session_for_issue(issue_id: int, user_id: int, project_id: int) -> Optional[AISession]:
+    """Find an active AI session working on a specific issue for a user.
+
+    Args:
+        issue_id: The issue ID to search for
+        user_id: The user ID who owns the session
+        project_id: The project ID (for additional filtering)
+
+    Returns:
+        AISession if found and still active, None otherwise
+    """
+    with _sessions_lock:
+        for session in _sessions.values():
+            if (
+                session.issue_id == issue_id
+                and session.user_id == user_id
+                and session.project_id == project_id
+                and not session.stop_event.is_set()
+            ):
+                return session
+    return None
+
+
 def remove_session(session_id: str) -> None:
     with _sessions_lock:
         _sessions.pop(session_id, None)
@@ -257,6 +282,7 @@ def create_session(
     cols: int | None = None,
     tmux_target: str | None = None,
     tmux_session_name: str | None = None,
+    issue_id: int | None = None,
 ) -> AISession:
     command_str = _resolve_command(tool, command)
     uses_gemini = _uses_gemini(command_str, tool)
@@ -385,6 +411,7 @@ def create_session(
         pid,
         fd,
         f"{session_name}:{window_name}",
+        issue_id=issue_id,
     )
     if rows and cols:
         _set_winsize(fd, rows, cols)

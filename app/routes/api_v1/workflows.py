@@ -78,9 +78,10 @@ def claim_issue():
     if not assignee:
         return jsonify({"error": f"No {provider} identity configured for user"}), 400
 
-    # Assign issue via provider
+    # Assign issue via provider (best effort - don't fail if not supported)
     from .issues import _get_issue_provider
 
+    assignment_error = None
     try:
         provider_obj = _get_issue_provider(integration)
         provider_obj.assign_issue(
@@ -88,20 +89,26 @@ def claim_issue():
             issue_number=issue.external_id,
             assignee=assignee,
         )
+        # Update local database only if provider assignment succeeded
+        issue.assignee = assignee
+        issue.last_seen_at = datetime.utcnow()
+        db.session.commit()
     except Exception as exc:  # noqa: BLE001
-        return jsonify({"error": f"Failed to assign issue: {str(exc)}"}), 500
-
-    # Update local database
-    issue.assignee = assignee
-    issue.last_seen_at = datetime.utcnow()
-    db.session.commit()
+        # Log the error but don't fail the request
+        current_app.logger.warning(
+            "Failed to assign issue %s via %s provider: %s",
+            issue.external_id,
+            provider,
+            exc,
+        )
+        assignment_error = str(exc)
 
     # Get workspace status
     workspace_status = get_workspace_status(project, user)
 
     from .issues import _issue_to_dict
 
-    return jsonify({
+    response = {
         "message": "Issue claimed successfully",
         "issue": _issue_to_dict(issue),
         "workspace": workspace_status,
@@ -111,7 +118,13 @@ def claim_issue():
             "Create a branch for this issue: POST /api/v1/projects/{id}/git/branches",
             "Make your changes and commit: POST /api/v1/projects/{id}/git/commit",
         ],
-    })
+    }
+
+    # Include warning if assignment failed
+    if assignment_error:
+        response["warning"] = f"Could not assign issue on {provider}: {assignment_error}"
+
+    return jsonify(response)
 
 
 @api_v1_bp.post("/workflows/update-progress")

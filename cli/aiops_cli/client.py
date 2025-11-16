@@ -254,7 +254,9 @@ class APIClient:
         result["project_id"] = project_id
         result["issue_id"] = issue_id
         result["workspace_path"] = workspace_data.get("path")
-        # linux_username already included in result from API response
+        # Pass through any warning from claim-issue
+        if "warning" in claim_result:
+            result["warning"] = claim_result["warning"]
 
         return result
 

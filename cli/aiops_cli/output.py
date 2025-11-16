@@ -70,9 +70,25 @@ def _format_table(
                 # Use all columns from the data
                 display_columns = list(first_item.keys())
 
-            # Add columns to table
+            # Add columns to table with proper wrapping configuration
+            # ID-like columns (id, external_id, etc.) can be narrow and no-wrap
+            # Text columns (title, description, etc.) should wrap
             for col in display_columns:
-                table.add_column(col.replace("_", " ").title(), style="cyan")
+                col_name = col.replace("_", " ").title()
+
+                # Determine column configuration based on name
+                if col in ("id", "external_id", "project_id", "tenant_id", "user_id", "integration_id"):
+                    # Numeric IDs - narrow, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, width=8)
+                elif col in ("status", "provider", "tool", "pinned"):
+                    # Status/enum fields - moderate width, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, width=12)
+                elif col in ("created_at", "updated_at", "pinned_at", "started_at"):
+                    # Timestamps - moderate width, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, width=20)
+                else:
+                    # Text fields (title, description, etc.) - wrap to fit terminal
+                    table.add_column(col_name, style="cyan", overflow="fold")
 
             # Add rows
             for idx, item in enumerate(data):
@@ -102,8 +118,8 @@ def _format_table(
 
     elif isinstance(data, dict):
         table = Table(title=title, show_header=False)
-        table.add_column("Key", style="cyan")
-        table.add_column("Value", style="green")
+        table.add_column("Key", style="cyan", no_wrap=True, width=25)
+        table.add_column("Value", style="green", overflow="fold")
 
         for key, value in data.items():
             # Format key

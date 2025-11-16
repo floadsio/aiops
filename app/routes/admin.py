@@ -32,6 +32,8 @@ from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..extensions import db
 from ..forms.admin import (
     AIToolUpdateForm,
+    APIKeyCreateForm,
+    APIKeyRevokeForm,
     CreateUserForm,
     IssueDashboardCreateForm,
     LinuxUserMappingForm,
@@ -64,6 +66,7 @@ from ..forms.admin import (
     UserUpdateForm,
 )
 from ..models import (
+    APIKey,
     ExternalIssue,
     Project,
     ProjectIntegration,
@@ -1172,6 +1175,15 @@ def manage_settings():
 
     ai_tool_cards = _build_ai_tool_cards()
 
+    # API Keys
+    api_key_create_form = APIKeyCreateForm()
+    api_keys = APIKey.query.filter_by(user_id=current_user.id).order_by(
+        APIKey.created_at.desc()
+    ).all()
+    api_key_revoke_forms = {
+        key.id: APIKeyRevokeForm(key_id=str(key.id)) for key in api_keys
+    }
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1189,6 +1201,10 @@ def manage_settings():
         log_file=current_app.config.get("LOG_FILE"),
         quick_branch_form=quick_branch_form,
         ai_tool_cards=ai_tool_cards,
+        api_key_create_form=api_key_create_form,
+        api_keys=api_keys,
+        api_key_revoke_forms=api_key_revoke_forms,
+        now=datetime.utcnow(),
     )
 
 
@@ -1327,6 +1343,94 @@ def quick_branch_switch():
         flash("Branch switched. Restart manually to apply changes.", "warning")
 
     return redirect(form.next.data or url_for("admin.dashboard"))
+
+
+@admin_bp.route("/settings/api-keys/create", methods=["POST"])
+@login_required
+def create_api_key_web():
+    """Create a new API key via web UI."""
+    form = APIKeyCreateForm()
+    if not form.validate_on_submit():
+        flash("Invalid API key creation request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    name = (form.name.data or "").strip()
+    if not name:
+        flash("API key name is required.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    # Parse scopes from comma-separated string
+    scopes_str = form.scopes.data or ""
+    scopes = [s.strip() for s in scopes_str.split(",") if s.strip()]
+    if not scopes:
+        flash("At least one scope is required.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    # Parse expiration days
+    expires_days = None
+    expires_days_str = (form.expires_days.data or "").strip()
+    if expires_days_str:
+        try:
+            expires_days = int(expires_days_str)
+        except ValueError:
+            flash("Invalid expiration days.", "danger")
+            return redirect(url_for("admin.manage_settings"))
+
+    # Generate API key
+    from datetime import datetime, timedelta
+    full_key, key_hash, key_prefix = APIKey.generate_key()
+
+    # Calculate expiration if specified
+    expires_at = None
+    if expires_days and expires_days > 0:
+        expires_at = datetime.utcnow() + timedelta(days=expires_days)
+
+    # Create API key
+    api_key = APIKey(
+        user_id=current_user.id,
+        name=name,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        scopes=scopes,
+        expires_at=expires_at,
+    )
+    db.session.add(api_key)
+    db.session.commit()
+
+    # Flash the full key (only shown once)
+    flash(
+        Markup(
+            f'<strong>API key created successfully!</strong><br>'
+            f'<span style="font-family: monospace; font-size: 1.1em; color: #059669;">{escape(full_key)}</span><br>'
+            f'<small>Save this key securely - it won\'t be shown again.</small>'
+        ),
+        "success",
+    )
+
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/api-keys/<int:key_id>/revoke", methods=["POST"])
+@login_required
+def revoke_api_key(key_id: int):
+    """Revoke (delete) an API key."""
+    form = APIKeyRevokeForm()
+    if not form.validate_on_submit():
+        flash("Invalid API key revocation request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    # Find the API key
+    api_key = APIKey.query.filter_by(id=key_id, user_id=current_user.id).first()
+    if not api_key:
+        flash("API key not found or you don't have permission to revoke it.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    key_name = api_key.name
+    db.session.delete(api_key)
+    db.session.commit()
+
+    flash(f'API key "{key_name}" has been revoked.', "success")
+    return redirect(url_for("admin.manage_settings"))
 
 
 @admin_bp.route("/settings/migrations/run", methods=["POST"])

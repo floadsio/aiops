@@ -424,3 +424,41 @@ class UserIdentityMapDeleteForm(FlaskForm):
 
     user_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Delete Identity Mapping")
+
+
+class APIKeyCreateForm(FlaskForm):
+    """Form for creating API keys."""
+
+    name = StringField(
+        "Key Name",
+        validators=[DataRequired(), Length(max=255)],
+        render_kw={"placeholder": "My API Key"},
+    )
+    scopes = SelectField(
+        "Permissions",
+        choices=[
+            ("read", "Read Only - View resources"),
+            ("read,write", "Read & Write - Modify resources"),
+            ("read,write,admin", "Full Access - Administrative privileges"),
+        ],
+        validators=[DataRequired()],
+    )
+    expires_days = SelectField(
+        "Expiration",
+        choices=[
+            ("", "Never"),
+            ("30", "30 days"),
+            ("90", "90 days"),
+            ("180", "180 days"),
+            ("365", "1 year"),
+        ],
+        validators=[Optional()],
+    )
+    submit = SubmitField("Create API Key")
+
+
+class APIKeyRevokeForm(FlaskForm):
+    """Form for revoking/deleting API keys."""
+
+    key_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Revoke Key")

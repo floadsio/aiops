@@ -188,7 +188,9 @@ def issues_list(
             project_id=project,
             limit=limit,
         )
-        format_output(issues_data, output_format, console, title="Issues")
+        # Show only the most relevant columns for list view
+        columns = ["id", "external_id", "title", "status", "provider", "project_name", "assignee"]
+        format_output(issues_data, output_format, console, title="Issues", columns=columns)
     except APIError as exc:
         console.print(f"[red]Error:[/red] {exc}", file=sys.stderr)
         sys.exit(1)

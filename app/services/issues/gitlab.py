@@ -246,6 +246,90 @@ def close_issue(
     )
 
 
+def assign_issue(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration,
+    external_id: str,
+    assignee: str,
+) -> IssuePayload:
+    """Assign a GitLab issue to a user.
+
+    Args:
+        integration: GitLab tenant integration
+        project_integration: Project integration containing the project ref
+        external_id: Issue IID (issue number)
+        assignee: GitLab username to assign the issue to
+
+    Returns:
+        Updated issue payload
+
+    Raises:
+        IssueSyncError: If assignment fails
+    """
+    project_ref = project_integration.external_identifier
+    if not project_ref:
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
+
+    identifier = str(external_id).strip()
+    issue_ref: int | str
+    try:
+        issue_ref = int(identifier)
+    except (TypeError, ValueError):
+        issue_ref = identifier
+
+    client = _build_client(integration)
+    try:
+        from gitlab import exceptions as gitlab_exc
+
+        project = client.projects.get(project_ref)
+        issue = project.issues.get(issue_ref)
+
+        # Look up user by username to get their ID
+        user_id = None
+        try:
+            users = client.users.list(username=assignee, get_all=False)
+            if users:
+                for user in users:
+                    if hasattr(user, "id") and hasattr(user, "username"):
+                        if user.username == assignee:
+                            user_id = user.id
+                            break
+        except gitlab_exc.GitlabError as exc:
+            raise IssueSyncError(f"Failed to find user '{assignee}': {exc}") from exc
+
+        if user_id is None:
+            raise IssueSyncError(f"GitLab user '{assignee}' not found")
+
+        # Assign the issue
+        issue.assignee_ids = [user_id]
+        issue.save()
+
+        # Refresh to get updated data
+        issue = project.issues.get(issue_ref)
+
+    except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabGetError) as exc:
+        status = getattr(exc, "response_code", "unknown")
+        raise IssueSyncError(f"GitLab API error: {status}") from exc
+    except gitlab_exc.GitlabError as exc:
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+
+    external_id_value = getattr(issue, "iid", None) or identifier
+    return IssuePayload(
+        external_id=str(external_id_value),
+        title=getattr(issue, "title", "") or "",
+        status=getattr(issue, "state", None),
+        assignee=_resolve_assignee(issue),
+        url=getattr(issue, "web_url", None),
+        labels=list(getattr(issue, "labels", None) or []),
+        external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
+        raw=issue.asdict() if hasattr(issue, "asdict") else {},
+        comments=_collect_issue_comments(issue),
+    )
+
+
 def _resolve_assignee(issue_payload: Any) -> Optional[str]:
     assignee = getattr(issue_payload, "assignee", None)
     if isinstance(assignee, dict):

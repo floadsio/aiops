@@ -1,18 +1,19 @@
 # aiops Control Panel
 
-> Current release: **0.1.1** (November 2025)
+> Current release: **0.3.0** (November 2025)
 
-This project provides a Flask-based web UI that orchestrates multi-tenant source control workspaces, AI-assisted code editing, and infrastructure automation.
+This project provides a Flask-based web UI and CLI that orchestrates multi-tenant source control workspaces, AI-assisted code editing, and infrastructure automation.
 
 ## Features
-- Manage tenants and associated projects stored in a relational database (SQLite by default).
-- Register SSH keys per user to authenticate against remote Git repositories.
-- Clone, update, and push Git repositories through the web UI.
-- Trigger AI assistants (Codex or Aider) against checked-out code via task runners.
-- Install and upgrade AI CLIs (Codex, Gemini) without shell access via the admin settings.
-- Manage Claude sessions through the AI console and admin settings, keeping Anthropic API keys scoped per user.
-- Run Ansible jobs via Semaphore to provision remote environments after code updates.
-- Launch browser terminals that default to the Codex CLI and reuse tmux sessions per tenant for continuity.
+- **Multi-tenant Management** – Manage tenants and associated projects stored in a relational database (SQLite by default).
+- **Issue Tracking Integration** – Sync and manage issues from GitHub, GitLab, and Jira with automatic assignment and status updates.
+- **Per-User Workspaces** – Isolated workspace directories for each user with their own git configuration and SSH keys.
+- **AI-Assisted Development** – Launch AI sessions (Claude Code, Codex, Gemini) directly on issues with automatic context population.
+- **Cross-Platform CLI** – Command-line client for macOS and Linux to manage issues, start AI sessions, and attach to remote tmux sessions via SSH.
+- **Git Operations** – Clone, update, push repositories, manage branches through web UI or CLI.
+- **AI Tool Management** – Install and upgrade AI CLIs (Codex, Gemini, Claude) without shell access via admin settings.
+- **Ansible Automation** – Run Ansible jobs via Semaphore to provision remote environments after code updates.
+- **Session Management** – List and reuse active AI sessions, attach to remote tmux sessions from your local machine.
 
 ## Getting Started
 1. Install [uv](https://github.com/astral-sh/uv) (macOS/Linux/OpenBSD/FreeBSD binaries available). Example: `curl -Ls https://astral.sh/uv/install.sh | sh`.
@@ -67,6 +68,71 @@ to restart the service automatically after a successful update.
 - `make start|stop|restart|status` – manage the aiops development server (logs in `/tmp/aiops.log`).
 - Dashboard project cards include branch-aware git controls; use the inline branch forms to
   checkout/create feature branches or merge them back into your default branch without leaving aiops.
+
+## CLI Client
+
+The aiops CLI provides a powerful command-line interface for managing issues and AI sessions from your local machine (macOS/Linux).
+
+### Installation
+
+```bash
+cd cli
+pip install -e .
+# or with uv
+uv pip install -e .
+```
+
+### Configuration
+
+```bash
+# Set API URL and authenticate
+aiops config set url http://dev.floads:5000
+aiops config set api_key aiops_your_api_key_here
+
+# Verify authentication
+aiops auth whoami
+```
+
+### Common Commands
+
+```bash
+# List issues
+aiops issues list
+
+# Start AI session on an issue (claims, starts session, populates context)
+aiops issues work 501 --tool claude
+
+# Start AI session and attach to remote tmux session via SSH
+aiops issues work 501 --tool claude --attach
+
+# List active AI sessions for a project
+aiops issues sessions --project 1
+
+# View issue details
+aiops issues view 501
+```
+
+### Remote Session Attachment
+
+The `--attach` flag enables seamless remote development:
+1. Derives SSH hostname from your configured API URL
+2. Connects as the system user running the Flask app
+3. Attaches to the tmux session running your AI tool
+4. Automatically populates `AGENTS.override.md` with issue context
+
+Example workflow:
+```bash
+$ aiops issues work 501 --tool claude --attach
+✓ Issue 501 claimed successfully!
+✓ AI session started (session ID: eb5b5248f1a0...)
+Workspace: /home/ivo/workspace/floads/aiops
+Context: AGENTS.override.md populated with issue details
+
+Attaching to tmux session...
+[Connected to remote tmux session with Claude Code]
+```
+
+Press `Ctrl+B` then `D` to detach and return to your local shell. Run the same command again to re-attach to the existing session.
 
 ## AI Console
 

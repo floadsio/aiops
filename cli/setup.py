@@ -7,7 +7,7 @@ with open("README.md", encoding="utf-8") as f:
 
 setup(
     name="aiops-cli",
-    version="0.2.0",
+    version="0.3.0",
     description="Command-line interface for AIops REST API",
     long_description=long_description,
     long_description_content_type="text/markdown",

@@ -149,6 +149,28 @@ class APIClient:
         except requests.exceptions.RequestException as exc:
             raise APIError(f"Request failed: {exc}") from exc
 
+    def pin_issue(self, issue_id: int) -> dict[str, Any]:
+        """Pin an issue for quick access.
+
+        Args:
+            issue_id: Issue ID to pin
+
+        Returns:
+            Response data from the API
+        """
+        return self.post(f"issues/{issue_id}/pin")
+
+    def unpin_issue(self, issue_id: int) -> dict[str, Any]:
+        """Unpin an issue.
+
+        Args:
+            issue_id: Issue ID to unpin
+
+        Returns:
+            Response data from the API
+        """
+        return self.delete(f"issues/{issue_id}/pin")
+
     def list_issues(
         self,
         status: Optional[str] = None,

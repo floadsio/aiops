@@ -230,6 +230,36 @@ def issues() -> None:
     """Issue management commands."""
 
 
+@issues.command(name="pin")
+@click.argument("issue_id", type=int)
+@click.pass_context
+def issues_pin(ctx: click.Context, issue_id: int) -> None:
+    """Pin an issue for quick access."""
+    client = get_client(ctx)
+
+    try:
+        result = client.pin_issue(issue_id)
+        console.print(f"[green]✓[/green] {result.get('message', 'Issue pinned successfully')}")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@issues.command(name="unpin")
+@click.argument("issue_id", type=int)
+@click.pass_context
+def issues_unpin(ctx: click.Context, issue_id: int) -> None:
+    """Unpin an issue."""
+    client = get_client(ctx)
+
+    try:
+        result = client.unpin_issue(issue_id)
+        console.print(f"[green]✓[/green] {result.get('message', 'Issue unpinned successfully')}")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="pinned")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context

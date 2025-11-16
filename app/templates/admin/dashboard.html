@@ -953,6 +953,57 @@
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
     white-space: nowrap;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Text overflow handling */
+  .issue-title-link {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Mobile responsive layout */
+  @media (max-width: 768px) {
+    .issue-row {
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem;
+    }
+
+    .issue-row-actions {
+      width: 100%;
+      margin-left: 0;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .issue-row-actions button,
+    .issue-row-actions a {
+      width: 100%;
+      justify-content: center;
+      min-height: 44px;
+      font-size: 1rem;
+      padding: 0.6rem 1rem;
+    }
+
+    .issue-row-actions form {
+      width: 100%;
+      display: flex;
+    }
+
+    .issue-row-actions form button {
+      width: 100%;
+    }
+
+    .issue-row-meta {
+      gap: 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    .pinned-issues-subtitle {
+      font-size: 0.85rem;
+    }
   }
 </style>
 <section class="dashboard-section">

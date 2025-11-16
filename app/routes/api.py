@@ -453,6 +453,7 @@ def start_project_ai_session(project_id: int):
 
     response_data = {
         "session_id": session.id,
+        "tmux_target": session.tmux_target,  # Actual tmux session:window to attach to
         "ssh_user": flask_system_user,  # User to SSH as (owns tmux server)
     }
 

@@ -9,6 +9,27 @@ from rich.markup import escape
 from rich.table import Table
 
 
+def _strip_timestamp_fields(data: Any) -> Any:
+    """Remove created_at and updated_at fields from data.
+
+    Args:
+        data: Data to filter (dict, list, or other)
+
+    Returns:
+        Filtered data with timestamp fields removed
+    """
+    if isinstance(data, dict):
+        return {
+            k: _strip_timestamp_fields(v)
+            for k, v in data.items()
+            if k not in ("created_at", "updated_at")
+        }
+    elif isinstance(data, list):
+        return [_strip_timestamp_fields(item) for item in data]
+    else:
+        return data
+
+
 def format_output(
     data: Any,
     format_type: str = "table",
@@ -27,6 +48,9 @@ def format_output(
     """
     if console is None:
         console = Console()
+
+    # Strip created_at and updated_at from all output
+    data = _strip_timestamp_fields(data)
 
     if format_type == "json":
         console.print(json.dumps(data, indent=2))

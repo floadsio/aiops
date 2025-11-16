@@ -402,6 +402,36 @@ def get_project_workspace_status(project_id: int):
     return jsonify(status)
 
 
+@api_bp.get("/projects/<int:project_id>/ai/sessions")
+def list_project_ai_sessions(project_id: int):
+    """List active AI sessions for a project."""
+    project = Project.query.get_or_404(project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied."}), 403
+
+    user_id = _current_user_id()
+
+    # Import here to avoid circular imports
+    from ..ai_sessions import list_active_sessions
+
+    # List sessions for this project and user
+    sessions = list_active_sessions(user_id=user_id, project_id=project_id)
+
+    # Convert to JSON-serializable format
+    session_list = []
+    for session in sessions:
+        session_list.append({
+            "session_id": session.id,
+            "project_id": session.project_id,
+            "user_id": session.user_id,
+            "issue_id": session.issue_id,
+            "command": session.command,
+            "tmux_target": session.tmux_target,
+        })
+
+    return jsonify({"sessions": session_list})
+
+
 @api_bp.post("/projects/<int:project_id>/ai/sessions")
 def start_project_ai_session(project_id: int):
     project = Project.query.get_or_404(project_id)

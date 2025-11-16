@@ -250,6 +250,34 @@ def find_session_for_issue(issue_id: int, user_id: int, project_id: int) -> Opti
     return None
 
 
+def list_active_sessions(user_id: int | None = None, project_id: int | None = None) -> list[AISession]:
+    """List all active AI sessions, optionally filtered by user or project.
+
+    Args:
+        user_id: Optional user ID to filter by
+        project_id: Optional project ID to filter by
+
+    Returns:
+        List of active AISession objects
+    """
+    with _sessions_lock:
+        sessions = []
+        for session in _sessions.values():
+            # Skip stopped sessions
+            if session.stop_event.is_set():
+                continue
+
+            # Apply filters
+            if user_id is not None and session.user_id != user_id:
+                continue
+            if project_id is not None and session.project_id != project_id:
+                continue
+
+            sessions.append(session)
+
+        return sessions
+
+
 def remove_session(session_id: str) -> None:
     with _sessions_lock:
         _sessions.pop(session_id, None)

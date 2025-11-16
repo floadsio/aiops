@@ -400,6 +400,56 @@ def issues_assign(ctx: click.Context, issue_id: int, user: Optional[int]) -> Non
         sys.exit(1)
 
 
+@issues.command(name="sessions")
+@click.option("--project", type=int, help="Filter by project ID")
+@click.pass_context
+def issues_sessions(ctx: click.Context, project: Optional[int]) -> None:
+    """List active AI sessions."""
+    client = get_client(ctx)
+
+    try:
+        if not project:
+            # If no project specified, need to get it from somewhere
+            # For now, require --project
+            error_console.print("[red]Error:[/red] --project is required")
+            sys.exit(1)
+
+        sessions = client.list_ai_sessions(project)
+
+        if not sessions:
+            console.print("[yellow]No active AI sessions found[/yellow]")
+            return
+
+        # Display sessions in a table
+        table = Table(title=f"Active AI Sessions (Project {project})")
+        table.add_column("Session ID", style="cyan", no_wrap=True)
+        table.add_column("Issue", style="magenta")
+        table.add_column("Tool", style="green")
+        table.add_column("Tmux Target", style="blue")
+
+        for session in sessions:
+            session_id = session.get("session_id", "")[:12] + "..."  # Truncate
+            issue_id = str(session.get("issue_id") or "-")
+            command = session.get("command", "")
+            # Extract tool name from command
+            tool_name = "unknown"
+            if "claude" in command.lower():
+                tool_name = "claude"
+            elif "codex" in command.lower():
+                tool_name = "codex"
+            elif "gemini" in command.lower():
+                tool_name = "gemini"
+            tmux_target = session.get("tmux_target", "")
+
+            table.add_row(session_id, issue_id, tool_name, tmux_target)
+
+        console.print(table)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="work")
 @click.argument("issue_id", type=int)
 @click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), help="AI tool to use")

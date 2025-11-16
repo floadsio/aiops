@@ -260,6 +260,31 @@ class APIClient:
 
         return result
 
+    def list_ai_sessions(self, project_id: int) -> list[dict[str, Any]]:
+        """List active AI sessions for a project.
+
+        Args:
+            project_id: Project ID to list sessions for
+
+        Returns:
+            List of active session dictionaries
+        """
+        url = f"{self.base_url}/api/projects/{project_id}/ai/sessions"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            result = response.json()
+            return result.get("sessions", [])
+        except requests.exceptions.HTTPError as exc:
+            try:
+                error_data = exc.response.json()
+                error_msg = error_data.get("error", str(exc))
+            except Exception:  # noqa: BLE001
+                error_msg = str(exc)
+            raise APIError(error_msg, exc.response.status_code) from exc
+        except requests.exceptions.RequestException as exc:
+            raise APIError(f"Request failed: {exc}") from exc
+
     # Projects
     def list_projects(self, tenant_id: Optional[int] = None) -> list[dict[str, Any]]:
         """List projects."""

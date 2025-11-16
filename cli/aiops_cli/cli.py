@@ -435,6 +435,7 @@ def issues_work(
         ssh_user = result.get("ssh_user")  # System user running Flask app (owns tmux)
         tmux_target = result.get("tmux_target")  # Actual tmux session:window to attach to
         is_existing = result.get("existing", False)  # Whether reusing existing session
+        context_populated = result.get("context_populated", False)  # Whether AGENTS.override.md was populated
 
         console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
         if is_existing:
@@ -443,6 +444,8 @@ def issues_work(
             console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
         if workspace_path:
             console.print(f"[blue]Workspace:[/blue] {workspace_path}")
+        if context_populated:
+            console.print(f"[blue]Context:[/blue] AGENTS.override.md populated with issue details")
 
         # If attach flag is set, attach to tmux session
         if attach:

@@ -499,6 +499,7 @@ def start_project_ai_session(project_id: int):
         "tmux_target": session.tmux_target,  # Actual tmux session:window to attach to
         "ssh_user": flask_system_user,  # User to SSH as (owns tmux server)
         "existing": not was_created,  # Indicate if this is an existing session
+        "context_populated": was_created and issue_id is not None,  # Whether AGENTS.override.md was populated
     }
 
     return jsonify(response_data), 201

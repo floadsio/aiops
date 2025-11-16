@@ -7,14 +7,16 @@ from flask_wtf.csrf import generate_csrf  # type: ignore
 from .cli import register_cli_commands
 from .config import Config
 from .constants import DEFAULT_TENANT_COLOR
-from .extensions import csrf, db, login_manager, migrate
+from .extensions import csrf, db, limiter, login_manager, migrate
 from .forms.admin import QuickBranchSwitchForm
 from .git_info import detect_repo_branch
 from .routes.admin import admin_bp
 from .routes.api import api_bp
+from .routes.api_v1 import api_v1_bp
 from .routes.auth import auth_bp
 from .routes.projects import projects_bp
 from .services.branch_state import configure_branch_form
+from .swagger_config import init_swagger
 from .template_utils import register_template_filters
 from .version import __version__
 
@@ -40,6 +42,7 @@ def create_app(
     register_blueprints(app)
     register_cli_commands(app)
     register_template_filters(app)
+    init_swagger(app)
 
     app.config.setdefault("AIOPS_VERSION", __version__)
 
@@ -51,6 +54,7 @@ def register_extensions(app: Flask) -> None:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+    limiter.init_app(app)
 
     @app.context_processor
     def inject_csrf_token():
@@ -73,3 +77,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(projects_bp, url_prefix="/projects")
     app.register_blueprint(api_bp)
+    app.register_blueprint(api_v1_bp)
+
+    # Exempt API v1 from CSRF since it uses token authentication
+    csrf.exempt(api_v1_bp)

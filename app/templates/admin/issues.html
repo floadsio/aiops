@@ -1303,6 +1303,25 @@
       });
     });
 
+    // Auto-expand issue if issue_id is in URL query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetIssueId = urlParams.get('issue_id');
+    if (targetIssueId) {
+      const targetButton = document.querySelector(`.issue-detail-toggle[data-issue-id="${targetIssueId}"]`);
+      const targetDetailRow = document.getElementById(`issue-detail-${targetIssueId}`);
+
+      if (targetButton && targetDetailRow) {
+        // Expand the issue detail
+        targetDetailRow.removeAttribute('hidden');
+        targetButton.setAttribute('aria-expanded', 'true');
+
+        // Scroll to the issue with smooth behavior
+        setTimeout(() => {
+          targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+
     const codexButtons = document.querySelectorAll('.issues-start-codex');
     const populateButtons = document.querySelectorAll('.issues-populate-agents');
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');

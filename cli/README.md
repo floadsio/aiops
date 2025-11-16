@@ -36,6 +36,43 @@ aiops auth whoami
 aiops issues list
 ```
 
+## Features
+
+### Human-Readable Names Instead of IDs
+
+The CLI supports using human-readable names instead of numeric IDs for projects and tenants across all commands:
+
+```bash
+# Use project names instead of IDs
+aiops issues list --project aiops          # Instead of --project 1
+aiops git status aiops                     # Instead of git status 1
+aiops projects get aiops                   # Instead of projects get 1
+
+# Use tenant slugs instead of IDs
+aiops projects list --tenant floads        # Instead of --tenant 1
+aiops tenants get floads                   # Instead of tenants get 1
+```
+
+- ✅ Case-insensitive matching
+- ✅ Backward compatible with numeric IDs
+- ✅ Clear error messages when name not found
+- ✅ Works across all commands (issues, projects, git, tenants)
+
+### Direct Issue-to-AI Workflow
+
+Start working on an issue with a single command:
+
+```bash
+aiops issues work 123 --tool claude --attach
+```
+
+This automatically:
+1. Claims the issue (assigns it to you)
+2. Starts an AI session in tmux
+3. Attaches you directly to the session
+
+See the [Issues](#working-on-issues-with-ai) section for more details.
+
 ## Configuration
 
 The CLI stores configuration in `~/.aiops/config.yaml`:
@@ -95,7 +132,41 @@ aiops issues close 42
 
 # Assign issue
 aiops issues assign 42 --user 1
+
+# Start an AI session to work on an issue (NEW!)
+aiops issues work 42 --tool claude --attach
+aiops issues work 123 --tool codex --prompt "Fix the authentication bug"
+aiops issues work 456 --tool gemini
 ```
+
+#### Working on Issues with AI
+
+The `aiops issues work` command streamlines starting an AI coding session:
+
+```bash
+# Start a Claude session and attach to tmux immediately
+aiops issues work 123 --tool claude --attach
+
+# Start with an initial prompt
+aiops issues work 456 --tool codex --prompt "Investigate the login timeout issue"
+
+# Start session without attaching (can attach later via tmux)
+aiops issues work 789 --tool gemini
+```
+
+**What it does:**
+1. Claims the issue (assigns it to you)
+2. Starts an AI tool session in tmux
+3. Optionally attaches you directly to the interactive session
+
+**Options:**
+- `--tool {claude,codex,gemini}` - Choose which AI tool to use
+- `--prompt "text"` - Send an initial prompt to the AI
+- `--attach` - Automatically attach to the tmux session (interactive mode)
+
+**Tmux controls:**
+- Press `Ctrl+B` then `D` to detach from the session
+- Reattach later with: `tmux attach -t <session-id>`
 
 ### Projects
 
@@ -103,46 +174,55 @@ aiops issues assign 42 --user 1
 # List projects
 aiops projects list
 
-# Get project details
+# Filter by tenant (accepts tenant slug or ID)
+aiops projects list --tenant floads
+aiops projects list --tenant 1
+
+# Get project details (accepts project name or ID)
+aiops projects get aiops
 aiops projects get 1
 
-# Create project
+# Create project (accepts tenant slug or ID)
 aiops projects create --name "My Project" \\
-  --tenant 1 --repo-url git@github.com:org/repo.git
+  --tenant floads --repo-url git@github.com:org/repo.git
 
-# Get project status
+# Get project status (accepts project name or ID)
+aiops projects status aiops
 aiops projects status 1
 ```
 
 ### Git Operations
 
+All git commands accept project names or IDs:
+
 ```bash
-# Get git status
+# Get git status (accepts project name or ID)
+aiops git status aiops
 aiops git status 1
 
 # Pull changes
-aiops git pull 1
+aiops git pull aiops
 
 # Push changes
-aiops git push 1
+aiops git push aiops
 
 # List branches
-aiops git branches 1
+aiops git branches aiops
 
 # Create branch
-aiops git branch create 1 feature-xyz
+aiops git branch aiops feature-xyz
 
 # Checkout branch
-aiops git checkout 1 main
+aiops git checkout aiops main
 
 # Commit changes
-aiops git commit 1 "Fix bug" --files app/auth.py
+aiops git commit aiops "Fix bug" --files app/auth.py
 
 # List files
-aiops git files 1
+aiops git files aiops
 
 # Read file
-aiops git cat 1 app/models.py
+aiops git cat aiops app/models.py
 ```
 
 ### Workflows (AI Agent Commands)
@@ -171,7 +251,8 @@ aiops workflow complete 42 --summary "Bug fixed successfully"
 # List tenants
 aiops tenants list
 
-# Get tenant details
+# Get tenant details (accepts tenant slug or ID)
+aiops tenants get floads
 aiops tenants get 1
 
 # Create tenant

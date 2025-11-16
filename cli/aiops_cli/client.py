@@ -127,6 +127,28 @@ class APIClient:
         self.delete(f"auth/keys/{key_id}")
 
     # Issues
+    def list_pinned_issues(self) -> list[dict[str, Any]]:
+        """List pinned issues for the current user.
+
+        Returns:
+            List of pinned issue dictionaries
+        """
+        url = f"{self.base_url}/api/v1/issues/pinned"
+        try:
+            response = self.session.get(url)
+            response.raise_for_status()
+            result = response.json()
+            return result.get("issues", [])
+        except requests.exceptions.HTTPError as exc:
+            try:
+                error_data = exc.response.json()
+                error_msg = error_data.get("error", str(exc))
+            except Exception:  # noqa: BLE001
+                error_msg = str(exc)
+            raise APIError(error_msg, exc.response.status_code) from exc
+        except requests.exceptions.RequestException as exc:
+            raise APIError(f"Request failed: {exc}") from exc
+
     def list_issues(
         self,
         status: Optional[str] = None,

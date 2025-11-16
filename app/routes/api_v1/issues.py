@@ -199,6 +199,49 @@ def list_issues():
     })
 
 
+@api_v1_bp.get("/issues/pinned")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def list_pinned_issues():
+    """List pinned issues for the current user.
+
+    Returns:
+        200: List of pinned issues with metadata
+    """
+    from ...models import PinnedIssue
+
+    user = g.api_user
+
+    # Query pinned issues for the current user
+    pinned_issues = (
+        PinnedIssue.query.filter_by(user_id=user.id)
+        .join(ExternalIssue)
+        .join(ProjectIntegration)
+        .options(
+            selectinload(PinnedIssue.issue)
+            .selectinload(ExternalIssue.project_integration)
+            .selectinload(ProjectIntegration.project)
+            .selectinload(Project.tenant),
+            selectinload(PinnedIssue.issue)
+            .selectinload(ExternalIssue.project_integration)
+            .selectinload(ProjectIntegration.integration),
+        )
+        .order_by(PinnedIssue.pinned_at.desc())
+        .all()
+    )
+
+    payload = []
+    for pinned in pinned_issues:
+        issue_dict = _issue_to_dict(pinned.issue)
+        issue_dict["pinned_at"] = _serialize_timestamp(pinned.pinned_at)
+        payload.append(issue_dict)
+
+    return jsonify({
+        "issues": payload,
+        "count": len(payload),
+    })
+
+
 @api_v1_bp.get("/issues/<int:issue_id>")
 @require_api_auth(scopes=["read"])
 @audit_api_request

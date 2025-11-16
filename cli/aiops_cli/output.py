@@ -73,7 +73,7 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
                     else:
                         value = str(value)
                     # Escape square brackets to prevent Rich markup parsing errors
-                    value = value.replace("[", r"\[").replace("]", r"\]")
+                    value = value.replace("[", "\\[").replace("]", "\\]")
                     row.append(value)
                 table.add_row(*row)
 
@@ -103,7 +103,7 @@ def _format_table(data: Any, console: Console, title: Optional[str] = None) -> N
                 value_display = str(value)
 
             # Escape square brackets to prevent Rich markup parsing errors
-            value_display = value_display.replace("[", r"\[").replace("]", r"\]")
+            value_display = value_display.replace("[", "\\[").replace("]", "\\]")
 
             table.add_row(key_display, value_display)
 

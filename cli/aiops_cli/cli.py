@@ -436,8 +436,11 @@ def issues_work(
         tmux_target = result.get("tmux_target")  # Actual tmux session:window to attach to
         is_existing = result.get("existing", False)  # Whether reusing existing session
         context_populated = result.get("context_populated", False)  # Whether AGENTS.override.md was populated
+        warning = result.get("warning")  # Optional warning from claim-issue
 
         console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
+        if warning:
+            console.print(f"[yellow]⚠[/yellow] {warning}")
         if is_existing:
             console.print(f"[green]✓[/green] Reusing existing AI session (session ID: {session_id})")
         else:

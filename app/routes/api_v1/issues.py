@@ -242,6 +242,81 @@ def list_pinned_issues():
     })
 
 
+@api_v1_bp.post("/issues/<int:issue_id>/pin")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def pin_issue(issue_id: int):
+    """Pin an issue for quick access.
+
+    Args:
+        issue_id: Issue ID to pin
+
+    Returns:
+        200: Issue pinned successfully
+        404: Issue not found
+    """
+    from ...models import PinnedIssue
+
+    user = g.api_user
+
+    # Verify issue exists
+    issue = ExternalIssue.query.get_or_404(issue_id)
+
+    # Check if already pinned
+    existing = PinnedIssue.query.filter_by(
+        user_id=user.id, issue_id=issue_id
+    ).first()
+
+    if existing:
+        return jsonify({"message": "Issue is already pinned"}), 200
+
+    # Create pin
+    pinned = PinnedIssue(user_id=user.id, issue_id=issue_id)
+    db.session.add(pinned)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Issue pinned successfully",
+        "issue_id": issue_id,
+        "pinned_at": _serialize_timestamp(pinned.pinned_at),
+    })
+
+
+@api_v1_bp.delete("/issues/<int:issue_id>/pin")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def unpin_issue(issue_id: int):
+    """Unpin an issue.
+
+    Args:
+        issue_id: Issue ID to unpin
+
+    Returns:
+        200: Issue unpinned successfully
+        404: Issue not found or not pinned
+    """
+    from ...models import PinnedIssue
+
+    user = g.api_user
+
+    # Find pinned issue
+    pinned = PinnedIssue.query.filter_by(
+        user_id=user.id, issue_id=issue_id
+    ).first()
+
+    if not pinned:
+        return jsonify({"error": "Issue is not pinned"}), 404
+
+    # Remove pin
+    db.session.delete(pinned)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Issue unpinned successfully",
+        "issue_id": issue_id,
+    })
+
+
 @api_v1_bp.get("/issues/<int:issue_id>")
 @require_api_auth(scopes=["read"])
 @audit_api_request

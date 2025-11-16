@@ -1073,6 +1073,16 @@
             <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=gemini&issue_id={{ issue.id }}" class="secondary">
               Gemini
             </a>
+            <button
+              type="button"
+              class="secondary outline close-pinned-issue-btn"
+              data-project-id="{{ project.id }}"
+              data-issue-id="{{ issue.id }}"
+              data-issue-title="{{ issue.title }}"
+              data-external-id="{{ issue.external_id }}"
+            >
+              Close Issue
+            </button>
             <form method="post" action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <button type="submit" class="secondary outline">
@@ -1638,6 +1648,80 @@
           } else {
             return response.json().then(data => {
               throw new Error(data.error || 'Failed to close session.');
+            });
+          }
+        })
+        .catch(error => {
+          alert(`Error: ${error.message}`);
+          button.disabled = false;
+          button.textContent = originalLabel;
+        });
+      });
+    });
+  })();
+
+  // Close Pinned Issue Handler
+  (function () {
+    const closePinnedIssueButtons = document.querySelectorAll('.close-pinned-issue-btn');
+    if (!closePinnedIssueButtons.length) {
+      return;
+    }
+
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    closePinnedIssueButtons.forEach(button => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const projectId = button.dataset.projectId;
+        const issueId = button.dataset.issueId;
+        const issueTitle = button.dataset.issueTitle;
+        const externalId = button.dataset.externalId;
+
+        if (!projectId || !issueId) {
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to close issue #${externalId}: "${issueTitle}"?`)) {
+          return;
+        }
+
+        const url = `/projects/${projectId}/issues/${issueId}/close`;
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Closing...';
+
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken,
+          },
+          credentials: 'same-origin',
+        })
+        .then(response => {
+          if (response.ok) {
+            // Remove the issue card from the DOM
+            const issueRow = button.closest('.issue-row');
+            if (issueRow) {
+              issueRow.style.opacity = '0';
+              issueRow.style.transition = 'opacity 0.3s ease';
+              setTimeout(() => {
+                issueRow.remove();
+                // Check if there are no more pinned issues
+                const pinnedIssuesList = document.querySelector('.pinned-issues-subtitle')?.closest('.dashboard-section');
+                const remainingIssues = document.querySelectorAll('.close-pinned-issue-btn').length;
+                if (remainingIssues === 0 && pinnedIssuesList) {
+                  pinnedIssuesList.remove();
+                }
+              }, 300);
+            }
+
+            // Show success message
+            alert(`Issue #${externalId} closed successfully.`);
+          } else {
+            return response.text().then(text => {
+              throw new Error('Failed to close issue.');
             });
           }
         })

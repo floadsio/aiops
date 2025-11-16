@@ -436,6 +436,8 @@ Write Pytest cases alongside the code they cover and collect shared fixtures in 
 ## Commit & Pull Request Guidelines
 Use imperative commit subjects like `Add tenant creation form validation`, splitting refactors from features when practical. Before opening a PR, run `make check` and paste the output. Describe motivation, noteworthy implementation details, validation steps, and attach UI or automation evidence when relevant. Link issues and highlight breaking changes in both the PR body and commit message footer.
 
+**IMPORTANT: Never include AI attribution in commits.** Do not add footers like "🤖 Generated with [Claude Code]" or "Co-Authored-By: Claude" to commit messages. All commits should appear as human-authored work without mentioning AI assistance.
+
 ## Security & Configuration Tips
 Keep secrets in `.env` (gitignored) and surface only safe defaults through `.env.example`. Record public SSH keys via the admin UI; when private keys must live with the app, import them with `.venv/bin/flask --app manage.py seed-identities --owner-email <admin@domain>` so they’re copied into `instance/keys/` with `chmod 600`. Review new dependencies for license compliance and known CVEs, recording findings in the PR. When exposing AI or Ansible commands, update the allowlists in `app/config.py` and document production overrides in `docs/`.
 

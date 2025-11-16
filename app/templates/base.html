@@ -378,6 +378,36 @@
       .app-sidebar__menu a:hover {
         background: rgba(148, 163, 184, 0.15);
       }
+      .app-sidebar__menu .sidebar-theme-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        width: 100%;
+        text-align: left;
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+      }
+      .app-sidebar__menu .sidebar-theme-toggle:hover {
+        background: rgba(148, 163, 184, 0.15);
+      }
+      .app-sidebar__menu .sidebar-logout {
+        color: #dc2626;
+        font-weight: 600;
+      }
+      [data-theme="dark"] .app-sidebar__menu .sidebar-logout {
+        color: #f87171;
+      }
+      .app-sidebar__menu .sidebar-logout:hover {
+        background: rgba(220, 38, 38, 0.1);
+      }
+      [data-theme="dark"] .app-sidebar__menu .sidebar-logout:hover {
+        background: rgba(248, 113, 113, 0.15);
+      }
       .app-main {
         grid-area: main;
         overflow-x: hidden;
@@ -515,13 +545,7 @@
           {% endif %}
         </div>
         <div class="app-header__controls">
-          {% if current_user.is_authenticated %}
-            <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">
-              <span aria-hidden="true" id="theme-toggle-icon">🌙</span>
-              <span id="theme-toggle-label">Dark</span>
-            </button>
-            <a href="{{ url_for('auth.logout') }}" role="button" class="outline">Logout</a>
-          {% else %}
+          {% if not current_user.is_authenticated %}
             <a href="{{ url_for('auth.login') }}" role="button">Login</a>
           {% endif %}
         </div>
@@ -541,6 +565,13 @@
           <li><a href="{{ url_for('admin.manage_user_identity_mappings') }}">User Identities</a></li>
           <li><a href="{{ url_for('projects.ai_status_overview') }}">AI Status</a></li>
           <li><a href="{{ url_for('admin.manage_settings') }}">Settings</a></li>
+          <li>
+            <button type="button" class="theme-toggle sidebar-theme-toggle" id="theme-toggle" aria-label="Toggle theme">
+              <span aria-hidden="true" id="theme-toggle-icon">🌙</span>
+              <span id="theme-toggle-label">Dark</span>
+            </button>
+          </li>
+          <li><a href="{{ url_for('auth.logout') }}" class="sidebar-logout">Logout</a></li>
         </ul>
       </aside>
     {% endif %}

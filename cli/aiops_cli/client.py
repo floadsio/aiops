@@ -220,7 +220,9 @@ class APIClient:
         """
         # First claim the issue to get project info
         claim_result = self.claim_issue(issue_id)
-        project_id = claim_result.get("project_id")
+        issue_data = claim_result.get("issue", {})
+        workspace_data = claim_result.get("workspace", {})
+        project_id = issue_data.get("project_id")
 
         if not project_id:
             raise APIError("Failed to get project_id from claim-issue response")
@@ -237,7 +239,7 @@ class APIClient:
         # Add project info to response
         result["project_id"] = project_id
         result["issue_id"] = issue_id
-        result["workspace_path"] = claim_result.get("workspace_path")
+        result["workspace_path"] = workspace_data.get("path")
 
         return result
 

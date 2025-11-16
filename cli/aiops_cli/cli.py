@@ -164,7 +164,7 @@ def issues() -> None:
 @issues.command(name="list")
 @click.option("--status", help="Filter by status (open, closed)")
 @click.option("--provider", help="Filter by provider (github, gitlab, jira)")
-@click.option("--project", type=int, help="Filter by project ID")
+@click.option("--project", help="Filter by project ID or name")
 @click.option("--limit", type=int, help="Limit number of results")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
@@ -172,7 +172,7 @@ def issues_list(
     ctx: click.Context,
     status: Optional[str],
     provider: Optional[str],
-    project: Optional[int],
+    project: Optional[str],
     limit: Optional[int],
     output: Optional[str],
 ) -> None:
@@ -182,10 +182,30 @@ def issues_list(
     output_format = output or config.output_format
 
     try:
+        # Resolve project name to ID if needed
+        project_id = None
+        if project:
+            # Check if it's a numeric ID
+            if project.isdigit():
+                project_id = int(project)
+            else:
+                # Look up project by name
+                projects = client.list_projects()
+                matching_projects = [p for p in projects if p.get("name", "").lower() == project.lower()]
+                if not matching_projects:
+                    console.print(f"[red]Error:[/red] Project '{project}' not found", file=sys.stderr)
+                    sys.exit(1)
+                if len(matching_projects) > 1:
+                    console.print(
+                        f"[yellow]Warning:[/yellow] Multiple projects named '{project}' found, using first match",
+                        file=sys.stderr,
+                    )
+                project_id = matching_projects[0]["id"]
+
         issues_data = client.list_issues(
             status=status,
             provider=provider,
-            project_id=project,
+            project_id=project_id,
             limit=limit,
         )
         # Show only the most relevant columns for list view

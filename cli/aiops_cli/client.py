@@ -227,14 +227,15 @@ class APIClient:
         if not project_id:
             raise APIError("Failed to get project_id from claim-issue response")
 
-        # Start AI session
+        # Start AI session (uses legacy /api endpoint, not /api/v1)
         payload = {}
         if tool:
             payload["tool"] = tool
         if prompt:
             payload["prompt"] = prompt
 
-        result = self.post(f"projects/{project_id}/ai/session", json=payload)
+        # AI sessions are not yet in v1 API, use legacy endpoint
+        result = self._request("POST", f"/api/projects/{project_id}/ai/sessions", json=payload)
 
         # Add project info to response
         result["project_id"] = project_id

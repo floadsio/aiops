@@ -55,6 +55,11 @@ def get_identity_map(user_id: int) -> Optional[UserIdentityMap]:
     return UserIdentityMap.query.filter_by(user_id=user_id).first()
 
 
+def get_user_identity(user_id: int) -> Optional[UserIdentityMap]:
+    """Backward-compatible alias used by API v1 routes."""
+    return get_identity_map(user_id)
+
+
 def update_identity_map(
     user_id: int,
     *,

@@ -508,6 +508,125 @@
     </div>
   </section>
 
+  <section class="settings-category">
+    <h2>API Keys</h2>
+    <div class="settings-grid">
+      <article class="settings-card settings-card-full">
+        <h3>API Key Management</h3>
+        <p>Create and manage API keys for programmatic access to the aiops REST API. Use these keys with the <code>aiops</code> CLI or for custom integrations.</p>
+
+        <details>
+          <summary><strong>Create new API key</strong></summary>
+          <form method="post" action="{{ url_for('admin.create_api_key_web') }}">
+            {{ api_key_create_form.hidden_tag() }}
+            <label>
+              {{ api_key_create_form.name.label }}
+              {{ api_key_create_form.name() }}
+              {% for error in api_key_create_form.name.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <label>
+              {{ api_key_create_form.scopes.label }}
+              {{ api_key_create_form.scopes() }}
+              <small>Select the level of access this key will have</small>
+              {% for error in api_key_create_form.scopes.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <label>
+              {{ api_key_create_form.expires_days.label }}
+              {{ api_key_create_form.expires_days() }}
+              <small>When the key should expire (optional)</small>
+              {% for error in api_key_create_form.expires_days.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <button type="submit" class="secondary">{{ api_key_create_form.submit.label.text }}</button>
+          </form>
+        </details>
+
+        <h3>Your API Keys</h3>
+        {% if api_keys %}
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Key Prefix</th>
+                  <th scope="col">Scopes</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Created</th>
+                  <th scope="col">Last Used</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for key in api_keys %}
+                  {% set revoke_form = api_key_revoke_forms[key.id] %}
+                  <tr>
+                    <th scope="row">{{ key.name }}</th>
+                    <td><code>{{ key.key_prefix }}...</code></td>
+                    <td>
+                      {% for scope in key.scopes %}
+                        <span class="badge">{{ scope }}</span>
+                      {% endfor %}
+                    </td>
+                    <td>
+                      {% if key.is_active %}
+                        {% if key.expires_at %}
+                          {% if key.expires_at > now %}
+                            <span class="badge success">Active</span>
+                          {% else %}
+                            <span class="badge">Expired</span>
+                          {% endif %}
+                        {% else %}
+                          <span class="badge success">Active</span>
+                        {% endif %}
+                      {% else %}
+                        <span class="badge">Inactive</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <small>{{ key.created_at.strftime('%Y-%m-%d %H:%M UTC') if key.created_at else 'N/A' }}</small>
+                    </td>
+                    <td>
+                      {% if key.last_used_at %}
+                        <small>{{ key.last_used_at.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                      {% else %}
+                        <small class="text-muted">Never</small>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <form method="post" action="{{ url_for('admin.revoke_api_key', key_id=key.id) }}" style="margin: 0;">
+                        {{ revoke_form.hidden_tag() }}
+                        <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">Revoke</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted">No API keys found. Create one to get started with the REST API.</p>
+        {% endif %}
+
+        <details style="margin-top: 1.5rem;">
+          <summary><strong>How to use API keys</strong></summary>
+          <div style="margin-top: 1rem;">
+            <p>Use your API key in requests with either the <code>Authorization</code> header or <code>X-API-Key</code> header:</p>
+            <pre style="background: rgba(241, 245, 249, 0.9); padding: 1rem; border-radius: 0.5rem; overflow-x: auto;"><code># Using Authorization header
+curl -H "Authorization: Bearer aiops_your_key_here" http://localhost:5000/api/v1/issues
+
+# Using X-API-Key header
+curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</code></pre>
+            <p>Explore the full API documentation at <a href="/api/docs" target="_blank">/api/docs</a></p>
+          </div>
+        </details>
+      </article>
+    </div>
+  </section>
 
   <section class="settings-category">
     <h2>System Logs</h2>

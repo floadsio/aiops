@@ -60,6 +60,8 @@ class User(BaseModel, TimestampMixin):
     claude_usage_last_updated: Mapped[Optional[datetime]] = mapped_column(
         DateTime, nullable=True
     )
+    aiops_cli_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    aiops_cli_api_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     ssh_keys: Mapped[list["SSHKey"]] = relationship(
         "SSHKey", back_populates="user", cascade="all, delete-orphan"

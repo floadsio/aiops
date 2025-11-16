@@ -234,7 +234,7 @@ def issues_create(
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
-    label_list = [l.strip() for l in labels.split(",")] if labels else None
+    label_list = [label.strip() for label in labels.split(",")] if labels else None
 
     try:
         issue = client.create_issue(project, integration, title, description, label_list)
@@ -265,7 +265,7 @@ def issues_update(
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
 
-    label_list = [l.strip() for l in labels.split(",")] if labels else None
+    label_list = [label.strip() for label in labels.split(",")] if labels else None
 
     try:
         issue = client.update_issue(issue_id, title, description, label_list)

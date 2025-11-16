@@ -298,6 +298,7 @@ def create_session(
     user = User.query.get(user_id)
     linux_username_for_session = None
     git_author_exports: list[str] = []
+    aiops_env_exports: list[str] = []
     if user:
         from .services.linux_users import resolve_linux_username
         linux_username_for_session = resolve_linux_username(user)
@@ -307,6 +308,15 @@ def create_session(
         git_author_exports.append(
             f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
         )
+        # AIOPS CLI credentials injection
+        if user.aiops_cli_url:
+            aiops_env_exports.append(
+                f"export AIOPS_URL={shlex.quote(user.aiops_cli_url)}"
+            )
+        if user.aiops_cli_api_key:
+            aiops_env_exports.append(
+                f"export AIOPS_API_KEY={shlex.quote(user.aiops_cli_api_key)}"
+            )
 
     session, window, created = _resolve_tmux_window(
         project,
@@ -409,6 +419,8 @@ def create_session(
                 for export_cmd in codex_env_exports:
                     setup_commands.append(export_cmd)
                 for export_cmd in claude_env_exports:
+                    setup_commands.append(export_cmd)
+                for export_cmd in aiops_env_exports:
                     setup_commands.append(export_cmd)
 
                 # Clear screen

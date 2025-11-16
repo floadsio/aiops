@@ -11,9 +11,12 @@ from sqlalchemy.orm import selectinload
 from ...extensions import db
 from ...models import ExternalIssue, Project, ProjectIntegration, TenantIntegration
 from ...services.api_auth import audit_api_request, require_api_auth
-from ...services.issues.github import GitHubIssueProvider  # type: ignore
-from ...services.issues.gitlab import GitLabIssueProvider  # type: ignore
-from ...services.issues.jira import JiraIssueProvider  # type: ignore
+from ...services.issues.providers import (
+    GitHubIssueProvider,
+    GitLabIssueProvider,
+    JiraIssueProvider,
+)
+from ...services.issues import IssueSyncError
 from ...services.issues.utils import normalize_issue_status
 from ...services.user_identity_service import get_user_identity  # type: ignore
 from . import api_v1_bp
@@ -301,6 +304,8 @@ def create_issue():
             labels=labels,
             assignee=assignee_identity,
         )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         current_app.logger.error("Failed to create issue: %s", exc)
         return jsonify({"error": f"Failed to create issue: {str(exc)}"}), 500
@@ -361,6 +366,8 @@ def update_issue(issue_id: int):
             status=data.get("status"),
             labels=data.get("labels"),
         )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         current_app.logger.error("Failed to update issue: %s", exc)
         return jsonify({"error": f"Failed to update issue: {str(exc)}"}), 500
@@ -408,6 +415,8 @@ def close_issue(issue_id: int):
             project_integration=issue.project_integration,
             issue_number=issue.external_id,
         )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         current_app.logger.error("Failed to close issue: %s", exc)
         return jsonify({"error": f"Failed to close issue: {str(exc)}"}), 500
@@ -447,6 +456,8 @@ def reopen_issue(issue_id: int):
             project_integration=issue.project_integration,
             issue_number=issue.external_id,
         )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         current_app.logger.error("Failed to reopen issue: %s", exc)
         return jsonify({"error": f"Failed to reopen issue: {str(exc)}"}), 500
@@ -497,6 +508,8 @@ def add_issue_comment(issue_id: int):
             issue_number=issue.external_id,
             body=body,
         )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         current_app.logger.error("Failed to add comment: %s", exc)
         return jsonify({"error": f"Failed to add comment: {str(exc)}"}), 500
@@ -570,6 +583,8 @@ def assign_issue(issue_id: int):
             issue_number=issue.external_id,
             assignee=assignee,
         )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         current_app.logger.error("Failed to assign issue: %s", exc)
         return jsonify({"error": f"Failed to assign issue: {str(exc)}"}), 500

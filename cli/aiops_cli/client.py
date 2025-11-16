@@ -234,8 +234,21 @@ class APIClient:
         if prompt:
             payload["prompt"] = prompt
 
-        # AI sessions are not yet in v1 API, use legacy endpoint
-        result = self._request("POST", f"/api/projects/{project_id}/ai/sessions", json=payload)
+        # AI sessions are not yet in v1 API, use legacy endpoint directly
+        url = f"{self.base_url}/api/projects/{project_id}/ai/sessions"
+        try:
+            response = self.session.post(url, json=payload)
+            response.raise_for_status()
+            result = response.json()
+        except requests.exceptions.HTTPError as exc:
+            try:
+                error_data = exc.response.json()
+                error_msg = error_data.get("error", str(exc))
+            except Exception:  # noqa: BLE001
+                error_msg = str(exc)
+            raise APIError(error_msg, exc.response.status_code) from exc
+        except requests.exceptions.RequestException as exc:
+            raise APIError(f"Request failed: {exc}") from exc
 
         # Add project info to response
         result["project_id"] = project_id

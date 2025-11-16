@@ -75,7 +75,7 @@ def _format_table(
                 table.add_column(col.replace("_", " ").title(), style="cyan")
 
             # Add rows
-            for item in data:
+            for idx, item in enumerate(data):
                 row = []
                 for col in display_columns:
                     value = item.get(col, "")
@@ -91,7 +91,8 @@ def _format_table(
                     # Escape markup to prevent Rich parsing errors
                     value = escape(value)
                     row.append(value)
-                table.add_row(*row)
+                # Add separator after each row except the last
+                table.add_row(*row, end_section=(idx < len(data) - 1))
 
             console.print(table)
         else:

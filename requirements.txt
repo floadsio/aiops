@@ -66,3 +66,4 @@ six>=1.16
 wrapt>=1.16
 defusedxml>=0.7
 wcwidth>=0.2
+rich>=13.9

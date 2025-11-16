@@ -29,12 +29,30 @@ api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 @api_bp.before_request
 def require_authentication():
-    if not current_user.is_authenticated:
+    """Authenticate requests using either session auth or API keys."""
+    from ..services.api_auth import authenticate_request
+    from flask import g
+
+    # Try to authenticate via session or API key
+    user, api_key = authenticate_request()
+
+    if not user:
         return jsonify({"error": "Authentication required"}), 401
+
+    # Store authenticated user in g for use in route handlers
+    g.api_user = user
+    g.api_key = api_key
 
 
 def _current_user_obj():
     """Get the current user object for workspace operations."""
+    from flask import g
+
+    # First try g.api_user (set by authenticate_request in before_request)
+    if hasattr(g, "api_user") and g.api_user:
+        return g.api_user
+
+    # Fall back to current_user for session-based auth
     user_obj = getattr(current_user, "model", None)
     if user_obj is None and getattr(current_user, "is_authenticated", False):
         user_obj = current_user
@@ -178,13 +196,29 @@ def _resolve_project_owner(owner_id: int | None) -> User | None:
 
 
 def _current_user_id() -> int | None:
+    from flask import g
+
+    # First try g.api_user (set by authenticate_request in before_request)
+    if hasattr(g, "api_user") and g.api_user:
+        return g.api_user.id
+
+    # Fall back to current_user for session-based auth
     if hasattr(current_user, "model"):
         return getattr(current_user.model, "id", None)
     return getattr(current_user, "id", None)
 
 
 def _ensure_project_access(project: Project) -> bool:
-    if current_user.is_admin:
+    from flask import g
+
+    # Check if user is admin (try both g.api_user and current_user)
+    is_admin = False
+    if hasattr(g, "api_user") and g.api_user:
+        is_admin = getattr(g.api_user, "is_admin", False)
+    elif hasattr(current_user, "is_admin"):
+        is_admin = current_user.is_admin
+
+    if is_admin:
         return True
     return project.owner_id == _current_user_id()
 

@@ -456,33 +456,51 @@ def issues_assign(ctx: click.Context, issue_id: int, user: Optional[int]) -> Non
 
 
 @issues.command(name="sessions")
-@click.option("--project", type=int, help="Filter by project ID")
+@click.option("--project", help="Filter by project ID or name")
 @click.pass_context
-def issues_sessions(ctx: click.Context, project: Optional[int]) -> None:
+def issues_sessions(ctx: click.Context, project: Optional[str]) -> None:
     """List active AI sessions."""
     client = get_client(ctx)
 
     try:
-        if not project:
-            # If no project specified, need to get it from somewhere
-            # For now, require --project
-            error_console.print("[red]Error:[/red] --project is required")
-            sys.exit(1)
+        all_sessions = []
 
-        sessions = client.list_ai_sessions(project)
+        if project:
+            # Single project - resolve name to ID if needed
+            project_id = resolve_project_id(client, project)
+            sessions = client.list_ai_sessions(project_id)
+            # Add project info to each session
+            for session in sessions:
+                session["project_id"] = project_id
+            all_sessions.extend(sessions)
+        else:
+            # No project specified - fetch sessions from all projects
+            projects = client.list_projects()
+            for proj in projects:
+                proj_id = proj["id"]
+                sessions = client.list_ai_sessions(proj_id)
+                # Add project info to each session
+                for session in sessions:
+                    session["project_id"] = proj_id
+                    session["project_name"] = proj["name"]
+                all_sessions.extend(sessions)
 
-        if not sessions:
+        if not all_sessions:
             console.print("[yellow]No active AI sessions found[/yellow]")
             return
 
         # Display sessions in a table
-        table = Table(title=f"Active AI Sessions (Project {project})")
-        table.add_column("Session ID", style="cyan", no_wrap=True)
-        table.add_column("Issue", style="magenta")
-        table.add_column("Tool", style="green")
-        table.add_column("Tmux Target", style="blue")
+        title = f"Active AI Sessions (Project {project})" if project else "Active AI Sessions (All Projects)"
+        table = Table(title=title)
+        table.add_column("Session ID", style="cyan", no_wrap=True, width=15)
+        table.add_column("Issue", style="magenta", no_wrap=True, width=8)
+        table.add_column("Tool", style="green", no_wrap=True, width=10)
+        if not project:
+            # Show project name when listing all sessions
+            table.add_column("Project", style="yellow", no_wrap=True, width=12)
+        table.add_column("Tmux Target", style="blue", overflow="fold")
 
-        for session in sessions:
+        for session in all_sessions:
             session_id = session.get("session_id", "")[:12] + "..."  # Truncate
             issue_id = str(session.get("issue_id") or "-")
             command = session.get("command", "")
@@ -496,7 +514,11 @@ def issues_sessions(ctx: click.Context, project: Optional[int]) -> None:
                 tool_name = "gemini"
             tmux_target = session.get("tmux_target", "")
 
-            table.add_row(session_id, issue_id, tool_name, tmux_target)
+            if project:
+                table.add_row(session_id, issue_id, tool_name, tmux_target)
+            else:
+                project_name = session.get("project_name", str(session.get("project_id", "-")))
+                table.add_row(session_id, issue_id, tool_name, project_name, tmux_target)
 
         console.print(table)
 

@@ -230,6 +230,31 @@ def issues() -> None:
     """Issue management commands."""
 
 
+@issues.command(name="pinned")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def issues_pinned(ctx: click.Context, output: Optional[str]) -> None:
+    """List your pinned issues."""
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        pinned_issues = client.list_pinned_issues()
+
+        if not pinned_issues:
+            console.print("[yellow]No pinned issues found[/yellow]")
+            return
+
+        # Show relevant columns for pinned issues
+        columns = ["id", "external_id", "title", "status_label", "project_name", "pinned_at"]
+        format_output(pinned_issues, output_format, console, title="Pinned Issues", columns=columns)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="list")
 @click.option("--status", help="Filter by status (open, closed)")
 @click.option("--provider", help="Filter by provider (github, gitlab, jira)")

@@ -30,7 +30,33 @@
       :root {
         --app-gutter-inline: clamp(1rem, 5vw, 2.75rem);
         --tenant-fallback-color: {{ default_tenant_color }};
+
+        /* Material Design Elevation Shadows */
+        --shadow-1: 0 1px 3px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
+        --shadow-2: 0 3px 6px rgba(15, 23, 42, 0.15), 0 2px 4px rgba(15, 23, 42, 0.12);
+        --shadow-3: 0 10px 20px rgba(15, 23, 42, 0.15), 0 3px 6px rgba(15, 23, 42, 0.10);
+        --shadow-4: 0 15px 25px rgba(15, 23, 42, 0.15), 0 5px 10px rgba(15, 23, 42, 0.08);
+
+        /* Material Design Colors */
+        --md-primary: #1976d2;
+        --md-primary-light: #42a5f5;
+        --md-primary-dark: #1565c0;
+        --md-accent: #2196f3;
+        --md-surface: rgba(255, 255, 255, 0.95);
+        --md-surface-hover: rgba(148, 163, 184, 0.08);
+        --md-border: rgba(148, 163, 184, 0.2);
+
         box-sizing: border-box;
+      }
+      [data-theme="dark"] {
+        --shadow-1: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.24);
+        --shadow-2: 0 3px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.3);
+        --shadow-3: 0 10px 20px rgba(0, 0, 0, 0.4), 0 3px 6px rgba(0, 0, 0, 0.35);
+        --shadow-4: 0 15px 25px rgba(0, 0, 0, 0.45), 0 5px 10px rgba(0, 0, 0, 0.4);
+
+        --md-surface: rgba(15, 23, 42, 0.95);
+        --md-surface-hover: rgba(148, 163, 184, 0.12);
+        --md-border: rgba(148, 163, 184, 0.25);
       }
       *, *::before, *::after {
         box-sizing: inherit;
@@ -287,16 +313,20 @@
         grid-template-columns: 240px 1fr;
         grid-template-rows: auto 1fr;
         min-height: 100vh;
+        transition: grid-template-columns 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      body[data-sidebar-collapsed="true"] {
+        grid-template-columns: 0 1fr;
       }
       .app-header {
         grid-area: header;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(255, 255, 255, 0.6);
-        backdrop-filter: blur(8px);
-      }
-      [data-theme="dark"] .app-header {
-        background: rgba(15, 23, 42, 0.8);
-        border-color: rgba(148, 163, 184, 0.35);
+        border-bottom: 1px solid var(--md-border);
+        background: var(--md-surface);
+        backdrop-filter: blur(12px);
+        box-shadow: var(--shadow-1);
+        position: sticky;
+        top: 0;
+        z-index: 10;
       }
       .app-header .container {
         display: flex;
@@ -335,30 +365,64 @@
       }
       .app-sidebar {
         grid-area: sidebar;
-        border-right: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(255, 255, 255, 0.4);
-        padding: 0.75rem 0;
+        border-right: 1px solid var(--md-border);
+        background: var(--md-surface);
+        padding: 1rem 0;
         overflow-y: auto;
+        overflow-x: hidden;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        width: 240px;
       }
-      [data-theme="dark"] .app-sidebar {
-        background: rgba(15, 23, 42, 0.6);
-        border-color: rgba(148, 163, 184, 0.35);
+      body[data-sidebar-collapsed="true"] .app-sidebar {
+        overflow: hidden;
+        width: 0;
+        padding: 0;
+        border-right-width: 0;
+      }
+      .app-sidebar__collapse-toggle {
+        position: fixed;
+        top: 4.5rem;
+        left: 0.75rem;
+        border: 1px solid var(--md-border);
+        background: var(--md-surface);
+        color: inherit;
+        border-radius: 8px;
+        padding: 0.5rem 0.6rem;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 50;
+        box-shadow: var(--shadow-2);
+      }
+      .app-sidebar__collapse-toggle:hover {
+        background: var(--md-surface-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-3);
+      }
+      body[data-sidebar-collapsed="true"] .app-sidebar__collapse-toggle {
+        left: 0.75rem;
+      }
+      body:not([data-sidebar-collapsed="true"]) .app-sidebar__collapse-toggle {
+        left: 205px;
       }
       .app-sidebar__header {
-        padding: 0.5rem 1rem 0.75rem;
+        padding: 0.5rem 1.25rem 0.75rem;
         font-size: 0.7rem;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.1em;
         font-weight: 700;
-        opacity: 0.6;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-        margin-bottom: 0.5rem;
+        opacity: 0.5;
+        border-bottom: 1px solid var(--md-border);
+        margin-bottom: 0.75rem;
+        white-space: nowrap;
       }
       .app-sidebar__menu {
         display: flex;
         flex-direction: column;
-        gap: 0.15rem;
-        padding: 0;
+        gap: 0.25rem;
+        padding: 0 0.5rem;
         margin: 0;
         list-style: none;
       }
@@ -368,21 +432,44 @@
       .app-sidebar__menu a {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
         font-size: 0.9rem;
         text-decoration: none;
         color: inherit;
-        transition: background-color 0.15s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        border-radius: 8px;
+        position: relative;
       }
       .app-sidebar__menu a:hover {
-        background: rgba(148, 163, 184, 0.15);
+        background: var(--md-surface-hover);
+        transform: translateX(2px);
+      }
+      .app-sidebar__menu a:active {
+        transform: translateX(0);
+      }
+      .app-sidebar__menu a[aria-current="page"] {
+        background: var(--md-primary);
+        color: white;
+        font-weight: 500;
+      }
+      .app-sidebar__menu a[aria-current="page"]:hover {
+        background: var(--md-primary-dark);
+        transform: translateX(2px);
+      }
+      [data-theme="dark"] .app-sidebar__menu a[aria-current="page"] {
+        background: var(--md-primary-light);
+        color: rgba(15, 23, 42, 0.95);
+      }
+      [data-theme="dark"] .app-sidebar__menu a[aria-current="page"]:hover {
+        background: var(--md-accent);
       }
       .app-sidebar__menu .sidebar-theme-toggle {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem 1rem;
+        gap: 0.75rem;
+        padding: 0.6rem 0.75rem;
         font-size: 0.9rem;
         width: 100%;
         text-align: left;
@@ -390,39 +477,45 @@
         background: transparent;
         color: inherit;
         cursor: pointer;
-        transition: background-color 0.15s ease;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        white-space: nowrap;
+        border-radius: 8px;
       }
       .app-sidebar__menu .sidebar-theme-toggle:hover {
-        background: rgba(148, 163, 184, 0.15);
+        background: var(--md-surface-hover);
+        transform: translateX(2px);
+      }
+      .app-sidebar__menu .sidebar-theme-toggle:active {
+        transform: translateX(0);
       }
       .app-sidebar__menu .sidebar-logout {
         color: #dc2626;
-        font-weight: 600;
+        font-weight: 500;
+        margin-top: 0.5rem;
+        border-top: 1px solid var(--md-border);
+        padding-top: 1rem;
       }
       [data-theme="dark"] .app-sidebar__menu .sidebar-logout {
         color: #f87171;
       }
       .app-sidebar__menu .sidebar-logout:hover {
-        background: rgba(220, 38, 38, 0.1);
+        background: rgba(220, 38, 38, 0.08);
       }
       [data-theme="dark"] .app-sidebar__menu .sidebar-logout:hover {
-        background: rgba(248, 113, 113, 0.15);
+        background: rgba(248, 113, 113, 0.12);
       }
       .app-main {
         grid-area: main;
         overflow-x: hidden;
       }
       .table-scroll {
-        margin: 1rem 0;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        border-radius: 0.9rem;
+        margin: 1.5rem 0;
+        border: 1px solid var(--md-border);
+        border-radius: 12px;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-        background: rgba(255, 255, 255, 0.6);
-      }
-      [data-theme="dark"] .table-scroll {
-        background: rgba(15, 23, 42, 0.55);
-        border-color: rgba(148, 163, 184, 0.35);
+        background: var(--md-surface);
+        box-shadow: var(--shadow-1);
       }
       .table-scroll table {
         margin: 0;
@@ -433,8 +526,14 @@
           grid-template-areas: "header" "main";
           grid-template-columns: 1fr;
         }
+        body[data-sidebar-collapsed="true"] {
+          grid-template-columns: 1fr;
+        }
         .app-header__toggle {
           display: inline-flex;
+        }
+        .app-sidebar__collapse-toggle {
+          display: none;
         }
         .app-sidebar {
           position: fixed;
@@ -552,26 +651,29 @@
       </div>
     </header>
     {% if current_user.is_authenticated %}
+      <button type="button" class="app-sidebar__collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+        <span id="sidebar-collapse-icon">☰</span>
+      </button>
       <div class="sidebar-backdrop" id="sidebar-backdrop" data-visible="false"></div>
       <aside class="app-sidebar" id="app-sidebar" data-open="false">
         <div class="app-sidebar__header">Navigation</div>
         <ul class="app-sidebar__menu">
-          <li><a href="{{ url_for('admin.dashboard') }}">Dashboard</a></li>
-          <li><a href="{{ url_for('admin.manage_projects') }}">Projects</a></li>
-          <li><a href="{{ url_for('admin.manage_tenants') }}">Tenants</a></li>
-          <li><a href="{{ url_for('admin.manage_issues') }}">Issues</a></li>
-          <li><a href="{{ url_for('admin.manage_integrations') }}">Integrations</a></li>
-          <li><a href="{{ url_for('admin.manage_ssh_keys') }}">SSH Keys</a></li>
-          <li><a href="{{ url_for('admin.manage_user_identity_mappings') }}">User Identities</a></li>
-          <li><a href="{{ url_for('projects.ai_status_overview') }}">AI Status</a></li>
-          <li><a href="{{ url_for('admin.manage_settings') }}">Settings</a></li>
+          <li><a href="{{ url_for('admin.dashboard') }}">📊 Dashboard</a></li>
+          <li><a href="{{ url_for('admin.manage_projects') }}">📁 Projects</a></li>
+          <li><a href="{{ url_for('admin.manage_tenants') }}">🏢 Tenants</a></li>
+          <li><a href="{{ url_for('admin.manage_issues') }}">🐛 Issues</a></li>
+          <li><a href="{{ url_for('admin.manage_integrations') }}">🔗 Integrations</a></li>
+          <li><a href="{{ url_for('admin.manage_ssh_keys') }}">🔑 SSH Keys</a></li>
+          <li><a href="{{ url_for('admin.manage_user_identity_mappings') }}">👤 User Identities</a></li>
+          <li><a href="{{ url_for('projects.ai_status_overview') }}">🤖 AI Status</a></li>
+          <li><a href="{{ url_for('admin.manage_settings') }}">⚙️ Settings</a></li>
           <li>
             <button type="button" class="theme-toggle sidebar-theme-toggle" id="theme-toggle" aria-label="Toggle theme">
               <span aria-hidden="true" id="theme-toggle-icon">🌙</span>
               <span id="theme-toggle-label">Dark</span>
             </button>
           </li>
-          <li><a href="{{ url_for('auth.logout') }}" class="sidebar-logout">Logout</a></li>
+          <li><a href="{{ url_for('auth.logout') }}" class="sidebar-logout">🚪 Logout</a></li>
         </ul>
       </aside>
     {% endif %}
@@ -707,6 +809,65 @@
         document.addEventListener("keydown", (event) => {
           if (event.key === "Escape") {
             closeSidebar();
+          }
+        });
+      })();
+    </script>
+    <script>
+      (function () {
+        const sidebarCollapseToggle = document.getElementById("sidebar-collapse-toggle");
+        const sidebarCollapseIcon = document.getElementById("sidebar-collapse-icon");
+        if (!sidebarCollapseToggle || !sidebarCollapseIcon) {
+          return;
+        }
+
+        const storageKey = "aiops-sidebar-collapsed";
+
+        const setSidebarCollapsed = (collapsed, persist = false) => {
+          document.body.setAttribute("data-sidebar-collapsed", collapsed ? "true" : "false");
+          sidebarCollapseIcon.textContent = collapsed ? "☰" : "✕";
+          sidebarCollapseToggle.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
+          if (persist && window.localStorage) {
+            try {
+              localStorage.setItem(storageKey, collapsed ? "true" : "false");
+            } catch (error) {
+              /* ignore storage errors */
+            }
+          }
+        };
+
+        // Initialize from localStorage
+        const initialize = () => {
+          let stored = null;
+          if (window.localStorage) {
+            try {
+              stored = localStorage.getItem(storageKey);
+            } catch (error) {
+              stored = null;
+            }
+          }
+          const collapsed = stored === "true";
+          setSidebarCollapsed(collapsed);
+        };
+
+        sidebarCollapseToggle.addEventListener("click", () => {
+          const currentCollapsed = document.body.getAttribute("data-sidebar-collapsed") === "true";
+          setSidebarCollapsed(!currentCollapsed, true);
+        });
+
+        initialize();
+      })();
+    </script>
+    <script>
+      (function () {
+        // Highlight active page in sidebar
+        const currentPath = window.location.pathname;
+        const sidebarLinks = document.querySelectorAll('.app-sidebar__menu a[href]');
+
+        sidebarLinks.forEach(link => {
+          const linkPath = new URL(link.href, window.location.origin).pathname;
+          if (linkPath === currentPath) {
+            link.setAttribute('aria-current', 'page');
           }
         });
       })();

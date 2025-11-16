@@ -22,6 +22,8 @@ live under `ansible/`.
   The production environment will be updated separately by the admin.
 - Always load `AGENTS.override.md` (generated from the UI) for the current issue context before
   changing files.
+- **CRITICAL: NEVER commit or push `AGENTS.override.md`** — This file is auto-generated workspace
+  context and should NOT be tracked in version control. Always exclude it from git commits.
 - Keep request/response handling inside `app/routes/` minimal; push integrations and orchestration
   into `app/services/` with dedicated tests.
 - When touching issue provider logic, add provider stubs in `tests/services/issues/`; CI never hits

@@ -11,9 +11,9 @@ setup(
     description="Command-line interface for AIops REST API",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    author="Floads.io",
-    author_email="support@floads.io",
-    url="https://github.com/floadsio/aiops",
+    author="AIops Community",
+    author_email="support@example.com",
+    url="https://github.com/exampleorg/aiops",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=[

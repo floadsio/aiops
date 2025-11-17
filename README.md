@@ -57,7 +57,7 @@ to restart the service automatically after a successful update.
 ## Development Tasks
 - `make sync` – create the uv-managed virtualenv (Python 3.12 by default) and install runtime dependencies.
 - `make sync-dev` – add development/test extras (override with `make PYTHON_SPEC=3.13 sync-dev`).
-- `make seed AIOPS_ADMIN_EMAIL=you@example.com` – run migrations and seed default tenants/projects (dcx, iwf, kbe).
+- `make seed AIOPS_ADMIN_EMAIL=you@example.com` – run migrations and seed default tenants/projects (tenant-alpha, tenant-beta, tenant-gamma).
 - `make seed-identities AIOPS_ADMIN_EMAIL=you@example.com [SEED_SOURCE=/path/to/keys]` – import syseng SSH identities (defaults to `~/.ssh/syseng`).
 - `.venv/bin/flask --app manage.py seed-identities --owner-email you@example.com` – import syseng SSH key pairs from `~/.ssh/syseng` (or `--source-dir`).
 - `make all` – install dev dependencies and start the aiops server.
@@ -86,7 +86,7 @@ uv pip install -e .
 
 ```bash
 # Set API URL and authenticate
-aiops config set url http://dev.floads:5000
+aiops config set url http://dev.example:5000
 aiops config set api_key aiops_your_api_key_here
 
 # Verify authentication
@@ -125,7 +125,7 @@ Example workflow:
 $ aiops issues work 501 --tool claude --attach
 ✓ Issue 501 claimed successfully!
 ✓ AI session started (session ID: eb5b5248f1a0...)
-Workspace: /home/ivo/workspace/floads/aiops
+Workspace: /home/<user>/workspace/<tenant>/<project>
 Context: AGENTS.override.md populated with issue details
 
 Attaching to tmux session...
@@ -186,7 +186,7 @@ Store the token securely (for example in `.env`) and rotate it if it becomes exp
 To publish the open-source tree:
 
 ```bash
-git remote add github https://github.com/floadsio/aiops.git
+git remote add github https://github.com/exampleorg/aiops.git
 git push github main
 ```
 

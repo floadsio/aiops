@@ -82,16 +82,16 @@ def test_seed_command(tmp_path):
     assert result.exit_code == 0, result.output
 
     with app.app_context():
-        tenant = Tenant.query.filter_by(name="dcx").first()
-        project = Project.query.filter_by(name="flamelet-dcx").first()
+        tenant = Tenant.query.filter_by(name="tenant-alpha").first()
+        project = Project.query.filter_by(name="project-alpha").first()
         assert tenant is not None
         assert project is not None
         assert project.owner.email == "seed@example.com"
-        assert Path(project.local_path).name == "flamelet-dcx"
-        assert Tenant.query.filter_by(name="iwf").first() is not None
-        assert Tenant.query.filter_by(name="kbe").first() is not None
-        assert Project.query.filter_by(name="flamelet-iwf").first() is not None
-        assert Project.query.filter_by(name="flamelet-kbe").first() is not None
+        assert Path(project.local_path).name == "project-alpha"
+        assert Tenant.query.filter_by(name="tenant-beta").first() is not None
+        assert Tenant.query.filter_by(name="tenant-gamma").first() is not None
+        assert Project.query.filter_by(name="project-beta").first() is not None
+        assert Project.query.filter_by(name="project-gamma").first() is not None
 
 
 def test_seed_identities_command(tmp_path):
@@ -105,11 +105,11 @@ def test_seed_identities_command(tmp_path):
     key_source = tmp_path / "syseng"
     key_source.mkdir(parents=True)
 
-    private_key_path = key_source / "id_rsa-dcx-prod-syseng"
+    private_key_path = key_source / "id_rsa-example-prod-syseng"
     private_key_path.write_text(
         """-----BEGIN OPENSSH PRIVATE KEY-----\nAAAA\n-----END OPENSSH PRIVATE KEY-----\n"""
     )
-    (key_source / "id_rsa-dcx-prod-syseng.pub").write_text(
+    (key_source / "id_rsa-example-prod-syseng.pub").write_text(
         "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBuJrVN6a8GN28AL5OHnqd7qV3CyMfCVx/gv3BP/laZT test@example.com"
     )
 
@@ -139,8 +139,8 @@ def test_seed_identities_command(tmp_path):
     assert result.exit_code == 0, result.output
 
     with app.app_context():
-        ssh_key = SSHKey.query.filter_by(name="syseng-dcx-prod").first()
-        tenant = Tenant.query.filter_by(name="dcx").first()
+        ssh_key = SSHKey.query.filter_by(name="syseng-example-prod").first()
+        tenant = Tenant.query.filter_by(name="tenant-alpha").first()
         assert ssh_key is not None
         assert tenant is not None
         assert ssh_key.tenant_id == tenant.id

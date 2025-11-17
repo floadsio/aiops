@@ -20,7 +20,7 @@ def test_git_clone_adds_accept_new(monkeypatch):
     monkeypatch.setattr(workspace_service, "run_as_user", fake_run_as_user)
 
     workspace_service._git_clone_via_sudo(
-        "ivo",
+        "example-user",
         "git@example.com:repo.git",
         "/tmp/workspace",
         "main",
@@ -44,7 +44,7 @@ def test_git_clone_preserves_custom_git_command(monkeypatch):
     custom_env = {"GIT_SSH_COMMAND": "ssh -o StrictHostKeyChecking=yes", "FOO": "bar"}
 
     workspace_service._git_clone_via_sudo(
-        "ivo",
+        "example-user",
         "git@example.com:repo.git",
         "/tmp/workspace",
         "main",
@@ -69,29 +69,29 @@ def test_git_clone_adds_project_key(monkeypatch):
     monkeypatch.setattr(workspace_service, "run_as_user", fake_run_as_user)
 
     workspace_service._git_clone_via_sudo(
-        "ivo",
+        "example-user",
         "git@example.com:repo.git",
         "/tmp/workspace",
         "main",
         env=None,
-        ssh_key_path="/instance/keys/syseng-iwf",
+        ssh_key_path="/instance/keys/syseng-example",
     )
 
     ssh_command = captured["env"]["GIT_SSH_COMMAND"]
-    assert "-i /instance/keys/syseng-iwf" in ssh_command
+    assert "-i /instance/keys/syseng-example" in ssh_command
     assert "IdentitiesOnly=yes" in ssh_command
 
 
 def test_initialize_workspace_uses_project_key(monkeypatch, tmp_path):
     project = SimpleNamespace(
         id=1,
-        name="Flamelet",
-        repo_url="git@git.example.com:demo/flamelet.git",
+        name="ExampleProject",
+        repo_url="git@git.example.com:demo/example-project.git",
         default_branch="main",
     )
-    user = SimpleNamespace(email="ivo@example.com", id=99)
+        user = SimpleNamespace(email="user@example.com", id=99)
 
-    workspace_dir = tmp_path / "workspace" / "flamelet"
+    workspace_dir = tmp_path / "workspace" / "example-project"
 
     monkeypatch.setattr(
         workspace_service,
@@ -106,11 +106,11 @@ def test_initialize_workspace_uses_project_key(monkeypatch, tmp_path):
     monkeypatch.setattr(
         workspace_service,
         "resolve_linux_username",
-        lambda *_: "ivo",
+        lambda *_: "example-user",
     )
     monkeypatch.setattr(workspace_service, "mkdir", lambda *_, **__: None)
 
-    key_path = str(tmp_path / "instance" / "keys" / "syseng-iwf")
+    key_path = str(tmp_path / "instance" / "keys" / "syseng-example")
     monkeypatch.setattr(
         workspace_service,
         "resolve_project_ssh_key_path",
@@ -138,13 +138,13 @@ def test_initialize_workspace_uses_project_key(monkeypatch, tmp_path):
 def test_initialize_workspace_falls_back_when_key_unreadable(monkeypatch, tmp_path):
     project = SimpleNamespace(
         id=1,
-        name="Flamelet",
-        repo_url="git@git.example.com:demo/flamelet.git",
+        name="ExampleProject",
+        repo_url="git@git.example.com:demo/example-project.git",
         default_branch="main",
     )
-    user = SimpleNamespace(email="ivo@example.com", id=99)
+        user = SimpleNamespace(email="user@example.com", id=99)
 
-    workspace_dir = tmp_path / "workspace" / "flamelet"
+    workspace_dir = tmp_path / "workspace" / "example-project"
 
     monkeypatch.setattr(
         workspace_service,
@@ -159,13 +159,13 @@ def test_initialize_workspace_falls_back_when_key_unreadable(monkeypatch, tmp_pa
     monkeypatch.setattr(
         workspace_service,
         "resolve_linux_username",
-        lambda *_: "ivo",
+        lambda *_: "example-user",
     )
     monkeypatch.setattr(workspace_service, "mkdir", lambda *_, **__: None)
     monkeypatch.setattr(
         workspace_service,
         "resolve_project_ssh_key_path",
-        lambda *_: "/instance/keys/syseng-iwf",
+        lambda *_: "/instance/keys/syseng-example",
     )
     monkeypatch.setattr(
         workspace_service,
@@ -193,7 +193,7 @@ def test_get_workspace_path_prefers_tenant_layout(monkeypatch, tmp_path):
         tenant=SimpleNamespace(name="Prod Fleet"),
         tenant_id=15,
     )
-    user = SimpleNamespace(email="ivo@example.com")
+    user = SimpleNamespace(email="user@example.com")
 
     monkeypatch.setattr(
         workspace_service,
@@ -213,7 +213,7 @@ def test_get_workspace_path_falls_back_to_legacy_layout(monkeypatch, tmp_path):
         tenant=SimpleNamespace(name="Prod Fleet"),
         tenant_id=15,
     )
-    user = SimpleNamespace(email="ivo@example.com")
+    user = SimpleNamespace(email="user@example.com")
 
     monkeypatch.setattr(
         workspace_service,
@@ -233,10 +233,10 @@ def test_get_workspace_path_prefers_new_layout_when_both_exist(monkeypatch, tmp_
     project = SimpleNamespace(
         id=4,
         name="AI Platform",
-        tenant=SimpleNamespace(name="Floads"),
+        tenant=SimpleNamespace(name="ExampleTenant"),
         tenant_id=1,
     )
-    user = SimpleNamespace(email="michael@example.com")
+    user = SimpleNamespace(email="user@example.com")
 
     monkeypatch.setattr(
         workspace_service,
@@ -244,7 +244,7 @@ def test_get_workspace_path_prefers_new_layout_when_both_exist(monkeypatch, tmp_
         lambda *_: str(tmp_path),
     )
 
-    preferred = tmp_path / "workspace" / "floads" / "ai-platform"
+    preferred = tmp_path / "workspace" / "example-tenant" / "ai-platform"
     preferred.mkdir(parents=True)
     legacy = tmp_path / "workspace" / "ai-platform"
     legacy.mkdir(parents=True)

@@ -23,7 +23,7 @@ fi
 if ! git remote get-url "${REMOTE}" >/dev/null 2>&1; then
   cat <<EOF >&2
 Remote "${REMOTE}" is not configured. Add it first, e.g.:
-  git remote add ${REMOTE} https://github.com/floadsio/aiops.git
+  git remote add ${REMOTE} https://github.com/exampleorg/aiops.git
 EOF
   exit 1
 fi

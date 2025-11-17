@@ -43,14 +43,14 @@ class TestResolveLinuxUsername:
         class TestConfig(Config):
             TESTING = True
             LINUX_USER_STRATEGY = "mapping"
-            LINUX_USER_MAPPING = {"ivo@floads.io": "ivo"}
+            LINUX_USER_MAPPING = {"user@example.com": "example-user"}
 
         app = create_app(TestConfig, instance_path=tmp_path / "instance")
 
         with app.app_context():
             user = MagicMock()
             user.linux_username = None
-            user.email = "ivo@floads.io"
+            user.email = "user@example.com"
 
             result = resolve_linux_username(user)
             assert result == "ivo"
@@ -117,17 +117,17 @@ class TestResolveLinuxUsername:
         from app import create_app
         from app.config import Config
 
-        class TestConfig(Config):
-            TESTING = True
-            LINUX_USER_STRATEGY = "mapping"
-            LINUX_USER_MAPPING = {"other@floads.io": "other"}
+            class TestConfig(Config):
+                TESTING = True
+                LINUX_USER_STRATEGY = "mapping"
+                LINUX_USER_MAPPING = {"other@example.com": "other"}
 
         app = create_app(TestConfig, instance_path=tmp_path / "instance")
 
         with app.app_context():
             user = MagicMock()
             user.linux_username = None
-            user.email = "unknown@floads.io"
+            user.email = "unknown@example.com"
             user.username = "unknown"
 
             result = resolve_linux_username(user)

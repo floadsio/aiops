@@ -10,7 +10,7 @@ aiops requires sudo access to:
 - Check workspace status across restrictive file permissions
 - Initialize new user workspaces
 
-The Flask application runs as the `syseng` user but needs to execute commands as individual Linux users (e.g., `ivo`, `michael`).
+The Flask application runs as the `syseng` user but needs to execute commands as individual Linux users (e.g., `linuxuser1`, `linuxuser2`).
 
 ## Requirements
 
@@ -39,7 +39,7 @@ syseng ALL=(ALL) NOPASSWD: ALL
 
 ```bash
 # Allow syseng to run specific commands as specific users
-syseng ALL=(ivo,michael) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm
+syseng ALL=(linuxuser1,linuxuser2) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm
 syseng ALL=(ALL) NOPASSWD: /bin/chmod, /bin/chgrp, /usr/bin/chown
 ```
 
@@ -62,14 +62,14 @@ Test that sudo works without password:
 
 ```bash
 # As syseng user
-sudo -n -u ivo test -e /home/ivo
+sudo -n -u linuxuser1 test -e /home/linuxuser1
 echo $?  # Should be 0 (success)
 ```
 
 Use the aiops CLI test command:
 
 ```bash
-.venv/bin/flask test-sudo --user-email ivo@floads.io
+.venv/bin/flask test-sudo --user-email user@example.com
 ```
 
 ## Git Safe Directory Configuration
@@ -89,8 +89,8 @@ This allows git to access any repository regardless of ownership.
 
 ```bash
 # As syseng user
-sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/floads/aiops'
-sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/floads/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/linuxuser1/workspace/example/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/linuxuser2/workspace/example/aiops'
 ```
 
 Add each user's workspace explicitly.
@@ -107,12 +107,12 @@ For the Flask app to check workspace status, parent directories need execute (`o
 
 ```bash
 # Allow directory traversal for /home/username
-chmod o+rx /home/ivo
-chmod o+rx /home/ivo/workspace
+chmod o+rx /home/linuxuser1
+chmod o+rx /home/linuxuser1/workspace
 
 # Workspace directories can remain user-owned
-ls -la /home/ivo/workspace/floads/aiops
-# drwxrwxr-x 10 ivo ivo 4096 Nov 13 06:16 aiops
+ls -la /home/linuxuser1/workspace/example/aiops
+# drwxrwxr-x 10 linuxuser1 linuxuser1 4096 Jan 01 00:00 aiops
 ```
 
 **Important:** The `o+x` permission allows traversal but does NOT expose file contents. Files remain protected by their own permissions.
@@ -202,15 +202,15 @@ chmod o+rx /home/username/workspace
 
 ```bash
 # As syseng user
-sudo -n -u ivo whoami
-# Should output: ivo
+sudo -n -u linuxuser1 whoami
+# Should output: linuxuser1
 ```
 
 ### 2. Test Workspace Operations
 
 ```bash
 # As syseng user
-sudo -n -u ivo test -e /home/ivo/workspace/floads/aiops
+sudo -n -u linuxuser1 test -e /home/linuxuser1/workspace/example/aiops
 echo $?  # Should be 0 if workspace exists
 ```
 
@@ -218,7 +218,7 @@ echo $?  # Should be 0 if workspace exists
 
 ```bash
 # As syseng user
-sudo -n -u ivo git -C /home/ivo/workspace/floads/aiops status
+sudo -n -u linuxuser1 git -C /home/linuxuser1/workspace/example/aiops status
 # Should show git status without errors
 ```
 
@@ -226,7 +226,7 @@ sudo -n -u ivo git -C /home/ivo/workspace/floads/aiops status
 
 ```bash
 # Run comprehensive test
-.venv/bin/flask test-sudo --user-email ivo@floads.io
+.venv/bin/flask test-sudo --user-email user@example.com
 ```
 
 This command checks:
@@ -239,27 +239,29 @@ This command checks:
 ## Example: Complete Setup for New User
 
 ```bash
+## Example: Complete setup for a new Linux user
+
 # 1. Create Linux user
-sudo useradd -m -s /bin/bash michael
-sudo usermod -aG syseng michael
+sudo useradd -m -s /bin/bash linuxuser2
+sudo usermod -aG syseng linuxuser2
 
 # 2. Add to sudoers (if using restricted mode)
 sudo visudo -f /etc/sudoers.d/aiops
-# Add: syseng ALL=(michael) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm
+# Add: syseng ALL=(linuxuser2) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm
 
 # 3. Set directory permissions
-sudo chmod o+rx /home/michael
-sudo -u michael mkdir -p /home/michael/workspace
-sudo chmod o+rx /home/michael/workspace
+sudo chmod o+rx /home/linuxuser2
+sudo -u linuxuser2 mkdir -p /home/linuxuser2/workspace
+sudo chmod o+rx /home/linuxuser2/workspace
 
 # 4. Add git safe directory
-sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/*'
+sudo -u syseng git config --global --add safe.directory '/home/linuxuser2/workspace/*'
 
 # 5. Test configuration
-.venv/bin/flask test-sudo --user-email michael@floads.io
+.venv/bin/flask test-sudo --user-email other@example.com
 
 # 6. Initialize workspace
-.venv/bin/flask init-workspace --user-email michael@floads.io --project-id 1
+.venv/bin/flask init-workspace --user-email other@example.com --project-id 1
 ```
 
 ## Reference: sudo_service.py Functions

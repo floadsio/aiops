@@ -382,7 +382,7 @@ class LinuxUserMappingForm(FlaskForm):
     """Form for configuring Linux user mapping for tmux sessions.
 
     Users input a JSON mapping like:
-    {"ivo@floads.io": "ivo", "michael@floads.io": "michael"}
+    {"user@example.com": "user", "other@example.com": "other"}
     """
 
     mapping_json = TextAreaField(

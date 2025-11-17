@@ -146,7 +146,7 @@ def get_workspace_path(project, user) -> Optional[Path]:
         Path to workspace directory, or None if user has no Linux mapping
 
     Example:
-        /home/ivo/workspace/floads/aiops/
+        /home/<user>/workspace/<tenant>/<project>/
     """
     home_dir = get_user_home_directory(user)
     if not home_dir:

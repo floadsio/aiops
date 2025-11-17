@@ -92,7 +92,7 @@ def find_user_account_id(
     """Find a Jira account ID by display name from issue comments.
 
     Args:
-        display_name: User's display name (e.g., "Jens Hassler")
+        display_name: User's display name (e.g., "Example User")
         comments: List of comment dictionaries
 
     Returns:

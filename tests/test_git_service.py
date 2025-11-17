@@ -232,7 +232,7 @@ def test_ensure_repo_checkout_uses_ssh_env(app, owner, tenant, tmp_path, monkeyp
 def test_ensure_repo_checkout_relocates_inaccessible_path(
     app, owner, tenant, monkeypatch
 ):
-    inaccessible_path = "/Users/eim/src/floads/github/aiops/instance/repos/demo"
+inaccessible_path = "/Users/devuser/src/example/github/aiops/instance/repos/demo"
 
     with app.app_context():
         project = Project(

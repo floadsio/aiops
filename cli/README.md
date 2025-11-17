@@ -49,8 +49,8 @@ aiops git status aiops                     # Instead of git status 1
 aiops projects get aiops                   # Instead of projects get 1
 
 # Use tenant slugs instead of IDs
-aiops projects list --tenant floads        # Instead of --tenant 1
-aiops tenants get floads                   # Instead of tenants get 1
+aiops projects list --tenant example        # Instead of --tenant 1
+aiops tenants get example                   # Instead of tenants get 1
 ```
 
 - ✅ Case-insensitive matching
@@ -175,7 +175,7 @@ aiops issues work 789 --tool gemini
 aiops projects list
 
 # Filter by tenant (accepts tenant slug or ID)
-aiops projects list --tenant floads
+aiops projects list --tenant example
 aiops projects list --tenant 1
 
 # Get project details (accepts project name or ID)
@@ -184,7 +184,7 @@ aiops projects get 1
 
 # Create project (accepts tenant slug or ID)
 aiops projects create --name "My Project" \\
-  --tenant floads --repo-url git@github.com:org/repo.git
+  --tenant example --repo-url git@github.com:org/repo.git
 
 # Get project status (accepts project name or ID)
 aiops projects status aiops
@@ -252,7 +252,7 @@ aiops workflow complete 42 --summary "Bug fixed successfully"
 aiops tenants list
 
 # Get tenant details (accepts tenant slug or ID)
-aiops tenants get floads
+aiops tenants get example
 aiops tenants get 1
 
 # Create tenant

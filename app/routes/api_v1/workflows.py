@@ -63,17 +63,22 @@ def claim_issue():
     from ...services.user_identity_service import get_user_identity
 
     identity_map = get_user_identity(user.id)
-    if not identity_map:
-        return jsonify({"error": "User identity mapping not configured"}), 400
 
     provider = integration.provider.lower()
+
+    # Check for per-project username override first
     assignee = None
-    if provider == "github":
-        assignee = identity_map.github_username
-    elif provider == "gitlab":
-        assignee = identity_map.gitlab_username
-    elif provider == "jira":
-        assignee = identity_map.jira_account_id
+    if issue.project_integration.override_settings:
+        assignee = issue.project_integration.override_settings.get("username")
+
+    # Fall back to global user identity mapping
+    if not assignee and identity_map:
+        if provider == "github":
+            assignee = identity_map.github_username
+        elif provider == "gitlab":
+            assignee = identity_map.gitlab_username
+        elif provider == "jira":
+            assignee = identity_map.jira_account_id
 
     if not assignee:
         return jsonify({"error": f"No {provider} identity configured for user"}), 400

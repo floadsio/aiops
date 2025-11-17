@@ -7,10 +7,17 @@ from typing import Optional, Tuple
 
 from flask import current_app
 
-DEFAULT_SETTINGS_PAYLOAD = json.dumps(
-    {"security": {"auth": {"selectedType": "oauth-personal"}}},
-    indent=2,
-)
+
+def _default_settings_payload() -> str:
+    """Generate default settings with configured model."""
+    model_name = current_app.config.get("GEMINI_DEFAULT_MODEL", "gemini-2.5-pro")
+    return json.dumps(
+        {
+            "model": {"name": model_name},
+            "security": {"auth": {"selectedType": "oauth-personal"}},
+        },
+        indent=2,
+    )
 
 
 class GeminiConfigError(RuntimeError):
@@ -206,7 +213,7 @@ def sync_credentials_to_cli_home(user_id: int) -> Path:
                     "Unable to remove stale %s from %s", name, cli_home
                 )
     settings_payload = (
-        _stored_payload("settings.json", user_id) or DEFAULT_SETTINGS_PAYLOAD
+        _stored_payload("settings.json", user_id) or _default_settings_payload()
     )
     settings_path = cli_home / "settings.json"
     try:

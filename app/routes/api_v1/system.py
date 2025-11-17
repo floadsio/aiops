@@ -474,6 +474,7 @@ def update_ai_tool_cli(tool: str):
             message += f" Error: {result.stderr.strip()}"
 
     return jsonify({
+        "success": result.ok,
         "message": message,
         "result": payload,
     })

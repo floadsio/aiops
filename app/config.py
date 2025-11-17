@@ -145,6 +145,7 @@ class Config:
         str((BASE_DIR / "logs" / "aiops.log").resolve()),
     )
     GEMINI_CONFIG_DIR = os.getenv("GEMINI_CONFIG_DIR", str((Path.home() / ".gemini")))
+    GEMINI_DEFAULT_MODEL = os.getenv("GEMINI_DEFAULT_MODEL", "gemini-2.5-pro")
     CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))
     CLAUDE_CONFIG_DIR = os.getenv("CLAUDE_CONFIG_DIR", str((Path.home() / ".claude")))
     CODEX_UPDATE_COMMAND = os.getenv(

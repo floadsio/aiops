@@ -195,15 +195,138 @@ aiops issues sync --project aiops             # Sync specific project
 aiops issues sync --force-full                # Force full sync
 ```
 
-### Typical issue flow
+### AI Agent Issue Management Workflow
 
-1. `aiops issues sync --project example-project` (or the relevant project/tenant) to refresh the local cache before working.
-2. `aiops issues get <issue-id> --output json` to read the full issue thread, including every comment.
-3. `aiops issues comment <issue-id> "message"` to add feedback; `@mentions` are resolved to Jira account IDs for you.
-4. `aiops issues update <issue-id> --status in_progress` or `aiops issues assign <issue-id>` to move the issue forward.
-5. `aiops issues close <issue-id>` plus a final `aiops issues comment` once the work is complete.
+**IMPORTANT**: AI agents (Claude, Gemini, Codex, etc.) MUST use the aiops CLI for all issue management operations. This ensures proper synchronization with external issue trackers (GitHub, GitLab, Jira) and maintains audit trails.
 
-All commands reuse the per-user API key in `~/.config/aiops/config.json`, so there is no need to call Jira directly.
+#### Standard Issue Workflow for AI Agents
+
+When working on an issue, AI agents should follow this workflow:
+
+**1. Sync issues before starting work:**
+```bash
+# Sync issues for the project you're working on
+aiops issues sync --project <project-name>
+```
+
+**2. Get issue details:**
+```bash
+# Read full issue details including all comments
+aiops issues get <issue-id> --output json
+
+# Or view in table format
+aiops issues get <issue-id>
+```
+
+**3. Add progress updates:**
+```bash
+# Post comments to keep stakeholders informed
+aiops issues comment <issue-id> "Starting work on this issue. Analyzing requirements..."
+
+# Update status if needed
+aiops issues update <issue-id> --status in_progress
+```
+
+**4. Document work completed:**
+```bash
+# Add detailed comments about what was done
+aiops issues comment <issue-id> "Completed implementation:
+- Added feature X
+- Fixed bug Y
+- Updated documentation
+
+All tests passing. Ready for review."
+```
+
+**5. Close issue when complete:**
+```bash
+# Close the issue
+aiops issues close <issue-id>
+
+# Or create follow-up issues if needed
+aiops issues create --project <project-name> --integration <integration-id> \
+  --title "Follow-up: ..." --description "..."
+```
+
+#### Best Practices for AI Agents
+
+- **Always sync first**: Run `aiops issues sync --project <project>` before starting work to get latest updates
+- **Use JSON output for parsing**: Add `--output json` when you need to programmatically process issue data
+- **Comment frequently**: Add comments at major milestones (starting work, completing tasks, encountering issues)
+- **Include details**: When commenting, include specific file paths, function names, and changes made
+- **Handle @mentions**: For Jira issues, use `@username` in comments - the CLI auto-resolves to account IDs
+- **Create follow-up issues**: If you discover additional work needed, create new issues rather than expanding scope
+- **Close proactively**: Close issues when work is complete and verified - don't leave them hanging
+
+#### Finding Issue IDs
+
+Issue IDs in aiops are **database IDs**, not external issue numbers:
+
+```bash
+# List all issues to find the database ID
+aiops issues list --project <project-name>
+
+# Filter by status
+aiops issues list --status open --project <project-name>
+
+# The "Id" column shows the database ID to use in other commands
+```
+
+#### Example: Complete Issue Workflow
+
+```bash
+# 1. Sync issues
+aiops issues sync --project aiops
+
+# 2. List open issues to find what to work on
+aiops issues list --status open --project aiops
+
+# 3. Get details for issue 502
+aiops issues get 502
+
+# 4. Add starting comment
+aiops issues comment 502 "Starting work on this issue now. Will update with progress."
+
+# 5. ... do the work ...
+
+# 6. Add completion comment with details
+aiops issues comment 502 "Work completed!
+
+Changes:
+- Updated setup.py with correct metadata
+- Added LICENSE file
+- Created PUBLISHING.md guide
+- Built and verified package
+
+All linting checks passed. Package ready for publication."
+
+# 7. Close the issue
+aiops issues close 502
+
+# 8. Create follow-up if needed
+aiops issues create --project aiops --integration 7 \
+  --title "Publish package to PyPI" \
+  --description "Upload the prepared package" \
+  --labels "enhancement"
+```
+
+#### Integration IDs
+
+To create new issues, you need the integration ID. Find it from existing issues:
+
+```bash
+# Get integration ID from an existing issue
+aiops issues get <any-issue-id> --output json | grep integration_id
+```
+
+#### Error Handling
+
+If commands fail:
+- **404 errors**: Issue ID not found - re-sync and verify the database ID
+- **Authentication errors**: Check `aiops config show` - ensure API key is configured
+- **Permission errors**: Some operations require specific user roles
+
+All commands reuse the per-user API key in `~/.config/aiops/config.json`, so there is no need to call external APIs directly.
 
 **Important**: When commenting on Jira issues, the CLI automatically resolves @mentions to Jira account IDs by looking up users from the issue's comment history. This means you can write `@reviewer` (or any teammate handle) and the CLI replaces it with the correct account ID syntax automatically.
 

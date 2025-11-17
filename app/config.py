@@ -148,7 +148,7 @@ class Config:
     CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))
     CLAUDE_CONFIG_DIR = os.getenv("CLAUDE_CONFIG_DIR", str((Path.home() / ".claude")))
     CODEX_UPDATE_COMMAND = os.getenv(
-        "CODEX_UPDATE_COMMAND", "sudo npm install -g codex"
+        "CODEX_UPDATE_COMMAND", "npm install -g codex"
     )
     CODEX_BREW_PACKAGE = os.getenv("CODEX_BREW_PACKAGE", "")
     CODEX_VERSION_COMMAND = os.getenv("CODEX_VERSION_COMMAND", "codex --version")
@@ -157,7 +157,7 @@ class Config:
         "npm view codex version",
     )
     GEMINI_UPDATE_COMMAND = os.getenv(
-        "GEMINI_UPDATE_COMMAND", "echo 'Hello from Gemini update command' && exit 1"
+        "GEMINI_UPDATE_COMMAND", "npm install -g gemini-cli"
     )
     GEMINI_BREW_PACKAGE = os.getenv("GEMINI_BREW_PACKAGE", "")
     GEMINI_VERSION_COMMAND = os.getenv("GEMINI_VERSION_COMMAND", "gemini --version")
@@ -166,7 +166,7 @@ class Config:
         "npm view gemini-cli version",
     )
     CLAUDE_UPDATE_COMMAND = os.getenv(
-        "CLAUDE_UPDATE_COMMAND", "sudo npm install -g @anthropic-ai/claude-code"
+        "CLAUDE_UPDATE_COMMAND", "npm install -g @anthropic-ai/claude-code"
     )
     CLAUDE_BREW_PACKAGE = os.getenv("CLAUDE_BREW_PACKAGE", "claude-code")
     CLAUDE_VERSION_COMMAND = os.getenv("CLAUDE_VERSION_COMMAND", "claude --version")

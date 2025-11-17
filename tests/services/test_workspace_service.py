@@ -89,7 +89,7 @@ def test_initialize_workspace_uses_project_key(monkeypatch, tmp_path):
         repo_url="git@git.example.com:demo/example-project.git",
         default_branch="main",
     )
-        user = SimpleNamespace(email="user@example.com", id=99)
+    user = SimpleNamespace(email="user@example.com", id=99)
 
     workspace_dir = tmp_path / "workspace" / "example-project"
 
@@ -142,7 +142,7 @@ def test_initialize_workspace_falls_back_when_key_unreadable(monkeypatch, tmp_pa
         repo_url="git@git.example.com:demo/example-project.git",
         default_branch="main",
     )
-        user = SimpleNamespace(email="user@example.com", id=99)
+    user = SimpleNamespace(email="user@example.com", id=99)
 
     workspace_dir = tmp_path / "workspace" / "example-project"
 

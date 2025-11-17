@@ -1261,9 +1261,8 @@ def config_get(ctx: click.Context, key: str) -> None:
 def cli_update(ctx: click.Context, check_only: bool) -> None:
     """Update the aiops CLI to the latest version.
 
-    This command updates the aiops CLI package by running:
-    - pip install --upgrade aiops-cli (if installed via pip)
-    - uv pip install --upgrade aiops-cli (if uv is available)
+    This command updates the aiops CLI package. For development installations,
+    it will pull the latest code from git and reinstall.
 
     Examples:
         aiops update              # Update to latest version
@@ -1271,6 +1270,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
     """
     import subprocess
     from importlib.metadata import version, PackageNotFoundError
+    from pathlib import Path
 
     try:
         current_version = version("aiops-cli")
@@ -1279,28 +1279,113 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
 
     console.print(f"[blue]Current version:[/blue] {current_version}")
 
+    # Check if this is a development/editable installation
+    is_dev_install = False
+    cli_path = None
+    try:
+        import aiops_cli
+        cli_file = Path(aiops_cli.__file__)
+        # If the package is in the source tree (not site-packages), it's a dev install
+        if "site-packages" not in str(cli_file):
+            is_dev_install = True
+            # Find the CLI directory (parent of aiops_cli package)
+            cli_path = cli_file.parent.parent
+            console.print(f"[dim]Development installation detected at: {cli_path}[/dim]")
+    except (ImportError, AttributeError):
+        pass
+
     if check_only:
-        console.print("[yellow]Checking for updates...[/yellow]")
-        # Try to get the latest version from PyPI
-        try:
-            import urllib.request
-            import json
-            with urllib.request.urlopen("https://pypi.org/pypi/aiops-cli/json", timeout=5) as response:
-                data = json.loads(response.read())
-                latest_version = data["info"]["version"]
-                console.print(f"[blue]Latest version:[/blue] {latest_version}")
-                if latest_version == current_version:
-                    console.print("[green]✓[/green] You are running the latest version!")
-                else:
-                    console.print(f"[yellow]A newer version is available: {latest_version}[/yellow]")
-                    console.print("[dim]Run 'aiops update' to upgrade[/dim]")
-        except Exception as e:
-            console.print(f"[yellow]Could not check for updates:[/yellow] {e}")
+        if is_dev_install:
+            console.print("[yellow]This is a development installation.[/yellow]")
+            console.print("[dim]Run 'aiops update' to pull latest changes from git and reinstall.[/dim]")
+        else:
+            console.print("[yellow]Checking for updates...[/yellow]")
+            # Try to get the latest version from PyPI
+            try:
+                import urllib.request
+                import json
+                with urllib.request.urlopen("https://pypi.org/pypi/aiops-cli/json", timeout=5) as response:
+                    data = json.loads(response.read())
+                    latest_version = data["info"]["version"]
+                    console.print(f"[blue]Latest version:[/blue] {latest_version}")
+                    if latest_version == current_version:
+                        console.print("[green]✓[/green] You are running the latest version!")
+                    else:
+                        console.print(f"[yellow]A newer version is available: {latest_version}[/yellow]")
+                        console.print("[dim]Run 'aiops update' to upgrade[/dim]")
+            except Exception as e:
+                console.print(f"[yellow]Could not check for updates:[/yellow] {e}")
         return
 
     console.print("[yellow]Updating aiops CLI...[/yellow]")
 
-    # Try uv first, fall back to pip
+    # Handle development installations differently
+    if is_dev_install and cli_path:
+        console.print("[dim]Updating development installation...[/dim]")
+
+        # Find the git repository root (should be parent of cli/)
+        repo_path = cli_path.parent
+
+        # Check if it's a git repository
+        if (repo_path / ".git").exists():
+            console.print(f"[dim]Repository path: {repo_path}[/dim]")
+
+            # Pull latest changes
+            console.print("[dim]Pulling latest changes from git...[/dim]")
+            try:
+                result = subprocess.run(
+                    ["git", "-C", str(repo_path), "pull"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if result.returncode != 0:
+                    error_console.print(f"[red]Git pull failed:[/red] {result.stderr}")
+                    error_console.print("[yellow]Continuing with reinstall anyway...[/yellow]")
+                else:
+                    console.print("[green]✓[/green] Git pull successful")
+            except Exception as e:
+                error_console.print(f"[yellow]Git pull failed:[/yellow] {e}")
+                error_console.print("[yellow]Continuing with reinstall anyway...[/yellow]")
+
+            # Reinstall the CLI package
+            console.print("[dim]Reinstalling aiops CLI...[/dim]")
+
+            # Detect if uv is available
+            use_uv = False
+            try:
+                result = subprocess.run(["which", "uv"], capture_output=True, check=False)
+                use_uv = (result.returncode == 0)
+            except FileNotFoundError:
+                pass
+
+            if use_uv:
+                reinstall_cmd = ["uv", "pip", "install", "-e", str(cli_path)]
+            else:
+                reinstall_cmd = [sys.executable, "-m", "pip", "install", "-e", str(cli_path)]
+
+            try:
+                result = subprocess.run(reinstall_cmd, capture_output=True, text=True, check=False)
+                if result.returncode == 0:
+                    console.print("[green]✓[/green] aiops CLI reinstalled successfully!")
+                    try:
+                        new_version = version("aiops-cli")
+                        console.print(f"[green]Version: {new_version}[/green]")
+                    except PackageNotFoundError:
+                        pass
+                else:
+                    error_console.print(f"[red]Reinstall failed:[/red] {result.stderr}")
+                    sys.exit(1)
+            except Exception as e:
+                error_console.print(f"[red]Reinstall failed:[/red] {e}")
+                sys.exit(1)
+        else:
+            error_console.print("[red]Error:[/red] Not a git repository")
+            error_console.print(f"[yellow]Manual update required at:[/yellow] {cli_path}")
+            sys.exit(1)
+        return
+
+    # For production installations from PyPI
     update_cmd = None
     try:
         result = subprocess.run(["which", "uv"], capture_output=True, check=False)
@@ -1330,6 +1415,9 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                 pass
         else:
             error_console.print(f"[red]Update failed:[/red] {result.stderr}")
+            error_console.print("\n[yellow]If this is a development installation, the update command")
+            error_console.print("cannot install from PyPI. Please use git pull and reinstall manually:[/yellow]")
+            error_console.print("  cd /path/to/aiops && git pull && uv pip install -e cli")
             sys.exit(1)
     except Exception as e:
         error_console.print(f"[red]Update failed:[/red] {e}")

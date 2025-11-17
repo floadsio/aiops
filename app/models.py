@@ -113,6 +113,22 @@ class Tenant(BaseModel, TimestampMixin):
         "TenantIntegration", back_populates="tenant", cascade="all, delete-orphan"
     )
 
+    @property
+    def slug(self) -> str:
+        """Generate a filesystem-safe slug from the tenant name.
+
+        This matches the logic used in workspace_service._slugify().
+
+        Returns:
+            str: Slugified tenant name (lowercase, special chars converted to dashes)
+        """
+        translation_map: dict[str, str | int] = {c: "-" for c in " ./\\:@"}
+        slug = self.name.lower().translate(str.maketrans(translation_map))
+        while "--" in slug:
+            slug = slug.replace("--", "-")
+        slug = slug.strip("-")
+        return slug or f"tenant-{self.id}"
+
 
 class Project(BaseModel, TimestampMixin):
     __tablename__ = "projects"

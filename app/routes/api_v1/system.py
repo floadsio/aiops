@@ -54,7 +54,7 @@ def _run_git_pull(repo_path: Path) -> dict[str, str]:
 
 
 def _run_uv_sync(repo_path: Path) -> dict[str, str]:
-    """Run uv sync to install dependencies.
+    """Run uv pip sync to install dependencies.
 
     Args:
         repo_path: Path to the repository
@@ -62,9 +62,20 @@ def _run_uv_sync(repo_path: Path) -> dict[str, str]:
     Returns:
         dict with stdout and stderr
     """
+    venv_dir = repo_path / ".venv"
+    requirements_file = repo_path / "requirements.txt"
+
+    if not requirements_file.exists():
+        return {
+            "stdout": "",
+            "stderr": "requirements.txt not found",
+            "success": False,
+            "error": "Missing requirements.txt",
+        }
+
     try:
         result = subprocess.run(
-            ["uv", "sync"],
+            ["uv", "pip", "sync", "--python", str(venv_dir), str(requirements_file)],
             cwd=repo_path,
             capture_output=True,
             text=True,
@@ -86,7 +97,7 @@ def _run_uv_sync(repo_path: Path) -> dict[str, str]:
     except subprocess.TimeoutExpired:
         return {
             "stdout": "",
-            "stderr": "uv sync timed out after 5 minutes",
+            "stderr": "uv pip sync timed out after 5 minutes",
             "success": False,
             "error": "Timeout",
         }

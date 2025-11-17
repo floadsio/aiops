@@ -414,6 +414,11 @@ def list_project_ai_sessions(project_id: int):
     # Import here to avoid circular imports
     from ..ai_sessions import list_active_sessions
 
+    # Sessions run under the Flask app's system user (tmux owner)
+    import pwd
+
+    flask_system_user = pwd.getpwuid(os.getuid()).pw_name
+
     # List sessions for this project and user
     sessions = list_active_sessions(user_id=user_id, project_id=project_id)
 
@@ -427,6 +432,7 @@ def list_project_ai_sessions(project_id: int):
             "issue_id": session.issue_id,
             "command": session.command,
             "tmux_target": session.tmux_target,
+            "ssh_user": flask_system_user,
         })
 
     return jsonify({"sessions": session_list})

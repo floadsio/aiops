@@ -1,7 +1,9 @@
 """Main CLI entry point for AIops CLI."""
 
+import subprocess
 import sys
 from typing import Optional
+from urllib.parse import urlparse
 
 import click
 from rich.console import Console
@@ -113,6 +115,56 @@ def resolve_tenant_id(client: APIClient, tenant_identifier: str) -> int:
         )
 
     return matching_tenants[0]["id"]
+
+
+def attach_to_tmux_session(
+    ctx: click.Context,
+    *,
+    session_id: Optional[str],
+    tmux_target: Optional[str],
+    ssh_user: Optional[str],
+) -> None:
+    """Attach to a tmux session owned by the aiops service."""
+    attach_target = tmux_target or session_id
+    if not attach_target:
+        error_console.print(
+            "[red]Error:[/red] Missing tmux session identifier to attach.",
+        )
+        sys.exit(1)
+
+    config: Config = ctx.obj["config"]
+    api_url = config.url
+    parsed_url = urlparse(api_url)
+    ssh_host = parsed_url.hostname
+
+    if not ssh_host:
+        error_console.print(
+            "[red]Error:[/red] Could not derive SSH host from API URL",
+        )
+        error_console.print(
+            f"[yellow]You can manually attach with:[/yellow] ssh HOST -t tmux attach -t {attach_target}",
+        )
+        sys.exit(1)
+
+    ssh_target = f"{ssh_user}@{ssh_host}" if ssh_user else ssh_host
+
+    try:
+        subprocess.run(
+            ["ssh", "-t", ssh_target, "tmux", "attach-session", "-t", attach_target],
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        error_console.print(f"[red]Error attaching to tmux:[/red] {exc}")
+        error_console.print(
+            f"[yellow]You can manually attach with:[/yellow] ssh {ssh_target} -t tmux attach -t {attach_target}",
+        )
+        sys.exit(1)
+    except FileNotFoundError:
+        error_console.print("[red]Error:[/red] ssh not found. Please install OpenSSH to attach.")
+        error_console.print(
+            f"[yellow]Session is running. You can attach manually with:[/yellow] tmux attach -t {attach_target}",
+        )
+        sys.exit(1)
 
 
 @click.group()
@@ -632,8 +684,17 @@ def issues_sync(
 
 @issues.command(name="sessions")
 @click.option("--project", help="Filter by project ID or name")
+@click.option(
+    "--attach",
+    "attach_session",
+    help="Attach to a session by ID/prefix or tmux target (see output table)",
+)
 @click.pass_context
-def issues_sessions(ctx: click.Context, project: Optional[str]) -> None:
+def issues_sessions(
+    ctx: click.Context,
+    project: Optional[str],
+    attach_session: Optional[str],
+) -> None:
     """List active AI sessions."""
     client = get_client(ctx)
 
@@ -662,6 +723,11 @@ def issues_sessions(ctx: click.Context, project: Optional[str]) -> None:
 
         if not all_sessions:
             console.print("[yellow]No active AI sessions found[/yellow]")
+            if attach_session:
+                error_console.print(
+                    "[red]Error:[/red] Unable to attach because no sessions are running.",
+                )
+                sys.exit(1)
             return
 
         # Display sessions in a table
@@ -696,6 +762,38 @@ def issues_sessions(ctx: click.Context, project: Optional[str]) -> None:
                 table.add_row(session_id, issue_id, tool_name, project_name, tmux_target)
 
         console.print(table)
+
+        # If attaching, resolve the requested session
+        if attach_session:
+            identifier = attach_session.strip()
+            if identifier.endswith("..."):
+                identifier = identifier[:-3]
+            target_session = None
+            for session in all_sessions:
+                sid = str(session.get("session_id", ""))
+                tmux_target = session.get("tmux_target", "")
+                if identifier and (sid == identifier or sid.startswith(identifier)):
+                    target_session = session
+                    break
+                if identifier and tmux_target == identifier:
+                    target_session = session
+                    break
+
+            if not target_session:
+                error_console.print(
+                    f"[red]Error:[/red] Session '{attach_session}' not found in the list above.",
+                )
+                sys.exit(1)
+
+            console.print("\n[yellow]Attaching to tmux session...[/yellow]")
+            console.print("[dim]Press Ctrl+B then D to detach from tmux[/dim]\n")
+
+            attach_to_tmux_session(
+                ctx,
+                session_id=str(target_session.get("session_id")),
+                tmux_target=target_session.get("tmux_target"),
+                ssh_user=target_session.get("ssh_user"),
+            )
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
@@ -754,61 +852,14 @@ def issues_work(
 
         # If attach flag is set, attach to tmux session
         if attach:
-            import subprocess
-            from urllib.parse import urlparse
-
             console.print("\n[yellow]Attaching to tmux session...[/yellow]")
             console.print("[dim]Press Ctrl+B then D to detach from tmux[/dim]\n")
-
-            # Use tmux_target if available, otherwise fall back to session_id
-            attach_target = tmux_target or session_id
-
-            # Derive SSH host from API URL (e.g., http://dev.example:5000 -> dev.example)
-            config: Config = ctx.obj["config"]
-            api_url = config.url
-            parsed_url = urlparse(api_url)
-            ssh_host = parsed_url.hostname
-
-            if not ssh_host:
-                error_console.print(
-                    "[red]Error:[/red] Could not derive SSH host from API URL"
-                )
-                error_console.print(
-                    f"[yellow]You can manually attach with:[/yellow] ssh {ssh_host or 'HOST'} -t tmux attach -t {attach_target}"
-                )
-                sys.exit(1)
-
-            # Build SSH target with system user running Flask app (owns tmux server)
-            # e.g., syseng@dev.example
-            if ssh_user:
-                ssh_target = f"{ssh_user}@{ssh_host}"
-            else:
-                # Fall back to just hostname if ssh_user not provided
-                ssh_target = ssh_host
-
-            # Attach to the tmux session:window
-            try:
-                # SSH into remote host and attach to tmux session
-                subprocess.run(
-                    ["ssh", "-t", ssh_target, "tmux", "attach-session", "-t", attach_target],
-                    check=True,
-                )
-            except subprocess.CalledProcessError as e:
-                error_console.print(
-                    f"[red]Error attaching to tmux:[/red] {e}"
-                )
-                error_console.print(
-                    f"[yellow]You can manually attach with:[/yellow] ssh {ssh_target} -t tmux attach -t {attach_target}"
-                )
-                sys.exit(1)
-            except FileNotFoundError:
-                error_console.print(
-                    "[red]Error:[/red] ssh not found. Please install OpenSSH to use --attach"
-                )
-                error_console.print(
-                    "[yellow]Session is running. You can access it via the web UI.[/yellow]"
-                )
-                sys.exit(1)
+            attach_to_tmux_session(
+                ctx,
+                session_id=session_id,
+                tmux_target=tmux_target,
+                ssh_user=ssh_user,
+            )
         else:
             console.print(
                 f"\n[yellow]To attach to the session:[/yellow] aiops issues work {issue_id} --attach"

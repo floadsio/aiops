@@ -399,17 +399,27 @@ def create_issue():
     if not project_integration:
         return jsonify({"error": "Project is not linked to this integration"}), 404
 
-    # Map assignee to provider-specific identity if provided
+    # Map assignee to provider-specific identity
+    # If no assignee specified, default to the user creating the issue
     assignee_identity = None
-    if assignee_username:
-        identity_map = get_user_identity(user.id)
-        if identity_map:
-            provider = integration.provider.lower()
-            if provider == "github":
+    identity_map = get_user_identity(user.id)
+    if identity_map:
+        provider_type = integration.provider.lower()
+        if assignee_username:
+            # Explicit assignee provided - use that
+            if provider_type == "github":
                 assignee_identity = identity_map.github_username
-            elif provider == "gitlab":
+            elif provider_type == "gitlab":
                 assignee_identity = identity_map.gitlab_username
-            elif provider == "jira":
+            elif provider_type == "jira":
+                assignee_identity = identity_map.jira_account_id
+        else:
+            # No assignee specified - assign to creator
+            if provider_type == "github":
+                assignee_identity = identity_map.github_username
+            elif provider_type == "gitlab":
+                assignee_identity = identity_map.gitlab_username
+            elif provider_type == "jira":
                 assignee_identity = identity_map.jira_account_id
 
     # Create issue via provider

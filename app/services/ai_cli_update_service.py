@@ -8,6 +8,8 @@ from pathlib import Path
 
 from flask import current_app
 
+from .sudo_service import SudoError, run_as_user
+
 
 class CLICommandError(RuntimeError):
     """Raised when an AI CLI update command cannot be executed."""
@@ -97,6 +99,49 @@ def run_cli_command(raw_command: str, *, timeout: int = 900) -> CLICommandResult
         stderr=completed.stderr,
         returncode=completed.returncode,
     )
+
+
+def run_sudo_cli_command(raw_command: str, *, timeout: int = 900) -> CLICommandResult:
+    try:
+        parts = shlex.split(raw_command)
+    except ValueError as exc:
+        return CLICommandResult(
+            command=raw_command,
+            stdout="",
+            stderr=f"Invalid command configuration: {exc}",
+            returncode=1,
+        )
+
+    if not parts:
+        return CLICommandResult(
+            command=raw_command,
+            stdout="",
+            stderr="Command is empty.",
+            returncode=1,
+        )
+
+    try:
+        result = run_as_user(
+            "root",
+            parts,
+            timeout=timeout,
+            check=False,
+            capture_output=True,
+            env=_build_env(),
+        )
+        return CLICommandResult(
+            command=" ".join(shlex.quote(part) for part in parts),
+            stdout=result.stdout,
+            stderr=result.stderr,
+            returncode=result.returncode,
+        )
+    except SudoError as exc:
+        return CLICommandResult(
+            command=" ".join(shlex.quote(part) for part in parts),
+            stdout="",
+            stderr=str(exc),
+            returncode=1,
+        )
 
 
 def _summarize_output(result: CLICommandResult) -> str:
@@ -201,6 +246,9 @@ def run_ai_tool_update(
         raise CLICommandError(
             f"No command configured to update {tool.title()} via {source}."
         )
+
+    if source.lower() == "npm":
+        return run_sudo_cli_command(command, timeout=timeout)
     return run_cli_command(command, timeout=timeout)
 
 
@@ -210,5 +258,6 @@ __all__ = [
     "AIToolVersionInfo",
     "run_ai_tool_update",
     "run_cli_command",
+    "run_sudo_cli_command",
     "get_ai_tool_versions",
 ]

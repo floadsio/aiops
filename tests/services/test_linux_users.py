@@ -117,10 +117,10 @@ class TestResolveLinuxUsername:
         from app import create_app
         from app.config import Config
 
-            class TestConfig(Config):
-                TESTING = True
-                LINUX_USER_STRATEGY = "mapping"
-                LINUX_USER_MAPPING = {"other@example.com": "other"}
+        class TestConfig(Config):
+            TESTING = True
+            LINUX_USER_STRATEGY = "mapping"
+            LINUX_USER_MAPPING = {"other@example.com": "other"}
 
         app = create_app(TestConfig, instance_path=tmp_path / "instance")
 

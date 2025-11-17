@@ -470,6 +470,8 @@ def update_ai_tool_cli(tool: str):
         message = f"{tool_label} {source.upper()} command succeeded."
     else:
         message = f"{tool_label} {source.upper()} command failed."
+        if result.stderr:
+            message += f" Error: {result.stderr.strip()}"
 
     return jsonify({
         "message": message,

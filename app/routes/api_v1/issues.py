@@ -16,7 +16,7 @@ from ...services.issues.providers import (
     GitLabIssueProvider,
     JiraIssueProvider,
 )
-from ...services.issues import IssueSyncError
+from ...services.issues import IssueSyncError, sync_tenant_integrations
 from ...services.issues.utils import normalize_issue_status
 from ...services.user_identity_service import get_user_identity  # type: ignore
 from . import api_v1_bp
@@ -713,3 +713,103 @@ def assign_issue(issue_id: int):
     db.session.commit()
 
     return jsonify({"issue": _issue_to_dict(issue)})
+
+
+@api_v1_bp.post("/issues/sync")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def sync_issues():
+    """Synchronize issues from external providers.
+
+    Request body:
+        tenant_id (int, optional): Limit sync to a specific tenant
+        integration_id (int, optional): Limit sync to a specific tenant integration
+        project_id (int, optional): Limit sync to a specific project
+        force_full (bool, optional): Force full sync (default: False)
+
+    Returns:
+        200: Sync completed successfully with statistics
+        400: Invalid request
+        404: Tenant or integration not found
+        500: Sync failed
+    """
+    data = request.get_json(silent=True) or {}
+
+    tenant_id = data.get("tenant_id")
+    integration_id = data.get("integration_id")
+    project_id = data.get("project_id")
+    force_full = data.get("force_full", False)
+
+    # Validate tenant and integration relationship if both provided
+    if tenant_id is not None and integration_id is not None:
+        integration = TenantIntegration.query.get(integration_id)
+        if integration is None or integration.tenant_id != tenant_id:
+            return jsonify({"error": "Integration does not belong to the provided tenant"}), 400
+
+    # Build query for project integrations
+    query = (
+        ProjectIntegration.query.options(
+            selectinload(ProjectIntegration.project),
+            selectinload(ProjectIntegration.integration).selectinload(
+                TenantIntegration.tenant
+            ),
+        )
+        .join(ProjectIntegration.integration)
+        .filter(TenantIntegration.enabled.is_(True))
+    )
+
+    # Apply filters
+    if tenant_id is not None:
+        query = query.filter(TenantIntegration.tenant_id == tenant_id)
+    if integration_id is not None:
+        query = query.filter(ProjectIntegration.integration_id == integration_id)
+    if project_id is not None:
+        query = query.filter(ProjectIntegration.project_id == project_id)
+
+    project_integrations = query.all()
+    if not project_integrations:
+        return jsonify({
+            "message": "No project integrations matched the filters",
+            "synced": 0,
+            "projects": [],
+        })
+
+    # Perform sync
+    try:
+        results = sync_tenant_integrations(project_integrations, force_full=force_full)
+    except IssueSyncError as exc:
+        current_app.logger.error("Issue synchronization failed: %s", exc)
+        return jsonify({"error": f"Issue synchronization failed: {str(exc)}"}), 500
+
+    # Build response with statistics
+    projects_synced = []
+    total_issues = 0
+
+    for project_integration in project_integrations:
+        tenant_name = (
+            project_integration.integration.tenant.name
+            if project_integration.integration.tenant
+            else "Unknown tenant"
+        )
+        project_name = (
+            project_integration.project.name
+            if project_integration.project
+            else "Unknown project"
+        )
+        provider = project_integration.integration.provider
+        count = len(results.get(project_integration.id, []))
+        total_issues += count
+
+        projects_synced.append({
+            "project_id": project_integration.project_id,
+            "project_name": project_name,
+            "tenant_name": tenant_name,
+            "provider": provider,
+            "issues_synced": count,
+        })
+
+    return jsonify({
+        "message": "Issue synchronization completed successfully",
+        "synced": total_issues,
+        "projects": projects_synced,
+    })

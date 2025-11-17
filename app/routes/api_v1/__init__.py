@@ -9,4 +9,4 @@ from flask import Blueprint
 api_v1_bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
 
 # Import all route modules to register their endpoints
-from . import auth, git, issues, projects, tenants, workflows  # noqa: E402, F401
+from . import auth, git, issues, projects, system, tenants, workflows  # noqa: E402, F401

@@ -78,6 +78,7 @@ class Config:
     REPO_STORAGE_PATH = os.getenv(
         "REPO_STORAGE_PATH", str((INSTANCE_DIR / "repos").resolve())
     )
+    AIOPS_ROOT = os.getenv("AIOPS_ROOT", str(BASE_DIR.resolve()))
     GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "auto_edit")
     CLI_EXTRA_PATHS = os.getenv("CLI_EXTRA_PATHS", "/opt/homebrew/bin:/usr/local/bin")
     CODEX_SANDBOX_MODE = os.getenv("CODEX_SANDBOX_MODE", "danger-full-access")

@@ -455,6 +455,92 @@ def issues_assign(ctx: click.Context, issue_id: int, user: Optional[int]) -> Non
         sys.exit(1)
 
 
+@issues.command(name="sync")
+@click.option("--tenant", help="Tenant ID or slug to sync")
+@click.option("--project", help="Project ID or name to sync")
+@click.option("--integration", type=int, help="Integration ID to sync")
+@click.option("--force-full", is_flag=True, help="Force full sync (ignore last sync time)")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def issues_sync(
+    ctx: click.Context,
+    tenant: Optional[str],
+    project: Optional[str],
+    integration: Optional[int],
+    force_full: bool,
+    output: Optional[str],
+) -> None:
+    """Synchronize issues from external providers (GitHub, GitLab, Jira).
+
+    Examples:
+        aiops issues sync                        # Sync all issues
+        aiops issues sync --tenant floads        # Sync issues for a tenant
+        aiops issues sync --project aiops        # Sync issues for a project
+        aiops issues sync --force-full           # Force full sync
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        # Resolve tenant and project names to IDs if needed
+        tenant_id = None
+        project_id = None
+
+        if tenant:
+            tenant_id = resolve_tenant_id(client, tenant)
+        if project:
+            project_id = resolve_project_id(client, project)
+
+        # Perform sync
+        result = client.sync_issues(
+            tenant_id=tenant_id,
+            integration_id=integration,
+            project_id=project_id,
+            force_full=force_full,
+        )
+
+        # Display results
+        synced = result.get("synced", 0)
+        projects = result.get("projects", [])
+        message = result.get("message", "")
+
+        if synced == 0:
+            console.print("[yellow]No issues synchronized[/yellow]")
+            if message:
+                console.print(f"[dim]{message}[/dim]")
+            return
+
+        console.print(f"[green]✓[/green] {message}")
+        console.print(f"[green]Total issues synchronized:[/green] {synced}")
+
+        if projects and output_format == "table":
+            # Display project sync details in table format
+            console.print()
+            table = Table(title="Project Sync Details")
+            table.add_column("Provider", style="cyan", no_wrap=True)
+            table.add_column("Tenant", style="yellow")
+            table.add_column("Project", style="magenta")
+            table.add_column("Issues", style="green", justify="right")
+
+            for proj in projects:
+                table.add_row(
+                    proj.get("provider", ""),
+                    proj.get("tenant_name", ""),
+                    proj.get("project_name", ""),
+                    str(proj.get("issues_synced", 0)),
+                )
+
+            console.print(table)
+        elif projects:
+            # Use standard format_output for JSON/YAML
+            format_output(projects, output_format, console, title="Project Sync Details")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="sessions")
 @click.option("--project", help="Filter by project ID or name")
 @click.pass_context
@@ -1159,6 +1245,163 @@ def config_get(ctx: click.Context, key: str) -> None:
         console.print(f"[yellow]Configuration '{key}' not set[/yellow]")
     else:
         console.print(value)
+
+
+# ============================================================================
+# SYSTEM COMMANDS
+# ============================================================================
+
+
+@cli.group()
+def system() -> None:
+    """System management commands (requires admin access)."""
+
+
+@system.command(name="update")
+@click.option("--skip-migrations", is_flag=True, help="Skip database migrations")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def system_update(ctx: click.Context, skip_migrations: bool, output: Optional[str]) -> None:
+    """Update aiops application (git pull, install dependencies, run migrations).
+
+    This command:
+    1. Pulls the latest code from git
+    2. Installs/updates dependencies using uv sync
+    3. Runs database migrations (unless --skip-migrations is set)
+
+    Requires admin API key.
+
+    Example:
+        aiops system update
+        aiops system update --skip-migrations
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        console.print("[yellow]Updating aiops application...[/yellow]")
+        result = client.system_update(skip_migrations=skip_migrations)
+
+        console.print(f"[green]✓[/green] {result.get('message', 'Update completed')}")
+
+        # Show detailed results
+        results = result.get("results", {})
+
+        if output_format == "table":
+            console.print("\n[bold]Update Details:[/bold]")
+
+            # Git pull results
+            git_result = results.get("git_pull", {})
+            if git_result.get("success"):
+                console.print("[green]✓[/green] Git pull: Success")
+                if git_result.get("stdout"):
+                    console.print(f"  [dim]{git_result['stdout'].strip()}[/dim]")
+            else:
+                console.print(f"[red]✗[/red] Git pull: Failed - {git_result.get('error', 'Unknown error')}")
+
+            # UV sync results
+            uv_result = results.get("uv_sync", {})
+            if uv_result.get("success"):
+                console.print("[green]✓[/green] Dependencies: Updated")
+            else:
+                console.print(f"[red]✗[/red] Dependencies: Failed - {uv_result.get('error', 'Unknown error')}")
+
+            # Migration results
+            migrate_result = results.get("migrations", {})
+            if migrate_result.get("skipped"):
+                console.print("[yellow]⊘[/yellow] Migrations: Skipped")
+            elif migrate_result.get("success"):
+                console.print("[green]✓[/green] Migrations: Completed")
+            elif migrate_result:
+                console.print(f"[red]✗[/red] Migrations: Failed - {migrate_result.get('error', 'Unknown error')}")
+
+        else:
+            # JSON or YAML output
+            format_output(result, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@system.command(name="restart")
+@click.confirmation_option(prompt="Are you sure you want to restart the aiops application?")
+@click.pass_context
+def system_restart(ctx: click.Context) -> None:
+    """Restart the aiops application.
+
+    This will restart the Flask application service. You will be disconnected briefly.
+
+    Requires admin API key.
+
+    Example:
+        aiops system restart
+    """
+    client = get_client(ctx)
+
+    try:
+        console.print("[yellow]Restarting aiops application...[/yellow]")
+        result = client.system_restart()
+
+        console.print(f"[green]✓[/green] {result.get('message', 'Restart initiated')}")
+        console.print("[dim]The application will restart in a few seconds...[/dim]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@system.command(name="update-and-restart")
+@click.option("--skip-migrations", is_flag=True, help="Skip database migrations")
+@click.confirmation_option(prompt="Are you sure you want to update and restart the aiops application?")
+@click.pass_context
+def system_update_and_restart(ctx: click.Context, skip_migrations: bool) -> None:
+    """Update and restart the aiops application.
+
+    This command combines update and restart:
+    1. Pulls the latest code from git
+    2. Installs/updates dependencies
+    3. Runs database migrations (unless --skip-migrations is set)
+    4. Restarts the application
+
+    Requires admin API key.
+
+    Example:
+        aiops system update-and-restart
+    """
+    client = get_client(ctx)
+
+    try:
+        console.print("[yellow]Updating and restarting aiops application...[/yellow]")
+        result = client.system_update_and_restart(skip_migrations=skip_migrations)
+
+        console.print(f"[green]✓[/green] {result.get('message', 'Update completed, restart initiated')}")
+
+        # Show update details
+        results = result.get("results", {})
+        if results:
+            console.print("\n[bold]Update Details:[/bold]")
+
+            git_result = results.get("git_pull", {})
+            if git_result.get("success"):
+                console.print("[green]✓[/green] Git pull: Success")
+
+            uv_result = results.get("uv_sync", {})
+            if uv_result.get("success"):
+                console.print("[green]✓[/green] Dependencies: Updated")
+
+            migrate_result = results.get("migrations", {})
+            if migrate_result.get("skipped"):
+                console.print("[yellow]⊘[/yellow] Migrations: Skipped")
+            elif migrate_result.get("success"):
+                console.print("[green]✓[/green] Migrations: Completed")
+
+        console.print("\n[dim]The application will restart in a few seconds...[/dim]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
 
 
 def main() -> None:

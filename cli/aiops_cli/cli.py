@@ -83,7 +83,7 @@ def resolve_tenant_id(client: APIClient, tenant_identifier: str) -> int:
 
     Args:
         client: API client
-        tenant_identifier: Tenant ID (numeric string) or slug
+        tenant_identifier: Tenant ID (numeric string), name, or slug
 
     Returns:
         Tenant ID as integer
@@ -95,10 +95,13 @@ def resolve_tenant_id(client: APIClient, tenant_identifier: str) -> int:
     if tenant_identifier.isdigit():
         return int(tenant_identifier)
 
-    # Look up tenant by slug (case-insensitive)
+    # Look up tenant by name or slug (case-insensitive)
     tenants = client.list_tenants()
     matching_tenants = [
-        t for t in tenants if t.get("slug", "").lower() == tenant_identifier.lower()
+        t for t in tenants if (
+            t.get("name", "").lower() == tenant_identifier.lower()
+            or t.get("slug", "").lower() == tenant_identifier.lower()
+        )
     ]
 
     if not matching_tenants:
@@ -106,7 +109,7 @@ def resolve_tenant_id(client: APIClient, tenant_identifier: str) -> int:
 
     if len(matching_tenants) > 1:
         error_console.print(
-            f"[yellow]Warning:[/yellow] Multiple tenants with slug '{tenant_identifier}' found, using first match",
+            f"[yellow]Warning:[/yellow] Multiple tenants matching '{tenant_identifier}' found, using first match",
         )
 
     return matching_tenants[0]["id"]
@@ -1245,6 +1248,92 @@ def config_get(ctx: click.Context, key: str) -> None:
         console.print(f"[yellow]Configuration '{key}' not set[/yellow]")
     else:
         console.print(value)
+
+
+# ============================================================================
+# CLI UPDATE COMMAND
+# ============================================================================
+
+
+@cli.command(name="update")
+@click.option("--check-only", is_flag=True, help="Only check for updates without installing")
+@click.pass_context
+def cli_update(ctx: click.Context, check_only: bool) -> None:
+    """Update the aiops CLI to the latest version.
+
+    This command updates the aiops CLI package by running:
+    - pip install --upgrade aiops-cli (if installed via pip)
+    - uv pip install --upgrade aiops-cli (if uv is available)
+
+    Examples:
+        aiops update              # Update to latest version
+        aiops update --check-only # Check for updates without installing
+    """
+    import subprocess
+    from importlib.metadata import version, PackageNotFoundError
+
+    try:
+        current_version = version("aiops-cli")
+    except PackageNotFoundError:
+        current_version = "unknown"
+
+    console.print(f"[blue]Current version:[/blue] {current_version}")
+
+    if check_only:
+        console.print("[yellow]Checking for updates...[/yellow]")
+        # Try to get the latest version from PyPI
+        try:
+            import urllib.request
+            import json
+            with urllib.request.urlopen("https://pypi.org/pypi/aiops-cli/json", timeout=5) as response:
+                data = json.loads(response.read())
+                latest_version = data["info"]["version"]
+                console.print(f"[blue]Latest version:[/blue] {latest_version}")
+                if latest_version == current_version:
+                    console.print("[green]✓[/green] You are running the latest version!")
+                else:
+                    console.print(f"[yellow]A newer version is available: {latest_version}[/yellow]")
+                    console.print("[dim]Run 'aiops update' to upgrade[/dim]")
+        except Exception as e:
+            console.print(f"[yellow]Could not check for updates:[/yellow] {e}")
+        return
+
+    console.print("[yellow]Updating aiops CLI...[/yellow]")
+
+    # Try uv first, fall back to pip
+    update_cmd = None
+    try:
+        result = subprocess.run(["which", "uv"], capture_output=True, check=False)
+        if result.returncode == 0:
+            update_cmd = ["uv", "pip", "install", "--upgrade", "aiops-cli"]
+            console.print("[dim]Using uv for update...[/dim]")
+    except FileNotFoundError:
+        pass
+
+    if not update_cmd:
+        # Fall back to pip
+        update_cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "aiops-cli"]
+        console.print("[dim]Using pip for update...[/dim]")
+
+    try:
+        result = subprocess.run(update_cmd, capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            console.print("[green]✓[/green] aiops CLI updated successfully!")
+            # Try to get new version
+            try:
+                new_version = version("aiops-cli")
+                if new_version != current_version:
+                    console.print(f"[green]Updated from {current_version} to {new_version}[/green]")
+                else:
+                    console.print("[green]Already running the latest version[/green]")
+            except PackageNotFoundError:
+                pass
+        else:
+            error_console.print(f"[red]Update failed:[/red] {result.stderr}")
+            sys.exit(1)
+    except Exception as e:
+        error_console.print(f"[red]Update failed:[/red] {e}")
+        sys.exit(1)
 
 
 # ============================================================================

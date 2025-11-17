@@ -27,6 +27,7 @@ def _tenant_to_dict(tenant: Tenant, include_projects: bool = False) -> dict[str,
     data = {
         "id": tenant.id,
         "name": tenant.name,
+        "slug": tenant.slug,  # Include computed slug property
         "description": tenant.description or "",
         "color": tenant.color or DEFAULT_TENANT_COLOR,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,

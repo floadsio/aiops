@@ -311,8 +311,26 @@ class JiraIssueProvider(BaseIssueProvider):
     def reopen_issue(self, **_: Any) -> Dict[str, Any]:
         raise IssueSyncError("Reopening Jira issues via API is not supported yet.")
 
-    def add_comment(self, **_: Any) -> Dict[str, Any]:
-        raise IssueSyncError("Adding comments to Jira issues via API is not supported.")
+    def add_comment(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        body: str,
+    ) -> Dict[str, Any]:
+        payload = jira_provider.create_comment(
+            self.integration,
+            project_integration,
+            issue_number,
+            body,
+        )
+        # Convert IssueCommentPayload to dict format expected by API
+        return {
+            "author": payload.author,
+            "body": payload.body,
+            "created_at": _serialize_datetime(payload.created_at),
+            "url": payload.url,
+        }
 
     def assign_issue(self, **_: Any) -> Dict[str, Any]:
         raise IssueSyncError("Assigning Jira issues via API is not supported yet.")

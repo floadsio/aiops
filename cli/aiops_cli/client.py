@@ -241,6 +241,10 @@ class APIClient:
         """Add comment to issue."""
         return self.post(f"issues/{issue_id}/comments", json={"body": body})
 
+    def update_issue_comment(self, issue_id: int, comment_id: str, body: str) -> dict[str, Any]:
+        """Update an existing comment on an issue."""
+        return self.patch(f"issues/{issue_id}/comments/{comment_id}", json={"body": body})
+
     def assign_issue(self, issue_id: int, user_id: Optional[int] = None) -> dict[str, Any]:
         """Assign issue to user."""
         payload = {}

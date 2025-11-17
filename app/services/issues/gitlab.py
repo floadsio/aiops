@@ -374,12 +374,14 @@ def _collect_issue_comments(issue_payload: Any) -> List[IssueCommentPayload]:
         author_name = None
         if isinstance(author, dict):
             author_name = author.get("name") or author.get("username")
+        note_id = getattr(note, "id", None)
         comments.append(
             IssueCommentPayload(
                 author=str(author_name) if author_name else None,
                 body=getattr(note, "body", "") or "",
                 created_at=parse_datetime(getattr(note, "created_at", None)),
                 url=getattr(note, "web_url", None),
+                id=str(note_id) if note_id else None,
             )
         )
         if len(comments) >= MAX_COMMENTS_PER_ISSUE:

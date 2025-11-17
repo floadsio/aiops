@@ -303,12 +303,111 @@ def create_comment(
             )
 
         created_value = getattr(comment, "updated", None) or getattr(comment, "created", None)
+        comment_id = getattr(comment, "id", None)
 
         return IssueCommentPayload(
             author=str(author_name) if author_name else None,
             body=getattr(comment, "body", "") or "",
             created_at=parse_datetime(created_value),
             url=None,
+            id=str(comment_id) if comment_id else None,
+        )
+    except JIRAError as exc:
+        message = getattr(exc, "text", None) or str(exc)
+        raise IssueSyncError(f"Jira API error: {message}") from exc
+    except Exception as exc:  # pragma: no cover - unexpected failures
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover - best effort cleanup
+                pass
+
+
+def update_comment(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration,
+    issue_key: str,
+    comment_id: str,
+    body: str,
+) -> IssueCommentPayload:
+    """Update an existing comment on a Jira issue.
+
+    Args:
+        integration: Jira integration
+        project_integration: Project integration
+        issue_key: Issue key (e.g. 'IWFCLOUD2-42')
+        comment_id: Comment ID to update
+        body: New comment text
+
+    Returns:
+        Updated comment payload
+
+    Raises:
+        IssueSyncError: On API errors or missing configuration
+    """
+    base_url = integration.base_url  # type: ignore[assignment]
+    if not base_url:
+        raise IssueSyncError("Jira integration requires a base URL.")
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
+
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
+    username = (settings.get("username") or "").strip()
+    if not username:
+        raise IssueSyncError("Jira integration requires an account email.")
+
+    issue_key = (issue_key or "").strip()
+    if not issue_key:
+        raise IssueSyncError("Jira issue key is required for updating a comment.")
+
+    comment_id = (comment_id or "").strip()
+    if not comment_id:
+        raise IssueSyncError("Comment ID is required for updating a comment.")
+
+    body = (body or "").strip()
+    if not body:
+        raise IssueSyncError("Comment body is required.")
+
+    timeout = get_timeout(integration)
+    try:
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover - environment misconfiguration
+        missing = getattr(exc, "name", None) or "jira"
+        raise IssueSyncError(
+            f"Jira support requires the '{missing}' package. Install dependencies with 'make sync' or 'uv pip install jira'."
+        ) from exc
+
+    client: Optional[Any] = None
+    try:
+        client = JIRA(
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
+            timeout=timeout,
+        )
+        # Get the comment object
+        comment = client.comment(issue_key, comment_id)
+        # Update the comment body
+        comment.update(body=body)
+
+        # Extract updated comment details
+        author_raw = getattr(comment, "author", None)
+        author_name = None
+        if author_raw:
+            author_name = getattr(author_raw, "displayName", None) or getattr(
+                author_raw, "name", None
+            )
+
+        created_value = getattr(comment, "updated", None) or getattr(comment, "created", None)
+        comment_id = getattr(comment, "id", None)
+
+        return IssueCommentPayload(
+            author=str(author_name) if author_name else None,
+            body=getattr(comment, "body", "") or "",
+            created_at=parse_datetime(created_value),
+            url=None,
+            id=str(comment_id) if comment_id else None,
         )
     except JIRAError as exc:
         message = getattr(exc, "text", None) or str(exc)
@@ -418,12 +517,14 @@ def _extract_comment_payloads(fields: dict) -> List[IssueCommentPayload]:
         if isinstance(author_raw, dict):
             author_name = author_raw.get("displayName") or author_raw.get("name")
         created_value = entry.get("updated") or entry.get("created")
+        comment_id = entry.get("id")  # Extract comment ID
         comments.append(
             IssueCommentPayload(
                 author=str(author_name) if author_name else None,
                 body=str(entry.get("body") or ""),
                 created_at=parse_datetime(created_value),
                 url=None,
+                id=str(comment_id) if comment_id else None,
             )
         )
         if len(comments) >= MAX_COMMENTS_PER_ISSUE:

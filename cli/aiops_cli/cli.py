@@ -477,6 +477,57 @@ def issues_comment(ctx: click.Context, issue_id: int, body: str, no_mention_reso
         sys.exit(1)
 
 
+@issues.command(name="modify-comment")
+@click.argument("issue_id", type=int)
+@click.argument("comment_id")
+@click.argument("body")
+@click.option("--no-mention-resolve", is_flag=True, help="Disable automatic @mention resolution")
+@click.pass_context
+def issues_modify_comment(ctx: click.Context, issue_id: int, comment_id: str, body: str, no_mention_resolve: bool) -> None:
+    """Modify an existing comment on an issue.
+
+    Automatically resolves @mentions to Jira account IDs by looking up users
+    from the issue's comment history.
+
+    Examples:
+        aiops issues modify-comment 254 12345 "@jens Updated the details!"
+        aiops issues modify-comment 254 12345 "Corrected the information" --no-mention-resolve
+    """
+    client = get_client(ctx)
+
+    try:
+        # Resolve @mentions unless disabled
+        if not no_mention_resolve and "@" in body:
+            # Fetch issue to get comments for user resolution
+            issue = client.get_issue(issue_id)
+            comments = issue.get("comments", [])
+
+            if comments:
+                from .mentions import resolve_mentions, extract_jira_users_from_comments
+
+                # Build user map from comments
+                user_map = extract_jira_users_from_comments(comments)
+
+                if user_map:
+                    # Resolve mentions
+                    resolved_body = resolve_mentions(body, user_map)
+
+                    # Show what was resolved if any changes were made
+                    if resolved_body != body:
+                        console.print("[dim]Resolved mentions:[/dim]")
+                        # Show resolved users
+                        for name, account_id in user_map.items():
+                            if name in body.lower():
+                                console.print(f"  [dim]@{name} -> accountid:{account_id}[/dim]")
+                        body = resolved_body
+
+        client.update_issue_comment(issue_id, comment_id, body)
+        console.print(f"[green]Comment {comment_id} on issue {issue_id} updated successfully![/green]")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="assign")
 @click.argument("issue_id", type=int)
 @click.option("--user", type=int, help="User ID (defaults to self)")

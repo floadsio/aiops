@@ -699,7 +699,7 @@ def issues_work(
         if workspace_path:
             console.print(f"[blue]Workspace:[/blue] {workspace_path}")
         if context_populated:
-            console.print(f"[blue]Context:[/blue] AGENTS.override.md populated with issue details")
+            console.print("[blue]Context:[/blue] AGENTS.override.md populated with issue details")
 
         # If attach flag is set, attach to tmux session
         if attach:

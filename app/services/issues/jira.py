@@ -238,6 +238,92 @@ def create_issue(
                 pass
 
 
+def create_comment(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration,
+    issue_key: str,
+    body: str,
+) -> IssueCommentPayload:
+    """Add a comment to a Jira issue.
+
+    Args:
+        integration: TenantIntegration for Jira
+        project_integration: ProjectIntegration for the project
+        issue_key: Jira issue key (e.g., "PROJ-123")
+        body: Comment text to add
+
+    Returns:
+        IssueCommentPayload with comment details
+
+    Raises:
+        IssueSyncError: If comment creation fails
+    """
+    base_url = integration.base_url  # type: ignore[assignment]
+    if not base_url:
+        raise IssueSyncError("Jira integration requires a base URL.")
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
+
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
+    username = (settings.get("username") or "").strip()
+    if not username:
+        raise IssueSyncError("Jira integration requires an account email.")
+
+    issue_key = (issue_key or "").strip()
+    if not issue_key:
+        raise IssueSyncError("Jira issue key is required for adding a comment.")
+
+    body = (body or "").strip()
+    if not body:
+        raise IssueSyncError("Comment body is required.")
+
+    timeout = get_timeout(integration)
+    try:
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover - environment misconfiguration
+        missing = getattr(exc, "name", None) or "jira"
+        raise IssueSyncError(
+            f"Jira support requires the '{missing}' package. Install dependencies with 'make sync' or 'uv pip install jira'."
+        ) from exc
+
+    client: Optional[Any] = None
+    try:
+        client = JIRA(
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
+            timeout=timeout,
+        )
+        comment = client.add_comment(issue_key, body)
+
+        # Extract comment details
+        author_raw = getattr(comment, "author", None)
+        author_name = None
+        if author_raw:
+            author_name = getattr(author_raw, "displayName", None) or getattr(
+                author_raw, "name", None
+            )
+
+        created_value = getattr(comment, "updated", None) or getattr(comment, "created", None)
+
+        return IssueCommentPayload(
+            author=str(author_name) if author_name else None,
+            body=getattr(comment, "body", "") or "",
+            created_at=parse_datetime(created_value),
+            url=None,
+        )
+    except JIRAError as exc:
+        message = getattr(exc, "text", None) or str(exc)
+        raise IssueSyncError(f"Jira API error: {message}") from exc
+    except Exception as exc:  # pragma: no cover - unexpected failures
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover - best effort cleanup
+                pass
+
+
 def close_issue(
     integration: TenantIntegration,
     project_integration: ProjectIntegration,

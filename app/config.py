@@ -157,7 +157,7 @@ class Config:
         "npm view codex version",
     )
     GEMINI_UPDATE_COMMAND = os.getenv(
-        "GEMINI_UPDATE_COMMAND", "sudo npm install -g gemini-cli"
+        "GEMINI_UPDATE_COMMAND", "echo 'Hello from Gemini update command' && exit 1"
     )
     GEMINI_BREW_PACKAGE = os.getenv("GEMINI_BREW_PACKAGE", "")
     GEMINI_VERSION_COMMAND = os.getenv("GEMINI_VERSION_COMMAND", "gemini --version")

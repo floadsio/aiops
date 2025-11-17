@@ -628,6 +628,73 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
+  <!-- Global Agent Context -->
+  <section>
+    <div>
+      <article>
+        <header>
+          <h3>Global Agent Context</h3>
+        </header>
+
+        <p>
+          Define global AGENTS.md content that will be included at the top of all AGENTS.override.md files.
+          If no global context is set, the system falls back to reading AGENTS.md from each repository.
+        </p>
+
+        {% if global_agent_context %}
+          <p>
+            <strong>Status:</strong> <span class="badge success">Global context active</span><br>
+            <small class="text-muted">
+              Last updated: {{ global_agent_context.updated_at.strftime('%Y-%m-%d %H:%M UTC') if global_agent_context.updated_at else 'N/A' }}
+              {% if global_agent_context.updated_by %}
+                by {{ global_agent_context.updated_by.name }}
+              {% endif %}
+            </small>
+          </p>
+        {% else %}
+          <p>
+            <strong>Status:</strong> <span class="badge">No global context</span><br>
+            <small class="text-muted">System uses AGENTS.md from repository</small>
+          </p>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('admin.save_global_agent_context') }}" style="margin-top: 1.5rem;">
+          {{ global_agent_context_form.hidden_tag() }}
+          <div class="form-group">
+            {{ global_agent_context_form.content.label }}
+            {{ global_agent_context_form.content(class="form-control") }}
+            {% if global_agent_context_form.content.errors %}
+              <small class="error">{{ global_agent_context_form.content.errors[0] }}</small>
+            {% endif %}
+          </div>
+          <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            {{ global_agent_context_form.submit(class="primary") }}
+            {% if global_agent_context %}
+              <form method="post" action="{{ url_for('admin.clear_global_agent_context') }}" style="margin: 0;">
+                {{ global_agent_context_clear_form.hidden_tag() }}
+                <button type="submit" class="secondary" onclick="return confirm('Are you sure you want to clear the global agent context? The system will revert to using AGENTS.md from repositories.');">
+                  Clear Global Context
+                </button>
+              </form>
+            {% endif %}
+          </div>
+        </form>
+
+        <details style="margin-top: 1.5rem;">
+          <summary><strong>About Global Agent Context</strong></summary>
+          <div style="margin-top: 1rem;">
+            <p>The global agent context allows you to define content that appears in all AGENTS.override.md files, ensuring consistent instructions across all AI agent sessions.</p>
+            <ul>
+              <li><strong>Priority:</strong> Database global context takes precedence over repository AGENTS.md files</li>
+              <li><strong>CLI Access:</strong> Use <code>aiops agents global get/set/clear</code> commands</li>
+              <li><strong>API Access:</strong> Available at <code>/api/v1/agents/global</code></li>
+            </ul>
+          </div>
+        </details>
+      </article>
+    </div>
+  </section>
+
   <section class="settings-category">
     <h2>System Logs</h2>
     <div class="settings-grid">

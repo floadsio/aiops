@@ -918,6 +918,59 @@ Implementation details (`app/services/agent_context.py`):
 
 This ensures AI agents work with the actual code location and file ownership is correct.
 
+### Global Agent Context
+
+aiops supports defining **global AGENTS.md content** that is automatically included at the top of all `AGENTS.override.md` files. This eliminates redundancy and ensures consistent instructions across all AI agent sessions.
+
+**How it works:**
+1. **Database storage**: Global content is stored in the `global_agent_context` table
+2. **Priority order**: Database global context takes precedence over repository `AGENTS.md` files
+3. **Fallback behavior**: If no global context is set, the system reads `AGENTS.md` from each repository
+
+**Managing global context:**
+
+Via **Web UI** (Admin → Settings → Global Agent Context):
+- Edit global content in the textarea
+- Save to update or create global context
+- Clear to revert to repository `AGENTS.md` files
+
+Via **CLI**:
+```bash
+# View current global context
+aiops agents global get
+
+# Set global context from file
+aiops agents global set -f path/to/content.md
+
+# Set global context from stdin
+aiops agents global set < content.md
+
+# Clear global context (revert to repository AGENTS.md)
+aiops agents global clear
+```
+
+Via **API**:
+```bash
+# Get global context
+curl -H "Authorization: Bearer $API_KEY" http://localhost:5000/api/v1/agents/global
+
+# Set global context
+curl -X PUT -H "Authorization: Bearer $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Global instructions..."}' \
+  http://localhost:5000/api/v1/agents/global
+
+# Delete global context
+curl -X DELETE -H "Authorization: Bearer $API_KEY" \
+  http://localhost:5000/api/v1/agents/global
+```
+
+**Use cases:**
+- Define organization-wide coding standards
+- Set consistent AI behavior across all projects
+- Establish security guidelines for all agent sessions
+- Provide common troubleshooting steps
+
 ### Manual Context Management
 
 - Refresh project guidance in `AGENTS.override.md` with `python3 scripts/agent_context.py write --issue <ID> --title "<short blurb>" <<'EOF'`.

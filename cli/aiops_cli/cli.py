@@ -1646,9 +1646,9 @@ def system_update(ctx: click.Context, skip_migrations: bool, output: Optional[st
 
 
 @system.command(name="restart")
-@click.confirmation_option(prompt="Are you sure you want to restart the aiops application?")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
-def system_restart(ctx: click.Context) -> None:
+def system_restart(ctx: click.Context, yes: bool) -> None:
     """Restart the aiops application.
 
     This will restart the Flask application service. You will be disconnected briefly.
@@ -1657,7 +1657,11 @@ def system_restart(ctx: click.Context) -> None:
 
     Example:
         aiops system restart
+        aiops system restart --yes
     """
+    if not yes:
+        click.confirm("Are you sure you want to restart the aiops application?", abort=True)
+
     client = get_client(ctx)
 
     try:
@@ -1674,9 +1678,9 @@ def system_restart(ctx: click.Context) -> None:
 
 @system.command(name="update-and-restart")
 @click.option("--skip-migrations", is_flag=True, help="Skip database migrations")
-@click.confirmation_option(prompt="Are you sure you want to update and restart the aiops application?")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
-def system_update_and_restart(ctx: click.Context, skip_migrations: bool) -> None:
+def system_update_and_restart(ctx: click.Context, skip_migrations: bool, yes: bool) -> None:
     """Update and restart the aiops application.
 
     This command combines update and restart:
@@ -1689,7 +1693,11 @@ def system_update_and_restart(ctx: click.Context, skip_migrations: bool) -> None
 
     Example:
         aiops system update-and-restart
+        aiops system update-and-restart --yes
     """
+    if not yes:
+        click.confirm("Are you sure you want to update and restart the aiops application?", abort=True)
+
     client = get_client(ctx)
 
     try:

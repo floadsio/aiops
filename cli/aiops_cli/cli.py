@@ -18,7 +18,7 @@ error_console = Console(stderr=True)
 
 AI_TOOL_LABELS = {
     "codex": "Codex CLI",
-    "gemini": "Gemini CLI",
+    "gemini": "@google/gemini-cli",
     "claude": "Claude CLI",
 }
 

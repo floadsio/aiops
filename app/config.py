@@ -157,13 +157,13 @@ class Config:
         "npm view codex version",
     )
     GEMINI_UPDATE_COMMAND = os.getenv(
-        "GEMINI_UPDATE_COMMAND", "npm install -g gemini-cli"
+        "GEMINI_UPDATE_COMMAND", "npm install -g @google/gemini-cli"
     )
     GEMINI_BREW_PACKAGE = os.getenv("GEMINI_BREW_PACKAGE", "")
     GEMINI_VERSION_COMMAND = os.getenv("GEMINI_VERSION_COMMAND", "gemini --version")
     GEMINI_LATEST_VERSION_COMMAND = os.getenv(
         "GEMINI_LATEST_VERSION_COMMAND",
-        "npm view gemini-cli version",
+        "npm view @google/gemini-cli version",
     )
     CLAUDE_UPDATE_COMMAND = os.getenv(
         "CLAUDE_UPDATE_COMMAND", "npm install -g @anthropic-ai/claude-code"

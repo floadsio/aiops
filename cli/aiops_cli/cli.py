@@ -438,8 +438,8 @@ def issues_comment(ctx: click.Context, issue_id: int, body: str, no_mention_reso
     from the issue's comment history.
 
     Examples:
-        aiops issues comment 254 "@jens Thanks for the info!"
-        aiops issues comment 254 '@"Jens Hassler" The tunnel is working great'
+        aiops issues comment 254 "@reviewer Thanks for the info!"
+        aiops issues comment 254 '@"Example User" The tunnel is working great'
         aiops issues comment 254 "Fixed the issue" --no-mention-resolve
     """
     client = get_client(ctx)
@@ -490,7 +490,7 @@ def issues_modify_comment(ctx: click.Context, issue_id: int, comment_id: str, bo
     from the issue's comment history.
 
     Examples:
-        aiops issues modify-comment 254 12345 "@jens Updated the details!"
+        aiops issues modify-comment 254 12345 "@reviewer Updated the details!"
         aiops issues modify-comment 254 12345 "Corrected the information" --no-mention-resolve
     """
     client = get_client(ctx)
@@ -563,7 +563,7 @@ def issues_sync(
 
     Examples:
         aiops issues sync                        # Sync all issues
-        aiops issues sync --tenant floads        # Sync issues for a tenant
+        aiops issues sync --tenant example        # Sync issues for a tenant
         aiops issues sync --project aiops        # Sync issues for a project
         aiops issues sync --force-full           # Force full sync
     """
@@ -763,7 +763,7 @@ def issues_work(
             # Use tmux_target if available, otherwise fall back to session_id
             attach_target = tmux_target or session_id
 
-            # Derive SSH host from API URL (e.g., http://dev.floads:5000 -> dev.floads)
+            # Derive SSH host from API URL (e.g., http://dev.example:5000 -> dev.example)
             config: Config = ctx.obj["config"]
             api_url = config.url
             parsed_url = urlparse(api_url)
@@ -779,7 +779,7 @@ def issues_work(
                 sys.exit(1)
 
             # Build SSH target with system user running Flask app (owns tmux server)
-            # e.g., syseng@dev.floads
+            # e.g., syseng@dev.example
             if ssh_user:
                 ssh_target = f"{ssh_user}@{ssh_host}"
             else:

@@ -28,7 +28,7 @@ SWAGGER_TEMPLATE = {
         ),
         "contact": {
             "name": "AIops Support",
-            "url": "https://github.com/floadsio/aiops",
+            "url": "https://github.com/exampleorg/aiops",
         },
         "version": "1.0.0",
     },

@@ -57,30 +57,30 @@ def seed_data_command(owner_email: Optional[str]) -> None:
     """Seed initial tenant and project data."""
     seed_entries = [
         {
-            "tenant": {"name": "dcx", "description": "Seed tenant dcx"},
+            "tenant": {"name": "tenant-alpha", "description": "Seed tenant example alpha"},
             "project": {
-                "name": "flamelet-dcx",
-                "repo_url": "git@ssh.dev.azure.com:v3/vaikoon/flow.swiss%20DevOps/flamelet-dcx",
+                "name": "project-alpha",
+                "repo_url": "git@example.com:example/project-alpha.git",
                 "default_branch": "main",
-                "description": "Seed project for dcx tenant",
+                "description": "Seed project for tenant alpha",
             },
         },
         {
-            "tenant": {"name": "iwf", "description": "Seed tenant iwf"},
+            "tenant": {"name": "tenant-beta", "description": "Seed tenant example beta"},
             "project": {
-                "name": "flamelet-iwf",
-                "repo_url": "git@git.iwf.io:infrastructure/flamelet-iwf.git",
+                "name": "project-beta",
+                "repo_url": "git@example.com:example/project-beta.git",
                 "default_branch": "main",
-                "description": "Seed project for iwf tenant",
+                "description": "Seed project for tenant beta",
             },
         },
         {
-            "tenant": {"name": "kbe", "description": "Seed tenant kbe"},
+            "tenant": {"name": "tenant-gamma", "description": "Seed tenant example gamma"},
             "project": {
-                "name": "flamelet-kbe",
-                "repo_url": "ssh://git@gitlab.kumbe.it:19022/kumbe/devops/flamelet-kbe.git",
+                "name": "project-gamma",
+                "repo_url": "git@example.com:example/project-gamma.git",
                 "default_branch": "main",
-                "description": "Seed project for kbe tenant",
+                "description": "Seed project for tenant gamma",
             },
         },
     ]

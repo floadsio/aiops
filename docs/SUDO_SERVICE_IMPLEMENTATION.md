@@ -2,7 +2,7 @@
 
 **Version:** 0.1.3
 **Date:** November 2025
-**Author:** AI Implementation with Ivo Marino
+**Author:** AIops Project Team
 
 ## Overview
 
@@ -128,7 +128,7 @@ Diagnostic command to verify sudo configuration:
 flask test-sudo
 
 # Test specific user
-flask test-sudo --user-email ivo@floads.io
+flask test-sudo --user-email user@example.com
 ```
 
 **Checks:**
@@ -147,18 +147,18 @@ Current user: syseng
 1. Testing passwordless sudo access...
    ✓ Passwordless sudo is configured
 
-2. Testing sudo access for user: ivo@floads.io
-   Linux username: ivo
-   ✓ Can run commands as ivo
+2. Testing sudo access for user: user@example.com
+   Linux username: linuxuser1
+   ✓ Can run commands as linuxuser1
 
-3. Testing workspace access at: /home/ivo/workspace/floads/aiops
-   ✓ /home/ivo: o+x permission set
-   ✓ /home/ivo/workspace: o+x permission set
+3. Testing workspace access at: /home/linuxuser1/workspace/example/aiops
+   ✓ /home/linuxuser1: o+x permission set
+   ✓ /home/linuxuser1/workspace: o+x permission set
    ✓ Can access workspace via sudo
 
 4. Testing git safe directory configuration...
-   Git safe directories configured: 1
-     - /home/ivo/workspace/floads/aiops
+    Git safe directories configured: 1
+      - /home/linuxuser1/workspace/example/aiops
 
 === Sudo Configuration Test Complete ===
 ```

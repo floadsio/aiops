@@ -148,8 +148,7 @@ The `aiops` CLI is a powerful command-line interface that wraps the REST API and
 
 ### CLI Configuration
 
-The CLI is already configured in your workspace with:
-- **API URL**: Automatically configured (usually `http://dev.floads:5000`)
+- **API URL**: Automatically configured (usually `http://dev.example:5000`)
 - **API Key**: Pre-configured for your user session
 - **Config location**: `~/.config/aiops/config.json`
 
@@ -157,6 +156,9 @@ Check your configuration:
 ```bash
 aiops config show
 ```
+
+Every user already has `./.venv/bin/aiops` installed and tied to their workspace.
+Activate the virtualenv (`source .venv/bin/activate`) to call `aiops` directly in your shell or execute it via `./.venv/bin/aiops …`.
 
 ### Issue Management via CLI
 
@@ -173,11 +175,11 @@ aiops issues get 254
 
 # Add comments to issues (automatic @mention resolution for Jira)
 aiops issues comment 254 "Fixed the tunnel configuration"
-aiops issues comment 254 "@jens The issue is resolved"
+aiops issues comment 254 "@reviewer The issue is resolved"
 
 # Modify existing comments (for fixing typos or updating information)
 aiops issues modify-comment 254 <comment_id> "Updated: Fixed the tunnel configuration"
-aiops issues modify-comment 254 <comment_id> "@jens The issue is fully resolved now"
+aiops issues modify-comment 254 <comment_id> "@reviewer The issue is fully resolved now"
 
 # Update issue status
 aiops issues update 254 --title "New title"
@@ -193,7 +195,17 @@ aiops issues sync --project aiops             # Sync specific project
 aiops issues sync --force-full                # Force full sync
 ```
 
-**Important**: When commenting on Jira issues, the CLI automatically resolves @mentions to Jira account IDs by looking up users from the issue's comment history. This means you can write `@jens` and it will be converted to `[~accountid:557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e]` automatically.
+### Typical issue flow
+
+1. `aiops issues sync --project example-project` (or the relevant project/tenant) to refresh the local cache before working.
+2. `aiops issues get <issue-id> --output json` to read the full issue thread, including every comment.
+3. `aiops issues comment <issue-id> "message"` to add feedback; `@mentions` are resolved to Jira account IDs for you.
+4. `aiops issues update <issue-id> --status in_progress` or `aiops issues assign <issue-id>` to move the issue forward.
+5. `aiops issues close <issue-id>` plus a final `aiops issues comment` once the work is complete.
+
+All commands reuse the per-user API key in `~/.config/aiops/config.json`, so there is no need to call Jira directly.
+
+**Important**: When commenting on Jira issues, the CLI automatically resolves @mentions to Jira account IDs by looking up users from the issue's comment history. This means you can write `@reviewer` (or any teammate handle) and the CLI replaces it with the correct account ID syntax automatically.
 
 ### Git Operations via CLI
 
@@ -272,17 +284,17 @@ aiops workflow complete 254 --summary "Fixed authentication bug"
 ```bash
 # List projects
 aiops projects list
-aiops projects list --tenant floads
+aiops projects list --tenant example
 
 # Get project details
 aiops projects get aiops
 
 # Create new project
-aiops projects create --name "new-project" --repo-url "git@github.com:org/repo.git" --tenant floads
+aiops projects create --name "new-project" --repo-url "git@github.com:org/repo.git" --tenant example
 
 # Manage tenants
 aiops tenants list
-aiops tenants get floads
+aiops tenants get example
 aiops tenants create --name "New Tenant" --color "#ff6600"
 ```
 
@@ -317,7 +329,9 @@ aiops issues list --output table             # Table output (default)
 aiops issues get 254
 
 # 2. Work on the issue
-cd /home/ivo/workspace/floads/aiops
+# 2. Work on the issue
+# Replace `/home/<user>/workspace/<tenant>/<project>` with your workspace path before making changes.
+cd /home/<user>/workspace/<tenant>/<project>
 # ... make code changes ...
 
 # 3. Commit changes
@@ -327,7 +341,7 @@ aiops git commit aiops "Fix tunnel configuration" --files "ansible/playbooks/wir
 aiops git push aiops
 
 # 5. Comment on issue
-aiops issues comment 254 "@jens Fixed the tunnel configuration. Changes have been deployed."
+aiops issues comment 254 "@reviewer Fixed the tunnel configuration. Changes have been deployed."
 
 # 6. Close issue
 aiops issues close 254
@@ -346,8 +360,8 @@ aiops system restart
 ## How Agents Should Work Here
 
 - **CRITICAL: Working Directory Context** — aiops uses **per-user workspaces** for all development work.
-  When running in a tmux session, you'll be in your personal workspace at `/home/{username}/workspace/{tenant_slug}/{project}/`
-  (e.g., `/home/ivo/workspace/floads/aiops/`). This is where you edit code, commit, and push changes.
+When running in a tmux session, you'll be in your personal workspace at `/home/{username}/workspace/{tenant_slug}/{project}/`
+ (e.g., `/home/<user>/workspace/example/<project>/`). This is where you edit code, commit, and push changes.
   **NEVER modify files in `/home/syseng/aiops` directly**, as that is the running aiops Flask instance.
   Each user has their own isolated workspace with their own git configuration and shell environment.
   Check your current directory with `pwd` if uncertain.
@@ -367,7 +381,7 @@ aiops system restart
 - Apply pending migrations before running the server: `.venv/bin/flask --app manage.py db upgrade`
   (missing fields such as `tenants.color` will crash `/admin` otherwise).
 - Local maintenance helpers live in `_local.sh` (gitignored). Use `./_local.sh sync-db` (alias
-  `pull-db`) to rsync `instance/app.db` from `syseng@dev.floads:/home/syseng/aiops/` or
+  `pull-db`) to rsync `instance/app.db` from `sysadmin@dev.example:/home/sysadmin/aiops/` or
   `./_local.sh sync-instance` to clone the full `instance/` tree; override host/paths via env vars
   when needed.
 - Use the Admin → Settings “tmux Sessions” card to resync tmux windows with DB projects after DB
@@ -384,19 +398,19 @@ aiops system restart
 - Use the Claude credentials card to save each user's Anthropic API key (stored at
   `instance/claude/user-<id>/api_key`), then aiops copies it into `CLAUDE_CONFIG_DIR/api_key` and
   exports `CLAUDE_CODE_OAUTH_TOKEN` when launching Claude tmux sessions so `claude` can authenticate.
-- **Per-User Linux Shell Sessions** — aiops can launch tmux sessions as individual Linux users (e.g., `ivo`, `michael`)
+- **Per-User Linux Shell Sessions** — aiops can launch tmux sessions as individual Linux users (e.g., `linuxuser1`, `linuxuser2`)
   instead of running all sessions as the Flask app user. This allows each user to have their own home directory,
   shell configurations (.bashrc, .profile), and separate git configs. To enable this:
   1. Set `LINUX_USER_STRATEGY` in `.env` to `"mapping"` or `"direct"` (default: `"mapping"`)
   2. For mapping strategy, define `LINUX_USER_MAPPING` as a JSON dict or Python dict in `config.py`:
      ```python
      LINUX_USER_MAPPING = {
-         'ivo@floads.io': 'ivo',
-         'michael@floads.io': 'michael',
+         'user@example.com': 'user',
+         'other@example.com': 'other',
      }
      ```
   3. For direct strategy, the system tries to use the aiops user's `username` field as the Linux username
-  4. Ensure the target Linux users exist on the system: `id ivo` / `id michael`
+     4. Ensure the target Linux users exist on the system: `id user` / `id other`
   5. Set `USE_LOGIN_SHELL=true` (default) to load user configs when spawning shells
   The child process will call `os.setuid()` and `os.setgid()` to switch to the target Linux user before
   executing tmux. Each shell gets its own `HOME`, `USER`, and `LOGNAME` environment variables.
@@ -404,7 +418,7 @@ aiops system restart
   where they clone and work on projects. Workspaces must be initialized before use:
   ```bash
   # Initialize workspace for a user and project
-  .venv/bin/flask init-workspace --user-email ivo@floads.io --project-id 1
+  .venv/bin/flask init-workspace --user-email user@example.com --project-id 1
   ```
   Once initialized, tmux sessions automatically start in the user's workspace, and all git operations
   (pull, push, branch management) operate on the user's workspace. The dashboard shows status from
@@ -427,7 +441,7 @@ aiops system restart
 
 ## Sudo Service Architecture
 
-**CRITICAL: All code modifications must be made in your personal workspace** at `/home/{username}/workspace/floads/aiops/`,
+**CRITICAL: All code modifications must be made in your personal workspace** at `/home/{username}/workspace/{tenant_slug}/{project}/`,
 NOT in the running Flask instance at `/home/syseng/aiops/`. The running instance is for the Flask application
 server only. Always use `pwd` to verify you're in your workspace before editing files.
 
@@ -462,7 +476,7 @@ The most flexible function for executing commands as different users:
 
 ```python
 def run_as_user(
-    username: str,                    # Linux username (e.g., "ivo", "michael")
+    username: str,                    # Linux username (e.g., "linuxuser1")
     command: list[str],               # Command and args (e.g., ["git", "status"])
     *,
     timeout: float = 30.0,            # Timeout in seconds
@@ -477,7 +491,7 @@ def run_as_user(
 ```python
 # Check git status in user's workspace
 result = run_as_user(
-    "ivo",
+    "example-user",
     ["git", "status"],
     timeout=10.0,
 )
@@ -485,7 +499,7 @@ print(result.stdout)
 
 # Clone repository with SSH environment
 result = run_as_user(
-    "ivo",
+    "example-user",
     ["git", "clone", "--branch", "main", repo_url, target_path],
     env={"GIT_SSH_COMMAND": "ssh -i /path/to/key"},
     timeout=300.0,  # 5 minutes for large repos
@@ -493,7 +507,7 @@ result = run_as_user(
 
 # Run command without raising on failure
 result = run_as_user(
-    "ivo",
+    "example-user",
     ["test", "-f", "/some/file"],
     check=False,  # Don't raise if file doesn't exist
 )
@@ -505,13 +519,13 @@ if result.success:
 
 **test_path()** - Check if a path exists:
 ```python
-if test_path("ivo", "/home/ivo/workspace/floads/aiops/.git"):
+if test_path("example-user", "/home/example-user/workspace/example/aiops/.git"):
     print("Workspace initialized")
 ```
 
 **mkdir()** - Create directories:
 ```python
-mkdir("ivo", "/home/ivo/workspace/newproject", parents=True)
+mkdir("example-user", "/home/example-user/workspace/newproject", parents=True)
 ```
 
 **File Permission Operations:**
@@ -533,7 +547,7 @@ chgrp("/path/to/file", "syseng")
 ```python
 # Clean up failed clone attempt
 try:
-    rm_rf("ivo", "/home/ivo/workspace/failed_clone")
+    rm_rf("example-user", "/home/example-user/workspace/failed_clone")
 except SudoError as e:
     log.warning(f"Cleanup failed: {e}")
 ```
@@ -586,7 +600,7 @@ All sudo functions raise `SudoError` on failure:
 from app.services.sudo_service import SudoError
 
 try:
-    mkdir("ivo", "/home/ivo/workspace/project")
+    mkdir("example-user", "/home/example-user/workspace/project")
 except SudoError as exc:
     # exc contains detailed error message including stderr
     log.error(f"Failed to create workspace: {exc}")
@@ -653,13 +667,13 @@ syseng ALL=(ALL) NOPASSWD: ALL
 
 # More restrictive option (recommended for production):
 # Only allow specific commands for specific users
-syseng ALL=(ivo,michael) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm, /bin/chmod, /bin/chgrp, /usr/bin/chown
+syseng ALL=(linuxuser1,linuxuser2) NOPASSWD: /usr/bin/test, /bin/mkdir, /usr/bin/git, /bin/rm, /bin/chmod, /bin/chgrp, /usr/bin/chown
 ```
 
 Test sudo configuration:
 ```bash
 # As syseng user, should not prompt for password:
-sudo -n -u ivo test -e /home/ivo
+sudo -n -u linuxuser1 test -e /home/linuxuser1
 ```
 
 ### Git Safe Directory Configuration
@@ -669,8 +683,8 @@ add them to git's safe directory list:
 
 ```bash
 # As syseng user
-sudo -u syseng git config --global --add safe.directory '/home/ivo/workspace/floads/aiops'
-sudo -u syseng git config --global --add safe.directory '/home/michael/workspace/floads/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/linuxuser1/workspace/example/aiops'
+sudo -u syseng git config --global --add safe.directory '/home/linuxuser2/workspace/example/aiops'
 
 # Or use wildcard (Git 2.36+)
 sudo -u syseng git config --global --add safe.directory '*'
@@ -684,12 +698,12 @@ For the Flask app to check workspace status, parent directories need execute per
 
 ```bash
 # Allow directory traversal (doesn't expose file contents)
-chmod o+rx /home/ivo
-chmod o+rx /home/ivo/workspace
+chmod o+rx /home/linuxuser1
+chmod o+rx /home/linuxuser1/workspace
 
 # Workspace itself can remain user-owned
-ls -la /home/ivo/workspace/floads/aiops
-# drwxrwxr-x 10 ivo ivo 4096 Nov 13 06:16 aiops
+ls -la /home/linuxuser1/workspace/example/aiops
+# drwxrwxr-x 10 linuxuser1 linuxuser1 4096 Jan 01 00:00 aiops
 ```
 
 This allows `syseng` to stat paths and read .git metadata while keeping files secure.
@@ -718,9 +732,9 @@ This normalization ensures that the `/issues` page groups similar statuses toget
 Project cards on the dashboard now display the workspace path where code changes are monitored:
 
 ```
-floads
-Last modified by Ivo Marino on Nov 13, 2025 • 11:07 UTC (branch main)
-/home/ivo/workspace/floads/aiops
+example
+Last modified by the workspace owner on Jan 01, 2025 • 11:07 UTC (branch main)
+/home/<user>/workspace/<tenant>/<project>
 ```
 
 This path indicates:
@@ -767,10 +781,10 @@ aiops generates issue-specific context files to help AI agents understand what t
 
 **Important**: When clicking "Populate AGENTS.override.md" from the issues page, the file is created in the **logged-in user's workspace**, not in the Flask app directory.
 
-For example, if user `ivo@floads.io` (Linux user `ivo`) clicks the button for the `aiops` project:
-- **File created at**: `/home/ivo/workspace/floads/aiops/AGENTS.override.md`
-- **File ownership**: `ivo:ivo`
-- **Operations**: Executed via `sudo -n -u ivo tee /path/to/file`
+For example, if user `user@example.com` (Linux user `linuxuser1`) clicks the button for the `aiops` project:
+- **File created at**: `/home/linuxuser1/workspace/example/aiops/AGENTS.override.md`
+- **File ownership**: `linuxuser1:linuxuser1`
+- **Operations**: Executed via `sudo -n -u linuxuser1 tee /path/to/file`
 
 Implementation details (`app/services/agent_context.py`):
 - `write_tracked_issue_context()` accepts an `identity_user` parameter

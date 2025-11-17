@@ -59,7 +59,7 @@ def test_fetch_issues_uses_jira_client(monkeypatch):
                         "fields": {
                             "summary": "Fix pipeline",
                             "status": {"name": "Done"},
-                            "assignee": {"displayName": "Ivo"},
+                            "assignee": {"displayName": "Example User"},
                             "updated": "2024-10-01T12:34:00.000+0000",
                             "labels": ["infra"],
                         },
@@ -94,7 +94,7 @@ def test_fetch_issues_uses_jira_client(monkeypatch):
     issue = results[0]
     assert issue.external_id == "DEVOPS-1"
     assert issue.status == "Done"
-    assert issue.assignee == "Ivo"
+    assert issue.assignee == "Example User"
     assert issue.labels == ["infra"]
 
 

@@ -16,6 +16,12 @@ from .output import format_output
 console = Console()
 error_console = Console(stderr=True)
 
+AI_TOOL_LABELS = {
+    "codex": "Codex CLI",
+    "gemini": "Gemini CLI",
+    "claude": "Claude CLI",
+}
+
 
 def get_client(ctx: click.Context) -> APIClient:
     """Get configured API client.
@@ -1712,6 +1718,43 @@ def system_update_and_restart(ctx: click.Context, skip_migrations: bool) -> None
                 console.print("[green]✓[/green] Migrations: Completed")
 
         console.print("\n[dim]The application will restart in a few seconds...[/dim]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@system.command(name="update-ai-tool")
+@click.argument("tool", type=click.Choice(["codex", "gemini", "claude"]))
+@click.option("--source", type=click.Choice(["npm", "brew"]), required=True, help="Update source (npm or brew)")
+@click.pass_context
+def system_update_ai_tool(ctx: click.Context, tool: str, source: str) -> None:
+    """Update an AI tool CLI on the server (e.g., codex, gemini).
+
+    Requires admin API key.
+
+    Examples:
+        aiops system update-ai-tool codex --source npm
+        aiops system update-ai-tool gemini --source brew
+    """
+    client = get_client(ctx)
+    tool_label = AI_TOOL_LABELS.get(tool, tool)
+
+    try:
+        console.print(f"[yellow]Updating {tool_label} via {source.upper()}...[/yellow]")
+        result = client.update_ai_tool(tool, source)
+
+        if result.get("success"):
+            console.print(f"[green]✓[/green] {result.get('message')}")
+            if result.get("stdout"):
+                console.print("[bold]Output:[/bold]")
+                console.print(f"[dim]{result.get('stdout')}[/dim]")
+        else:
+            error_console.print(f"[red]✗[/red] {result.get('message')}")
+            if result.get("stderr"):
+                error_console.print("[bold]Error Output:[/bold]")
+                error_console.print(f"[dim]{result.get('stderr')}[/dim]")
+            sys.exit(1)
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")

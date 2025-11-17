@@ -149,13 +149,13 @@ class Config:
     CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))
     CLAUDE_CONFIG_DIR = os.getenv("CLAUDE_CONFIG_DIR", str((Path.home() / ".claude")))
     CODEX_UPDATE_COMMAND = os.getenv(
-        "CODEX_UPDATE_COMMAND", "npm install -g codex"
+        "CODEX_UPDATE_COMMAND", "npm install -g @openai/codex"
     )
     CODEX_BREW_PACKAGE = os.getenv("CODEX_BREW_PACKAGE", "")
     CODEX_VERSION_COMMAND = os.getenv("CODEX_VERSION_COMMAND", "codex --version")
     CODEX_LATEST_VERSION_COMMAND = os.getenv(
         "CODEX_LATEST_VERSION_COMMAND",
-        "npm view codex version",
+        "npm view @openai/codex version",
     )
     GEMINI_UPDATE_COMMAND = os.getenv(
         "GEMINI_UPDATE_COMMAND", "npm install -g @google/gemini-cli"

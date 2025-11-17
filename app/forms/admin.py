@@ -494,3 +494,26 @@ class APIKeyRevokeForm(FlaskForm):
 
     key_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Revoke Key")
+
+
+class GlobalAgentContextForm(FlaskForm):
+    """Form for editing global agent context."""
+
+    content = TextAreaField(
+        "Global Agent Context",
+        validators=[DataRequired()],
+        render_kw={
+            "rows": 20,
+            "placeholder": (
+                "Enter global AGENTS.md content that will appear "
+                "in all AGENTS.override.md files..."
+            ),
+        },
+    )
+    submit = SubmitField("Save Global Context")
+
+
+class GlobalAgentContextClearForm(FlaskForm):
+    """Form for clearing global agent context."""
+
+    submit = SubmitField("Clear Global Context")

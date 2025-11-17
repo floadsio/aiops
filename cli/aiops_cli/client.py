@@ -572,3 +572,34 @@ class APIClient:
         normalized_source = source.strip().lower()
         payload = {"source": normalized_source}
         return self.post(f"system/ai-tools/{normalized_tool}/update", json=payload)
+
+    # ============================================================================
+    # AGENTS METHODS
+    # ============================================================================
+
+    def get_global_agent_context(self) -> dict[str, Any]:
+        """Get the global agent context.
+
+        Returns:
+            Global agent context data including content and metadata
+        """
+        return self.get("agents/global")
+
+    def set_global_agent_context(self, content: str) -> dict[str, Any]:
+        """Set or update the global agent context.
+
+        Args:
+            content: The global AGENTS.md content
+
+        Returns:
+            Updated global agent context data
+        """
+        return self.put("agents/global", json={"content": content})
+
+    def delete_global_agent_context(self) -> dict[str, Any]:
+        """Delete the global agent context.
+
+        Returns:
+            Deletion confirmation message
+        """
+        return self.delete("agents/global")

@@ -704,15 +704,34 @@ def _remove_existing_issue_context(source: str) -> str:
 def _load_base_instructions(
     repo_path: Path, *, linux_username: str | None = None
 ) -> str:
-    """Load base instructions from AGENTS.md file.
+    """Load base instructions from database or AGENTS.md file.
+
+    Priority order:
+    1. Global agent context from database (if exists)
+    2. AGENTS.md file from repository
 
     Args:
         repo_path: Path to repository root
         linux_username: If provided, use sudo to read file as this user
 
     Returns:
-        Content of AGENTS.md with issue context removed
+        Content of global agent context or AGENTS.md with issue context removed
     """
+    # First, try to load from database
+    try:
+        from ..models import GlobalAgentContext
+
+        global_context = GlobalAgentContext.query.order_by(
+            GlobalAgentContext.updated_at.desc()
+        ).first()
+        if global_context and global_context.content:
+            # Remove any issue context that might have been saved in the global content
+            return _remove_existing_issue_context(global_context.content.rstrip())
+    except Exception:
+        # If database query fails (e.g., table doesn't exist yet), fall back to file
+        pass
+
+    # Fall back to reading AGENTS.md from repository
     base_path = repo_path / BASE_CONTEXT_FILENAME
 
     # Check if file exists and read it (using sudo if needed)

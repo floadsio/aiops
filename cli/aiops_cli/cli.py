@@ -510,7 +510,7 @@ def issues_comment(ctx: click.Context, issue_id: int, body: str, no_mention_reso
             comments = issue.get("comments", [])
 
             if comments:
-                from .mentions import resolve_mentions, extract_jira_users_from_comments
+                from .mentions import extract_jira_users_from_comments, resolve_mentions
 
                 # Build user map from comments
                 user_map = extract_jira_users_from_comments(comments)
@@ -561,7 +561,7 @@ def issues_modify_comment(ctx: click.Context, issue_id: int, comment_id: str, bo
             comments = issue.get("comments", [])
 
             if comments:
-                from .mentions import resolve_mentions, extract_jira_users_from_comments
+                from .mentions import extract_jira_users_from_comments, resolve_mentions
 
                 # Build user map from comments
                 user_map = extract_jira_users_from_comments(comments)
@@ -1412,7 +1412,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
         aiops update --check-only # Check for updates without installing
     """
     import subprocess
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
     from pathlib import Path
 
     try:
@@ -1445,8 +1445,8 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
             console.print("[yellow]Checking for updates...[/yellow]")
             # Try to get the latest version from PyPI
             try:
-                import urllib.request
                 import json
+                import urllib.request
                 with urllib.request.urlopen("https://pypi.org/pypi/aiops-cli/json", timeout=5) as response:
                     data = json.loads(response.read())
                     latest_version = data["info"]["version"]
@@ -1763,6 +1763,135 @@ def system_update_ai_tool(ctx: click.Context, tool: str, source: str) -> None:
                 error_console.print("[bold]Error Output:[/bold]")
                 error_console.print(f"[dim]{result.get('stderr')}[/dim]")
             sys.exit(1)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+# ============================================================================
+# AGENTS COMMANDS
+# ============================================================================
+
+
+@cli.group()
+def agents() -> None:
+    """Agent context management commands."""
+
+
+@agents.group(name="global")
+def agents_global() -> None:
+    """Manage global agent context."""
+
+
+@agents_global.command(name="get")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Choice(["table", "json", "yaml"]),
+    help="Output format",
+)
+@click.pass_context
+def agents_global_get(ctx: click.Context, output: Optional[str]) -> None:
+    """Get the current global agent context."""
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        result = client.get_global_agent_context()
+
+        if result.get("content") is None:
+            console.print("[yellow]No global agent context set.[/yellow]")
+            msg = result.get("message", "System will use AGENTS.md from repository.")
+            console.print(msg)
+        else:
+            if output_format == "json":
+                format_output(result, output_format, console)
+            elif output_format == "yaml":
+                format_output(result, output_format, console)
+            else:
+                # Table format - show metadata
+                console.print("[bold]Global Agent Context[/bold]\n")
+                updated_at = result.get("updated_at", "N/A")
+                console.print(f"[yellow]Updated:[/yellow] {updated_at}")
+                if result.get("updated_by"):
+                    updated_by = result["updated_by"]
+                    name = updated_by.get("name")
+                    email = updated_by.get("email")
+                    console.print(
+                        f"[yellow]Updated by:[/yellow] {name} ({email})"
+                    )
+                console.print("\n[bold]Content:[/bold]")
+                console.print(result.get("content", ""))
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@agents_global.command(name="set")
+@click.option(
+    "--file",
+    "-f",
+    "source_file",
+    type=click.Path(exists=True),
+    help="Read content from file",
+)
+@click.pass_context
+def agents_global_set(ctx: click.Context, source_file: Optional[str]) -> None:
+    """Set or update the global agent context.
+
+    If --file is not provided, content will be read from stdin.
+    """
+    client = get_client(ctx)
+
+    # Read content from file or stdin
+    if source_file:
+        with open(source_file, encoding="utf-8") as f:
+            content = f.read()
+    else:
+        if sys.stdin.isatty():
+            console.print(
+                "[yellow]Reading content from stdin. "
+                "Press Ctrl-D (Unix) or Ctrl-Z (Windows) to finish.[/yellow]"
+            )
+        content = sys.stdin.read()
+
+    content = content.strip()
+    if not content:
+        error_console.print("[red]Error:[/red] Content cannot be empty")
+        sys.exit(1)
+
+    try:
+        result = client.set_global_agent_context(content)
+        msg = result.get("message", "Global agent context updated successfully")
+        console.print(f"[green]✓[/green] {msg}")
+        console.print(
+            f"\n[yellow]Updated at:[/yellow] {result.get('updated_at', 'N/A')}"
+        )
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@agents_global.command(name="clear")
+@click.confirmation_option(
+    prompt="Are you sure you want to clear the global agent context?"
+)
+@click.pass_context
+def agents_global_clear(ctx: click.Context) -> None:
+    """Clear the global agent context.
+
+    This will cause the system to fall back to AGENTS.md from the repository.
+    """
+    client = get_client(ctx)
+
+    try:
+        result = client.delete_global_agent_context()
+        msg = result.get("message", "Global agent context cleared")
+        console.print(f"[green]✓[/green] {msg}")
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")

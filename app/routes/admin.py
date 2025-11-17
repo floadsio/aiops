@@ -1184,6 +1184,18 @@ def manage_settings():
         key.id: APIKeyRevokeForm(key_id=str(key.id)) for key in api_keys
     }
 
+    # Global Agent Context
+    from ..forms.admin import GlobalAgentContextClearForm, GlobalAgentContextForm
+    from ..models import GlobalAgentContext
+
+    global_agent_context = GlobalAgentContext.query.order_by(
+        GlobalAgentContext.updated_at.desc()
+    ).first()
+    global_agent_context_form = GlobalAgentContextForm()
+    if global_agent_context:
+        global_agent_context_form.content.data = global_agent_context.content
+    global_agent_context_clear_form = GlobalAgentContextClearForm()
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1204,6 +1216,9 @@ def manage_settings():
         api_key_create_form=api_key_create_form,
         api_keys=api_keys,
         api_key_revoke_forms=api_key_revoke_forms,
+        global_agent_context=global_agent_context,
+        global_agent_context_form=global_agent_context_form,
+        global_agent_context_clear_form=global_agent_context_clear_form,
         now=datetime.utcnow(),
     )
 
@@ -3323,3 +3338,84 @@ def delete_user_identity_mapping(user_id: int):
         db.session.rollback()
 
     return redirect(url_for("admin.manage_user_identity_mappings"))
+
+
+@admin_bp.route("/settings/global-agent-context", methods=["POST"])
+@admin_required
+def save_global_agent_context():
+    """Save or update the global agent context."""
+    from ..forms.admin import GlobalAgentContextForm
+    from ..models import GlobalAgentContext
+
+    form = GlobalAgentContextForm()
+    if not form.validate_on_submit():
+        flash("Invalid global agent context form submission.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    content = (form.content.data or "").strip()
+    if not content:
+        flash("Global agent context cannot be empty.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        # Check if global context already exists
+        global_context = GlobalAgentContext.query.order_by(
+            GlobalAgentContext.updated_at.desc()
+        ).first()
+
+        if global_context:
+            # Update existing
+            global_context.content = content
+            global_context.updated_by_user_id = current_user.id
+            global_context.updated_at = datetime.utcnow()
+        else:
+            # Create new
+            global_context = GlobalAgentContext(
+                content=content, updated_by_user_id=current_user.id
+            )
+            db.session.add(global_context)
+
+        db.session.commit()
+        flash("Global agent context saved successfully.", "success")
+
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Failed to save global agent context.")
+        flash(f"Error saving global agent context: {exc}", "danger")
+        db.session.rollback()
+
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/global-agent-context/clear", methods=["POST"])
+@admin_required
+def clear_global_agent_context():
+    """Clear the global agent context."""
+    from ..forms.admin import GlobalAgentContextClearForm
+    from ..models import GlobalAgentContext
+
+    form = GlobalAgentContextClearForm()
+    if not form.validate_on_submit():
+        flash("Invalid clear request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        global_context = GlobalAgentContext.query.order_by(
+            GlobalAgentContext.updated_at.desc()
+        ).first()
+
+        if global_context:
+            db.session.delete(global_context)
+            db.session.commit()
+            flash(
+                "Global agent context cleared. System will now use AGENTS.md from repository.",
+                "success",
+            )
+        else:
+            flash("No global agent context to clear.", "info")
+
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Failed to clear global agent context.")
+        flash(f"Error clearing global agent context: {exc}", "danger")
+        db.session.rollback()
+
+    return redirect(url_for("admin.manage_settings"))

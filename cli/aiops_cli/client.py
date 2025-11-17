@@ -248,6 +248,33 @@ class APIClient:
             payload["user_id"] = user_id
         return self.post(f"issues/{issue_id}/assign", json=payload)
 
+    def sync_issues(
+        self,
+        tenant_id: Optional[int] = None,
+        integration_id: Optional[int] = None,
+        project_id: Optional[int] = None,
+        force_full: bool = False,
+    ) -> dict[str, Any]:
+        """Synchronize issues from external providers.
+
+        Args:
+            tenant_id: Limit sync to a specific tenant
+            integration_id: Limit sync to a specific tenant integration
+            project_id: Limit sync to a specific project
+            force_full: Force full sync (default: False)
+
+        Returns:
+            Sync result with statistics
+        """
+        payload = {"force_full": force_full}
+        if tenant_id is not None:
+            payload["tenant_id"] = tenant_id
+        if integration_id is not None:
+            payload["integration_id"] = integration_id
+        if project_id is not None:
+            payload["project_id"] = project_id
+        return self.post("issues/sync", json=payload)
+
     def claim_issue(self, issue_id: int) -> dict[str, Any]:
         """Claim an issue (assign to self and get workspace info)."""
         return self.post("workflows/claim-issue", json={"issue_id": issue_id})
@@ -493,3 +520,36 @@ class APIClient:
         if color:
             payload["color"] = color
         return self.post("tenants", json=payload)
+
+    # System management
+    def system_update(self, skip_migrations: bool = False) -> dict[str, Any]:
+        """Update the aiops application (git pull, install deps, run migrations).
+
+        Args:
+            skip_migrations: Skip database migrations
+
+        Returns:
+            Update result with detailed output
+        """
+        payload = {"skip_migrations": skip_migrations}
+        return self.post("system/update", json=payload)
+
+    def system_restart(self) -> dict[str, Any]:
+        """Restart the aiops application.
+
+        Returns:
+            Restart confirmation
+        """
+        return self.post("system/restart")
+
+    def system_update_and_restart(self, skip_migrations: bool = False) -> dict[str, Any]:
+        """Update and restart the aiops application.
+
+        Args:
+            skip_migrations: Skip database migrations
+
+        Returns:
+            Update result and restart confirmation
+        """
+        payload = {"skip_migrations": skip_migrations}
+        return self.post("system/update-and-restart", json=payload)

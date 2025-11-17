@@ -16,6 +16,7 @@ class IssueCommentPayload:
     body: str
     created_at: Optional[datetime]
     url: Optional[str]
+    id: Optional[str] = None  # Comment ID from the provider (Jira, GitHub, GitLab)
 
 
 @dataclass(slots=True)
@@ -113,6 +114,7 @@ def serialize_issue_comments(
             created_value = None
         serialized.append(
             {
+                "id": comment.id,
                 "author": comment.author,
                 "body": comment.body,
                 "url": comment.url,

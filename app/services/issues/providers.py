@@ -326,6 +326,31 @@ class JiraIssueProvider(BaseIssueProvider):
         )
         # Convert IssueCommentPayload to dict format expected by API
         return {
+            "id": payload.id,
+            "author": payload.author,
+            "body": payload.body,
+            "created_at": _serialize_datetime(payload.created_at),
+            "url": payload.url,
+        }
+
+    def update_comment(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        comment_id: str,
+        body: str,
+    ) -> Dict[str, Any]:
+        payload = jira_provider.update_comment(
+            self.integration,
+            project_integration,
+            issue_number,
+            comment_id,
+            body,
+        )
+        # Convert IssueCommentPayload to dict format expected by API
+        return {
+            "id": payload.id,
             "author": payload.author,
             "body": payload.body,
             "created_at": _serialize_datetime(payload.created_at),

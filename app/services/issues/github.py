@@ -289,12 +289,14 @@ def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:
         created_at = getattr(comment, "created_at", None)
         if created_at and created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
+        comment_id = getattr(comment, "id", None)
         comments.append(
             IssueCommentPayload(
                 author=str(author) if author else None,
                 body=getattr(comment, "body", "") or "",
                 created_at=created_at,
                 url=getattr(comment, "html_url", None),
+                id=str(comment_id) if comment_id else None,
             )
         )
         if len(comments) > MAX_COMMENTS_PER_ISSUE:

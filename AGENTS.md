@@ -142,6 +142,207 @@ During development, you can test the API using:
 - **Python**: Using `requests` library
 - **Postman**: Import OpenAPI spec from `/api/v1/apispec.json`
 
+## AIops CLI for AI Agents
+
+The `aiops` CLI is a powerful command-line interface that wraps the REST API and provides AI agents with convenient access to all aiops functionality. The CLI is pre-configured in tmux sessions and can be used directly by Claude, Codex, Gemini, and other AI agents.
+
+### CLI Configuration
+
+The CLI is already configured in your workspace with:
+- **API URL**: Automatically configured (usually `http://dev.floads:5000`)
+- **API Key**: Pre-configured for your user session
+- **Config location**: `~/.config/aiops/config.json`
+
+Check your configuration:
+```bash
+aiops config show
+```
+
+### Issue Management via CLI
+
+AI agents can interact with external issue trackers (Jira, GitHub, GitLab) using these commands:
+
+```bash
+# List issues
+aiops issues list                              # All issues
+aiops issues list --status open               # Open issues only
+aiops issues list --project aiops             # Filter by project
+
+# Get issue details (includes comments with Jira account IDs)
+aiops issues get 254
+
+# Add comments to issues (automatic @mention resolution for Jira)
+aiops issues comment 254 "Fixed the tunnel configuration"
+aiops issues comment 254 "@jens The issue is resolved"
+
+# Modify existing comments (for fixing typos or updating information)
+aiops issues modify-comment 254 <comment_id> "Updated: Fixed the tunnel configuration"
+aiops issues modify-comment 254 <comment_id> "@jens The issue is fully resolved now"
+
+# Update issue status
+aiops issues update 254 --title "New title"
+aiops issues close 254
+
+# Assign issues
+aiops issues assign 254                       # Assign to self
+aiops issues assign 254 --user 5              # Assign to specific user
+
+# Synchronize issues from external providers
+aiops issues sync                             # Sync all
+aiops issues sync --project aiops             # Sync specific project
+aiops issues sync --force-full                # Force full sync
+```
+
+**Important**: When commenting on Jira issues, the CLI automatically resolves @mentions to Jira account IDs by looking up users from the issue's comment history. This means you can write `@jens` and it will be converted to `[~accountid:557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e]` automatically.
+
+### Git Operations via CLI
+
+Manage git repositories in your workspace:
+
+```bash
+# Check repository status
+aiops git status aiops
+
+# Pull latest changes
+aiops git pull aiops
+
+# Commit changes
+aiops git commit aiops "Fix authentication bug" --files "app/auth.py,app/models.py"
+
+# Push changes
+aiops git push aiops
+
+# Branch management
+aiops git branches aiops                      # List branches
+aiops git branch aiops feature-x              # Create branch
+aiops git checkout aiops feature-x            # Switch branch
+
+# Read files from repository
+aiops git cat aiops app/models.py
+aiops git files aiops app/                    # List files in directory
+```
+
+### System Management via CLI
+
+AI agents can update the aiops system itself (requires admin API key):
+
+```bash
+# Update aiops application (git pull + dependencies + migrations)
+aiops system update
+
+# Restart aiops application
+aiops system restart
+
+# Update and restart in one command
+aiops system update-and-restart
+
+# Update the aiops CLI itself
+aiops update                                   # Update CLI to latest version
+aiops update --check-only                     # Check for updates without installing
+```
+
+**Note**: System update commands require an admin-scoped API key. Regular development work uses user-scoped API keys.
+
+### Workflow Commands for AI Agents
+
+High-level workflow commands that combine multiple operations:
+
+```bash
+# Claim an issue and get workspace information
+aiops workflow claim 254
+
+# Start AI session on an issue (claims + starts tmux session)
+aiops issues work 254 --tool claude --attach
+
+# Update progress on an issue
+aiops workflow progress 254 "in_progress" --comment "Working on this now"
+
+# Submit changes with commit and comment
+aiops workflow submit 254 --project 1 --message "Fix bug" --comment "Bug fixed!"
+
+# Request approval
+aiops workflow approve 254 --message "Ready for review"
+
+# Complete an issue
+aiops workflow complete 254 --summary "Fixed authentication bug"
+```
+
+### Project and Tenant Management
+
+```bash
+# List projects
+aiops projects list
+aiops projects list --tenant floads
+
+# Get project details
+aiops projects get aiops
+
+# Create new project
+aiops projects create --name "new-project" --repo-url "git@github.com:org/repo.git" --tenant floads
+
+# Manage tenants
+aiops tenants list
+aiops tenants get floads
+aiops tenants create --name "New Tenant" --color "#ff6600"
+```
+
+### Authentication and API Keys
+
+```bash
+# Check current user
+aiops auth whoami
+
+# Manage API keys (requires existing key)
+aiops auth keys list
+aiops auth keys create --name "My Agent Key" --scopes "read,write"
+aiops auth keys delete 123
+```
+
+### Output Formats
+
+The CLI supports multiple output formats for easy parsing:
+
+```bash
+aiops issues list --output json              # JSON output
+aiops issues list --output yaml              # YAML output
+aiops issues list --output table             # Table output (default)
+```
+
+### Using the CLI in AI Agent Workflows
+
+**Example: Fix a bug reported in Jira**
+
+```bash
+# 1. Get issue details
+aiops issues get 254
+
+# 2. Work on the issue
+cd /home/ivo/workspace/floads/aiops
+# ... make code changes ...
+
+# 3. Commit changes
+aiops git commit aiops "Fix tunnel configuration" --files "ansible/playbooks/wireguard.yml"
+
+# 4. Push changes
+aiops git push aiops
+
+# 5. Comment on issue
+aiops issues comment 254 "@jens Fixed the tunnel configuration. Changes have been deployed."
+
+# 6. Close issue
+aiops issues close 254
+```
+
+**Example: Update aiops system**
+
+```bash
+# Pull latest code, install dependencies, run migrations
+aiops system update
+
+# Restart the application
+aiops system restart
+```
+
 ## How Agents Should Work Here
 
 - **CRITICAL: Working Directory Context** — aiops uses **per-user workspaces** for all development work.

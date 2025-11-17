@@ -645,6 +645,82 @@ def add_issue_comment(issue_id: int):
     }), 201
 
 
+@api_v1_bp.patch("/issues/<int:issue_id>/comments/<comment_id>")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def update_issue_comment(issue_id: int, comment_id: str):
+    """Update an existing comment on an issue.
+
+    Args:
+        issue_id: Issue ID
+        comment_id: Comment ID to update
+
+    Request body:
+        body (str): New comment text (required)
+
+    Returns:
+        200: Comment updated successfully
+        400: Invalid request
+        404: Issue not found
+    """
+    issue = ExternalIssue.query.options(
+        selectinload(ExternalIssue.project_integration).selectinload(
+            ProjectIntegration.integration
+        ),
+    ).get_or_404(issue_id)
+
+    data = request.get_json(silent=True) or {}
+    body = (data.get("body") or "").strip()
+
+    if not body:
+        return jsonify({"error": "Comment body is required"}), 400
+
+    integration = issue.project_integration.integration
+
+    try:
+        provider = _get_issue_provider(integration)
+        # Check if provider supports update_comment
+        if not hasattr(provider, "update_comment"):
+            return jsonify({"error": f"{integration.provider} does not support updating comments"}), 400
+
+        comment_data = provider.update_comment(
+            project_integration=issue.project_integration,
+            issue_number=issue.external_id,
+            comment_id=comment_id,
+            body=body,
+        )
+    except IssueSyncError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Failed to update comment: %s", exc)
+        return jsonify({"error": f"Failed to update comment: {str(exc)}"}), 500
+
+    # Update local comments cache
+    # Find and update the comment in the cached list
+    comments = issue.comments or []
+    for i, comment in enumerate(comments):
+        # Match by comment body or other identifier if available
+        # Note: This is a best-effort update since we don't store comment IDs locally
+        if isinstance(comment, dict):
+            # We'll update the most recent comment with matching author
+            # This is imperfect but workable for now
+            if comment.get("author") == comment_data.get("author"):
+                comments[i] = comment_data
+                break
+    else:
+        # If not found, just append (shouldn't happen normally)
+        comments.append(comment_data)
+
+    issue.comments = comments
+    issue.last_seen_at = datetime.utcnow()
+    db.session.commit()
+
+    return jsonify({
+        "message": "Comment updated successfully",
+        "comment": comment_data,
+    }), 200
+
+
 @api_v1_bp.post("/issues/<int:issue_id>/assign")
 @require_api_auth(scopes=["write"])
 @audit_api_request

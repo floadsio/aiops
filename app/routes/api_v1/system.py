@@ -11,7 +11,17 @@ from pathlib import Path
 from flask import current_app, jsonify, request
 
 from ...services.api_auth import audit_api_request, require_api_auth
+from ...services.ai_cli_update_service import CLICommandError, run_ai_tool_update
 from . import api_v1_bp
+
+
+AI_TOOL_LABELS = {
+    "codex": "Codex CLI",
+    "gemini": "Gemini CLI",
+    "claude": "Claude CLI",
+}
+
+AI_TOOL_SOURCES = {"npm", "brew"}
 
 
 def _run_git_pull(repo_path: Path) -> dict[str, str]:
@@ -394,4 +404,74 @@ def update_and_restart_system():
     return jsonify({
         "message": "System updated successfully. Restart initiated.",
         "results": results,
+    })
+
+
+@api_v1_bp.post("/system/ai-tools/<tool>/update")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def update_ai_tool_cli(tool: str):
+    """Run configured update command for supported AI tool CLIs.
+
+    Request body:
+        source: Required update source ("npm" or "brew")
+
+    Returns:
+        200 when the command finishes (success or failure)
+        400 when the request is invalid or prerequisites are missing
+        404 when the tool is unknown
+    """
+    data = request.get_json(silent=True) or {}
+    source = (data.get("source") or "").strip().lower()
+    normalized_tool = tool.lower().strip()
+
+    if not source:
+        return (
+            jsonify({
+                "error": "source is required (npm or brew)",
+            }),
+            400,
+        )
+
+    if source not in AI_TOOL_SOURCES:
+        return (
+            jsonify({
+                "error": "Unsupported source. Use one of: npm, brew.",
+            }),
+            400,
+        )
+
+    tool_label = AI_TOOL_LABELS.get(normalized_tool)
+    if not tool_label:
+        return (
+            jsonify({
+                "error": f"Unsupported AI tool '{tool}'.",
+            }),
+            404,
+        )
+
+    try:
+        result = run_ai_tool_update(normalized_tool, source)
+    except CLICommandError as exc:
+        return jsonify({"error": str(exc)}), 400
+
+    payload = {
+        "tool": normalized_tool,
+        "tool_label": tool_label,
+        "source": source,
+        "command": result.command,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "returncode": result.returncode,
+        "success": result.ok,
+    }
+
+    if result.ok:
+        message = f"{tool_label} {source.upper()} command succeeded."
+    else:
+        message = f"{tool_label} {source.upper()} command failed."
+
+    return jsonify({
+        "message": message,
+        "result": payload,
     })

@@ -557,3 +557,18 @@ class APIClient:
         """
         payload = {"skip_migrations": skip_migrations}
         return self.post("system/update-and-restart", json=payload)
+
+    def update_ai_tool(self, tool: str, source: str) -> dict[str, Any]:
+        """Update one of the supported AI tool CLIs on the server.
+
+        Args:
+            tool: AI tool identifier (codex, gemini, claude)
+            source: Update source (npm or brew)
+
+        Returns:
+            Command execution result payload
+        """
+        normalized_tool = tool.strip().lower()
+        normalized_source = source.strip().lower()
+        payload = {"source": normalized_source}
+        return self.post(f"system/ai-tools/{normalized_tool}/update", json=payload)

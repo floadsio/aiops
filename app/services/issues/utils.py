@@ -4,14 +4,27 @@ import re
 import sys
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import Any, Optional
+from typing import Any, Optional, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from requests import HTTPError
 from requests.auth import HTTPBasicAuth
 
-from ...models import ExternalIssue, TenantIntegration
+from ...models import ExternalIssue, ProjectIntegration, TenantIntegration
+
+
+class IntegrationLike(Protocol):
+    """Protocol for objects that behave like TenantIntegration."""
+
+    id: int
+    tenant_id: int
+    provider: str
+    name: str
+    api_token: str
+    base_url: str | None
+    settings: dict[str, Any]
+    enabled: bool
 
 DEFAULT_TIMEOUT_SECONDS = 15.0
 
@@ -73,6 +86,63 @@ def get_timeout(
     except (TypeError, ValueError):
         return default
     return timeout if timeout > 0 else default
+
+
+def get_effective_credentials(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration | None = None,
+) -> tuple[str, str | None, dict[str, Any]]:
+    """
+    Get effective credentials for a provider, with per-project overrides.
+
+    Returns:
+        tuple: (api_token, base_url, settings) where project overrides take precedence
+    """
+    # Start with tenant-level defaults
+    api_token = integration.api_token
+    base_url = integration.base_url
+    settings = integration.settings or {}
+
+    # Apply project-level overrides if available
+    if project_integration:
+        if project_integration.override_api_token:
+            api_token = project_integration.override_api_token
+        if project_integration.override_base_url:
+            base_url = project_integration.override_base_url
+        if project_integration.override_settings:
+            # Merge settings: project overrides take precedence
+            settings = {**settings, **project_integration.override_settings}
+
+    return api_token, base_url, settings
+
+
+def get_effective_integration(
+    integration: TenantIntegration,
+    project_integration: ProjectIntegration | None = None,
+) -> IntegrationLike:
+    """
+    Create an effective integration object with per-project credential overrides applied.
+
+    This returns a namespace object that mimics TenantIntegration but with
+    project-specific credentials merged in. Use this for provider instantiation.
+
+    Returns:
+        SimpleNamespace: Integration-like object with effective credentials
+    """
+    api_token, base_url, settings = get_effective_credentials(
+        integration, project_integration
+    )
+
+    return SimpleNamespace(
+        id=integration.id,
+        tenant_id=integration.tenant_id,
+        provider=integration.provider,
+        name=integration.name,
+        api_token=api_token,
+        base_url=base_url,
+        settings=settings,
+        enabled=integration.enabled,
+    )
 
 
 def parse_datetime(value: Any) -> Optional[datetime]:

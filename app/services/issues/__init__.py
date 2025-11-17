@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
 
 from flask import current_app
 
 from ...extensions import db
 from ...models import ExternalIssue, ProjectIntegration, TenantIntegration
+
+if TYPE_CHECKING:
+    from .utils import IntegrationLike as IntegrationLike  # noqa: F401
 
 
 @dataclass(slots=True)
@@ -67,7 +70,11 @@ from . import (  # noqa: E402  (import depends on IssuePayload declaration)
     gitlab,
     jira,
 )
-from .utils import ProviderTestError, test_provider_credentials  # noqa: E402
+from .utils import (  # noqa: E402
+    ProviderTestError,
+    get_effective_integration,
+    test_provider_credentials,
+)
 
 PROVIDER_REGISTRY: Dict[str, ProviderFunc] = {
     "gitlab": gitlab.fetch_issues,
@@ -162,8 +169,12 @@ def sync_project_integration(
         effective_since = since
     else:
         effective_since = since or project_integration.last_synced_at  # type: ignore[assignment]
+
+    # Use effective integration with project-level credential overrides
+    effective_integration = get_effective_integration(integration, project_integration)
+
     try:
-        payloads = fetcher(integration, project_integration, effective_since)
+        payloads = fetcher(effective_integration, project_integration, effective_since)  # type: ignore[arg-type]
     except IssueSyncError:
         raise
     except Exception as exc:  # noqa: BLE001

@@ -139,6 +139,22 @@ class ProjectIntegrationForm(FlaskForm):
         description="Optional: custom JQL query to scope issues (defaults to project key).",
         validators=[Optional(), Length(max=2000)],
     )
+    # Per-project credential overrides
+    override_api_token = PasswordField(
+        "Override API Token",
+        description="Optional: project-specific token (overrides tenant integration)",
+        validators=[Optional(), Length(max=4096)],
+    )
+    override_base_url = StringField(
+        "Override Base URL",
+        description="Optional: project-specific instance URL (e.g., https://gitlab.private.com)",
+        validators=[Optional(), Length(max=512)],
+    )
+    override_username = StringField(
+        "Override Username",
+        description="Optional: project-specific username (for Jira email)",
+        validators=[Optional(), Length(max=255)],
+    )
     link = SubmitField("Link Project")
 
 
@@ -149,6 +165,22 @@ class ProjectIntegrationUpdateForm(FlaskForm):
     jira_jql = TextAreaField(
         "Jira JQL Override",
         validators=[Optional(), Length(max=2000)],
+    )
+    # Per-project credential overrides
+    override_api_token = PasswordField(
+        "Override API Token",
+        description="Optional: project-specific token (leave blank to keep existing)",
+        validators=[Optional(), Length(max=4096)],
+    )
+    override_base_url = StringField(
+        "Override Base URL",
+        description="Optional: project-specific instance URL",
+        validators=[Optional(), Length(max=512)],
+    )
+    override_username = StringField(
+        "Override Username",
+        description="Optional: project-specific username (for Jira email)",
+        validators=[Optional(), Length(max=255)],
     )
     submit = SubmitField("Update Link")
 

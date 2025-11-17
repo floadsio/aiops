@@ -220,6 +220,13 @@ class ProjectIntegration(BaseModel, TimestampMixin):
     )
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+    # Per-project credential overrides (for different GitLab/Jira instances)
+    override_api_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    override_base_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    override_settings: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        db.JSON, nullable=True
+    )
+
     project: Mapped["Project"] = relationship(
         "Project", back_populates="issue_integrations"
     )

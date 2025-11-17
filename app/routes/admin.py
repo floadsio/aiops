@@ -2895,11 +2895,23 @@ def manage_integrations():
             jira_jql = (project_form.jira_jql.data or "").strip()
             if jira_jql and integration.provider.lower() == "jira":
                 config["jql"] = jira_jql
+
+            # Prepare per-project credential overrides
+            override_api_token = (project_form.override_api_token.data or "").strip() or None
+            override_base_url = (project_form.override_base_url.data or "").strip() or None
+            override_settings: dict[str, str] | None = None
+            override_username = (project_form.override_username.data or "").strip()
+            if override_username:
+                override_settings = {"username": override_username}
+
             project_integration = ProjectIntegration(
                 project_id=project.id,
                 integration_id=integration.id,
                 external_identifier=project_form.external_identifier.data.strip(),
                 config=config,
+                override_api_token=override_api_token,
+                override_base_url=override_base_url,
+                override_settings=override_settings,
             )
             db.session.add(project_integration)
             db.session.commit()
@@ -2929,6 +2941,10 @@ def manage_integrations():
             update_form.external_identifier.data = link.external_identifier
             if integration.provider.lower() == "jira":
                 update_form.jira_jql.data = (link.config or {}).get("jql", "")
+            # Pre-fill override credential fields
+            update_form.override_base_url.data = link.override_base_url or ""
+            if link.override_settings:
+                update_form.override_username.data = link.override_settings.get("username", "")
             delete_form = ProjectIntegrationDeleteForm(prefix=f"delete-{link.id}")
             update_forms[link.id] = update_form
             delete_forms[link.id] = delete_form
@@ -3021,6 +3037,22 @@ def update_project_integration(project_integration_id: int):
     else:
         config.pop("jql", None)
     link.config = config
+
+    # Update per-project credential overrides
+    override_api_token = (form.override_api_token.data or "").strip()
+    if override_api_token:
+        link.override_api_token = override_api_token
+    # Note: If blank, we keep the existing token (don't clear it)
+
+    override_base_url = (form.override_base_url.data or "").strip() or None
+    link.override_base_url = override_base_url
+
+    override_username = (form.override_username.data or "").strip()
+    if override_username:
+        link.override_settings = {"username": override_username}
+    else:
+        link.override_settings = None
+
     db.session.commit()
 
     flash("Project integration updated.", "success")

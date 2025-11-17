@@ -259,8 +259,8 @@ def pin_issue(issue_id: int):
 
     user = g.api_user
 
-    # Verify issue exists
-    issue = ExternalIssue.query.get_or_404(issue_id)
+    # Verify issue exists (raises 404 if not found)
+    ExternalIssue.query.get_or_404(issue_id)
 
     # Check if already pinned
     existing = PinnedIssue.query.filter_by(

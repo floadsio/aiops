@@ -108,6 +108,9 @@ aiops issues work 501 --tool claude --attach
 # List active AI sessions for a project
 aiops issues sessions --project 1
 
+# Attach directly to a running AI session by ID/prefix
+aiops issues sessions --attach cb3877c65dbd
+
 # View issue details
 aiops issues view 501
 ```

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, List, Optional
 
-from ...models import ProjectIntegration, TenantIntegration
+from ...models import ProjectIntegration
 from . import (
     IssueCommentPayload,
     IssueCreateRequest,
@@ -61,7 +61,7 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
 
 
 def fetch_issues(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     since: Optional[datetime] = None,
 ) -> List[IssuePayload]:
@@ -141,7 +141,7 @@ def fetch_issues(
 
 
 def create_issue(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     request: IssueCreateRequest,
     *,
@@ -239,7 +239,7 @@ def create_issue(
 
 
 def create_comment(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     issue_key: str,
     body: str,
@@ -327,7 +327,7 @@ def create_comment(
 
 
 def update_comment(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     issue_key: str,
     comment_id: str,
@@ -424,7 +424,7 @@ def update_comment(
 
 
 def close_issue(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     external_id: str,
 ) -> IssuePayload:

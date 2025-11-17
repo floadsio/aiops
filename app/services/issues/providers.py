@@ -8,6 +8,7 @@ from . import IssueCreateRequest, IssuePayload, IssueSyncError
 from . import github as github_provider
 from . import gitlab as gitlab_provider
 from . import jira as jira_provider
+from .utils import get_effective_integration
 
 
 def _serialize_datetime(value: Optional[datetime]) -> Optional[str]:
@@ -68,8 +69,12 @@ class GitHubIssueProvider(BaseIssueProvider):
             description=description,
             labels=list(labels) if labels else None,
         )
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = github_provider.create_issue(
-            self.integration,
+            effective_integration,
             project_integration,
             request,
             assignee=assignee,
@@ -123,8 +128,12 @@ class GitHubIssueProvider(BaseIssueProvider):
         project_integration: ProjectIntegration,
         issue_number: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = github_provider.close_issue(
-            self.integration, project_integration, issue_number
+            effective_integration, project_integration, issue_number
         )
         return _payload_to_dict(payload)
 
@@ -180,8 +189,12 @@ class GitHubIssueProvider(BaseIssueProvider):
         issue_number: str,
         assignee: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = github_provider.assign_issue(
-            self.integration,
+            effective_integration,
             project_integration,
             issue_number,
             [assignee],
@@ -194,7 +207,11 @@ class GitHubIssueProvider(BaseIssueProvider):
             raise IssueSyncError(
                 "GitHub project integration requires an owner/repo identifier."
             )
-        client = github_provider._build_client(self.integration)
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
+        client = github_provider._build_client(effective_integration)
         try:
             return client.get_repo(repo_path)
         except github_provider.GithubAPIException as exc:
@@ -225,8 +242,12 @@ class GitLabIssueProvider(BaseIssueProvider):
             description=description,
             labels=list(labels) if labels else None,
         )
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = gitlab_provider.create_issue(
-            self.integration,
+            effective_integration,
             project_integration,
             request,
             assignee=assignee,
@@ -242,8 +263,12 @@ class GitLabIssueProvider(BaseIssueProvider):
         project_integration: ProjectIntegration,
         issue_number: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = gitlab_provider.close_issue(
-            self.integration, project_integration, issue_number
+            effective_integration, project_integration, issue_number
         )
         return _payload_to_dict(payload)
 
@@ -260,8 +285,12 @@ class GitLabIssueProvider(BaseIssueProvider):
         issue_number: str,
         assignee: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = gitlab_provider.assign_issue(
-            self.integration,
+            effective_integration,
             project_integration,
             issue_number,
             assignee,
@@ -286,8 +315,12 @@ class JiraIssueProvider(BaseIssueProvider):
             description=description,
             labels=list(labels) if labels else None,
         )
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = jira_provider.create_issue(
-            self.integration,
+            effective_integration,
             project_integration,
             request,
             assignee_account_id=assignee,
@@ -303,8 +336,12 @@ class JiraIssueProvider(BaseIssueProvider):
         project_integration: ProjectIntegration,
         issue_number: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = jira_provider.close_issue(
-            self.integration, project_integration, issue_number
+            effective_integration, project_integration, issue_number
         )
         return _payload_to_dict(payload)
 
@@ -318,8 +355,12 @@ class JiraIssueProvider(BaseIssueProvider):
         issue_number: str,
         body: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = jira_provider.create_comment(
-            self.integration,
+            effective_integration,
             project_integration,
             issue_number,
             body,
@@ -341,8 +382,12 @@ class JiraIssueProvider(BaseIssueProvider):
         comment_id: str,
         body: str,
     ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
         payload = jira_provider.update_comment(
-            self.integration,
+            effective_integration,
             project_integration,
             issue_number,
             comment_id,

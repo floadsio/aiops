@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, List, Optional
 
-from ...models import ProjectIntegration, TenantIntegration
+from ...models import ProjectIntegration
 from . import (
     IssueCommentPayload,
     IssueCreateRequest,
@@ -74,7 +74,7 @@ def _format_github_error(exc: Any) -> str:
     return " - ".join(error_parts)
 
 
-def _build_client(integration: TenantIntegration, base_url: str | None = None):
+def _build_client(integration: Any, base_url: str | None = None):
     try:
         from github import Github
     except ImportError as exc:  # pragma: no cover - dependency missing
@@ -88,7 +88,7 @@ def _build_client(integration: TenantIntegration, base_url: str | None = None):
 
 
 def fetch_issues(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     since: Optional[datetime] = None,
 ) -> List[IssuePayload]:
@@ -126,7 +126,7 @@ def fetch_issues(
 
 
 def create_issue(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     request: IssueCreateRequest,
     *,
@@ -173,7 +173,7 @@ def create_issue(
 
 
 def close_issue(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     external_id: str,
 ) -> IssuePayload:
@@ -204,7 +204,7 @@ def close_issue(
 
 
 def assign_issue(
-    integration: TenantIntegration,
+    integration: Any,  # TenantIntegration or IntegrationLike
     project_integration: ProjectIntegration,
     external_id: str,
     assignees: List[str],

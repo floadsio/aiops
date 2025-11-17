@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 from sqlalchemy.orm import selectinload
 
 from ...extensions import db

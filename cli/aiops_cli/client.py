@@ -99,6 +99,12 @@ class APIClient:
         """Make PATCH request."""
         return self._request("PATCH", path, json=json)
 
+    def put(
+        self, path: str, json: Optional[dict[str, Any]] = None
+    ) -> Any:
+        """Make PUT request."""
+        return self._request("PUT", path, json=json)
+
     def delete(self, path: str) -> Any:
         """Make DELETE request."""
         return self._request("DELETE", path)

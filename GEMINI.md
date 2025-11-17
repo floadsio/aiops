@@ -1,71 +1,33 @@
 @AGENTS.md
 
-## Gemini-specific Instructions for Issue Management
+## Gemini-Specific Instructions
 
-### CRITICAL: Always Use aiops CLI for Issue Operations
+### CRITICAL: Use aiops CLI for All Operations
 
-You MUST use the `aiops` CLI for all issue management. Never attempt to call GitHub/GitLab/Jira APIs directly.
+The `aiops` CLI is **pre-installed** at `./.venv/bin/aiops` and **pre-configured** with your API credentials.
+You MUST use it for all issue management, git operations, and project management. Never call external APIs directly.
 
-### Quick Start
-
-The `aiops` CLI is pre-installed at `./.venv/bin/aiops` and pre-configured with your API credentials.
+### Quick Reference
 
 ```bash
-# Sync issues before starting work
-aiops issues sync --project <project-name>
+# Issue workflow
+aiops issues sync --project <project>
+aiops issues get <id> --output json
+aiops issues comment <id> "Starting work..."
+# ... make changes ...
+aiops issues close <id>
 
-# Get issue details
-aiops issues get <issue-id>
-
-# Add comments
-aiops issues comment <issue-id> "Your update here"
-
-# Close when done
-aiops issues close <issue-id>
+# Git operations
+aiops git status <project>
+aiops git commit <project> "Fix bug" --files "app/auth.py"
+aiops git push <project>
 ```
-
-### Required Workflow for Every Issue
-
-1. **Start**: Sync issues → `aiops issues sync --project <project>`
-2. **Read**: Get full context → `aiops issues get <issue-id> --output json`
-3. **Update**: Comment on progress → `aiops issues comment <issue-id> "Starting work..."`
-4. **Complete**: Document changes → `aiops issues comment <issue-id> "Completed: ..."`
-5. **Close**: Mark as done → `aiops issues close <issue-id>`
 
 ### Important Notes
 
-- **Issue IDs**: Use the database ID from `aiops issues list`, NOT the external issue number
-- **JSON output**: Use `--output json` when you need to parse issue data programmatically
-- **Sync first**: Always run `aiops issues sync --project <project>` before starting work
-- **Comment often**: Add updates at major milestones - stakeholders appreciate visibility
-- **Be detailed**: Include file paths, specific changes, and verification steps in comments
-- **Create follow-ups**: If you find additional work, create new issues rather than expanding scope
+- **Issue IDs**: Use database ID from `aiops issues list`, NOT external issue number
+- **Never commit AGENTS.override.md** to version control - it's auto-generated
+- **Work in your workspace**: `/home/{username}/workspace/{tenant_slug}/{project}/`
+- **Never modify `/home/syseng/aiops`** - that's the running Flask instance
 
-### Full Documentation
-
-See the "AI Agent Issue Management Workflow" section in `AGENTS.md` for:
-- Complete workflow examples
-- Best practices for AI agents
-- Finding integration IDs for creating issues
-- Error handling and troubleshooting
-
-### Example: Working on an Issue
-
-```bash
-# 1. Sync to get latest
-aiops issues sync --project aiops
-
-# 2. Read the issue
-aiops issues get 502 --output json
-
-# 3. Start work comment
-aiops issues comment 502 "Starting work on this now"
-
-# 4. ... do the work ...
-
-# 5. Completion comment
-aiops issues comment 502 "Completed! All requirements met and tested"
-
-# 6. Close it
-aiops issues close 502
-```
+See full CLI documentation in `AGENTS.md`.

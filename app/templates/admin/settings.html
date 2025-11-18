@@ -248,7 +248,7 @@
           {{ update_form.restart() }}
           <span>Restart application after update</span>
         </label>
-        <button type="submit" class="secondary">Run update script</button>
+        <button type="submit" class="secondary">🔄 Run Update</button>
         <span class="text-muted form-helper">Set AIOPS_UPDATE_BRANCH for this run (default matches current branch).</span>
       </div>
     </form>
@@ -328,7 +328,7 @@
           {{ backup_create_form.description.label }}
           {{ backup_create_form.description() }}
         </label>
-        <button type="submit" class="secondary">Create Backup</button>
+        <button type="submit" class="secondary">💾 Create Backup</button>
         <span class="text-muted form-helper">Creates a timestamped backup of the current database state.</span>
       </div>
     </form>
@@ -364,7 +364,7 @@
                     </form>
                     <form method="post" action="{{ url_for('admin.delete_backup_web', backup_id=backup.id) }}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this backup?');">
                       {{ delete_form.hidden_tag() }}
-                      <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">Delete</button>
+                      <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">🗑️ Delete</button>
                     </form>
                   </div>
                 </td>
@@ -469,7 +469,7 @@
           {{ create_user_form.is_admin() }}
           {{ create_user_form.is_admin.label }}
         </label>
-        <button type="submit" class="secondary">{{ create_user_form.submit.label.text }}</button>
+        <button type="submit" class="secondary">➕ {{ create_user_form.submit.label.text }}</button>
       </form>
     </details>
 
@@ -539,7 +539,7 @@
                           {{ update_form.is_admin() }}
                           {{ update_form.is_admin.label }}
                         </label>
-                        <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
+                        <button type="submit" class="secondary">💾 {{ update_form.submit.label.text }}</button>
                       </form>
                     </details>
                     <form method="post" action="{{ url_for('admin.toggle_user_admin', user_id=user.id) }}">
@@ -555,7 +555,7 @@
                     </form>
                     <form method="post" action="{{ url_for('admin.delete_user', user_id=user.id) }}">
                       {{ delete_form.hidden_tag() }}
-                      <button type="submit" class="secondary outline">Delete user</button>
+                      <button type="submit" class="secondary outline">🗑️ Delete User</button>
                     </form>
                   </div>
                 </td>

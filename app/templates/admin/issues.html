@@ -981,7 +981,7 @@
                   {% if issue.can_close and issue.close_endpoint %}
                     <form method="post" action="{{ issue.close_endpoint }}" class="inline-form">
                       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                      <button type="submit" class="secondary outline">Close Issue</button>
+                      <button type="submit" class="secondary outline">✕ Close Issue</button>
                     </form>
                   {% endif %}
                 </div>
@@ -1265,7 +1265,7 @@
             {% if issue.can_close and issue.close_endpoint %}
               <form method="post" action="{{ issue.close_endpoint }}" class="inline-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <button type="submit" class="secondary outline">Close Issue</button>
+                <button type="submit" class="secondary outline">✕ Close Issue</button>
               </form>
             {% endif %}
           </div>

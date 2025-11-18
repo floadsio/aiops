@@ -10,7 +10,7 @@ from . import (
     IssuePayload,
     IssueSyncError,
 )
-from .utils import ensure_base_url
+from .utils import ensure_base_url, get_timeout
 
 try:  # pragma: no cover - import guard for optional dependency
     from github.GithubException import GithubException as GithubAPIException

@@ -111,7 +111,7 @@ class Config:
         "yes",
     }
     ENABLE_PERSISTENT_SESSIONS = os.getenv(
-        "ENABLE_PERSISTENT_SESSIONS", "true"
+        "ENABLE_PERSISTENT_SESSIONS", "false"
     ).lower() in {
         "1",
         "true",

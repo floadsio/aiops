@@ -200,7 +200,6 @@ def list_users():
                 "email": u.email,
                 "name": u.name,
                 "is_admin": u.is_admin,
-                "tenant_id": u.tenant.id if u.tenant else None,
             }
             for u in users
         ]

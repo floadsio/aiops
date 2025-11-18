@@ -1849,7 +1849,7 @@
           this.disabled = true;
           this.textContent = 'Resuming...';
 
-          fetch(`/api/ai/sessions/${sessionId}/resume`, {
+          fetch(`/api/v1/ai/sessions/${sessionId}/resume`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -1903,7 +1903,7 @@
       if (activeOnly) params.set('active_only', 'true');
       params.set('limit', '20');
 
-      fetch(`/api/ai/sessions?${params.toString()}`)
+      fetch(`/api/v1/ai/sessions?${params.toString()}`)
         .then(response => response.json())
         .then(data => {
           renderSessions(data.sessions);

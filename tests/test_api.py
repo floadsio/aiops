@@ -47,7 +47,7 @@ def login(client):
 
 def test_api_requires_auth(test_app):
     client = test_app.test_client()
-    response = client.get("/api/tenants")
+    response = client.get("/api/v1/tenants")
     assert response.status_code == 401
 
 
@@ -58,7 +58,7 @@ def test_create_tenant_and_project(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.ensure_repo_checkout", lambda project: project)
 
     tenant_resp = client.post(
-        "/api/tenants", json={"name": "Alpha", "description": "Tenant Alpha"}
+        "/api/v1/tenants", json={"name": "Alpha", "description": "Tenant Alpha"}
     )
     assert tenant_resp.status_code == 201
     tenant_payload = tenant_resp.get_json()["tenant"]
@@ -77,11 +77,11 @@ def test_create_tenant_and_project(test_app, monkeypatch):
         "owner_id": owner_id,
     }
 
-    project_resp = client.post("/api/projects", json=project_payload)
+    project_resp = client.post("/api/v1/projects", json=project_payload)
     assert project_resp.status_code == 201
     project_id = project_resp.get_json()["project"]["id"]
 
-    tenant_detail = client.get(f"/api/tenants/{tenant_id}")
+    tenant_detail = client.get(f"/api/v1/tenants/{tenant_id}")
     assert tenant_detail.status_code == 200
     tenant_data = tenant_detail.get_json()["tenant"]
     assert any(p["id"] == project_id for p in tenant_data["projects"])
@@ -95,7 +95,7 @@ def test_create_tenant_with_custom_color(test_app):
     login(client)
 
     resp = client.post(
-        "/api/tenants",
+        "/api/v1/tenants",
         json={"name": "Colorful", "description": "", "color": "#10b981"},
     )
     assert resp.status_code == 201
@@ -108,7 +108,7 @@ def test_create_tenant_invalid_color_falls_back(test_app):
     login(client)
 
     resp = client.post(
-        "/api/tenants",
+        "/api/v1/tenants",
         json={"name": "Fallback", "color": "#123456"},
     )
     assert resp.status_code == 201
@@ -121,7 +121,7 @@ def test_create_tenant_color_without_hash_is_normalized(test_app):
     login(client)
 
     resp = client.post(
-        "/api/tenants",
+        "/api/v1/tenants",
         json={"name": "Normalized", "color": "10b981"},
     )
     assert resp.status_code == 201
@@ -163,7 +163,7 @@ def test_project_git_action(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.run_git_action", fake_git_action)
 
     response = client.post(
-        f"/api/projects/{project.id}/git",
+        f"/api/v1/projects/{project.id}/git",
         json={"action": "status"},
     )
 
@@ -193,7 +193,7 @@ def test_project_git_action_clean_pull(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.run_git_action", fake_git_action)
 
     response = client.post(
-        f"/api/projects/{project.id}/git",
+        f"/api/v1/projects/{project.id}/git",
         json={"action": "pull", "clean": True},
     )
 
@@ -240,7 +240,7 @@ def test_project_ai_session_lifecycle(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.close_session", fake_close_session)
 
     start_resp = client.post(
-        f"/api/projects/{project.id}/ai/sessions",
+        f"/api/v1/projects/{project.id}/ai/sessions",
         json={"prompt": "print('hello')"},
     )
     assert start_resp.status_code == 201
@@ -250,14 +250,14 @@ def test_project_ai_session_lifecycle(test_app, monkeypatch):
     assert captured["tmux_target"] is None
 
     input_resp = client.post(
-        f"/api/projects/{project.id}/ai/sessions/{session_id}/input",
+        f"/api/v1/projects/{project.id}/ai/sessions/{session_id}/input",
         json={"data": "continue\\n"},
     )
     assert input_resp.status_code == 200
     assert "status" in input_resp.get_json()
     assert sent_data[-1] == "continue\\n"
 
-    stop_resp = client.delete(f"/api/projects/{project.id}/ai/sessions/{session_id}")
+    stop_resp = client.delete(f"/api/v1/projects/{project.id}/ai/sessions/{session_id}")
     assert stop_resp.status_code == 204
     assert closed == ["session-123"]
 
@@ -282,14 +282,14 @@ def test_project_ai_session_resize(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.resize_session", fake_resize_session)
 
     ok_resp = client.post(
-        f"/api/projects/{project.id}/ai/sessions/session-resize/resize",
+        f"/api/v1/projects/{project.id}/ai/sessions/session-resize/resize",
         json={"rows": 42, "cols": 120},
     )
     assert ok_resp.status_code == 204
     assert resize_calls == [("session-resize", 42, 120)]
 
     bad_resp = client.post(
-        f"/api/projects/{project.id}/ai/sessions/session-resize/resize",
+        f"/api/v1/projects/{project.id}/ai/sessions/session-resize/resize",
         json={"rows": "bad", "cols": 10},
     )
     assert bad_resp.status_code == 400
@@ -311,7 +311,7 @@ def test_project_ai_session_attach_existing(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.create_session", fake_create_session)
 
     response = client.post(
-        f"/api/projects/{project.id}/ai/sessions",
+        f"/api/v1/projects/{project.id}/ai/sessions",
         json={"tmux_target": "aiops:tenant-shell"},
     )
     assert response.status_code == 201

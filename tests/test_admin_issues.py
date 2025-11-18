@@ -332,7 +332,7 @@ def test_api_issues_can_filter_by_project(client, login_admin, app):
         title="Sigma follow-up",
     )
 
-    response = client.get(f"/api/issues?project_id={project_id}")
+    response = client.get(f"/api/v1/issues?project_id={project_id}")
     assert response.status_code == 200
     data = response.get_json()
     assert data["count"] == 1

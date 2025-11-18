@@ -678,7 +678,7 @@
     button.textContent = 'Initializing...';
     statusEl.innerHTML = '<small style="color: var(--pico-color-azure-500);">Cloning repository...</small>';
 
-    fetch(`/api/projects/${projectId}/workspace/init`, {
+    fetch(`/api/v1/projects/${projectId}/workspace/init`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

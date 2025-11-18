@@ -1102,6 +1102,7 @@ def start_ai_session(project_id: int):
     rows = payload.get("rows")
     cols = payload.get("cols")
     tmux_target = (payload.get("tmux_target") or "").strip() or None
+    issue_id = payload.get("issue_id") or None
 
     rows = rows if isinstance(rows, int) and rows > 0 else None
     cols = cols if isinstance(cols, int) and cols > 0 else None
@@ -1117,6 +1118,7 @@ def start_ai_session(project_id: int):
             cols=cols,
             tmux_target=tmux_target,
             tmux_session_name=tmux_session_name,
+            issue_id=issue_id,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400

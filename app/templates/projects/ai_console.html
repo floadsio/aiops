@@ -132,6 +132,10 @@
 <script>
   const projectId = {{ project.id }};
   const requestedTmuxTarget = {{ requested_tmux_target|tojson }};
+
+  // Extract issue_id from URL parameters if present
+  const urlParams = new URLSearchParams(window.location.search);
+  const issueId = urlParams.get('issue_id') ? parseInt(urlParams.get('issue_id'), 10) : null;
   const terminalPanel = document.getElementById('terminal');
   const term = new Terminal({ cols: 100, rows: 30, scrollback: 2000, convertEol: false });
   const fitAddon = window.FitAddon && typeof window.FitAddon.FitAddon === 'function'
@@ -675,7 +679,8 @@
       command: command || null,
       prompt: '',
       cols,
-      rows
+      rows,
+      issue_id: issueId
     };
 
     if (selectedTmuxTarget && attachOnly) {

@@ -205,6 +205,7 @@ def get_session_summary(session: AISession) -> dict:
         "project_name": project.name if project else "Unknown",
         "user_id": session.user_id,
         "user_name": user.name if user else "Unknown",
+        "linux_username": user.linux_username if user else None,
         "issue_id": session.issue_id,
         "description": session.description,
         "command": session.command,

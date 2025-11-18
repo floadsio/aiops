@@ -730,6 +730,59 @@ def list_ai_sessions():
     )
 
 
+@api_bp.get("/ai/sessions/<int:db_session_id>/validate")
+def validate_ai_session(db_session_id: int):
+    """Validate if a session's tmux target still exists and mark inactive if not."""
+    from ..models import AISession as AISessionModel
+    from ..ai_sessions import session_exists
+
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    # Fetch the session from database
+    db_session = AISessionModel.query.get_or_404(db_session_id)
+
+    # Check admin permission for other users' sessions
+    is_admin = False
+    if hasattr(g, "api_user") and g.api_user:
+        is_admin = getattr(g.api_user, "is_admin", False)
+    elif current_user and current_user.is_authenticated:
+        is_admin = getattr(current_user, "is_admin", False)
+
+    # Verify user has access
+    if db_session.user_id != user_id and not is_admin:
+        return jsonify({"error": "Access denied."}), 403
+
+    # Check if the tmux target exists
+    if db_session.tmux_target:
+        exists = session_exists(db_session.tmux_target)
+
+        # If session doesn't exist but DB says it's active, mark it inactive
+        if not exists and db_session.is_active:
+            from datetime import datetime
+            from ..services.ai_session_service import end_session
+            end_session(db_session.id)
+
+            return jsonify({
+                "exists": False,
+                "marked_inactive": True,
+                "message": "Session no longer exists and has been marked inactive"
+            })
+
+        return jsonify({
+            "exists": exists,
+            "marked_inactive": False
+        })
+
+    # No tmux target means we can't validate
+    return jsonify({
+        "exists": False,
+        "marked_inactive": False,
+        "message": "No tmux target associated with this session"
+    })
+
+
 @api_bp.post("/ai/sessions/<int:db_session_id>/resume")
 def resume_ai_session(db_session_id: int):
     """Resume a previous AI session in its related tmux window."""

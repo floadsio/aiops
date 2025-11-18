@@ -415,6 +415,17 @@ class APIClient:
         data = self.get("ai/sessions", params=params)
         return data.get("sessions", [])
 
+    def validate_session(self, session_db_id: int) -> dict[str, Any]:
+        """Validate if a session's tmux target exists and mark inactive if not.
+
+        Args:
+            session_db_id: Database ID of the session to validate
+
+        Returns:
+            Validation result with 'exists' and 'marked_inactive' fields
+        """
+        return self.get(f"ai/sessions/{session_db_id}/validate")
+
     # Projects
     def list_projects(self, tenant_id: Optional[int] = None) -> list[dict[str, Any]]:
         """List projects."""

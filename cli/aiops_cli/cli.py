@@ -1581,25 +1581,17 @@ def sessions_attach(
     client = get_client(ctx)
 
     try:
-        all_sessions = []
+        # Use the global sessions endpoint to get all sessions from database
+        # Auto-enable all-users for admins
+        all_users = client.is_admin()
+        project_id = resolve_project_id(client, project) if project else None
 
-        # Fetch all sessions (need all_users=True to find any session)
-        if project:
-            project_id = resolve_project_id(client, project)
-            sessions = client.list_ai_sessions(project_id, all_users=True)
-            for session in sessions:
-                session["project_id"] = project_id
-            all_sessions.extend(sessions)
-        else:
-            projects = client.list_projects()
-            for idx, proj in enumerate(projects):
-                if idx > 0:
-                    time.sleep(0.1)
-                proj_id = proj["id"]
-                sessions = client.list_ai_sessions(proj_id, all_users=True)
-                for session in sessions:
-                    session["project_id"] = proj_id
-                all_sessions.extend(sessions)
+        all_sessions = client.list_all_sessions(
+            project_id=project_id,
+            all_users=all_users,
+            active_only=True,
+            limit=200,
+        )
 
         if not all_sessions:
             error_console.print("[red]Error:[/red] No active sessions found")
@@ -1627,14 +1619,33 @@ def sessions_attach(
             )
             sys.exit(1)
 
+        # Validate that the session's tmux target still exists
+        session_db_id = target_session.get("id")
+        if session_db_id:
+            validation = client.validate_session(session_db_id)
+            if not validation.get("exists"):
+                if validation.get("marked_inactive"):
+                    error_console.print(
+                        f"[red]Error:[/red] Session '{target}' no longer exists (tmux session terminated)"
+                    )
+                    error_console.print("[yellow]The session has been marked as inactive in the database.[/yellow]")
+                else:
+                    error_console.print(
+                        f"[red]Error:[/red] Cannot attach to session '{target}' - no tmux target available"
+                    )
+                sys.exit(1)
+
         console.print("\n[yellow]Attaching to session...[/yellow]")
         console.print("[dim]Press Ctrl+B then D to detach[/dim]\n")
+
+        # Use ssh_user from session metadata, or fallback to linux_username
+        ssh_user = target_session.get("ssh_user") or target_session.get("linux_username")
 
         attach_to_tmux_session(
             ctx,
             session_id=str(target_session.get("session_id")),
             tmux_target=target_session.get("tmux_target"),
-            ssh_user=target_session.get("ssh_user"),
+            ssh_user=ssh_user,
         )
 
     except APIError as exc:

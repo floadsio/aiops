@@ -695,11 +695,17 @@ def issues_sync(
     "attach_session",
     help="Attach to a session by ID/prefix or tmux target (see output table)",
 )
+@click.option(
+    "--all-users",
+    is_flag=True,
+    help="Show sessions for all users (admin only)",
+)
 @click.pass_context
 def issues_sessions(
     ctx: click.Context,
     project: Optional[str],
     attach_session: Optional[str],
+    all_users: bool,
 ) -> None:
     """List active AI sessions."""
     client = get_client(ctx)
@@ -710,7 +716,7 @@ def issues_sessions(
         if project:
             # Single project - resolve name to ID if needed
             project_id = resolve_project_id(client, project)
-            sessions = client.list_ai_sessions(project_id)
+            sessions = client.list_ai_sessions(project_id, all_users=all_users)
             # Add project info to each session
             for session in sessions:
                 session["project_id"] = project_id
@@ -720,7 +726,7 @@ def issues_sessions(
             projects = client.list_projects()
             for proj in projects:
                 proj_id = proj["id"]
-                sessions = client.list_ai_sessions(proj_id)
+                sessions = client.list_ai_sessions(proj_id, all_users=all_users)
                 # Add project info to each session
                 for session in sessions:
                     session["project_id"] = proj_id

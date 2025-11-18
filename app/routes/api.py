@@ -419,8 +419,20 @@ def list_project_ai_sessions(project_id: int):
 
     flask_system_user = pwd.getpwuid(os.getuid()).pw_name
 
-    # List sessions for this project and user
-    sessions = list_active_sessions(user_id=user_id, project_id=project_id)
+    # Check if request wants all users' sessions (admin only)
+    show_all_users = request.args.get("all_users", "false").lower() == "true"
+
+    # Admins can see all users' sessions, regular users only see their own
+    if show_all_users:
+        # Verify user is admin
+        from flask_login import current_user
+        if not (current_user and current_user.is_authenticated and current_user.is_admin):
+            return jsonify({"error": "Admin access required to view all users' sessions."}), 403
+        # List all sessions for this project (no user filter)
+        sessions = list_active_sessions(project_id=project_id)
+    else:
+        # List sessions for this project and user
+        sessions = list_active_sessions(user_id=user_id, project_id=project_id)
 
     # Convert to JSON-serializable format
     session_list = []

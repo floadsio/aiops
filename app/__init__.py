@@ -46,6 +46,18 @@ def create_app(
 
     app.config.setdefault("AIOPS_VERSION", __version__)
 
+    # Scan for recoverable tmux sessions on startup
+    @app.before_request
+    def scan_orphaned_sessions_once():
+        """Scan for orphaned tmux sessions on first request after startup."""
+        if not hasattr(app, "_orphaned_sessions_scanned"):
+            app._orphaned_sessions_scanned = True
+            try:
+                from .services.tmux_recovery import scan_and_log_orphaned_sessions
+                scan_and_log_orphaned_sessions()
+            except Exception as exc:  # noqa: BLE001
+                app.logger.warning("Failed to scan for orphaned sessions: %s", exc)
+
     return app
 
 

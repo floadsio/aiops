@@ -348,6 +348,9 @@ class AISession(BaseModel, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), nullable=False)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    issue_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("external_issues.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     tool: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     session_id: Mapped[str] = mapped_column(String(255), nullable=False)
     command: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -361,6 +364,7 @@ class AISession(BaseModel, TimestampMixin):
 
     project: Mapped["Project"] = relationship("Project")
     user: Mapped["User"] = relationship("User")
+    issue: Mapped[Optional["ExternalIssue"]] = relationship("ExternalIssue")
 
 
 class SystemConfig(BaseModel, TimestampMixin):

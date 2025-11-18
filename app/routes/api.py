@@ -676,7 +676,7 @@ def stop_project_ai_session(project_id: int, session_id: str):
 
 @api_bp.get("/ai/sessions")
 def list_ai_sessions():
-    """Get AI session history for the current user."""
+    """Get AI session history for the current user or all users (admin only)."""
     from ..services.ai_session_service import get_session_summary, get_user_sessions
 
     user_id = _current_user_id()
@@ -688,10 +688,22 @@ def list_ai_sessions():
     tool = request.args.get("tool")
     active_only = request.args.get("active_only", "false").lower() == "true"
     limit = request.args.get("limit", type=int, default=50)
+    all_users = request.args.get("all_users", "false").lower() == "true"
+
+    # Check admin permission for all_users
+    if all_users:
+        is_admin = False
+        if hasattr(g, "api_user") and g.api_user:
+            is_admin = getattr(g.api_user, "is_admin", False)
+        elif current_user and current_user.is_authenticated:
+            is_admin = getattr(current_user, "is_admin", False)
+
+        if not is_admin:
+            return jsonify({"error": "Admin access required to view all users' sessions."}), 403
 
     # Fetch sessions from database
     sessions = get_user_sessions(
-        user_id=user_id,
+        user_id=user_id if not all_users else None,
         project_id=project_id,
         tool=tool,
         active_only=active_only,

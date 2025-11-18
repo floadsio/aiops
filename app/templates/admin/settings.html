@@ -904,7 +904,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     }
 
     const fetchLogs = () => {
-      const lines = Math.max(50, Math.min(2000, parseInt(lineInput?.value || '400', 10) || 400));
+      const lines = Math.max(50, Math.min(2000, parseInt(lineInput?.value || '100', 10) || 100));
       if (status) {
         status.textContent = 'Fetching…';
       }
@@ -928,7 +928,8 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     };
 
     refreshButton.addEventListener('click', fetchLogs);
-    fetchLogs();
+    // Load logs on demand instead of automatically for better page load performance
+    output.textContent = 'Click "Refresh Logs" to load application logs';
   })();
 
 </script>

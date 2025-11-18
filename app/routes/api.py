@@ -24,7 +24,7 @@ from ..services.git_service import ensure_repo_checkout, get_repo_status, run_gi
 from ..services.tmux_service import session_name_for_user
 from ..services.issues.utils import normalize_issue_status
 
-api_bp = Blueprint("api", __name__, url_prefix="/api")
+api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
 
 @api_bp.before_request

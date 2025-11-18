@@ -3,176 +3,212 @@
 {% block extra_head %}
 <style>
   .status-container {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .controls-bar {
     display: flex;
-    flex-direction: column;
-    gap: 2rem;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 2rem;
   }
 
   .status-header {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    background: var(--pico-card-background-color);
-    border-radius: var(--pico-border-radius);
-    border-left: 4px solid var(--pico-primary);
+    margin-bottom: 2rem;
   }
 
-  .status-header.healthy {
-    border-left-color: #10b981;
+  .status-header article {
+    margin-bottom: 0;
   }
 
-  .status-header.unhealthy {
-    border-left-color: #ef4444;
+  .status-header.healthy article {
+    border-left: 4px solid var(--pico-ins-color);
+  }
+
+  .status-header.unhealthy article {
+    border-left: 4px solid var(--pico-del-color);
   }
 
   .status-icon {
     font-size: 2rem;
+    margin-right: 1rem;
   }
 
-  .status-info h1 {
+  .status-info h2 {
     margin: 0;
-    font-size: 1.5rem;
   }
 
   .status-info p {
-    margin: 0.25rem 0 0 0;
+    margin: 0.5rem 0 0 0;
     color: var(--pico-muted-color);
-  }
-
-  .components-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
+    font-size: 0.9rem;
   }
 
   .component-card {
-    padding: 1.5rem;
-    background: var(--pico-card-background-color);
-    border-radius: var(--pico-border-radius);
-    border-left: 4px solid var(--pico-muted-border-color);
+    height: 100%;
   }
 
-  .component-card.healthy {
-    border-left-color: #10b981;
+  .component-card article {
+    height: 100%;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
   }
 
-  .component-card.unhealthy {
-    border-left-color: #ef4444;
+  .component-card.healthy article {
+    border-left: 3px solid var(--pico-ins-color);
+  }
+
+  .component-card.unhealthy article {
+    border-left: 3px solid var(--pico-del-color);
   }
 
   .component-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
   }
 
   .component-title {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 600;
+    margin: 0;
   }
 
   .component-status-badge {
-    font-size: 1.25rem;
+    font-size: 1.5rem;
   }
 
   .component-message {
     color: var(--pico-muted-color);
+    font-size: 0.9rem;
     margin-bottom: 1rem;
   }
 
   .component-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+    flex: 1;
   }
 
   .detail-item {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem;
-    background: var(--pico-background-color);
-    border-radius: 4px;
-    font-size: 0.9rem;
+    align-items: center;
+    padding: 0.5rem 0;
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--pico-muted-border-color);
+  }
+
+  .detail-item:last-child {
+    border-bottom: none;
   }
 
   .detail-label {
     color: var(--pico-muted-color);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .detail-value {
     font-weight: 500;
+    text-align: right;
   }
 
-  .detail-item.available {
-    color: #10b981;
+  .detail-item.available .detail-label {
+    color: var(--pico-ins-color);
   }
 
-  .detail-item.unavailable {
-    color: #ef4444;
+  .detail-item.unavailable .detail-label {
+    color: var(--pico-muted-color);
+    opacity: 0.6;
   }
 
-  .detail-item.enabled {
-    color: #10b981;
+  .detail-item.enabled .detail-label {
+    color: var(--pico-ins-color);
   }
 
-  .detail-item.disabled {
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+
+  .summary-item {
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .summary-item strong {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .summary-item small {
     color: var(--pico-muted-color);
   }
 
-  .refresh-button {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
-  .auto-refresh {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    background: var(--pico-card-background-color);
-    border-radius: var(--pico-border-radius);
-  }
-
-  .controls {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
+  .spinning {
+    animation: spin 1s linear infinite;
   }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="status-container">
-  <div class="controls">
-    <button onclick="refreshStatus()" class="refresh-button">
+  <h1>System Status</h1>
+
+  <div class="controls-bar">
+    <button onclick="refreshStatus()" id="refresh-btn">
       <span id="refresh-icon">🔄</span>
-      Refresh Status
+      Refresh
     </button>
-    <div class="auto-refresh">
-      <label>
-        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()">
-        Auto-refresh (30s)
-      </label>
-    </div>
+    <label>
+      <input type="checkbox" id="auto-refresh" role="switch" onchange="toggleAutoRefresh()">
+      Auto-refresh (30s)
+    </label>
   </div>
 
   <div id="status-content">
     <div class="status-header" id="overall-status">
-      <div class="status-icon" id="overall-icon">⏳</div>
-      <div class="status-info">
-        <h1 id="overall-title">Loading System Status...</h1>
-        <p id="overall-timestamp"></p>
-      </div>
+      <article>
+        <div style="display: flex; align-items: center;">
+          <span class="status-icon" id="overall-icon">⏳</span>
+          <div class="status-info">
+            <h2 id="overall-title">Loading System Status...</h2>
+            <p id="overall-timestamp"></p>
+          </div>
+        </div>
+      </article>
     </div>
 
-    <div class="components-grid" id="components-grid">
+    <div class="grid" id="components-grid">
       <!-- Components will be loaded here -->
+    </div>
+
+    <div class="summary-grid" id="summary-section" style="display: none;">
+      <article class="summary-item">
+        <strong id="healthy-count">-</strong>
+        <small>Healthy</small>
+      </article>
+      <article class="summary-item">
+        <strong id="unhealthy-count">-</strong>
+        <small>Unhealthy</small>
+      </article>
+      <article class="summary-item">
+        <strong id="total-count">-</strong>
+        <small>Total</small>
+      </article>
     </div>
   </div>
 </div>
@@ -181,8 +217,10 @@
 let autoRefreshInterval = null;
 
 async function refreshStatus() {
+  const refreshBtn = document.getElementById('refresh-btn');
   const refreshIcon = document.getElementById('refresh-icon');
-  refreshIcon.style.animation = 'spin 1s linear infinite';
+  refreshIcon.classList.add('spinning');
+  refreshBtn.disabled = true;
 
   try {
     const response = await fetch('/api/v1/system/status', {
@@ -201,7 +239,8 @@ async function refreshStatus() {
     console.error('Error fetching status:', error);
     document.getElementById('overall-title').textContent = 'Error Loading Status';
   } finally {
-    refreshIcon.style.animation = '';
+    refreshIcon.classList.remove('spinning');
+    refreshBtn.disabled = false;
   }
 }
 
@@ -215,15 +254,22 @@ function updateStatusDisplay(data) {
   if (data.healthy) {
     overallStatus.className = 'status-header healthy';
     overallIcon.textContent = '✅';
-    overallTitle.textContent = 'System Status: Healthy';
+    overallTitle.textContent = 'System Status: All Systems Operational';
   } else {
     overallStatus.className = 'status-header unhealthy';
-    overallIcon.textContent = '❌';
-    overallTitle.textContent = 'System Status: Unhealthy';
+    overallIcon.textContent = '⚠️';
+    overallTitle.textContent = 'System Status: Issues Detected';
   }
 
   const timestamp = new Date(data.timestamp);
-  overallTimestamp.textContent = `Last updated: ${timestamp.toLocaleString()}`;
+  overallTimestamp.textContent = `Last checked: ${timestamp.toLocaleString()}`;
+
+  // Update summary
+  const summary = data.summary || {};
+  document.getElementById('healthy-count').textContent = summary.healthy_components || 0;
+  document.getElementById('unhealthy-count').textContent = summary.unhealthy_components || 0;
+  document.getElementById('total-count').textContent = summary.total_components || 0;
+  document.getElementById('summary-section').style.display = 'grid';
 
   // Update components
   const componentsGrid = document.getElementById('components-grid');
@@ -246,14 +292,13 @@ function createComponentCard(name, component) {
 
   const displayName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-  card.innerHTML = `
+  const article = document.createElement('article');
+  article.innerHTML = `
     <div class="component-header">
-      <div class="component-title">
-        ${displayName}
-      </div>
-      <div class="component-status-badge">
+      <h3 class="component-title">${displayName}</h3>
+      <span class="component-status-badge">
         ${component.healthy ? '✅' : '❌'}
-      </div>
+      </span>
     </div>
     <div class="component-message">
       ${component.message}
@@ -261,6 +306,7 @@ function createComponentCard(name, component) {
     ${component.details ? createDetailsHTML(name, component.details) : ''}
   `;
 
+  card.appendChild(article);
   return card;
 }
 
@@ -270,10 +316,13 @@ function createDetailsHTML(componentName, details) {
   if (componentName === 'ai_tools' && details.tools) {
     Object.entries(details.tools).forEach(([tool, info]) => {
       const status = info.available ? 'available' : 'unavailable';
-      const icon = info.available ? '✓' : '✗';
+      const icon = info.available ? '✓' : '○';
       html += `
         <div class="detail-item ${status}">
-          <span class="detail-label">${icon} ${tool}</span>
+          <span class="detail-label">
+            <span>${icon}</span>
+            <span>${tool}</span>
+          </span>
           <span class="detail-value">${info.available ? 'Available' : 'Not Found'}</span>
         </div>
       `;
@@ -284,7 +333,10 @@ function createDetailsHTML(componentName, details) {
       const icon = info.enabled ? '✓' : '○';
       html += `
         <div class="detail-item ${status}">
-          <span class="detail-label">${icon} ${name}</span>
+          <span class="detail-label">
+            <span>${icon}</span>
+            <span>${name}</span>
+          </span>
           <span class="detail-value">${info.provider}</span>
         </div>
       `;
@@ -328,16 +380,6 @@ function toggleAutoRefresh() {
     }
   }
 }
-
-// Add spin animation
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
-`;
-document.head.appendChild(style);
 
 // Load initial status
 refreshStatus();

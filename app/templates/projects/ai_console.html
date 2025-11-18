@@ -416,7 +416,10 @@
 
   const storedContext = consumeStoredContext();
   const shouldAutoStart = applySessionContext(storedContext);
-  let autoStartPending = shouldAutoStart && !requestedTmuxTarget;
+  // Auto-start if context says to, even if there's a requested tmux target
+  // Only skip auto-start if tmux target came from URL (not from stored context)
+  const tmuxTargetFromUrl = requestedTmuxTarget && !storedContext;
+  let autoStartPending = shouldAutoStart && !tmuxTargetFromUrl;
 
   function base64ToBytes(payload) {
     const binary = atob(payload);

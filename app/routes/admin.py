@@ -1024,7 +1024,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
         cards.append(
             {
                 "key": "codex",
-                "title": "Codex CLI",
+                "title": "💻 Codex CLI",
                 "description": "Install or upgrade the Codex CLI without shell access.",
                 "actions": codex_actions,
                 "versions": None,  # Load versions on-demand for better page performance
@@ -1055,7 +1055,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
         cards.append(
             {
                 "key": "gemini",
-                "title": "Gemini CLI",
+                "title": "✨ Gemini CLI",
                 "description": "Upgrade the Gemini CLI for browser-based terminals.",
                 "actions": gemini_actions,
                 "versions": None,  # Load versions on-demand for better page performance
@@ -1086,7 +1086,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
         cards.append(
             {
                 "key": "claude",
-                "title": "Claude CLI",
+                "title": "🤖 Claude CLI",
                 "description": "Keep the Claude CLI current for tmux and browser sessions.",
                 "actions": claude_actions,
                 "versions": None,  # Load versions on-demand for better page performance

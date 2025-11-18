@@ -1641,8 +1641,8 @@ def sessions_attach(
         console.print("\n[yellow]Attaching to session...[/yellow]")
         console.print("[dim]Press Ctrl+B then D to detach[/dim]\n")
 
-        # Use ssh_user from session metadata, or fallback to linux_username
-        ssh_user = target_session.get("ssh_user") or target_session.get("linux_username")
+        # Use tmux_server_user (Flask process user) for SSH, not linux_username (process owner inside tmux)
+        ssh_user = target_session.get("tmux_server_user") or target_session.get("ssh_user")
 
         attach_to_tmux_session(
             ctx,
@@ -2130,7 +2130,7 @@ def system_status(ctx: click.Context, output: Optional[str]) -> None:
 
             # Summary
             summary = status.get("summary", {})
-            console.print(f"\n[bold]Summary:[/bold]")
+            console.print("\n[bold]Summary:[/bold]")
             console.print(f"  Healthy: {summary.get('healthy_components', 0)}/{summary.get('total_components', 0)} components")
             console.print(f"  Timestamp: {status.get('timestamp', 'N/A')}")
 

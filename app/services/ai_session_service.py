@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime
 from typing import Optional
@@ -204,6 +205,10 @@ def get_session_summary(session: AISession) -> dict:
         linux_username = user.linux_username if user else None
         pane_dead = is_pane_dead(session.tmux_target, linux_username=linux_username)
 
+    # Get tmux server owner - always the Flask process user
+    import pwd
+    tmux_server_user = pwd.getpwuid(os.getuid()).pw_name
+
     return {
         "id": session.id,
         "tool": session.tool,
@@ -213,6 +218,7 @@ def get_session_summary(session: AISession) -> dict:
         "user_id": session.user_id,
         "user_name": user.name if user else "Unknown",
         "linux_username": user.linux_username if user else None,
+        "tmux_server_user": tmux_server_user,
         "issue_id": session.issue_id,
         "description": session.description,
         "command": session.command,

@@ -826,7 +826,7 @@
 
         const setSidebarCollapsed = (collapsed, persist = false) => {
           document.body.setAttribute("data-sidebar-collapsed", collapsed ? "true" : "false");
-          sidebarCollapseIcon.textContent = collapsed ? "☰" : "✕";
+          sidebarCollapseIcon.textContent = collapsed ? "☰" : "«";
           sidebarCollapseToggle.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
           if (persist && window.localStorage) {
             try {

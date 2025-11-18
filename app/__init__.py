@@ -46,6 +46,25 @@ def create_app(
 
     app.config.setdefault("AIOPS_VERSION", __version__)
 
+    # Ensure tmux server is running independently
+    @app.before_request
+    def ensure_tmux_server_once():
+        """Ensure tmux server is running on first request."""
+        if not hasattr(app, "_tmux_server_started"):
+            app._tmux_server_started = True
+            try:
+                import subprocess
+                # Start tmux server if not running (daemonizes automatically)
+                subprocess.run(
+                    ["tmux", "start-server"],
+                    check=False,
+                    capture_output=True,
+                    timeout=5,
+                )
+                app.logger.info("Tmux server ensured")
+            except Exception as exc:  # noqa: BLE001
+                app.logger.warning("Failed to ensure tmux server: %s", exc)
+
     # Scan for recoverable tmux sessions on startup
     @app.before_request
     def scan_orphaned_sessions_once():

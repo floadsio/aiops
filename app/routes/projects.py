@@ -1303,6 +1303,54 @@ def close_tmux_window(project_id: int):
     return redirect(redirect_target)
 
 
+@projects_bp.route("/<int:project_id>/tmux/respawn", methods=["POST"])
+@login_required
+def respawn_tmux_pane(project_id: int):
+    """Respawn a dead tmux pane with its original command."""
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        if request.is_json:
+            return jsonify({"error": "Access denied"}), 403
+        flash("You do not have access to this project.", "danger")
+        return redirect(request.form.get("next") or url_for("admin.dashboard"))
+
+    if request.is_json:
+        payload = request.get_json(silent=True) or {}
+        tmux_target = (payload.get("tmux_target") or "").strip()
+    else:
+        tmux_target = (request.form.get("tmux_target") or "").strip()
+
+    if not tmux_target:
+        if request.is_json:
+            return jsonify({"error": "Invalid tmux target."}), 400
+        flash("Invalid tmux target.", "warning")
+        redirect_target = request.form.get("next") or url_for("admin.dashboard")
+        return redirect(redirect_target)
+
+    linux_username = _current_linux_username()
+    try:
+        from ..services.tmux_service import is_pane_dead, respawn_pane
+
+        if not is_pane_dead(tmux_target, linux_username=linux_username):
+            if request.is_json:
+                return jsonify({"error": "Pane is not dead, cannot respawn."}), 400
+            flash("Pane is still alive, no need to respawn.", "warning")
+        else:
+            respawn_pane(tmux_target, linux_username=linux_username)
+            if not request.is_json:
+                flash(f"Respawned tmux pane {tmux_target}.", "success")
+    except TmuxServiceError as exc:
+        if request.is_json:
+            return jsonify({"error": str(exc)}), 500
+        flash(str(exc), "danger")
+
+    if request.is_json:
+        return jsonify({"success": True})
+
+    redirect_target = request.form.get("next") or url_for("admin.dashboard")
+    return redirect(redirect_target)
+
+
 @projects_bp.route("/<int:project_id>/ansible", methods=["GET", "POST"])
 @login_required
 def project_ansible_console(project_id: int):

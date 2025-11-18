@@ -89,7 +89,6 @@ from ..services.agent_context import (
 )
 from ..services.ai_cli_update_service import (
     CLICommandError,
-    get_ai_tool_versions,
     run_ai_tool_update,
 )
 from ..services.backup_service import (
@@ -649,6 +648,7 @@ def dashboard():
     recent_tmux_error: str | None = None
     window_project_map: dict[str, dict[str, Any]] = {}
     tmux_session_name = _current_tmux_session_name()
+    linux_username = _current_linux_username()
 
     def _status_sort_key(item: tuple[str, str]) -> tuple[int, str]:
         key, label = item
@@ -712,6 +712,11 @@ def dashboard():
                 ):
                     last_activity = window_created
                 tool_label = get_tmux_tool(window.target)
+
+                # Check if pane is dead
+                from ..services.tmux_service import is_pane_dead
+                pane_is_dead = is_pane_dead(window.target, linux_username=linux_username)
+
                 tmux_windows.append(
                     {
                         "session": window.session_name,
@@ -730,6 +735,7 @@ def dashboard():
                         "tenant_color": tenant_color,
                         "tool": tool_label,
                         "ssh_keys": get_tmux_ssh_keys(window.target),
+                        "pane_dead": pane_is_dead,
                     }
                 )
                 if window.target:
@@ -905,6 +911,11 @@ def dashboard():
                 if window.created
                 else None
             )
+
+            # Check if pane is dead
+            from ..services.tmux_service import is_pane_dead
+            pane_is_dead = is_pane_dead(window.target, linux_username=linux_username)
+
             recent_tmux_windows.append(
                 {
                     "session": window.session_name,
@@ -916,6 +927,7 @@ def dashboard():
                     "tool": get_tmux_tool(window.target),
                     "ssh_keys": get_tmux_ssh_keys(window.target),
                     "project": window_project_map.get(window.target),
+                    "pane_dead": pane_is_dead,
                 }
             )
             if window.target:

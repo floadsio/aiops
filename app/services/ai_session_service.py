@@ -197,6 +197,13 @@ def get_session_summary(session: AISession) -> dict:
     else:
         elapsed = (datetime.utcnow() - session.started_at).total_seconds()
 
+    # Check if pane is dead
+    pane_dead = False
+    if session.tmux_target and session.is_active:
+        from ..services.tmux_service import is_pane_dead
+        linux_username = user.linux_username if user else None
+        pane_dead = is_pane_dead(session.tmux_target, linux_username=linux_username)
+
     return {
         "id": session.id,
         "tool": session.tool,
@@ -216,4 +223,5 @@ def get_session_summary(session: AISession) -> dict:
         "elapsed_seconds": int(elapsed),
         "branch": branch,
         "resume_command": build_resume_command(session),
+        "pane_dead": pane_dead,
     }

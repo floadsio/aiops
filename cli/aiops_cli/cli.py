@@ -1540,6 +1540,7 @@ def sessions_list(
         table.add_column("Session ID", style="cyan", no_wrap=True, width=15)
         table.add_column("Issue", style="magenta", no_wrap=True, width=8)
         table.add_column("Tool", style="green", no_wrap=True, width=10)
+        table.add_column("Status", style="white", no_wrap=True, width=8)
         if not project:
             table.add_column("Project", style="yellow", no_wrap=True, width=12)
         table.add_column("Tmux Target", style="blue", overflow="fold")
@@ -1549,12 +1550,14 @@ def sessions_list(
             issue_id = str(session.get("issue_id") or "-")
             tool_name = session.get("tool", "unknown")
             tmux_target = session.get("tmux_target", "")
+            pane_dead = session.get("pane_dead", False)
+            status = "[red]dead[/red]" if pane_dead else "[green]alive[/green]"
 
             if project:
-                table.add_row(session_id, issue_id, tool_name, tmux_target)
+                table.add_row(session_id, issue_id, tool_name, status, tmux_target)
             else:
                 project_name = session.get("project_name", str(session.get("project_id", "-")))
-                table.add_row(session_id, issue_id, tool_name, project_name, tmux_target)
+                table.add_row(session_id, issue_id, tool_name, status, project_name, tmux_target)
 
         console.print(table)
 
@@ -1647,6 +1650,91 @@ def sessions_attach(
             tmux_target=target_session.get("tmux_target"),
             ssh_user=ssh_user,
         )
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@sessions.command(name="respawn")
+@click.argument("target")
+@click.option("--project", help="Filter by project ID or name")
+@click.pass_context
+def sessions_respawn(
+    ctx: click.Context,
+    target: str,
+    project: Optional[str],
+) -> None:
+    """Respawn a dead pane for a session.
+
+    Restarts the pane with its original command. Only works for dead panes.
+
+    Examples:
+        aiops sessions respawn cb3877c65dbd
+        aiops sessions respawn user:aiops-p6
+    """
+    client = get_client(ctx)
+
+    try:
+        # Use the global sessions endpoint to get all sessions from database
+        # Auto-enable all-users for admins
+        all_users = client.is_admin()
+        project_id = resolve_project_id(client, project) if project else None
+
+        all_sessions = client.list_all_sessions(
+            project_id=project_id,
+            all_users=all_users,
+            active_only=True,
+            limit=200,
+        )
+
+        if not all_sessions:
+            error_console.print("[red]Error:[/red] No active sessions found")
+            sys.exit(1)
+
+        # Find matching session
+        identifier = target.strip()
+        if identifier.endswith("..."):
+            identifier = identifier[:-3]
+
+        target_session = None
+        for session in all_sessions:
+            sid = str(session.get("session_id", ""))
+            tmux_target = session.get("tmux_target", "")
+            if identifier and (sid == identifier or sid.startswith(identifier)):
+                target_session = session
+                break
+            if identifier and tmux_target == identifier:
+                target_session = session
+                break
+
+        if not target_session:
+            error_console.print(
+                f"[red]Error:[/red] Session '{target}' not found"
+            )
+            sys.exit(1)
+
+        # Check if pane is dead
+        pane_dead = target_session.get("pane_dead", False)
+        if not pane_dead:
+            error_console.print(
+                f"[yellow]Warning:[/yellow] Session '{target}' is still alive, no need to respawn"
+            )
+            sys.exit(0)
+
+        # Call respawn API
+        session_project_id = target_session.get("project_id")
+        tmux_target_str = target_session.get("tmux_target")
+
+        if not session_project_id or not tmux_target_str:
+            error_console.print("[red]Error:[/red] Session missing project or tmux target")
+            sys.exit(1)
+
+        url = f"projects/{session_project_id}/tmux/respawn"
+        payload = {"tmux_target": tmux_target_str}
+
+        client.post(url, json_data=payload)
+        console.print(f"[green]✓[/green] Successfully respawned pane: {tmux_target_str}")
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")

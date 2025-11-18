@@ -1064,15 +1064,33 @@
         </div>
         <div class="issue-row-actions">
           {% if project %}
-            <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=claude&issue_id={{ issue.id }}" class="secondary">
+            <button
+              type="button"
+              class="secondary start-ai-session-btn"
+              data-project-id="{{ project.id }}"
+              data-issue-id="{{ issue.id }}"
+              data-tool="claude"
+            >
               🤖 Claude
-            </a>
-            <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=codex&issue_id={{ issue.id }}" class="secondary">
+            </button>
+            <button
+              type="button"
+              class="secondary start-ai-session-btn"
+              data-project-id="{{ project.id }}"
+              data-issue-id="{{ issue.id }}"
+              data-tool="codex"
+            >
               💻 Codex
-            </a>
-            <a href="{{ url_for('projects.project_ai_console', project_id=project.id) }}?tool=gemini&issue_id={{ issue.id }}" class="secondary">
+            </button>
+            <button
+              type="button"
+              class="secondary start-ai-session-btn"
+              data-project-id="{{ project.id }}"
+              data-issue-id="{{ issue.id }}"
+              data-tool="gemini"
+            >
               ✨ Gemini
-            </a>
+            </button>
             <button
               type="button"
               class="secondary outline close-pinned-issue-btn"
@@ -1742,6 +1760,40 @@
 
   // Close Pinned Issue Handler
   (function () {
+    // Handle AI session start buttons
+    const startAIButtons = document.querySelectorAll('.start-ai-session-btn');
+    startAIButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const projectId = button.dataset.projectId;
+        const issueId = button.dataset.issueId;
+        const tool = button.dataset.tool;
+
+        if (!projectId || !issueId || !tool) {
+          return;
+        }
+
+        // Prepare context for auto-start
+        const context = {
+          tool: tool,
+          autoStart: true,
+          prompt: '',
+          command: '',
+          tmuxTarget: null,
+        };
+
+        // Store in sessionStorage
+        const storageKey = `aiops-session-context-${projectId}`;
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify(context));
+        } catch (error) {
+          console.error('Failed to store session context:', error);
+        }
+
+        // Navigate to AI console with issue_id
+        window.location.href = `/projects/${projectId}/ai-console?issue_id=${issueId}`;
+      });
+    });
+
     const closePinnedIssueButtons = document.querySelectorAll('.close-pinned-issue-btn');
     if (!closePinnedIssueButtons.length) {
       return;

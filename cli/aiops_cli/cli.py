@@ -3,7 +3,7 @@
 import subprocess
 import sys
 import time
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import click
@@ -816,6 +816,91 @@ def issues_sessions(
             )
 
     except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@issues.command(name="start")
+@click.option("--project", help="Project ID or name (required if multiple projects)")
+@click.option("--issue", type=int, help="Issue ID to work on")
+@click.option("--tool", type=click.Choice(["claude", "codex", "gemini", "shell"]), help="AI tool to use")
+@click.option("--prompt", help="Initial prompt to send to the AI")
+@click.option("--attach", is_flag=True, default=True, help="Attach to session after starting (default: true)")
+@click.pass_context
+def issues_start(
+    ctx: click.Context,
+    project: Optional[str],
+    issue: Optional[int],
+    tool: Optional[str],
+    prompt: Optional[str],
+    attach: bool,
+) -> None:
+    """Start a new AI session on a project.
+
+    Examples:
+        aiops issues start --project aiops --tool shell
+        aiops issues start --project 6 --issue 123 --tool claude
+        aiops issues start --project aiops --tool codex --prompt "Review code"
+    """
+    client = get_client(ctx)
+
+    try:
+        if not project:
+            error_console.print("[red]Error:[/red] --project is required")
+            sys.exit(1)
+
+        # Resolve project
+        project_id = resolve_project_id(client, project)
+
+        # Start AI session
+        payload: dict[str, Any] = {}
+        if issue:
+            payload["issue_id"] = issue
+        if tool:
+            payload["tool"] = tool
+        if prompt:
+            payload["prompt"] = prompt
+
+        url = f"{client.base_url}/api/projects/{project_id}/ai/sessions"
+        response = client.session.post(url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        session_id = result.get("session_id")
+        workspace_path = result.get("workspace_path")
+        ssh_user = result.get("ssh_user")
+        tmux_target = result.get("tmux_target")
+        is_existing = result.get("existing", False)
+
+        if is_existing:
+            console.print(f"[green]✓[/green] Reusing existing session (session ID: {session_id})")
+        else:
+            console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
+
+        if workspace_path:
+            console.print(f"[blue]Workspace:[/blue] {workspace_path}")
+        if tmux_target:
+            console.print(f"[blue]Tmux target:[/blue] {tmux_target}")
+
+        # Attach if requested
+        if attach and tmux_target:
+            console.print("\n[yellow]Attaching to tmux session...[/yellow]")
+            console.print("[dim]Press Ctrl+B then D to detach from tmux[/dim]\n")
+            attach_to_tmux_session(
+                ctx,
+                session_id=session_id,
+                tmux_target=tmux_target,
+                ssh_user=ssh_user,
+            )
+        elif tmux_target:
+            console.print(
+                f"\n[yellow]To attach:[/yellow] aiops issues sessions --attach {tmux_target}"
+            )
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except Exception as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
 

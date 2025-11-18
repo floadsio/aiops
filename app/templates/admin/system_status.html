@@ -3,8 +3,24 @@
 {% block extra_head %}
 <style>
   .status-container {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
+  }
+
+  #components-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  @media (max-width: 992px) {
+    #components-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    #components-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .controls-bar {

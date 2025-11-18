@@ -102,14 +102,24 @@ aiops issues list
 # Start AI session on an issue (claims, starts session, populates context)
 aiops issues work 501 --tool claude
 
+# Start AI session without an issue
+aiops issues start --project aiops --tool shell
+
+# Admin: Start session as another user (for testing/support)
+aiops issues start --project aiops --tool codex --user user@example.com
+
 # Start AI session and attach to remote tmux session via SSH
 aiops issues work 501 --tool claude --attach
 
 # List active AI sessions for a project
 aiops issues sessions --project 1
 
-# Attach directly to a running AI session by ID/prefix
+# Admin: List all users' sessions
+aiops issues sessions --all-users
+
+# Attach directly to a running AI session by ID/prefix or tmux target
 aiops issues sessions --attach cb3877c65dbd
+aiops issues sessions --attach user:aiops-p6
 
 # View issue details
 aiops issues view 501
@@ -120,6 +130,29 @@ aiops system backup list
 aiops system backup download <id>
 aiops system backup restore <id>
 ```
+
+### Admin Session Management
+
+Administrators can start and manage sessions as other users for testing, debugging, and support purposes:
+
+```bash
+# Start a session as another user (by email or ID)
+aiops issues start --project myproject --tool shell --user user@example.com
+aiops issues start --project 6 --tool codex --user 5
+
+# View all users' sessions (admin only)
+aiops issues sessions --all-users
+
+# Attach to any user's session
+aiops issues sessions --attach user:aiops-p6
+```
+
+**Key features:**
+- Sessions run with the target user's UID, workspace, and SSH keys
+- Security: Only admins can use the `--user` flag (non-admins get 403 Forbidden)
+- Flexibility: Specify users by email address or database ID
+- Auto-attach: Sessions attach by default (use `--no-attach` to skip)
+- **Critical functionality**: Thoroughly tested in `tests/test_admin_session_creation.py`
 
 ### Remote Session Attachment
 

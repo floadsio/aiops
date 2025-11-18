@@ -91,12 +91,18 @@ def get_timeout(
 def get_effective_credentials(
     integration: TenantIntegration,
     project_integration: ProjectIntegration | None = None,
+    user_id: int | None = None,
 ) -> tuple[str, str | None, dict[str, Any]]:
     """
-    Get effective credentials for a provider, with per-project overrides.
+    Get effective credentials for a provider, with per-project and per-user overrides.
+
+    Args:
+        integration: The tenant integration
+        project_integration: Optional project-level integration config
+        user_id: Optional user ID for user-specific credentials
 
     Returns:
-        tuple: (api_token, base_url, settings) where project overrides take precedence
+        tuple: (api_token, base_url, settings) where user > project > tenant precedence
     """
     # Start with tenant-level defaults
     api_token = integration.api_token
@@ -113,24 +119,42 @@ def get_effective_credentials(
             # Merge settings: project overrides take precedence
             settings = {**settings, **project_integration.override_settings}
 
+    # Apply user-level overrides if authenticated (highest precedence)
+    if user_id:
+        from ...models import UserIntegrationCredential
+        user_cred = UserIntegrationCredential.query.filter_by(
+            user_id=user_id, integration_id=integration.id
+        ).first()
+        if user_cred:
+            api_token = user_cred.api_token
+            if user_cred.settings:
+                # Merge settings: user overrides take highest precedence
+                settings = {**settings, **user_cred.settings}
+
     return api_token, base_url, settings
 
 
 def get_effective_integration(
     integration: TenantIntegration,
     project_integration: ProjectIntegration | None = None,
+    user_id: int | None = None,
 ) -> IntegrationLike:
     """
-    Create an effective integration object with per-project credential overrides applied.
+    Create an effective integration object with per-project and per-user credential overrides.
 
     This returns a namespace object that mimics TenantIntegration but with
-    project-specific credentials merged in. Use this for provider instantiation.
+    project and user-specific credentials merged in. Use this for provider instantiation.
+
+    Args:
+        integration: The tenant integration
+        project_integration: Optional project-level integration config
+        user_id: Optional user ID for user-specific credentials
 
     Returns:
         SimpleNamespace: Integration-like object with effective credentials
     """
     api_token, base_url, settings = get_effective_credentials(
-        integration, project_integration
+        integration, project_integration, user_id
     )
 
     return SimpleNamespace(

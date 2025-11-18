@@ -67,6 +67,13 @@ class User(BaseModel, TimestampMixin):
         "SSHKey", back_populates="user", cascade="all, delete-orphan"
     )
     projects: Mapped[list["Project"]] = relationship("Project", back_populates="owner")
+    user_integration_credentials: Mapped[list["UserIntegrationCredential"]] = (
+        relationship(
+            "UserIntegrationCredential",
+            back_populates="user",
+            cascade="all, delete-orphan",
+        )
+    )
 
 
 class SSHKey(BaseModel, TimestampMixin):
@@ -291,6 +298,38 @@ class PinnedIssue(BaseModel):
 
     user: Mapped["User"] = relationship("User")
     issue: Mapped["ExternalIssue"] = relationship("ExternalIssue")
+
+
+class UserIntegrationCredential(BaseModel, TimestampMixin):
+    """User-specific credentials for issue integrations.
+
+    Allows users to override integration credentials with their personal tokens
+    so that comments and issues are created under their account instead of the bot.
+    """
+
+    __tablename__ = "user_integration_credentials"
+    __table_args__ = (
+        UniqueConstraint("user_id", "integration_id", name="uq_user_integration_cred"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    integration_id: Mapped[int] = mapped_column(
+        ForeignKey("tenant_integrations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    api_token: Mapped[str] = mapped_column(Text, nullable=False)
+    settings: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        db.JSON, nullable=True
+    )
+
+    user: Mapped["User"] = relationship(
+        "User", back_populates="user_integration_credentials"
+    )
+    integration: Mapped["TenantIntegration"] = relationship("TenantIntegration")
 
 
 class AISession(BaseModel, TimestampMixin):

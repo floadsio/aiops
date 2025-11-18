@@ -110,6 +110,13 @@ class Config:
         "true",
         "yes",
     }
+    ENABLE_PERSISTENT_SESSIONS = os.getenv(
+        "ENABLE_PERSISTENT_SESSIONS", "true"
+    ).lower() in {
+        "1",
+        "true",
+        "yes",
+    }
     TMUX_CONFIG_PATH = os.getenv(
         "TMUX_CONFIG_PATH",
         str((INSTANCE_DIR / "tmux.conf").resolve()),

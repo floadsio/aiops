@@ -7,16 +7,6 @@
     margin: 0 auto;
   }
 
-  #components-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (max-width: 768px) {
-    #components-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-
   .controls-bar {
     display: flex;
     gap: 1rem;
@@ -55,89 +45,28 @@
     font-size: 0.9rem;
   }
 
-  .component-card {
-    height: 100%;
-  }
-
-  .component-card article {
-    height: 100%;
-    margin-bottom: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .component-card.healthy article {
-    border-left: 3px solid var(--pico-ins-color);
-  }
-
-  .component-card.unhealthy article {
-    border-left: 3px solid var(--pico-del-color);
-  }
-
-  .component-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--pico-muted-border-color);
-  }
-
-  .component-title {
-    font-size: 1rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .component-status-badge {
-    font-size: 1.5rem;
-  }
-
   .component-message {
     color: var(--pico-muted-color);
     font-size: 0.9rem;
     margin-bottom: 1rem;
   }
 
-  .component-details {
-    flex: 1;
-  }
-
-  .detail-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.5rem 0;
-    font-size: 0.875rem;
-    border-bottom: 1px solid var(--pico-muted-border-color);
-  }
-
-  .detail-item:last-child {
-    border-bottom: none;
-  }
-
   .detail-label {
-    color: var(--pico-muted-color);
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
 
-  .detail-value {
-    font-weight: 500;
-    text-align: right;
-  }
-
-  .detail-item.available .detail-label {
+  .detail-row.available .detail-label {
     color: var(--pico-ins-color);
   }
 
-  .detail-item.unavailable .detail-label {
+  .detail-row.unavailable .detail-label {
     color: var(--pico-muted-color);
     opacity: 0.6;
   }
 
-  .detail-item.enabled .detail-label {
+  .detail-row.enabled .detail-label {
     color: var(--pico-ins-color);
   }
 
@@ -202,7 +131,7 @@
       </article>
     </div>
 
-    <div class="grid" id="components-grid">
+    <div class="card-grid" id="components-grid">
       <!-- Components will be loaded here -->
     </div>
 
@@ -298,22 +227,25 @@ function updateStatusDisplay(data) {
 
 function createComponentCard(name, component) {
   const card = document.createElement('div');
-  card.className = `component-card ${component.healthy ? 'healthy' : 'unhealthy'}`;
+  const accentClass = component.healthy ? 'accent-green' : 'accent-red';
+  card.className = `clean-card ${accentClass}`;
 
   const displayName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   const article = document.createElement('article');
   article.innerHTML = `
-    <div class="component-header">
-      <h3 class="component-title">${displayName}</h3>
-      <span class="component-status-badge">
+    <div class="card-header">
+      <h3 class="card-title">${displayName}</h3>
+      <span class="card-badge">
         ${component.healthy ? '✅' : '❌'}
       </span>
     </div>
-    <div class="component-message">
-      ${component.message}
+    <div class="card-content">
+      <div class="component-message">
+        ${component.message}
+      </div>
+      ${component.details ? createDetailsHTML(name, component.details) : ''}
     </div>
-    ${component.details ? createDetailsHTML(name, component.details) : ''}
   `;
 
   card.appendChild(article);
@@ -321,14 +253,14 @@ function createComponentCard(name, component) {
 }
 
 function createDetailsHTML(componentName, details) {
-  let html = '<div class="component-details">';
+  let html = '';
 
   if (componentName === 'ai_tools' && details.tools) {
     Object.entries(details.tools).forEach(([tool, info]) => {
       const status = info.available ? 'available' : 'unavailable';
       const icon = info.available ? '✓' : '○';
       html += `
-        <div class="detail-item ${status}">
+        <div class="detail-row ${status}">
           <span class="detail-label">
             <span>${icon}</span>
             <span>${tool}</span>
@@ -342,7 +274,7 @@ function createDetailsHTML(componentName, details) {
       const status = info.enabled ? 'enabled' : 'disabled';
       const icon = info.enabled ? '✓' : '○';
       html += `
-        <div class="detail-item ${status}">
+        <div class="detail-row ${status}">
           <span class="detail-label">
             <span>${icon}</span>
             <span>${name}</span>
@@ -354,7 +286,7 @@ function createDetailsHTML(componentName, details) {
   } else if (componentName === 'sessions' && details.by_tool) {
     Object.entries(details.by_tool).forEach(([tool, count]) => {
       html += `
-        <div class="detail-item">
+        <div class="detail-row">
           <span class="detail-label">${tool}</span>
           <span class="detail-value">${count} active</span>
         </div>
@@ -365,7 +297,7 @@ function createDetailsHTML(componentName, details) {
       if (typeof value !== 'object') {
         const displayKey = key.replace(/_/g, ' ');
         html += `
-          <div class="detail-item">
+          <div class="detail-row">
             <span class="detail-label">${displayKey}</span>
             <span class="detail-value">${value}</span>
           </div>
@@ -374,7 +306,6 @@ function createDetailsHTML(componentName, details) {
     });
   }
 
-  html += '</div>';
   return html;
 }
 

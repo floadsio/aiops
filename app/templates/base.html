@@ -620,6 +620,97 @@
           margin-top: 0.5rem;
         }
       }
+
+      /* Shared Card Styles - Clean Pico CSS Cards */
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+      }
+
+      @media (max-width: 768px) {
+        .card-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .clean-card {
+        height: 100%;
+      }
+
+      .clean-card article {
+        height: 100%;
+        margin-bottom: 0;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .clean-card.accent-green article {
+        border-left: 3px solid var(--pico-ins-color);
+      }
+
+      .clean-card.accent-red article {
+        border-left: 3px solid var(--pico-del-color);
+      }
+
+      .clean-card.accent-blue article {
+        border-left: 3px solid var(--pico-primary);
+      }
+
+      .clean-card.accent-yellow article {
+        border-left: 3px solid #f59e0b;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--pico-muted-border-color);
+      }
+
+      .card-title {
+        font-size: 1rem;
+        font-weight: 600;
+        margin: 0;
+      }
+
+      .card-badge {
+        font-size: 1.25rem;
+      }
+
+      .card-content {
+        flex: 1;
+      }
+
+      .card-footer {
+        margin-top: 1rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid var(--pico-muted-border-color);
+      }
+
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        font-size: 0.875rem;
+        border-bottom: 1px solid var(--pico-muted-border-color);
+      }
+
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+
+      .detail-label {
+        color: var(--pico-muted-color);
+      }
+
+      .detail-value {
+        font-weight: 500;
+        text-align: right;
+      }
     </style>
     {% block extra_head %}{% endblock %}
   </head>

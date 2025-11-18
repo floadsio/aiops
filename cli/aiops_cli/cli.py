@@ -1393,6 +1393,268 @@ def workflow_complete(ctx: click.Context, issue_id: int, summary: Optional[str])
 
 
 # ============================================================================
+# SESSIONS COMMANDS
+# ============================================================================
+
+
+@cli.group()
+def sessions() -> None:
+    """Session management commands (not tied to specific issues)."""
+
+
+@sessions.command(name="start")
+@click.option("--project", required=True, help="Project ID or name")
+@click.option("--tool", type=click.Choice(["claude", "codex", "gemini", "shell"]), help="AI tool to use")
+@click.option("--prompt", help="Initial prompt to send")
+@click.option("--user", help="User email or ID to start session as (admin only)")
+@click.option("--attach/--no-attach", default=True, help="Attach to session after starting")
+@click.pass_context
+def sessions_start(
+    ctx: click.Context,
+    project: str,
+    tool: Optional[str],
+    prompt: Optional[str],
+    user: Optional[str],
+    attach: bool,
+) -> None:
+    """Start a generic session (not tied to a specific issue).
+
+    Examples:
+        aiops sessions start --project aiops --tool shell
+        aiops sessions start --project 6 --tool codex --prompt "Review code"
+        aiops sessions start --project aiops --tool shell --user user@example.com
+    """
+    client = get_client(ctx)
+
+    try:
+        # Resolve project
+        project_id = resolve_project_id(client, project)
+
+        # Resolve user if specified
+        user_id = None
+        if user:
+            users_response = client.get("users")
+            users = users_response.get("users", [])
+
+            try:
+                target_user_id = int(user)
+                user_obj = next((u for u in users if u["id"] == target_user_id), None)
+            except ValueError:
+                user_obj = next((u for u in users if u.get("email") == user), None)
+
+            if not user_obj:
+                error_console.print(f"[red]Error:[/red] User '{user}' not found")
+                sys.exit(1)
+
+            user_id = user_obj["id"]
+            console.print(f"[blue]Starting session as:[/blue] {user_obj.get('email', user_obj['id'])}")
+
+        # Start session
+        payload: dict[str, Any] = {}
+        if tool:
+            payload["tool"] = tool
+        if prompt:
+            payload["prompt"] = prompt
+        if user_id:
+            payload["user_id"] = user_id
+
+        url = f"{client.base_url}/api/projects/{project_id}/ai/sessions"
+        response = client.session.post(url, json=payload)
+        response.raise_for_status()
+        result = response.json()
+
+        session_id = result.get("session_id")
+        workspace_path = result.get("workspace_path")
+        ssh_user = result.get("ssh_user")
+        tmux_target = result.get("tmux_target")
+        is_existing = result.get("existing", False)
+
+        if is_existing:
+            console.print(f"[green]✓[/green] Reusing existing session (session ID: {session_id})")
+        else:
+            console.print(f"[green]✓[/green] Session started (session ID: {session_id})")
+
+        if workspace_path:
+            console.print(f"[blue]Workspace:[/blue] {workspace_path}")
+        if tmux_target:
+            console.print(f"[blue]Tmux target:[/blue] {tmux_target}")
+
+        if attach and tmux_target:
+            console.print("\n[yellow]Attaching to session...[/yellow]")
+            console.print("[dim]Press Ctrl+B then D to detach[/dim]\n")
+            attach_to_tmux_session(
+                ctx,
+                session_id=session_id,
+                tmux_target=tmux_target,
+                ssh_user=ssh_user,
+            )
+        elif tmux_target:
+            console.print(
+                f"\n[yellow]To attach:[/yellow] aiops sessions attach {tmux_target}"
+            )
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@sessions.command(name="list")
+@click.option("--project", help="Filter by project ID or name")
+@click.option("--all-users", is_flag=True, help="Show sessions for all users (admin only)")
+@click.pass_context
+def sessions_list(
+    ctx: click.Context,
+    project: Optional[str],
+    all_users: bool,
+) -> None:
+    """List active sessions."""
+    client = get_client(ctx)
+
+    try:
+        all_sessions = []
+
+        if project:
+            project_id = resolve_project_id(client, project)
+            sessions = client.list_ai_sessions(project_id, all_users=all_users)
+            for session in sessions:
+                session["project_id"] = project_id
+            all_sessions.extend(sessions)
+        else:
+            projects = client.list_projects()
+            for idx, proj in enumerate(projects):
+                if idx > 0:
+                    time.sleep(0.1)
+                proj_id = proj["id"]
+                sessions = client.list_ai_sessions(proj_id, all_users=all_users)
+                for session in sessions:
+                    session["project_id"] = proj_id
+                    session["project_name"] = proj["name"]
+                all_sessions.extend(sessions)
+
+        if not all_sessions:
+            console.print("[yellow]No active sessions found[/yellow]")
+            return
+
+        title = f"Active Sessions (Project {project})" if project else "Active Sessions (All Projects)"
+        table = Table(title=title)
+        table.add_column("Session ID", style="cyan", no_wrap=True, width=15)
+        table.add_column("Issue", style="magenta", no_wrap=True, width=8)
+        table.add_column("Tool", style="green", no_wrap=True, width=10)
+        if not project:
+            table.add_column("Project", style="yellow", no_wrap=True, width=12)
+        table.add_column("Tmux Target", style="blue", overflow="fold")
+
+        for session in all_sessions:
+            session_id = session.get("session_id", "")[:12] + "..."
+            issue_id = str(session.get("issue_id") or "-")
+            command = session.get("command", "")
+            tool_name = "unknown"
+            if "claude" in command.lower():
+                tool_name = "claude"
+            elif "codex" in command.lower():
+                tool_name = "codex"
+            elif "gemini" in command.lower():
+                tool_name = "gemini"
+            elif "bash" in command.lower() or "shell" in command.lower():
+                tool_name = "shell"
+            tmux_target = session.get("tmux_target", "")
+
+            if project:
+                table.add_row(session_id, issue_id, tool_name, tmux_target)
+            else:
+                project_name = session.get("project_name", str(session.get("project_id", "-")))
+                table.add_row(session_id, issue_id, tool_name, project_name, tmux_target)
+
+        console.print(table)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@sessions.command(name="attach")
+@click.argument("target")
+@click.option("--project", help="Filter by project ID or name")
+@click.pass_context
+def sessions_attach(
+    ctx: click.Context,
+    target: str,
+    project: Optional[str],
+) -> None:
+    """Attach to a session by ID/prefix or tmux target.
+
+    Examples:
+        aiops sessions attach cb3877c65dbd
+        aiops sessions attach user:aiops-p6
+    """
+    client = get_client(ctx)
+
+    try:
+        all_sessions = []
+
+        # Fetch all sessions (need all_users=True to find any session)
+        if project:
+            project_id = resolve_project_id(client, project)
+            sessions = client.list_ai_sessions(project_id, all_users=True)
+            for session in sessions:
+                session["project_id"] = project_id
+            all_sessions.extend(sessions)
+        else:
+            projects = client.list_projects()
+            for idx, proj in enumerate(projects):
+                if idx > 0:
+                    time.sleep(0.1)
+                proj_id = proj["id"]
+                sessions = client.list_ai_sessions(proj_id, all_users=True)
+                for session in sessions:
+                    session["project_id"] = proj_id
+                all_sessions.extend(sessions)
+
+        if not all_sessions:
+            error_console.print("[red]Error:[/red] No active sessions found")
+            sys.exit(1)
+
+        # Find matching session
+        identifier = target.strip()
+        if identifier.endswith("..."):
+            identifier = identifier[:-3]
+
+        target_session = None
+        for session in all_sessions:
+            sid = str(session.get("session_id", ""))
+            tmux_target = session.get("tmux_target", "")
+            if identifier and (sid == identifier or sid.startswith(identifier)):
+                target_session = session
+                break
+            if identifier and tmux_target == identifier:
+                target_session = session
+                break
+
+        if not target_session:
+            error_console.print(
+                f"[red]Error:[/red] Session '{target}' not found"
+            )
+            sys.exit(1)
+
+        console.print("\n[yellow]Attaching to session...[/yellow]")
+        console.print("[dim]Press Ctrl+B then D to detach[/dim]\n")
+
+        attach_to_tmux_session(
+            ctx,
+            session_id=str(target_session.get("session_id")),
+            tmux_target=target_session.get("tmux_target"),
+            ssh_user=target_session.get("ssh_user"),
+        )
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+# ============================================================================
 # TENANTS COMMANDS
 # ============================================================================
 

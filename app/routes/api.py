@@ -599,17 +599,32 @@ def start_project_ai_session(project_id: int):
                 )
 
         try:
-            session = create_session(
-                project,
-                user_id,
-                tool=tool,
-                command=command,
-                rows=rows if isinstance(rows, int) else None,
-                cols=cols if isinstance(cols, int) else None,
-                tmux_target=tmux_target,
-                tmux_session_name=tmux_session_name,
-                issue_id=issue_id,
-            )
+            # Use persistent sessions if enabled
+            if current_app.config.get("ENABLE_PERSISTENT_SESSIONS", False):
+                from ..ai_sessions import create_persistent_session
+                session = create_persistent_session(
+                    project,
+                    user_id,
+                    tool=tool,
+                    command=command,
+                    rows=rows if isinstance(rows, int) else None,
+                    cols=cols if isinstance(cols, int) else None,
+                    tmux_target=tmux_target,
+                    tmux_session_name=tmux_session_name,
+                    issue_id=issue_id,
+                )
+            else:
+                session = create_session(
+                    project,
+                    user_id,
+                    tool=tool,
+                    command=command,
+                    rows=rows if isinstance(rows, int) else None,
+                    cols=cols if isinstance(cols, int) else None,
+                    tmux_target=tmux_target,
+                    tmux_session_name=tmux_session_name,
+                    issue_id=issue_id,
+                )
             was_created = True
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400

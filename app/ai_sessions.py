@@ -7,10 +7,12 @@ import shlex
 import shutil
 import signal
 import struct
+import subprocess
 import termios
 import threading
 import uuid
 from base64 import b64encode
+from pathlib import Path
 from queue import Empty, Queue
 from select import select
 from typing import Optional
@@ -55,6 +57,7 @@ class AISession:
         self.issue_id = issue_id
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
+        self.is_persistent = False
 
     def close(self) -> None:
         if self.stop_event.is_set():
@@ -72,6 +75,43 @@ class AISession:
             os.waitpid(self.pid, 0)
         except ChildProcessError:
             pass
+
+
+class PersistentAISession:
+    """Persistent AI session that survives backend restarts.
+
+    Uses tmux pipe-pane for output capture instead of PTY fork,
+    allowing sessions to persist independently of the backend process.
+    """
+    def __init__(
+        self,
+        session_id: str,
+        project_id: int,
+        user_id: int,
+        command: str,
+        tmux_target: str,
+        pipe_file: str,
+        issue_id: int | None = None,
+    ):
+        self.id = session_id
+        self.project_id = project_id
+        self.user_id = user_id
+        self.command = command
+        self.tmux_target = tmux_target
+        self.pipe_file = pipe_file
+        self.issue_id = issue_id
+        self.queue: Queue[bytes | None] = Queue()
+        self.stop_event = threading.Event()
+        self.is_persistent = True
+        # Track file position for reading output
+        self._file_position = 0
+
+    def close(self) -> None:
+        """Stop streaming output but leave tmux session running."""
+        if self.stop_event.is_set():
+            return
+        self.stop_event.set()
+        # Note: We don't kill the tmux session - it persists independently
 
 
 _sessions: dict[str, AISession] = {}
@@ -320,6 +360,48 @@ def _reader_loop(session: AISession) -> None:
                 if not data:
                     break
                 session.queue.put(data)
+    finally:
+        session.queue.put(None)
+        session.stop_event.set()
+        remove_session(session.id)
+
+
+def _pipe_reader_loop(session: PersistentAISession) -> None:
+    """Read output from tmux pipe file and put into queue."""
+    try:
+        # Wait for pipe file to be created
+        max_wait = 5
+        waited = 0
+        while not os.path.exists(session.pipe_file) and waited < max_wait:
+            if session.stop_event.is_set():
+                return
+            threading.Event().wait(0.1)
+            waited += 0.1
+
+        if not os.path.exists(session.pipe_file):
+            current_app.logger.warning(
+                "Pipe file %s not created after %ds", session.pipe_file, max_wait
+            )
+            return
+
+        with open(session.pipe_file, "rb") as f:
+            # Seek to tracked position (for reconnections)
+            if session._file_position > 0:
+                f.seek(session._file_position)
+
+            while not session.stop_event.is_set():
+                # Read new data
+                data = f.read(1024)
+                if data:
+                    session._file_position = f.tell()
+                    session.queue.put(data)
+                else:
+                    # No new data, wait a bit
+                    threading.Event().wait(0.1)
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.warning(
+            "Error reading pipe file for session %s: %s", session.id, exc
+        )
     finally:
         session.queue.put(None)
         session.stop_event.set()
@@ -638,13 +720,235 @@ def create_session(
     return session_record
 
 
-def write_to_session(session: AISession, data: str) -> None:
+def create_persistent_session(
+    project,
+    user_id: int,
+    tool: str | None = None,
+    command: str | None = None,
+    rows: int | None = None,
+    cols: int | None = None,
+    tmux_target: str | None = None,
+    tmux_session_name: str | None = None,
+    issue_id: int | None = None,
+) -> PersistentAISession:
+    """Create a persistent AI session that survives backend restarts.
+
+    Uses tmux pipe-pane for output capture instead of PTY fork.
+    """
+    command_str = _resolve_command(tool, command)
+    uses_gemini = _uses_gemini(command_str, tool)
+    if uses_gemini:
+        ensure_user_config(user_id)
+        sync_credentials_to_cli_home(user_id)
+
+    # Get user info
+    user = User.query.get(user_id)
+    linux_username_for_session = None
+    git_author_exports: list[str] = []
+    aiops_env_exports: list[str] = []
+    if user:
+        from .services.linux_users import resolve_linux_username
+        linux_username_for_session = resolve_linux_username(user)
+
+    # Configure codex credentials
+    uses_codex = _uses_codex(command_str, tool)
+    codex_env_exports: list[str] = []
+    if uses_codex:
+        try:
+            if linux_username_for_session and linux_username_for_session != "syseng":
+                cli_auth_path = sync_codex_credentials_for_linux_user(
+                    user_id, linux_username_for_session
+                )
+            else:
+                cli_auth_path = ensure_codex_auth(user_id)
+        except CodexConfigError as exc:
+            current_app.logger.warning(
+                "Codex credentials unavailable for user %s: %s", user_id, exc
+            )
+        else:
+            codex_env_exports.append(
+                f"export CODEX_CONFIG_DIR={shlex.quote(str(cli_auth_path.parent))}"
+            )
+            codex_env_exports.append(
+                f"export CODEX_AUTH_FILE={shlex.quote(str(cli_auth_path))}"
+            )
+
+    claude_env_exports: list[str] = []
+
+    # Set up user environment
+    if user:
+        git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
+        git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(
+            f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
+        )
+        if user.aiops_cli_url:
+            aiops_env_exports.append(
+                f"export AIOPS_URL={shlex.quote(user.aiops_cli_url)}"
+            )
+        if user.aiops_cli_api_key:
+            aiops_env_exports.append(
+                f"export AIOPS_API_KEY={shlex.quote(user.aiops_cli_api_key)}"
+            )
+
+    # Ensure tmux window exists
+    session, window, created = _resolve_tmux_window(
+        project,
+        user,
+        tmux_target,
+        session_name=tmux_session_name,
+        linux_username=linux_username_for_session,
+    )
+    session_name = session.get("session_name")
+    window_name = window.get("window_name")
+    pane = window.attached_pane or (window.panes[0] if window.panes else None)
+    if pane is None:
+        raise RuntimeError("Unable to access tmux pane for project window.")
+
+    use_project_ssh_keys = linux_username_for_session is None
+    git_env = build_project_git_env(project)
+    ssh_command = git_env.get("GIT_SSH_COMMAND") if use_project_ssh_keys else None
+
+    # Determine start directory
+    start_dir = current_app.instance_path
+    if user is not None:
+        from .services.workspace_service import get_workspace_path
+        workspace_path = get_workspace_path(project, user)
+        if workspace_path is not None:
+            start_dir = str(workspace_path)
+
+    session_id = uuid.uuid4().hex
+    pipe_dir = Path(current_app.instance_path) / "session_pipes"
+    pipe_dir.mkdir(parents=True, exist_ok=True)
+    pipe_file = str(pipe_dir / f"{session_id}.log")
+
+    # Set up tmux pipe-pane for output capture
+    tmux_target_full = f"{session_name}:{window_name}"
+    try:
+        subprocess.run(
+            ["tmux", "pipe-pane", "-t", tmux_target_full, "-o", f"cat >> {shlex.quote(pipe_file)}"],
+            check=True,
+            capture_output=True,
+            timeout=5,
+        )
+        current_app.logger.info("Set up pipe-pane for %s -> %s", tmux_target_full, pipe_file)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        current_app.logger.warning("Failed to set up pipe-pane: %s", exc)
+
+    # Build and send the command
+    should_bootstrap = created or tmux_target is None or (
+        linux_username_for_session and linux_username_for_session != "syseng"
+    )
+
+    if should_bootstrap:
+        if linux_username_for_session and linux_username_for_session != "syseng":
+            use_login_shell = current_app.config.get("USE_LOGIN_SHELL", True)
+            shell_cmd = "bash -l" if use_login_shell else "bash"
+            is_plain_shell = command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
+
+            setup_commands = []
+            setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+            if ssh_command:
+                setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+            for export_cmd in git_author_exports + codex_env_exports + claude_env_exports + aiops_env_exports:
+                setup_commands.append(export_cmd)
+            setup_commands.append("clear")
+
+            if is_plain_shell:
+                setup_commands.append(f"exec {command_str}")
+            else:
+                setup_commands.append(command_str)
+
+            command_chain = " && ".join(setup_commands)
+            final_command = f"sudo -u {linux_username_for_session} {shell_cmd} -c {shlex.quote(command_chain)}"
+        else:
+            # Running as syseng
+            if ssh_command:
+                try:
+                    pane.send_keys(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}", enter=True)
+                except Exception:  # noqa: BLE001
+                    pass
+            for export_cmd in git_author_exports + codex_env_exports + claude_env_exports + aiops_env_exports:
+                try:
+                    pane.send_keys(export_cmd, enter=True)
+                except Exception:  # noqa: BLE001
+                    pass
+            try:
+                pane.send_keys("clear", enter=True)
+            except Exception:  # noqa: BLE001
+                pass
+            final_command = command_str
+
+        try:
+            pane.send_keys(final_command, enter=True)
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning(
+                "Failed to start command in tmux window %s: %s", window_name, exc
+            )
+
+    # Create persistent session object
+    session_record = PersistentAISession(
+        session_id,
+        project.id,
+        user_id,
+        command_str,
+        tmux_target_full,
+        pipe_file,
+        issue_id=issue_id,
+    )
+    _register_session(session_record)
+
+    if tool:
+        record_tmux_tool(session_record.tmux_target, tool)
+
+    # Start pipe reader thread
+    threading.Thread(target=_pipe_reader_loop, args=(session_record,), daemon=True).start()
+
+    # Save to database
+    save_session_to_db(
+        project_id=project.id,
+        user_id=user_id,
+        tool=tool or "shell",
+        session_id=session_id,
+        command=command_str,
+        description=None,
+        tmux_target=session_record.tmux_target,
+        issue_id=issue_id,
+    )
+
+    current_app.logger.info(
+        "Created persistent session %s for user %s in project %s",
+        session_id[:12],
+        user_id,
+        project.id,
+    )
+
+    return session_record
+
+
+def write_to_session(session: AISession | PersistentAISession, data: str) -> None:
     if session.stop_event.is_set():
         return
-    os.write(session.fd, data.encode())
+
+    if isinstance(session, PersistentAISession):
+        # Use tmux send-keys for persistent sessions
+        try:
+            # Send keys without adding newline (user controls when to press enter)
+            subprocess.run(
+                ["tmux", "send-keys", "-t", session.tmux_target, "-l", data],
+                check=False,
+                capture_output=True,
+                timeout=1,
+            )
+        except (subprocess.TimeoutExpired, Exception) as exc:  # noqa: BLE001
+            current_app.logger.warning("Failed to send keys to session %s: %s", session.id, exc)
+    else:
+        # Use PTY for legacy sessions
+        os.write(session.fd, data.encode())
 
 
-def close_session(session: AISession) -> None:
+def close_session(session: AISession | PersistentAISession) -> None:
     session.close()
     remove_session(session.id)
 

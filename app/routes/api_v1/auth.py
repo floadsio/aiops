@@ -227,11 +227,17 @@ def list_user_credentials():
 
     result = []
     for cred in credentials:
+        # Handle case where integration may have been deleted
+        integration = cred.integration
+        if not integration:
+            # Skip credentials for deleted integrations
+            continue
+
         result.append({
             "id": cred.id,
             "integration_id": cred.integration_id,
-            "integration_name": cred.integration.name,
-            "integration_provider": cred.integration.provider,
+            "integration_name": integration.name,
+            "integration_provider": integration.provider,
             "has_settings": bool(cred.settings),
             "created_at": cred.created_at.isoformat() if cred.created_at else None,
             "updated_at": cred.updated_at.isoformat() if cred.updated_at else None,

@@ -1,9 +1,12 @@
+LICENSE
+MANIFEST.in
 README.md
 setup.py
 aiops_cli/__init__.py
 aiops_cli/cli.py
 aiops_cli/client.py
 aiops_cli/config.py
+aiops_cli/mentions.py
 aiops_cli/output.py
 aiops_cli.egg-info/PKG-INFO
 aiops_cli.egg-info/SOURCES.txt

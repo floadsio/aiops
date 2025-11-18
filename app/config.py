@@ -97,6 +97,7 @@ class Config:
         "aider": os.getenv("AIDER_COMMAND", "aider"),
         "gemini": _GEMINI_COMMAND,
         "claude": os.getenv("CLAUDE_COMMAND", "claude"),
+        "shell": os.getenv("DEFAULT_AI_SHELL", "/bin/bash"),
     }
     DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "claude")
     DEFAULT_AI_SHELL = os.getenv("DEFAULT_AI_SHELL", "/bin/bash")

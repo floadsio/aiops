@@ -692,6 +692,117 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
+  <section class="settings-category">
+    <h2>Personal Integration Credentials</h2>
+    <div class="settings-grid">
+      <article class="settings-card settings-card-full">
+        <h3>Your Personal Tokens</h3>
+        <p>Configure your personal GitLab/GitHub/Jira tokens to use your own account when creating issues and commenting via the CLI, instead of using the aiops bot's token.</p>
+        <p class="text-muted">When set, your comments and issues will appear under your personal account, not the bot.</p>
+
+        <details>
+          <summary><strong>Add personal token</strong></summary>
+          <form method="post" action="{{ url_for('admin.create_user_credential_web') }}">
+            {{ user_credential_create_form.hidden_tag() }}
+            <label>
+              {{ user_credential_create_form.integration_id.label }}
+              {{ user_credential_create_form.integration_id() }}
+              <small>Select the integration you want to override with your personal token</small>
+              {% for error in user_credential_create_form.integration_id.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <label>
+              {{ user_credential_create_form.api_token.label }}
+              {{ user_credential_create_form.api_token(type="password", placeholder="glpat-xxx or ghp_xxx") }}
+              <small>Your personal access token from GitLab/GitHub/Jira</small>
+              {% for error in user_credential_create_form.api_token.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <button type="submit" class="secondary">{{ user_credential_create_form.submit.label.text }}</button>
+          </form>
+        </details>
+
+        <h3>Your Configured Credentials</h3>
+        {% if user_credentials %}
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Integration</th>
+                  <th scope="col">Provider</th>
+                  <th scope="col">Created</th>
+                  <th scope="col">Last Updated</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for cred in user_credentials %}
+                  {% set delete_form = user_credential_delete_forms[cred.id] %}
+                  <tr>
+                    <th scope="row">{{ cred.integration.name }}</th>
+                    <td><span class="badge">{{ cred.integration.provider }}</span></td>
+                    <td>
+                      <small>{{ cred.created_at.strftime('%Y-%m-%d %H:%M UTC') if cred.created_at else 'N/A' }}</small>
+                    </td>
+                    <td>
+                      <small>{{ cred.updated_at.strftime('%Y-%m-%d %H:%M UTC') if cred.updated_at else 'N/A' }}</small>
+                    </td>
+                    <td>
+                      <form method="post" action="{{ url_for('admin.delete_user_credential', credential_id=cred.id) }}" style="margin: 0;">
+                        {{ delete_form.hidden_tag() }}
+                        <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;" onclick="return confirm('Are you sure you want to remove this personal token?');">Remove</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted">No personal tokens configured. Add one above to use your own account for issue operations.</p>
+        {% endif %}
+
+        <details style="margin-top: 1.5rem;">
+          <summary><strong>How to create personal access tokens</strong></summary>
+          <div style="margin-top: 1rem;">
+            <h4>GitLab</h4>
+            <ol>
+              <li>Visit: <code>https://your-gitlab.com/-/user_settings/personal_access_tokens</code></li>
+              <li>Create token with <code>api</code> scope</li>
+              <li>Copy the token (starts with <code>glpat-</code>)</li>
+              <li>Add it here using the form above</li>
+            </ol>
+
+            <h4>GitHub</h4>
+            <ol>
+              <li>Visit: <a href="https://github.com/settings/tokens" target="_blank">Settings → Developer settings → Personal access tokens</a></li>
+              <li>Create token (classic) with <code>repo</code> scope</li>
+              <li>Copy the token (starts with <code>ghp_</code>)</li>
+              <li>Add it here using the form above</li>
+            </ol>
+
+            <h4>Jira</h4>
+            <ol>
+              <li>Visit: <code>https://id.atlassian.com/manage-profile/security/api-tokens</code></li>
+              <li>Create API token</li>
+              <li>Copy the token</li>
+              <li>Add it here using the form above</li>
+            </ol>
+
+            <p><strong>Required permissions:</strong></p>
+            <ul>
+              <li><strong>GitLab:</strong> <code>api</code> scope (full API access)</li>
+              <li><strong>GitHub:</strong> <code>repo</code> scope (repository access)</li>
+              <li><strong>Jira:</strong> API token with write access to issues</li>
+            </ul>
+          </div>
+        </details>
+      </article>
+    </div>
+  </section>
+
   <!-- Global Agent Context -->
   <section>
     <div>

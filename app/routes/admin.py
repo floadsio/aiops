@@ -62,6 +62,8 @@ from ..forms.admin import (
     TenantIntegrationForm,
     TmuxResyncForm,
     UpdateApplicationForm,
+    UserCredentialCreateForm,
+    UserCredentialDeleteForm,
     UserDeleteForm,
     UserIdentityMapDeleteForm,
     UserIdentityMapForm,
@@ -1219,6 +1221,27 @@ def manage_settings():
         for backup in backups
     }
 
+    # User Integration Credentials
+    from ..models import TenantIntegration, UserIntegrationCredential
+
+    user_credential_create_form = UserCredentialCreateForm()
+    # Populate integration choices
+    integrations = TenantIntegration.query.filter_by(enabled=True).order_by(
+        TenantIntegration.name
+    ).all()
+    user_credential_create_form.integration_id.choices = [
+        (i.id, f"{i.name} ({i.provider})") for i in integrations
+    ]
+
+    # Get user's existing credentials
+    user_credentials = UserIntegrationCredential.query.filter_by(
+        user_id=current_user.id
+    ).all()
+    user_credential_delete_forms = {
+        cred.id: UserCredentialDeleteForm(credential_id=str(cred.id))
+        for cred in user_credentials
+    }
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1246,6 +1269,9 @@ def manage_settings():
         backups=backups,
         backup_restore_forms=backup_restore_forms,
         backup_delete_forms=backup_delete_forms,
+        user_credential_create_form=user_credential_create_form,
+        user_credentials=user_credentials,
+        user_credential_delete_forms=user_credential_delete_forms,
         now=datetime.utcnow(),
     )
 
@@ -1472,6 +1498,83 @@ def revoke_api_key(key_id: int):
     db.session.commit()
 
     flash(f'API key "{key_name}" has been revoked.', "success")
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/user-credentials/create", methods=["POST"])
+@login_required
+def create_user_credential_web():
+    """Create or update a user integration credential via web UI."""
+    from ..models import TenantIntegration, UserIntegrationCredential
+
+    form = UserCredentialCreateForm()
+    if not form.validate_on_submit():
+        flash("Invalid user credential request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    integration_id = form.integration_id.data
+    api_token = form.api_token.data.strip()
+
+    # Verify integration exists
+    integration = TenantIntegration.query.get(integration_id)
+    if not integration:
+        flash("Integration not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    # Check if credential already exists for this user/integration
+    existing = UserIntegrationCredential.query.filter_by(
+        user_id=current_user.id, integration_id=integration_id
+    ).first()
+
+    if existing:
+        # Update existing
+        existing.api_token = api_token
+        db.session.commit()
+        flash(
+            f'Personal token for "{integration.name}" updated successfully.',
+            "success",
+        )
+    else:
+        # Create new
+        credential = UserIntegrationCredential(
+            user_id=current_user.id,
+            integration_id=integration_id,
+            api_token=api_token,
+        )
+        db.session.add(credential)
+        db.session.commit()
+        flash(
+            f'Personal token for "{integration.name}" created successfully.',
+            "success",
+        )
+
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/user-credentials/<int:credential_id>/delete", methods=["POST"])
+@login_required
+def delete_user_credential(credential_id: int):
+    """Delete a user integration credential."""
+    from ..models import UserIntegrationCredential
+
+    form = UserCredentialDeleteForm()
+    if not form.validate_on_submit():
+        flash("Invalid delete request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    credential = UserIntegrationCredential.query.filter_by(
+        id=credential_id, user_id=current_user.id
+    ).first()
+
+    if not credential:
+        flash("Personal token not found.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    integration_name = credential.integration.name
+    db.session.delete(credential)
+    db.session.commit()
+
+    flash(f'Personal token for "{integration_name}" removed.', "success")
     return redirect(url_for("admin.manage_settings"))
 
 

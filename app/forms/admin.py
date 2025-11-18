@@ -542,3 +542,27 @@ class BackupDeleteForm(FlaskForm):
 
     backup_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Delete Backup")
+
+
+class UserCredentialCreateForm(FlaskForm):
+    """Form for creating/updating a user integration credential."""
+
+    integration_id = SelectField(
+        "Integration",
+        coerce=int,
+        validators=[DataRequired()],
+        description="Select the integration to override with your personal token",
+    )
+    api_token = StringField(
+        "API Token",
+        validators=[DataRequired(), Length(max=512)],
+        description="Your personal access token (GitLab PAT, GitHub token, or Jira API token)",
+    )
+    submit = SubmitField("Save Personal Token")
+
+
+class UserCredentialDeleteForm(FlaskForm):
+    """Form for deleting a user integration credential."""
+
+    credential_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Remove Token")

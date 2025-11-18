@@ -1357,21 +1357,26 @@ def system_status():
 @admin_bp.route("/system/cleanup-sessions", methods=["POST"])
 @admin_required
 def cleanup_tmux_sessions():
-    """Clean up stale AI sessions in the database."""
+    """Clean up stale AI sessions in the database and restart tmux servers."""
     from ..services.ai_session_service import cleanup_stale_sessions
 
     try:
-        result = cleanup_stale_sessions()
+        # Always restart tmux servers during cleanup
+        result = cleanup_stale_sessions(restart_tmux=True)
         marked_inactive = result.get("marked_inactive", 0)
         total_checked = result.get("total_checked", 0)
+        tmux_restarted = result.get("tmux_restarted", False)
+
+        messages = []
+        if tmux_restarted:
+            messages.append("Tmux servers restarted")
 
         if marked_inactive > 0:
-            flash(
-                f"Cleanup completed: {marked_inactive} of {total_checked} sessions marked as inactive.",
-                "success",
-            )
+            messages.append(f"{marked_inactive} of {total_checked} sessions marked as inactive")
         else:
-            flash(f"No stale sessions found. Checked {total_checked} active sessions.", "info")
+            messages.append(f"No sessions to clean up ({total_checked} checked)")
+
+        flash(f"Cleanup completed: {'. '.join(messages)}.", "success")
 
     except Exception as exc:
         current_app.logger.exception("Session cleanup failed")

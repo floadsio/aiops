@@ -1964,6 +1964,97 @@ def system() -> None:
     """System management commands (requires admin access)."""
 
 
+@system.command(name="status")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def system_status(ctx: click.Context, output: Optional[str]) -> None:
+    """Check system status of aiops core components.
+
+    Displays health status for:
+    - Database connectivity
+    - Tmux server availability
+    - Git installation
+    - AI tools (Claude, Codex, Gemini)
+    - Workspace directories
+    - Issue tracker integrations
+    - Active AI sessions
+
+    Requires admin API key.
+
+    Example:
+        aiops system status
+        aiops system status --output json
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        status = client.get_system_status()
+
+        if output_format == "table":
+            # Overall health header
+            overall_health = status.get("healthy", False)
+            if overall_health:
+                console.print("[green]✓ System Status: Healthy[/green]\n")
+            else:
+                console.print("[red]✗ System Status: Unhealthy[/red]\n")
+
+            # Component status table
+            console.print("[bold]Component Status:[/bold]")
+            components = status.get("components", {})
+
+            for component_name, component_data in components.items():
+                healthy = component_data.get("healthy", False)
+                message = component_data.get("message", "No status")
+
+                # Format component name
+                display_name = component_name.replace("_", " ").title()
+
+                # Status indicator
+                if healthy:
+                    console.print(f"[green]✓[/green] {display_name}: {message}")
+                else:
+                    console.print(f"[red]✗[/red] {display_name}: {message}")
+
+                # Show details if available
+                details = component_data.get("details", {})
+                if details and isinstance(details, dict):
+                    for key, value in details.items():
+                        if key == "tools" and isinstance(value, dict):
+                            # Special handling for AI tools
+                            for tool, tool_info in value.items():
+                                available = tool_info.get("available", False)
+                                symbol = "✓" if available else "✗"
+                                color = "green" if available else "red"
+                                console.print(f"  [{color}]{symbol}[/{color}] {tool}")
+                        elif key == "integrations" and isinstance(value, dict):
+                            # Special handling for integrations
+                            for integration, int_info in value.items():
+                                enabled = int_info.get("enabled", False)
+                                provider = int_info.get("provider", "unknown")
+                                symbol = "✓" if enabled else "○"
+                                color = "green" if enabled else "dim"
+                                console.print(f"  [{color}]{symbol}[/{color}] {integration} ({provider})")
+                        elif key not in ["error"]:
+                            # Show other details
+                            console.print(f"  [dim]{key}: {value}[/dim]")
+
+            # Summary
+            summary = status.get("summary", {})
+            console.print(f"\n[bold]Summary:[/bold]")
+            console.print(f"  Healthy: {summary.get('healthy_components', 0)}/{summary.get('total_components', 0)} components")
+            console.print(f"  Timestamp: {status.get('timestamp', 'N/A')}")
+
+        else:
+            # JSON or YAML output
+            format_output(status, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @system.command(name="update")
 @click.option("--skip-migrations", is_flag=True, help="Skip database migrations")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")

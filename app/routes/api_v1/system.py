@@ -523,6 +523,24 @@ def create_system_backup():
         return jsonify({"error": str(exc)}), 500
 
 
+@api_v1_bp.get("/system/status")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def get_system_status():
+    """Get comprehensive system status for all components.
+
+    Returns:
+        200: System status with component health checks
+    """
+    try:
+        from ...services.system_status import get_system_status as get_status
+        status = get_status()
+        return jsonify(status)
+    except Exception as exc:
+        current_app.logger.error(f"Failed to get system status: {exc}")
+        return jsonify({"error": str(exc)}), 500
+
+
 @api_v1_bp.get("/system/backups")
 @require_api_auth(scopes=["admin"])
 @audit_api_request

@@ -18,6 +18,7 @@ from typing import Optional
 from flask import current_app
 
 from .models import User
+from .services.ai_session_service import save_session as save_session_to_db
 from .services.codex_config_service import (
     CodexConfigError,
     ensure_codex_auth,
@@ -598,6 +599,19 @@ def create_session(
     if tool:
         record_tmux_tool(session_record.tmux_target, tool)
     threading.Thread(target=_reader_loop, args=(session_record,), daemon=True).start()
+
+    # Save session to database for persistence and listing
+    save_session_to_db(
+        project_id=project.id,
+        user_id=user_id,
+        tool=tool or "shell",
+        session_id=session_id,
+        command=command_str,
+        description=None,
+        tmux_target=session_record.tmux_target,
+        issue_id=issue_id,
+    )
+
     return session_record
 
 

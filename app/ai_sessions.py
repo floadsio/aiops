@@ -457,7 +457,11 @@ def create_session(
         _set_winsize(fd, rows, cols)
     _register_session(session_record)
 
-    should_bootstrap = created or tmux_target is None
+    # Always bootstrap (use sudo) for per-user sessions, even when reusing windows
+    # This ensures commands run with the correct user UID
+    should_bootstrap = created or tmux_target is None or (
+        linux_username_for_session and linux_username_for_session != "syseng"
+    )
     if should_bootstrap:
         # When running as a different Linux user, start an interactive login shell
         # so user configs (.bashrc, .profile) are loaded

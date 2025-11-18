@@ -315,7 +315,14 @@ def get_project(project_id: int):
 
 @api_bp.get("/issues")
 def list_issues():
-    if not current_user.is_admin:
+    # Check admin status from either API key or session
+    is_admin = False
+    if hasattr(g, "api_user") and g.api_user:
+        is_admin = getattr(g.api_user, "is_admin", False)
+    elif current_user and current_user.is_authenticated:
+        is_admin = getattr(current_user, "is_admin", False)
+
+    if not is_admin:
         return jsonify({"error": "Access denied."}), 403
 
     status_filter = (request.args.get("status") or "").strip().lower()

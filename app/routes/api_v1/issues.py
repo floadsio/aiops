@@ -422,7 +422,7 @@ def create_issue():
             elif provider_type == "jira":
                 assignee_identity = identity_map.jira_account_id
 
-    # Create issue via provider
+    # Create issue via provider (with user-specific credentials if available)
     try:
         provider = _get_issue_provider(integration)
         external_issue_data = provider.create_issue(
@@ -431,6 +431,7 @@ def create_issue():
             description=description or "",
             labels=labels,
             assignee=assignee_identity,
+            user_id=user.id,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -629,12 +630,17 @@ def add_issue_comment(issue_id: int):
 
     integration = issue.project_integration.integration
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
     try:
         provider = _get_issue_provider(integration)
         comment_data = provider.add_comment(
             project_integration=issue.project_integration,
             issue_number=issue.external_id,
             body=body,
+            user_id=user_id,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400

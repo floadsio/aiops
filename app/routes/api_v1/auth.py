@@ -8,7 +8,7 @@ from typing import Any
 from flask import g, jsonify, request
 
 from ...extensions import db
-from ...models import APIKey
+from ...models import APIKey, TenantIntegration, UserIntegrationCredential
 from ...services.api_auth import audit_api_request, require_api_auth
 from . import api_v1_bp
 
@@ -211,3 +211,120 @@ def get_current_user():
         user_data["auth_method"] = "session"
 
     return jsonify({"user": user_data})
+
+
+@api_v1_bp.get("/auth/integration-credentials")
+@require_api_auth()
+@audit_api_request
+def list_user_credentials():
+    """List all personal integration credentials for the current user.
+
+    Returns:
+        200: List of user credentials with integration details
+    """
+    user = g.api_user
+    credentials = UserIntegrationCredential.query.filter_by(user_id=user.id).all()
+
+    result = []
+    for cred in credentials:
+        result.append({
+            "id": cred.id,
+            "integration_id": cred.integration_id,
+            "integration_name": cred.integration.name,
+            "integration_provider": cred.integration.provider,
+            "has_settings": bool(cred.settings),
+            "created_at": cred.created_at.isoformat() if cred.created_at else None,
+            "updated_at": cred.updated_at.isoformat() if cred.updated_at else None,
+        })
+
+    return jsonify({"credentials": result})
+
+
+@api_v1_bp.post("/auth/integration-credentials")
+@require_api_auth()
+@audit_api_request
+def create_user_credential():
+    """Set or update personal integration credentials for the current user.
+
+    Request body:
+        integration_id (int): Integration ID
+        api_token (str): Personal API token/PAT for the integration
+        settings (dict, optional): Additional provider-specific settings
+
+    Returns:
+        201: Credential created successfully
+        400: Invalid request
+        404: Integration not found
+    """
+    user = g.api_user
+    data = request.get_json(silent=True) or {}
+
+    integration_id = data.get("integration_id")
+    api_token = (data.get("api_token") or "").strip()
+    settings = data.get("settings")
+
+    if not integration_id:
+        return jsonify({"error": "integration_id is required"}), 400
+    if not api_token:
+        return jsonify({"error": "api_token is required"}), 400
+
+    # Verify integration exists
+    integration = TenantIntegration.query.get(integration_id)
+    if not integration:
+        return jsonify({"error": "Integration not found"}), 404
+
+    # Check if credential already exists
+    existing = UserIntegrationCredential.query.filter_by(
+        user_id=user.id, integration_id=integration_id
+    ).first()
+
+    if existing:
+        # Update existing
+        existing.api_token = api_token
+        if settings is not None:
+            existing.settings = settings
+        db.session.commit()
+        return jsonify({
+            "message": "Credential updated successfully",
+            "credential_id": existing.id
+        })
+    else:
+        # Create new
+        credential = UserIntegrationCredential(
+            user_id=user.id,
+            integration_id=integration_id,
+            api_token=api_token,
+            settings=settings,
+        )
+        db.session.add(credential)
+        db.session.commit()
+        return jsonify({
+            "message": "Credential created successfully",
+            "credential_id": credential.id
+        }), 201
+
+
+@api_v1_bp.delete("/auth/integration-credentials/<int:credential_id>")
+@require_api_auth()
+@audit_api_request
+def delete_user_credential(credential_id: int):
+    """Delete a personal integration credential.
+
+    Args:
+        credential_id: ID of the credential to delete
+
+    Returns:
+        204: Credential deleted successfully
+        404: Credential not found
+    """
+    user = g.api_user
+    credential = UserIntegrationCredential.query.filter_by(
+        id=credential_id, user_id=user.id
+    ).first()
+
+    if not credential:
+        return jsonify({"error": "Credential not found"}), 404
+
+    db.session.delete(credential)
+    db.session.commit()
+    return ("", 204)

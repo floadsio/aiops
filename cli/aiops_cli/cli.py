@@ -2071,6 +2071,108 @@ def agents_global_clear(ctx: click.Context) -> None:
         sys.exit(1)
 
 
+# ============================================================================
+# USER CREDENTIALS COMMANDS
+# ============================================================================
+
+
+@cli.group()
+def credentials() -> None:
+    """Manage personal integration credentials (for using your own tokens)."""
+
+
+@credentials.command(name="list")
+@click.option(
+    "--output",
+    "-o",
+    type=click.Choice(["table", "json", "yaml"]),
+    help="Output format",
+)
+@click.pass_context
+def credentials_list(ctx: click.Context, output: Optional[str]) -> None:
+    """List your personal integration credentials."""
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        result = client.get("auth/integration-credentials")
+        credentials = result.get("credentials", [])
+
+        if not credentials:
+            console.print(
+                "[yellow]No personal integration credentials configured[/yellow]"
+            )
+            console.print("\nUse 'aiops credentials set' to add your personal tokens")
+            return
+
+        format_output({"credentials": credentials}, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@credentials.command(name="set")
+@click.option(
+    "--integration-id",
+    "-i",
+    type=int,
+    required=True,
+    help="Integration ID (from tenants integrations list)",
+)
+@click.option(
+    "--token",
+    "-t",
+    prompt=True,
+    hide_input=True,
+    help="Your personal API token/PAT",
+)
+@click.pass_context
+def credentials_set(
+    ctx: click.Context,
+    integration_id: int,
+    token: str,
+) -> None:
+    """Set your personal integration credential.
+
+    This allows you to use your own GitLab/GitHub/Jira token instead of the bot's token
+    when creating issues and comments via the CLI.
+
+    Example:
+        aiops credentials set --integration-id 5 --token glpat-xxx
+    """
+    client = get_client(ctx)
+
+    try:
+        result = client.post(
+            "auth/integration-credentials",
+            json={"integration_id": integration_id, "api_token": token},
+        )
+        message = result.get("message", "Credential saved successfully")
+        console.print(f"[green]{message}[/green]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@credentials.command(name="delete")
+@click.argument("credential_id", type=int)
+@click.pass_context
+def credentials_delete(ctx: click.Context, credential_id: int) -> None:
+    """Delete a personal integration credential."""
+    client = get_client(ctx)
+
+    try:
+        client.delete(f"auth/integration-credentials/{credential_id}")
+        console.print(f"[green]Credential {credential_id} deleted successfully[/green]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     cli(obj={})

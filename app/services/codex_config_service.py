@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import pwd
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -102,10 +103,110 @@ def get_user_auth_paths(user_id: int) -> Tuple[Path, Path]:
     return _cli_auth_path(), _storage_auth_path(user_id)
 
 
+def sync_codex_credentials_to_cli_home(user_id: int) -> Path:
+    """Copy the user's codex auth file into the CLI home (typically ~/.codex).
+
+    This ensures that when running commands as a different Linux user, they can
+    access the codex credentials from their own home directory.
+
+    Args:
+        user_id: The user ID whose credentials should be synced
+
+    Returns:
+        Path to the CLI auth file that was created
+
+    Raises:
+        CodexConfigError: If credentials cannot be synced
+    """
+    payload = _stored_payload(user_id)
+    if not payload:
+        raise CodexConfigError("No Codex auth has been saved for this user yet.")
+
+    cli_path = _cli_auth_path()
+    try:
+        cli_path.parent.mkdir(parents=True, exist_ok=True)
+        _safe_chmod(cli_path.parent, 0o700)
+        cli_path.write_text(payload, encoding="utf-8")
+        _safe_chmod(cli_path, 0o600)
+    except OSError as exc:  # pragma: no cover
+        raise CodexConfigError(f"Failed to sync Codex auth file: {exc}") from exc
+
+    return cli_path
+
+
+def sync_codex_credentials_for_linux_user(
+    user_id: int, linux_username: str
+) -> Path:
+    """Copy codex credentials to a specific Linux user's home directory.
+
+    This is used for per-user sessions where the command runs as a different
+    Linux user. The credentials are copied via sudo to ensure proper ownership.
+
+    Args:
+        user_id: The database user ID whose credentials should be synced
+        linux_username: The Linux username to copy credentials for
+
+    Returns:
+        Path to the auth file in the Linux user's home directory
+
+    Raises:
+        CodexConfigError: If credentials cannot be synced
+    """
+    from .sudo_service import SudoError, run_as_user
+
+    # Get the payload from storage
+    payload = _stored_payload(user_id)
+    if not payload:
+        raise CodexConfigError("No Codex auth has been saved for this user yet.")
+
+    # Get target user's home directory
+    try:
+        user_info = pwd.getpwnam(linux_username)
+    except KeyError as exc:
+        raise CodexConfigError(f"Unknown Linux user: {linux_username}") from exc
+
+    target_dir = Path(user_info.pw_dir) / ".codex"
+    target_auth = target_dir / "auth.json"
+
+    # Create the directory and write the file as the target user
+    try:
+        # Create .codex directory
+        run_as_user(linux_username, ["mkdir", "-p", str(target_dir)], timeout=10)
+
+        # Write auth file via temporary file to avoid permission issues
+        # We write to a temp location as syseng, then move it as the target user
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".json") as tmp:
+            tmp.write(payload)
+            tmp_path = tmp.name
+
+        try:
+            # Move temp file to target location and set permissions
+            run_as_user(linux_username, ["cp", tmp_path, str(target_auth)], timeout=10)
+            run_as_user(linux_username, ["chmod", "600", str(target_auth)], timeout=10)
+            run_as_user(linux_username, ["chmod", "700", str(target_dir)], timeout=10)
+        finally:
+            # Clean up temp file
+            try:
+                Path(tmp_path).unlink()
+            except OSError:
+                current_app.logger.debug("Failed to remove temp file %s", tmp_path)
+
+    except SudoError as exc:
+        raise CodexConfigError(
+            f"Failed to sync codex credentials for {linux_username}: {exc}"
+        ) from exc
+
+    return target_auth
+
+
 __all__ = [
     "save_codex_auth",
     "load_codex_auth",
     "ensure_codex_auth",
+    "sync_codex_credentials_to_cli_home",
+    "sync_codex_credentials_for_linux_user",
     "get_user_auth_paths",
     "CodexConfigError",
 ]

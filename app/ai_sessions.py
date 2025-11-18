@@ -21,6 +21,7 @@ from .models import User
 from .services.codex_config_service import (
     CodexConfigError,
     ensure_codex_auth,
+    sync_codex_credentials_for_linux_user,
 )
 from .services.gemini_config_service import (
     ensure_user_config,
@@ -317,11 +318,29 @@ def create_session(
     if uses_gemini:
         ensure_user_config(user_id)
         sync_credentials_to_cli_home(user_id)
+    # Prepare Git author information from user
+    # Also grab linux_username before fork since DB session won't be available after fork
+    user = User.query.get(user_id)
+    linux_username_for_session = None
+    git_author_exports: list[str] = []
+    aiops_env_exports: list[str] = []
+    if user:
+        from .services.linux_users import resolve_linux_username
+        linux_username_for_session = resolve_linux_username(user)
+
+    # Now that we know the linux_username, we can properly configure codex credentials
     uses_codex = _uses_codex(command_str, tool)
     codex_env_exports: list[str] = []
     if uses_codex:
         try:
-            cli_auth_path = ensure_codex_auth(user_id)
+            # For per-user sessions, sync credentials to the target user's home
+            # For system sessions (syseng), use the standard path
+            if linux_username_for_session and linux_username_for_session != "syseng":
+                cli_auth_path = sync_codex_credentials_for_linux_user(
+                    user_id, linux_username_for_session
+                )
+            else:
+                cli_auth_path = ensure_codex_auth(user_id)
         except CodexConfigError as exc:
             current_app.logger.warning(
                 "Codex credentials unavailable for user %s: %s", user_id, exc
@@ -341,21 +360,8 @@ def create_session(
     rows = rows or default_rows
     cols = cols or default_cols
 
-    tmux_path = shutil.which("tmux")
-    if not tmux_path:
-        raise RuntimeError(
-            "tmux binary not found. Install tmux or disable tmux integration."
-        )
-
-    # Prepare Git author information from user
-    # Also grab linux_username before fork since DB session won't be available after fork
-    user = User.query.get(user_id)
-    linux_username_for_session = None
-    git_author_exports: list[str] = []
-    aiops_env_exports: list[str] = []
+    # Continue setting up user environment
     if user:
-        from .services.linux_users import resolve_linux_username
-        linux_username_for_session = resolve_linux_username(user)
         git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
         git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
         git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
@@ -371,6 +377,12 @@ def create_session(
             aiops_env_exports.append(
                 f"export AIOPS_API_KEY={shlex.quote(user.aiops_cli_api_key)}"
             )
+
+    tmux_path = shutil.which("tmux")
+    if not tmux_path:
+        raise RuntimeError(
+            "tmux binary not found. Install tmux or disable tmux integration."
+        )
 
     session, window, created = _resolve_tmux_window(
         project,

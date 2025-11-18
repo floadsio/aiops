@@ -74,24 +74,25 @@ aiops workflow submit <issue_id> --project <id> --message "..." --comment "..."
 aiops workflow complete <issue_id> --summary "..."  # Complete and close
 ```
 
-#### Session Management
+#### Session Management (Generic Sessions)
 ```bash
-# Start and manage sessions
-aiops issues start --project <project> --tool <tool>  # Start new session (auto-attaches)
-aiops issues start --project <project> --tool shell --user <email>  # Admin: start as other user
-aiops issues sessions --project <project>      # List sessions for project
-aiops issues sessions --all-users              # Admin: list all users' sessions
-aiops issues sessions --attach <tmux-target>   # Attach to session by tmux target
+# Start generic sessions (not tied to issues)
+aiops sessions start --project <project> --tool <tool>    # Start new session
+aiops sessions start --project <project> --tool shell --user <email>  # Admin: start as other user
+aiops sessions list --project <project>                   # List sessions
+aiops sessions list --all-users                           # Admin: list all users' sessions
+aiops sessions attach <tmux-target>                       # Attach to session
 
 # Examples:
-aiops issues start --project aiops --tool shell               # Start shell session
-aiops issues start --project 6 --issue 123 --tool claude      # Start session for issue
-aiops issues start --project aiops --tool codex --user user@example.com  # Admin only
-aiops issues sessions --all-users                              # List all sessions
-aiops issues sessions --attach user:aiops-p6                   # Attach to user's session
+aiops sessions start --project aiops --tool shell               # Start shell session
+aiops sessions start --project aiops --tool codex --user user@example.com  # Admin only
+aiops sessions list --all-users                                 # List all sessions
+aiops sessions attach user:aiops-p6                             # Attach to user's session
 ```
 
 **Session Management Notes:**
+- **Generic sessions**: Use `aiops sessions` for work NOT tied to specific issues
+- **Issue work**: Use `aiops issues work <id>` to automatically populate AGENTS.override.md
 - **--user flag (admin only)**: Admins can start sessions as other users for testing and support
 - User can be specified by email (`user@example.com`) or ID (`5`)
 - Sessions run with the target user's UID, using their workspace and SSH keys

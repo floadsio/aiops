@@ -380,6 +380,31 @@
         padding: 0;
         border-right-width: 0;
       }
+      .app-sidebar__expand-toggle {
+        position: fixed;
+        top: 4.5rem;
+        left: 0.75rem;
+        border: 1px solid var(--md-border);
+        background: var(--md-surface);
+        color: inherit;
+        border-radius: 8px;
+        padding: 0.5rem 0.6rem;
+        font-size: 1.2rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        z-index: 50;
+        box-shadow: var(--shadow-2);
+        display: none;
+      }
+      .app-sidebar__expand-toggle:hover {
+        background: var(--md-surface-hover);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-3);
+      }
+      body[data-sidebar-collapsed="true"] .app-sidebar__expand-toggle {
+        display: block;
+      }
       .app-sidebar__collapse-toggle {
         border: 1px solid var(--md-border);
         background: var(--md-surface);
@@ -648,12 +673,15 @@
       </div>
     </header>
     {% if current_user.is_authenticated %}
+      <button type="button" class="app-sidebar__expand-toggle" id="sidebar-expand-toggle" aria-label="Expand sidebar" title="Expand sidebar">
+        <span>☰</span>
+      </button>
       <div class="sidebar-backdrop" id="sidebar-backdrop" data-visible="false"></div>
       <aside class="app-sidebar" id="app-sidebar" data-open="false">
         <div class="app-sidebar__header">
           <span>Navigation</span>
-          <button type="button" class="app-sidebar__collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
-            <span id="sidebar-collapse-icon">☰</span>
+          <button type="button" class="app-sidebar__collapse-toggle" id="sidebar-collapse-toggle" aria-label="Collapse sidebar" title="Collapse sidebar">
+            <span id="sidebar-collapse-icon">«</span>
           </button>
         </div>
         <ul class="app-sidebar__menu">
@@ -816,8 +844,9 @@
     <script>
       (function () {
         const sidebarCollapseToggle = document.getElementById("sidebar-collapse-toggle");
+        const sidebarExpandToggle = document.getElementById("sidebar-expand-toggle");
         const sidebarCollapseIcon = document.getElementById("sidebar-collapse-icon");
-        if (!sidebarCollapseToggle || !sidebarCollapseIcon) {
+        if (!sidebarCollapseToggle || !sidebarExpandToggle) {
           return;
         }
 
@@ -825,8 +854,6 @@
 
         const setSidebarCollapsed = (collapsed, persist = false) => {
           document.body.setAttribute("data-sidebar-collapsed", collapsed ? "true" : "false");
-          sidebarCollapseIcon.textContent = collapsed ? "☰" : "«";
-          sidebarCollapseToggle.setAttribute("title", collapsed ? "Expand sidebar" : "Collapse sidebar");
           if (persist && window.localStorage) {
             try {
               localStorage.setItem(storageKey, collapsed ? "true" : "false");
@@ -851,8 +878,11 @@
         };
 
         sidebarCollapseToggle.addEventListener("click", () => {
-          const currentCollapsed = document.body.getAttribute("data-sidebar-collapsed") === "true";
-          setSidebarCollapsed(!currentCollapsed, true);
+          setSidebarCollapsed(true, true);
+        });
+
+        sidebarExpandToggle.addEventListener("click", () => {
+          setSidebarCollapsed(false, true);
         });
 
         initialize();

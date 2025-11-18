@@ -758,6 +758,9 @@ def get_repo_status(project: Project, user: Optional[object] = None) -> dict[str
         fetched_at = datetime.fromtimestamp(fetch_head.stat().st_mtime, tz=timezone.utc)
         last_pull_iso = fetched_at.isoformat()
         last_pull_display = fetched_at.astimezone().strftime("%b %d, %Y • %H:%M %Z")
+    else:
+        # FETCH_HEAD doesn't exist - this is normal for freshly initialized workspaces
+        last_pull_display = "Never pulled (workspace initialized)"
 
     commit_hash = None
     commit_subject = None

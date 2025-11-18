@@ -357,6 +357,7 @@
                 <td><small>{{ backup.created_at }}</small></td>
                 <td>
                   <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <a href="{{ url_for('admin.download_backup_web', backup_id=backup.id) }}" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem; text-decoration: none; display: inline-block;">Download</a>
                     <form method="post" action="{{ url_for('admin.restore_backup_web', backup_id=backup.id) }}" style="margin: 0;" onsubmit="return confirm('WARNING: This will replace the current database! Are you sure you want to restore from this backup?');">
                       {{ restore_form.hidden_tag() }}
                       <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">Restore</button>

@@ -20,6 +20,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_file,
     url_for,
 )
 from flask_login import current_user, login_required  # type: ignore
@@ -3523,3 +3524,23 @@ def delete_backup_web(backup_id: int):
         db.session.rollback()
 
     return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/backups/<int:backup_id>/download")
+@admin_required
+def download_backup_web(backup_id: int):
+    """Download a backup file via the web interface."""
+    try:
+        backup = get_backup(backup_id)
+        backup_path = Path(backup.filepath)
+
+        return send_file(
+            backup_path,
+            as_attachment=True,
+            download_name=backup.filename,
+            mimetype="application/gzip",
+        )
+    except BackupError as exc:
+        current_app.logger.exception("Failed to download backup.")
+        flash(f"Error downloading backup: {exc}", "danger")
+        return redirect(url_for("admin.manage_settings"))

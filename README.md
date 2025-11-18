@@ -99,30 +99,25 @@ aiops auth whoami
 # List issues
 aiops issues list
 
-# Start AI session on an issue (claims, starts session, populates context)
-aiops issues work 501 --tool claude
-
-# Start AI session without an issue
-aiops issues start --project aiops --tool shell
-
-# Admin: Start session as another user (for testing/support)
-aiops issues start --project aiops --tool codex --user user@example.com
-
-# Start AI session and attach to remote tmux session via SSH
+# Work on an issue (claims, starts session, populates AGENTS.override.md)
 aiops issues work 501 --tool claude --attach
-
-# List active AI sessions for a project
-aiops issues sessions --project 1
-
-# Admin: List all users' sessions
-aiops issues sessions --all-users
-
-# Attach directly to a running AI session by ID/prefix or tmux target
-aiops issues sessions --attach cb3877c65dbd
-aiops issues sessions --attach user:aiops-p6
 
 # View issue details
 aiops issues view 501
+
+# Start generic session (not tied to an issue)
+aiops sessions start --project aiops --tool shell
+
+# Admin: Start session as another user
+aiops sessions start --project aiops --tool codex --user user@example.com
+
+# List active sessions
+aiops sessions list --project 1
+aiops sessions list --all-users  # Admin: all users
+
+# Attach to a session
+aiops sessions attach cb3877c65dbd
+aiops sessions attach user:aiops-p6
 
 # Database backups (admin only)
 aiops system backup create --description "Pre-deployment backup"
@@ -131,20 +126,31 @@ aiops system backup download <id>
 aiops system backup restore <id>
 ```
 
+### Issue vs Session Commands
+
+**Use `aiops issues` for issue-specific work:**
+- `aiops issues work <id>` - Automatically populates AGENTS.override.md with issue context
+- All issue commands update issue tracking (status, comments, assignments)
+
+**Use `aiops sessions` for generic development:**
+- `aiops sessions start` - Start sessions not tied to specific issues
+- `aiops sessions list` - List and manage active sessions
+- `aiops sessions attach` - Attach to any running session
+
 ### Admin Session Management
 
 Administrators can start and manage sessions as other users for testing, debugging, and support purposes:
 
 ```bash
 # Start a session as another user (by email or ID)
-aiops issues start --project myproject --tool shell --user user@example.com
-aiops issues start --project 6 --tool codex --user 5
+aiops sessions start --project myproject --tool shell --user user@example.com
+aiops sessions start --project 6 --tool codex --user 5
 
 # View all users' sessions (admin only)
-aiops issues sessions --all-users
+aiops sessions list --all-users
 
 # Attach to any user's session
-aiops issues sessions --attach user:aiops-p6
+aiops sessions attach user:aiops-p6
 ```
 
 **Key features:**

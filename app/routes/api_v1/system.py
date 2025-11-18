@@ -8,10 +8,17 @@ import threading
 import time
 from pathlib import Path
 
-from flask import current_app, jsonify, request
+from flask import current_app, jsonify, request, send_file
 
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.ai_cli_update_service import CLICommandError, run_ai_tool_update
+from ...services.backup_service import (
+    BackupError,
+    create_backup,
+    get_backup,
+    list_backups,
+    restore_backup,
+)
 from . import api_v1_bp
 
 
@@ -478,3 +485,148 @@ def update_ai_tool_cli(tool: str):
         "message": message,
         "result": payload,
     })
+
+
+@api_v1_bp.post("/system/backups")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def create_system_backup():
+    """Create a new database backup.
+
+    Request body:
+        description (str, optional): Optional description of the backup
+
+    Returns:
+        201: Backup created successfully
+        500: Backup creation failed
+    """
+    data = request.get_json(silent=True) or {}
+    description = data.get("description")
+
+    # Get user ID from API auth context if available
+    user_id = getattr(request, "api_user_id", None)
+
+    try:
+        backup = create_backup(description=description, user_id=user_id)
+        return jsonify({
+            "message": "Backup created successfully",
+            "backup": {
+                "id": backup.id,
+                "filename": backup.filename,
+                "size_bytes": backup.size_bytes,
+                "description": backup.description,
+                "created_at": backup.created_at.isoformat() if backup.created_at else None,
+            },
+        }), 201
+    except BackupError as exc:
+        current_app.logger.error(f"Backup creation failed: {exc}")
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_v1_bp.get("/system/backups")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def list_system_backups():
+    """List all available backups.
+
+    Returns:
+        200: List of backups
+    """
+    try:
+        backups = list_backups()
+        return jsonify({
+            "backups": backups,
+            "count": len(backups),
+        })
+    except Exception as exc:
+        current_app.logger.error(f"Failed to list backups: {exc}")
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_v1_bp.get("/system/backups/<int:backup_id>")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def get_system_backup(backup_id: int):
+    """Get details of a specific backup.
+
+    Args:
+        backup_id: ID of the backup
+
+    Returns:
+        200: Backup details
+        404: Backup not found
+    """
+    try:
+        backup = get_backup(backup_id)
+        return jsonify({
+            "backup": {
+                "id": backup.id,
+                "filename": backup.filename,
+                "filepath": backup.filepath,
+                "size_bytes": backup.size_bytes,
+                "description": backup.description,
+                "created_at": backup.created_at.isoformat() if backup.created_at else None,
+                "created_by": {
+                    "id": backup.created_by.id,
+                    "name": backup.created_by.name,
+                    "email": backup.created_by.email,
+                }
+                if backup.created_by
+                else None,
+            },
+        })
+    except BackupError as exc:
+        return jsonify({"error": str(exc)}), 404
+
+
+@api_v1_bp.get("/system/backups/<int:backup_id>/download")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def download_system_backup(backup_id: int):
+    """Download a backup file.
+
+    Args:
+        backup_id: ID of the backup
+
+    Returns:
+        200: Backup file download
+        404: Backup not found
+    """
+    try:
+        backup = get_backup(backup_id)
+        backup_path = Path(backup.filepath)
+
+        return send_file(
+            backup_path,
+            as_attachment=True,
+            download_name=backup.filename,
+            mimetype="application/gzip",
+        )
+    except BackupError as exc:
+        return jsonify({"error": str(exc)}), 404
+
+
+@api_v1_bp.post("/system/backups/<int:backup_id>/restore")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def restore_system_backup(backup_id: int):
+    """Restore the database from a backup.
+
+    This is a destructive operation that will replace the current database.
+
+    Args:
+        backup_id: ID of the backup to restore
+
+    Returns:
+        200: Restore successful
+        404: Backup not found
+        500: Restore failed
+    """
+    try:
+        restore_backup(backup_id)
+        return jsonify({
+            "message": "Database restored successfully. Please restart the application.",
+        })
+    except BackupError as exc:
+        current_app.logger.error(f"Backup restore failed: {exc}")
+        return jsonify({"error": str(exc)}), 500

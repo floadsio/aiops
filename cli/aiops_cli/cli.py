@@ -888,7 +888,7 @@ def issues_start(
         if user_id:
             payload["user_id"] = user_id
 
-        url = f"{client.base_url}/api/projects/{project_id}/ai/sessions"
+        url = f"{client.base_url}/api/v1/projects/{project_id}/ai/sessions"
         response = client.session.post(url, json=payload)
         response.raise_for_status()
         result = response.json()
@@ -1458,7 +1458,7 @@ def sessions_start(
         if user_id:
             payload["user_id"] = user_id
 
-        url = f"{client.base_url}/api/projects/{project_id}/ai/sessions"
+        url = f"{client.base_url}/api/v1/projects/{project_id}/ai/sessions"
         response = client.session.post(url, json=payload)
         response.raise_for_status()
         result = response.json()

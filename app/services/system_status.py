@@ -189,9 +189,9 @@ def check_integrations() -> dict[str, Any]:
         Status dict with 'healthy', 'message', and 'details'
     """
     try:
-        from ..models import IssueIntegration
+        from ..models import TenantIntegration
 
-        integrations = IssueIntegration.query.all()
+        integrations = TenantIntegration.query.all()
 
         if not integrations:
             return {

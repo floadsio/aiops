@@ -114,6 +114,11 @@ class APIClient:
         """Get current user info."""
         return self.get("auth/me")
 
+    def is_admin(self) -> bool:
+        """Check if current user is admin."""
+        user_info = self.whoami()
+        return user_info.get("is_admin", False)
+
     def list_api_keys(self) -> list[dict[str, Any]]:
         """List API keys."""
         data = self.get("auth/keys")

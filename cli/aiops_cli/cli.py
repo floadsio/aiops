@@ -699,7 +699,7 @@ def issues_sync(
 @click.option(
     "--all-users",
     is_flag=True,
-    help="Show sessions for all users (admin only)",
+    help="Show sessions for all users (admin only, implicit for admins)",
 )
 @click.pass_context
 def issues_sessions(
@@ -713,6 +713,10 @@ def issues_sessions(
 
     try:
         all_sessions = []
+
+        # Auto-enable all-users for admins
+        if not all_users and client.is_admin():
+            all_users = True
 
         # When attaching, always fetch all users' sessions so we can find the target
         # (admins should be able to attach to any session)
@@ -1503,7 +1507,7 @@ def sessions_start(
 
 @sessions.command(name="list")
 @click.option("--project", help="Filter by project ID or name")
-@click.option("--all-users", is_flag=True, help="Show sessions for all users (admin only)")
+@click.option("--all-users", is_flag=True, help="Show sessions for all users (admin only, implicit for admins)")
 @click.pass_context
 def sessions_list(
     ctx: click.Context,
@@ -1514,6 +1518,10 @@ def sessions_list(
     client = get_client(ctx)
 
     try:
+        # Auto-enable all-users for admins
+        if not all_users and client.is_admin():
+            all_users = True
+
         all_sessions = []
 
         if project:

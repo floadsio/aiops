@@ -713,10 +713,14 @@ def issues_sessions(
     try:
         all_sessions = []
 
+        # When attaching, always fetch all users' sessions so we can find the target
+        # (admins should be able to attach to any session)
+        fetch_all_users = all_users or bool(attach_session)
+
         if project:
             # Single project - resolve name to ID if needed
             project_id = resolve_project_id(client, project)
-            sessions = client.list_ai_sessions(project_id, all_users=all_users)
+            sessions = client.list_ai_sessions(project_id, all_users=fetch_all_users)
             # Add project info to each session
             for session in sessions:
                 session["project_id"] = project_id
@@ -726,7 +730,7 @@ def issues_sessions(
             projects = client.list_projects()
             for proj in projects:
                 proj_id = proj["id"]
-                sessions = client.list_ai_sessions(proj_id, all_users=all_users)
+                sessions = client.list_ai_sessions(proj_id, all_users=fetch_all_users)
                 # Add project info to each session
                 for session in sessions:
                     session["project_id"] = proj_id

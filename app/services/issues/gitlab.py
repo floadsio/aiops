@@ -330,6 +330,77 @@ def assign_issue(
     )
 
 
+def create_comment(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+    body: str,
+) -> IssueCommentPayload:
+    """Add a comment to a GitLab issue.
+
+    Args:
+        integration: GitLab tenant integration
+        project_integration: Project integration containing the project ref
+        external_id: Issue IID (issue number)
+        body: Comment text to add
+
+    Returns:
+        IssueCommentPayload with comment details
+
+    Raises:
+        IssueSyncError: If comment creation fails
+    """
+    project_ref = project_integration.external_identifier
+    if not project_ref:
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
+
+    identifier = str(external_id).strip()
+    issue_ref: int | str
+    try:
+        issue_ref = int(identifier)
+    except (TypeError, ValueError):
+        issue_ref = identifier
+
+    body = (body or "").strip()
+    if not body:
+        raise IssueSyncError("Comment body is required.")
+
+    client = _build_client(integration)
+    try:
+        from gitlab import exceptions as gitlab_exc
+
+        project = client.projects.get(project_ref)
+        issue = project.issues.get(issue_ref)
+
+        # Create the note (GitLab's term for comments)
+        note = issue.notes.create({"body": body})
+
+        # Extract note details
+        author = getattr(note, "author", None)
+        author_name = None
+        if isinstance(author, dict):
+            author_name = author.get("name") or author.get("username")
+
+        note_id = getattr(note, "id", None)
+
+        return IssueCommentPayload(
+            author=str(author_name) if author_name else None,
+            body=getattr(note, "body", "") or "",
+            created_at=parse_datetime(getattr(note, "created_at", None)),
+            url=getattr(note, "web_url", None),
+            id=str(note_id) if note_id else None,
+        )
+
+    except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabGetError) as exc:
+        status = getattr(exc, "response_code", "unknown")
+        raise IssueSyncError(f"GitLab API error: {status}") from exc
+    except gitlab_exc.GitlabError as exc:
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+
+
 def _resolve_assignee(issue_payload: Any) -> Optional[str]:
     assignee = getattr(issue_payload, "assignee", None)
     if isinstance(assignee, dict):

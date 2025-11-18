@@ -179,6 +179,34 @@ def get_tenant(tenant_id: int):
     return jsonify({"tenant": payload})
 
 
+@api_bp.get("/users")
+def list_users():
+    """List all users (admin only for security)."""
+    # Check if current user is admin
+    is_admin = False
+    if hasattr(g, "api_user") and g.api_user:
+        is_admin = getattr(g.api_user, "is_admin", False)
+    elif current_user and current_user.is_authenticated:
+        is_admin = getattr(current_user, "is_admin", False)
+
+    if not is_admin:
+        return jsonify({"error": "Admin access required to list users."}), 403
+
+    users = User.query.order_by(User.email).all()
+    return jsonify({
+        "users": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "name": u.name,
+                "is_admin": u.is_admin,
+                "tenant_id": u.tenant.id if u.tenant else None,
+            }
+            for u in users
+        ]
+    })
+
+
 @api_bp.get("/projects")
 def list_projects():
     tenant_id = request.args.get("tenant_id", type=int)

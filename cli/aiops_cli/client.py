@@ -531,6 +531,39 @@ class APIClient:
             payload["color"] = color
         return self.post("tenants", json=payload)
 
+    # Integrations
+    def list_integrations(
+        self, tenant_id: Optional[int] = None, provider: Optional[str] = None
+    ) -> list[dict[str, Any]]:
+        """List all integrations.
+
+        Args:
+            tenant_id: Optional tenant ID to filter by
+            provider: Optional provider to filter by (github, gitlab, jira)
+
+        Returns:
+            List of integration dictionaries
+        """
+        params = {}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
+        if provider:
+            params["provider"] = provider
+        data = self.get("integrations", params=params)
+        return data.get("integrations", [])
+
+    def list_tenant_integrations(self, tenant_id: int) -> list[dict[str, Any]]:
+        """List integrations for a specific tenant.
+
+        Args:
+            tenant_id: Tenant ID
+
+        Returns:
+            List of integration dictionaries
+        """
+        data = self.get(f"tenants/{tenant_id}/integrations")
+        return data.get("integrations", [])
+
     # System management
     def system_update(self, skip_migrations: bool = False) -> dict[str, Any]:
         """Update the aiops application (git pull, install deps, run migrations).

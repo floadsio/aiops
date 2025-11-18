@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ...constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ...extensions import db
-from ...models import Tenant
+from ...models import Tenant, TenantIntegration
 from ...services.api_auth import audit_api_request, require_api_auth
 from . import api_v1_bp
 
@@ -174,3 +174,83 @@ def delete_tenant(tenant_id: int):
     db.session.delete(tenant)
     db.session.commit()
     return ("", 204)
+
+
+@api_v1_bp.get("/tenants/<int:tenant_id>/integrations")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def list_tenant_integrations(tenant_id: int):
+    """List all integrations for a tenant.
+
+    Args:
+        tenant_id: Tenant ID
+
+    Returns:
+        200: List of integrations
+        404: Tenant not found
+    """
+    tenant = Tenant.query.get_or_404(tenant_id)
+    integrations = TenantIntegration.query.filter_by(tenant_id=tenant_id).order_by(
+        TenantIntegration.provider, TenantIntegration.name
+    ).all()
+
+    result = []
+    for integration in integrations:
+        result.append({
+            "id": integration.id,
+            "name": integration.name,
+            "provider": integration.provider,
+            "base_url": integration.base_url,
+            "enabled": integration.enabled,
+            "tenant_id": integration.tenant_id,
+            "tenant_name": tenant.name,
+            "created_at": integration.created_at.isoformat() if integration.created_at else None,
+            "updated_at": integration.updated_at.isoformat() if integration.updated_at else None,
+        })
+
+    return jsonify({"integrations": result, "count": len(result)})
+
+
+@api_v1_bp.get("/integrations")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def list_all_integrations():
+    """List all integrations across all tenants.
+
+    Query params:
+        tenant_id (int, optional): Filter by tenant ID
+        provider (str, optional): Filter by provider (github, gitlab, jira)
+
+    Returns:
+        200: List of integrations
+    """
+    query = TenantIntegration.query
+
+    # Apply filters
+    tenant_id = request.args.get("tenant_id", type=int)
+    if tenant_id:
+        query = query.filter_by(tenant_id=tenant_id)
+
+    provider = request.args.get("provider")
+    if provider:
+        query = query.filter_by(provider=provider)
+
+    integrations = query.order_by(
+        TenantIntegration.tenant_id, TenantIntegration.provider, TenantIntegration.name
+    ).all()
+
+    result = []
+    for integration in integrations:
+        result.append({
+            "id": integration.id,
+            "name": integration.name,
+            "provider": integration.provider,
+            "base_url": integration.base_url,
+            "enabled": integration.enabled,
+            "tenant_id": integration.tenant_id,
+            "tenant_name": integration.tenant.name,
+            "created_at": integration.created_at.isoformat() if integration.created_at else None,
+            "updated_at": integration.updated_at.isoformat() if integration.updated_at else None,
+        })
+
+    return jsonify({"integrations": result, "count": len(result)})

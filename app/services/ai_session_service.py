@@ -225,3 +225,44 @@ def get_session_summary(session: AISession) -> dict:
         "resume_command": build_resume_command(session),
         "pane_dead": pane_dead,
     }
+
+
+def cleanup_stale_sessions() -> dict[str, int]:
+    """Mark all active sessions as inactive and clean up stale database entries.
+
+    This is a maintenance function that:
+    1. Marks all active AI sessions as inactive
+    2. Returns counts of affected sessions
+
+    Returns:
+        Dictionary with counts of marked_inactive sessions
+    """
+    from ..ai_sessions import session_exists
+
+    marked_inactive = 0
+
+    # Get all active sessions
+    active_sessions = AISession.query.filter_by(is_active=True).all()
+
+    for session in active_sessions:
+        # Check if tmux target still exists
+        if session.tmux_target:
+            exists = session_exists(session.tmux_target)
+            if not exists:
+                session.is_active = False
+                session.ended_at = datetime.utcnow()
+                marked_inactive += 1
+        else:
+            # No tmux target, mark as inactive
+            session.is_active = False
+            session.ended_at = datetime.utcnow()
+            marked_inactive += 1
+
+    if marked_inactive > 0:
+        db.session.commit()
+        current_app.logger.info(f"Cleanup: marked {marked_inactive} sessions as inactive")
+
+    return {
+        "marked_inactive": marked_inactive,
+        "total_checked": len(active_sessions),
+    }

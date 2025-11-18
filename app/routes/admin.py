@@ -1354,6 +1354,32 @@ def system_status():
     return render_template("admin/system_status.html")
 
 
+@admin_bp.route("/system/cleanup-sessions", methods=["POST"])
+@admin_required
+def cleanup_tmux_sessions():
+    """Clean up stale AI sessions in the database."""
+    from ..services.ai_session_service import cleanup_stale_sessions
+
+    try:
+        result = cleanup_stale_sessions()
+        marked_inactive = result.get("marked_inactive", 0)
+        total_checked = result.get("total_checked", 0)
+
+        if marked_inactive > 0:
+            flash(
+                f"Cleanup completed: {marked_inactive} of {total_checked} sessions marked as inactive.",
+                "success",
+            )
+        else:
+            flash(f"No stale sessions found. Checked {total_checked} active sessions.", "info")
+
+    except Exception as exc:
+        current_app.logger.exception("Session cleanup failed")
+        flash(f"Session cleanup failed: {exc}", "danger")
+
+    return redirect(url_for("admin.manage_settings"))
+
+
 @admin_bp.route("/settings/ai-tools/<tool>/update", methods=["POST"])
 @admin_required
 def run_ai_tool_update_command(tool: str):

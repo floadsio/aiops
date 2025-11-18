@@ -380,6 +380,25 @@
     </div>
   </section>
 
+  <section class="settings-category">
+    <h2>Session Maintenance</h2>
+    <div class="settings-grid-1">
+      <article class="settings-card">
+    <h3>🧹 Cleanup Stale Sessions</h3>
+    <p>Clean up old AI tool sessions in the database. This will mark all sessions that no longer have active tmux panes as inactive.</p>
+    <p class="text-muted">This is useful when tmux sessions have been manually closed or the tmux server has been restarted.</p>
+
+    <form method="post" action="{{ url_for('admin.cleanup_tmux_sessions') }}" onsubmit="return confirm('This will scan all active sessions and mark stale ones as inactive. Continue?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="settings-actions">
+        <button type="submit" class="secondary">🧹 Run Cleanup</button>
+        <span class="text-muted form-helper">Marks stale sessions as inactive without deleting them.</span>
+      </div>
+    </form>
+  </article>
+    </div>
+  </section>
+
   {% if ai_tool_cards %}
   <section class="settings-category">
     <h2>AI Tool Maintenance</h2>

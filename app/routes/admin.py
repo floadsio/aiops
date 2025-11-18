@@ -34,6 +34,9 @@ from ..forms.admin import (
     AIToolUpdateForm,
     APIKeyCreateForm,
     APIKeyRevokeForm,
+    BackupCreateForm,
+    BackupDeleteForm,
+    BackupRestoreForm,
     CreateUserForm,
     IssueDashboardCreateForm,
     LinuxUserMappingForm,
@@ -85,6 +88,13 @@ from ..services.ai_cli_update_service import (
     CLICommandError,
     get_ai_tool_versions,
     run_ai_tool_update,
+)
+from ..services.backup_service import (
+    BackupError,
+    create_backup,
+    get_backup,
+    list_backups,
+    restore_backup,
 )
 from ..services.branch_state import (
     BranchSwitchError,
@@ -1196,6 +1206,18 @@ def manage_settings():
         global_agent_context_form.content.data = global_agent_context.content
     global_agent_context_clear_form = GlobalAgentContextClearForm()
 
+    # Database Backups
+    backup_create_form = BackupCreateForm()
+    backups = list_backups()
+    backup_restore_forms = {
+        backup["id"]: BackupRestoreForm(backup_id=backup["id"])
+        for backup in backups
+    }
+    backup_delete_forms = {
+        backup["id"]: BackupDeleteForm(backup_id=backup["id"])
+        for backup in backups
+    }
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1219,6 +1241,10 @@ def manage_settings():
         global_agent_context=global_agent_context,
         global_agent_context_form=global_agent_context_form,
         global_agent_context_clear_form=global_agent_context_clear_form,
+        backup_create_form=backup_create_form,
+        backups=backups,
+        backup_restore_forms=backup_restore_forms,
+        backup_delete_forms=backup_delete_forms,
         now=datetime.utcnow(),
     )
 
@@ -3416,6 +3442,84 @@ def clear_global_agent_context():
     except Exception as exc:  # noqa: BLE001
         current_app.logger.exception("Failed to clear global agent context.")
         flash(f"Error clearing global agent context: {exc}", "danger")
+        db.session.rollback()
+
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/backups/create", methods=["POST"])
+@admin_required
+def create_backup_web():
+    """Create a new database backup via the web interface."""
+    form = BackupCreateForm()
+    if not form.validate_on_submit():
+        flash("Invalid backup creation request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        backup = create_backup(
+            description=form.description.data,
+            user_id=current_user.id,
+        )
+        flash(
+            f"Backup created successfully: {backup.filename} ({backup.size_bytes} bytes)",
+            "success",
+        )
+    except BackupError as exc:
+        current_app.logger.exception("Failed to create backup.")
+        flash(f"Error creating backup: {exc}", "danger")
+
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/backups/<int:backup_id>/restore", methods=["POST"])
+@admin_required
+def restore_backup_web(backup_id: int):
+    """Restore database from a backup via the web interface."""
+    form = BackupRestoreForm()
+    if not form.validate_on_submit():
+        flash("Invalid backup restore request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        backup = get_backup(backup_id)
+        restore_backup(backup_id)
+        flash(
+            f"Database restored successfully from {backup.filename}. Please restart the application.",
+            "success",
+        )
+    except BackupError as exc:
+        current_app.logger.exception("Failed to restore backup.")
+        flash(f"Error restoring backup: {exc}", "danger")
+
+    return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/backups/<int:backup_id>/delete", methods=["POST"])
+@admin_required
+def delete_backup_web(backup_id: int):
+    """Delete a backup via the web interface."""
+    form = BackupDeleteForm()
+    if not form.validate_on_submit():
+        flash("Invalid backup deletion request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        backup = get_backup(backup_id)
+        # Delete the backup file and database record
+        import os
+        if os.path.exists(backup.filepath):
+            os.remove(backup.filepath)
+        db.session.delete(backup)
+        db.session.commit()
+        flash(f"Backup {backup.filename} deleted successfully.", "success")
+    except BackupError as exc:
+        current_app.logger.exception("Failed to delete backup.")
+        flash(f"Error deleting backup: {exc}", "danger")
+        db.session.rollback()
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Failed to delete backup.")
+        flash(f"Error deleting backup: {exc}", "danger")
         db.session.rollback()
 
     return redirect(url_for("admin.manage_settings"))

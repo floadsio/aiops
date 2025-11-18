@@ -517,3 +517,28 @@ class GlobalAgentContextClearForm(FlaskForm):
     """Form for clearing global agent context."""
 
     submit = SubmitField("Clear Global Context")
+
+
+class BackupCreateForm(FlaskForm):
+    """Form for creating database backups."""
+
+    description = StringField(
+        "Description",
+        validators=[Optional(), Length(max=255)],
+        render_kw={"placeholder": "Optional description of this backup"},
+    )
+    submit = SubmitField("Create Backup")
+
+
+class BackupRestoreForm(FlaskForm):
+    """Form for restoring from a backup."""
+
+    backup_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Restore Backup")
+
+
+class BackupDeleteForm(FlaskForm):
+    """Form for deleting a backup."""
+
+    backup_id = HiddenField(validators=[DataRequired()])
+    submit = SubmitField("Delete Backup")

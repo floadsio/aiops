@@ -408,6 +408,77 @@ def close_tmux_target(target: str, *, linux_username: Optional[str] = None) -> N
         raise TmuxServiceError(f"Unable to close tmux window {target}: {exc}") from exc
 
 
+def is_pane_dead(target: str, linux_username: str | None = None) -> bool:
+    """Check if a tmux pane is dead.
+
+    Args:
+        target: Tmux target (session:window or session:window.pane format)
+        linux_username: Linux username to run tmux as (None for current user)
+
+    Returns:
+        True if the pane is dead, False if it's alive or doesn't exist
+    """
+    import subprocess
+
+    cmd = ["tmux", "list-panes", "-t", target, "-F", "#{pane_dead}"]
+    if linux_username:
+        cmd = ["sudo", "-u", linux_username] + cmd
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # Output is "1" if dead, "0" if alive
+            return result.stdout.strip() == "1"
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+    return False
+
+
+def respawn_pane(
+    target: str,
+    command: str | None = None,
+    linux_username: str | None = None,
+) -> None:
+    """Respawn a dead tmux pane with the original or new command.
+
+    Args:
+        target: Tmux target (session:window or session:window.pane format)
+        command: Optional new command to run (None = use original command)
+        linux_username: Linux username to run tmux as (None for current user)
+
+    Raises:
+        TmuxServiceError: If respawn fails
+    """
+    import subprocess
+
+    cmd = ["tmux", "respawn-pane", "-k", "-t", target]
+    if command:
+        cmd.append(command)
+    if linux_username:
+        cmd = ["sudo", "-u", linux_username] + cmd
+
+    try:
+        subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        current_app.logger.info("Respawned pane %s", target)
+    except subprocess.CalledProcessError as exc:
+        error_msg = exc.stderr.strip() if exc.stderr else str(exc)
+        raise TmuxServiceError(f"Failed to respawn pane {target}: {error_msg}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise TmuxServiceError(f"Timeout respawning pane {target}") from exc
+
+
 __all__ = [
     "TmuxWindow",
     "TmuxServiceError",
@@ -419,4 +490,6 @@ __all__ = [
     "TmuxSyncResult",
     "session_name_for_user",
     "close_tmux_target",
+    "is_pane_dead",
+    "respawn_pane",
 ]

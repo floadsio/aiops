@@ -35,6 +35,31 @@ from .services.tmux_metadata import record_tmux_tool
 from .services.tmux_service import ensure_project_window
 
 
+def _backslash_quote(value: str) -> str:
+    """Quote a string for shell using backslash escaping when possible.
+
+    For simple strings (alphanumerics, spaces, and common punctuation), uses
+    backslash escaping for better readability. Falls back to shlex.quote()
+    for strings with special characters.
+
+    Args:
+        value: String to quote
+
+    Returns:
+        Quoted string suitable for shell use
+    """
+    import re
+
+    # Check if string contains only safe characters that can be backslash-escaped
+    # Allow letters, numbers, spaces, hyphens, underscores, dots, and @
+    if re.match(r'^[a-zA-Z0-9 \-_.@]+$', value):
+        # Use backslash escaping for spaces
+        return value.replace(' ', r'\ ')
+    else:
+        # Fall back to shlex.quote for complex strings
+        return shlex.quote(value)
+
+
 class AISession:
     def __init__(
         self,
@@ -468,11 +493,11 @@ def create_session(
 
     # Continue setting up user environment
     if user:
-        git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
-        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
-        git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_NAME={_backslash_quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={_backslash_quote(user.email)}")
+        git_author_exports.append(f"export GIT_COMMITTER_NAME={_backslash_quote(user.name)}")
         git_author_exports.append(
-            f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
+            f"export GIT_COMMITTER_EMAIL={_backslash_quote(user.email)}"
         )
         # AIOPS CLI credentials injection
         if user.aiops_cli_url:
@@ -777,11 +802,11 @@ def create_persistent_session(
 
     # Set up user environment
     if user:
-        git_author_exports.append(f"export GIT_AUTHOR_NAME={shlex.quote(user.name)}")
-        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={shlex.quote(user.email)}")
-        git_author_exports.append(f"export GIT_COMMITTER_NAME={shlex.quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_NAME={_backslash_quote(user.name)}")
+        git_author_exports.append(f"export GIT_AUTHOR_EMAIL={_backslash_quote(user.email)}")
+        git_author_exports.append(f"export GIT_COMMITTER_NAME={_backslash_quote(user.name)}")
         git_author_exports.append(
-            f"export GIT_COMMITTER_EMAIL={shlex.quote(user.email)}"
+            f"export GIT_COMMITTER_EMAIL={_backslash_quote(user.email)}"
         )
         if user.aiops_cli_url:
             aiops_env_exports.append(

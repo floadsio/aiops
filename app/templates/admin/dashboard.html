@@ -1164,13 +1164,23 @@
           <div class="tmux-recent-actions">
             {% if window.project %}
               <div class="tmux-action">
-                <a
-                  role="button"
-                  class="secondary outline tmux-action-btn"
-                  href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
-                >
-                  🔗 Reattach
-                </a>
+                {% if window.pane_dead %}
+                  <button
+                    type="button"
+                    class="secondary outline tmux-action-btn respawn-tmux-pane"
+                    data-project-id="{{ window.project.project_id }}"
+                    data-tmux-target="{{ window.target }}"
+                    data-window-name="{{ window.window }}"
+                  >🔄 Restart</button>
+                {% else %}
+                  <a
+                    role="button"
+                    class="secondary outline tmux-action-btn"
+                    href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
+                  >
+                    🔗 Reattach
+                  </a>
+                {% endif %}
               </div>
               <div class="tmux-action">
                 <button
@@ -1375,17 +1385,27 @@
                       </span>
                     </div>
                     <div class="tmux-session-actions">
-                      <a
-                        role="button"
-                        class="secondary outline tmux-action-btn"
-                        href="{{ url_for(
-                          'projects.project_ai_console',
-                          project_id=project.id,
-                          attach=session.target
-                        ) }}"
-                      >
-                        Reattach
-                      </a>
+                      {% if session.pane_dead %}
+                        <button
+                          type="button"
+                          class="secondary outline tmux-action-btn respawn-tmux-pane"
+                          data-project-id="{{ project.id }}"
+                          data-tmux-target="{{ session.target }}"
+                          data-window-name="{{ session.window }}"
+                        >🔄 Restart</button>
+                      {% else %}
+                        <a
+                          role="button"
+                          class="secondary outline tmux-action-btn"
+                          href="{{ url_for(
+                            'projects.project_ai_console',
+                            project_id=project.id,
+                            attach=session.target
+                          ) }}"
+                        >
+                          Reattach
+                        </a>
+                      {% endif %}
                       <button
                         type="button"
                         class="secondary outline tmux-action-btn close-tmux-window"
@@ -1660,6 +1680,66 @@
     });
   })();
 
+  // Respawn Tmux Pane Handler
+  (function () {
+    const respawnButtons = document.querySelectorAll('.respawn-tmux-pane');
+    if (!respawnButtons.length) {
+      return;
+    }
+
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    respawnButtons.forEach(button => {
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        const projectId = button.dataset.projectId;
+        const tmuxTarget = button.dataset.tmuxTarget;
+        const windowName = button.dataset.windowName;
+
+        if (!projectId || !tmuxTarget) {
+          return;
+        }
+
+        if (!confirm(`Restart dead pane ${windowName || tmuxTarget}?`)) {
+          return;
+        }
+
+        const url = `/projects/${projectId}/tmux/respawn`;
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Restarting...';
+
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+          },
+          body: JSON.stringify({
+            tmux_target: tmuxTarget,
+            next: window.location.pathname + window.location.search,
+          }),
+        })
+        .then(response => {
+          if (response.ok) {
+            // Reload to show the pane is now alive
+            window.location.reload();
+          } else {
+            return response.json().then(data => {
+              throw new Error(data.error || 'Failed to respawn pane.');
+            });
+          }
+        })
+        .catch(error => {
+          alert(`Error: ${error.message}`);
+          button.disabled = false;
+          button.textContent = originalLabel;
+        });
+      });
+    });
+  })();
+
   // Close Pinned Issue Handler
   (function () {
     const closePinnedIssueButtons = document.querySelectorAll('.close-pinned-issue-btn');
@@ -1837,17 +1917,18 @@
       // Add event listeners for resume buttons
       grid.querySelectorAll('.resume-session-btn').forEach(btn => {
         btn.addEventListener('click', function() {
-          const sessionId = this.dataset.sessionId;
-          const projectName = this.dataset.projectName;
-          const tool = this.dataset.tool;
+          const button = this;  // Save button reference for use in promise chain
+          const sessionId = button.dataset.sessionId;
+          const projectName = button.dataset.projectName;
+          const tool = button.dataset.tool;
 
           if (!confirm(`Resume ${tool} session in project ${projectName}?`)) {
             return;
           }
 
-          const originalText = this.textContent;
-          this.disabled = true;
-          this.textContent = 'Resuming...';
+          const originalText = button.textContent;
+          button.disabled = true;
+          button.textContent = 'Resuming...';
 
           fetch(`/api/v1/ai/sessions/${sessionId}/resume`, {
             method: 'POST',
@@ -1871,8 +1952,8 @@
           })
           .catch(error => {
             alert(`Error: ${error.message}`);
-            this.disabled = false;
-            this.textContent = originalText;
+            button.disabled = false;
+            button.textContent = originalText;
           });
         });
       });

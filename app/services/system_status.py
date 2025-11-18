@@ -119,8 +119,17 @@ def check_ai_tools() -> dict[str, Any]:
     Returns:
         Status dict with 'healthy', 'message', and 'details'
     """
+    import os
     tools_config = current_app.config.get("ALLOWED_AI_TOOLS", {})
     tools_status = {}
+
+    # Add common binary locations to PATH for checking
+    extra_paths = ["/usr/local/bin", "/usr/bin", "/bin"]
+    current_path = os.environ.get("PATH", "")
+    search_path = current_path
+    for extra in extra_paths:
+        if extra not in current_path:
+            search_path = f"{extra}:{search_path}"
 
     for tool_name, tool_command in tools_config.items():
         if tool_name == "shell":
@@ -129,8 +138,10 @@ def check_ai_tools() -> dict[str, Any]:
         # Extract binary name from command
         binary = tool_command.split()[0] if tool_command else tool_name
 
-        if shutil.which(binary):
-            tools_status[tool_name] = {"available": True, "path": shutil.which(binary)}
+        # Check with extended PATH
+        found_path = shutil.which(binary, path=search_path)
+        if found_path:
+            tools_status[tool_name] = {"available": True, "path": found_path}
         else:
             tools_status[tool_name] = {"available": False, "path": None}
 

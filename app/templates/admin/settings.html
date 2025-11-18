@@ -313,6 +313,67 @@
     </div>
     <span class="text-muted form-helper" style="display: block; margin-top: 0.5rem;">Run check first to see issues; fix applies corrections using sudo as syseng user.</span>
   </article>
+
+  <article class="settings-card">
+    <h3>Database Backups</h3>
+    <p>Create, restore, and manage database backups. Backups include the full SQLite database with all settings and data.</p>
+    <p class="text-muted">Backup files are stored in <code>instance/backups/</code> and can be downloaded via the API or CLI.</p>
+
+    <form method="post" action="{{ url_for('admin.create_backup_web') }}">
+      {{ backup_create_form.hidden_tag() }}
+      <div class="settings-actions">
+        <label>
+          {{ backup_create_form.description.label }}
+          {{ backup_create_form.description() }}
+        </label>
+        <button type="submit" class="secondary">Create Backup</button>
+        <span class="text-muted form-helper">Creates a timestamped backup of the current database state.</span>
+      </div>
+    </form>
+
+    {% if backups %}
+      <h4 style="margin-top: 1.5rem; margin-bottom: 0.75rem;">Existing Backups</h4>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Filename</th>
+              <th scope="col">Description</th>
+              <th scope="col">Size</th>
+              <th scope="col">Created</th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for backup in backups %}
+              {% set restore_form = backup_restore_forms[backup.id] %}
+              {% set delete_form = backup_delete_forms[backup.id] %}
+              <tr>
+                <th scope="row"><code>{{ backup.filename }}</code></th>
+                <td>{{ backup.description or "-" }}</td>
+                <td>{{ "%.2f"|format(backup.size_bytes / 1024 / 1024) }} MB</td>
+                <td><small>{{ backup.created_at }}</small></td>
+                <td>
+                  <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <form method="post" action="{{ url_for('admin.restore_backup_web', backup_id=backup.id) }}" style="margin: 0;" onsubmit="return confirm('WARNING: This will replace the current database! Are you sure you want to restore from this backup?');">
+                      {{ restore_form.hidden_tag() }}
+                      <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">Restore</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin.delete_backup_web', backup_id=backup.id) }}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this backup?');">
+                      {{ delete_form.hidden_tag() }}
+                      <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-muted" style="margin-top: 1rem;">No backups found. Create your first backup above.</p>
+    {% endif %}
+  </article>
     </div>
   </section>
 

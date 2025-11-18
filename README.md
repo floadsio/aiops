@@ -113,6 +113,12 @@ aiops issues sessions --attach cb3877c65dbd
 
 # View issue details
 aiops issues view 501
+
+# Database backups (admin only)
+aiops system backup create --description "Pre-deployment backup"
+aiops system backup list
+aiops system backup download <id>
+aiops system backup restore <id>
 ```
 
 ### Remote Session Attachment

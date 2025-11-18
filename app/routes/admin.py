@@ -1027,7 +1027,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
                 "title": "Codex CLI",
                 "description": "Install or upgrade the Codex CLI without shell access.",
                 "actions": codex_actions,
-                "versions": get_ai_tool_versions("codex"),
+                "versions": None,  # Load versions on-demand for better page performance
             }
         )
 
@@ -1058,7 +1058,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
                 "title": "Gemini CLI",
                 "description": "Upgrade the Gemini CLI for browser-based terminals.",
                 "actions": gemini_actions,
-                "versions": get_ai_tool_versions("gemini"),
+                "versions": None,  # Load versions on-demand for better page performance
             }
         )
 
@@ -1089,7 +1089,7 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
                 "title": "Claude CLI",
                 "description": "Keep the Claude CLI current for tmux and browser sessions.",
                 "actions": claude_actions,
-                "versions": get_ai_tool_versions("claude"),
+                "versions": None,  # Load versions on-demand for better page performance
             }
         )
 

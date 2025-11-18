@@ -229,6 +229,29 @@ def get_session(session_id: str) -> Optional[AISession]:
         return _sessions.get(session_id)
 
 
+def session_exists(tmux_target: str) -> bool:
+    """Check if a tmux session/window exists.
+
+    Args:
+        tmux_target: The tmux target (session:window format or session name)
+
+    Returns:
+        True if the tmux session exists, False otherwise
+    """
+    import subprocess
+
+    try:
+        # Use tmux has-session to check if target exists
+        result = subprocess.run(
+            ["tmux", "has-session", "-t", tmux_target],
+            capture_output=True,
+            timeout=5,
+        )
+        return result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):  # noqa: BLE001
+        return False
+
+
 def find_session_for_issue(issue_id: int, user_id: int, project_id: int) -> Optional[AISession]:
     """Find an active AI session working on a specific issue for a user.
 

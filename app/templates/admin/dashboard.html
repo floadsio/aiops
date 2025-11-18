@@ -1081,7 +1081,7 @@
               data-issue-title="{{ issue.title }}"
               data-external-id="{{ issue.external_id }}"
             >
-              Close Issue
+              ✕ Close Issue
             </button>
             <form method="post" action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
@@ -1169,7 +1169,7 @@
                   class="secondary outline tmux-action-btn"
                   href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
                 >
-                  Reattach
+                  🔗 Reattach
                 </a>
               </div>
               <div class="tmux-action">
@@ -1179,7 +1179,7 @@
                   data-project-id="{{ window.project.project_id }}"
                   data-tmux-target="{{ window.target }}"
                   data-window-name="{{ window.window }}"
-                >Close</button>
+                >✕ Close</button>
               </div>
             {% endif %}
           </div>
@@ -1392,7 +1392,7 @@
                         data-project-id="{{ project.id }}"
                         data-tmux-target="{{ session.target }}"
                         data-window-name="{{ session.window }}"
-                      >Close</button>
+                      >✕ Close</button>
                     </div>
                   </div>
                 {% endfor %}

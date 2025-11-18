@@ -381,9 +381,6 @@
         border-right-width: 0;
       }
       .app-sidebar__collapse-toggle {
-        position: fixed;
-        top: 4.5rem;
-        left: 0.75rem;
         border: 1px solid var(--md-border);
         background: var(--md-surface);
         color: inherit;
@@ -393,7 +390,6 @@
         line-height: 1;
         cursor: pointer;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        z-index: 50;
         box-shadow: var(--shadow-2);
       }
       .app-sidebar__collapse-toggle:hover {
@@ -401,13 +397,10 @@
         transform: translateY(-1px);
         box-shadow: var(--shadow-3);
       }
-      body[data-sidebar-collapsed="true"] .app-sidebar__collapse-toggle {
-        left: 0.75rem;
-      }
-      body:not([data-sidebar-collapsed="true"]) .app-sidebar__collapse-toggle {
-        left: 205px;
-      }
       .app-sidebar__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         padding: 0.5rem 1.25rem 0.75rem;
         font-size: 0.7rem;
         text-transform: uppercase;
@@ -417,6 +410,10 @@
         border-bottom: 1px solid var(--md-border);
         margin-bottom: 0.75rem;
         white-space: nowrap;
+        position: sticky;
+        top: 0;
+        background: var(--md-surface-container);
+        z-index: 10;
       }
       .app-sidebar__menu {
         display: flex;
@@ -651,12 +648,14 @@
       </div>
     </header>
     {% if current_user.is_authenticated %}
-      <button type="button" class="app-sidebar__collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
-        <span id="sidebar-collapse-icon">☰</span>
-      </button>
       <div class="sidebar-backdrop" id="sidebar-backdrop" data-visible="false"></div>
       <aside class="app-sidebar" id="app-sidebar" data-open="false">
-        <div class="app-sidebar__header">Navigation</div>
+        <div class="app-sidebar__header">
+          <span>Navigation</span>
+          <button type="button" class="app-sidebar__collapse-toggle" id="sidebar-collapse-toggle" aria-label="Toggle sidebar" title="Toggle sidebar">
+            <span id="sidebar-collapse-icon">☰</span>
+          </button>
+        </div>
         <ul class="app-sidebar__menu">
           <li><a href="{{ url_for('admin.dashboard') }}">📊 Dashboard</a></li>
           <li><a href="{{ url_for('admin.manage_projects') }}">📁 Projects</a></li>

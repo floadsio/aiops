@@ -338,7 +338,7 @@
                 <button
                   type="button"
                   class="secondary start-codex-session"
-                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id) }}"
+                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id, issue_id=issue.id) }}"
                   data-prepare="{{ url_for(
                     'projects.prepare_issue_context',
                     project_id=project.id,
@@ -353,7 +353,7 @@
                 <button
                   type="button"
                   class="secondary start-codex-session"
-                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id) }}"
+                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id, issue_id=issue.id) }}"
                   data-prepare="{{ url_for(
                     'projects.prepare_issue_context',
                     project_id=project.id,

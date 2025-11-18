@@ -672,6 +672,15 @@ class APIClient:
         payload = {"source": normalized_source}
         return self.post(f"system/ai-tools/{normalized_tool}/update", json=payload)
 
+    # System status
+    def get_system_status(self) -> dict[str, Any]:
+        """Get comprehensive system status for all components.
+
+        Returns:
+            System status with component health checks
+        """
+        return self.get("system/status")
+
     # Backup management
     def create_backup(self, description: str | None = None) -> dict[str, Any]:
         """Create a new database backup.

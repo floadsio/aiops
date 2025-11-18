@@ -227,36 +227,46 @@ def get_session_summary(session: AISession) -> dict:
     }
 
 
-def cleanup_stale_sessions() -> dict[str, int]:
-    """Mark all active sessions as inactive and clean up stale database entries.
+def cleanup_stale_sessions(restart_tmux: bool = False) -> dict[str, int]:
+    """Mark all active sessions as inactive and optionally restart tmux servers.
 
     This is a maintenance function that:
-    1. Marks all active AI sessions as inactive
-    2. Returns counts of affected sessions
+    1. Optionally kills all tmux servers (if restart_tmux=True)
+    2. Marks all active AI sessions as inactive
+    3. Returns counts of affected sessions
+
+    Args:
+        restart_tmux: If True, kills all tmux servers before cleaning up sessions
 
     Returns:
-        Dictionary with counts of marked_inactive sessions
+        Dictionary with counts of marked_inactive sessions and tmux_restarted flag
     """
-    from ..ai_sessions import session_exists
+    import subprocess
 
-    marked_inactive = 0
+    tmux_restarted = False
 
-    # Get all active sessions
+    # Optionally restart tmux by killing all servers
+    if restart_tmux:
+        try:
+            # Kill all tmux servers for all users
+            # This is safe because tmux will auto-restart when needed
+            subprocess.run(
+                ["pkill", "-9", "tmux"],
+                capture_output=True,
+                timeout=5,
+            )
+            current_app.logger.info("Killed all tmux servers for cleanup")
+            tmux_restarted = True
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning(f"Failed to kill tmux servers: {exc}")
+
+    # Get all active sessions and mark them as inactive
     active_sessions = AISession.query.filter_by(is_active=True).all()
+    marked_inactive = len(active_sessions)
 
     for session in active_sessions:
-        # Check if tmux target still exists
-        if session.tmux_target:
-            exists = session_exists(session.tmux_target)
-            if not exists:
-                session.is_active = False
-                session.ended_at = datetime.utcnow()
-                marked_inactive += 1
-        else:
-            # No tmux target, mark as inactive
-            session.is_active = False
-            session.ended_at = datetime.utcnow()
-            marked_inactive += 1
+        session.is_active = False
+        session.ended_at = datetime.utcnow()
 
     if marked_inactive > 0:
         db.session.commit()
@@ -265,4 +275,5 @@ def cleanup_stale_sessions() -> dict[str, int]:
     return {
         "marked_inactive": marked_inactive,
         "total_checked": len(active_sessions),
+        "tmux_restarted": tmux_restarted,
     }

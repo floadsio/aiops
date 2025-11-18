@@ -549,7 +549,9 @@ def start_project_ai_session(project_id: int):
             session_user = User.query.get(user_id)
         tmux_session_name = session_name_for_user(session_user)
 
-        # Populate AGENTS.override.md for the issue before starting session
+        # Populate AGENTS.override.md before starting session
+        # - With issue: include global + issue-specific context
+        # - Without issue: include only global context
         if issue_id:
             from ..services.agent_context import write_tracked_issue_context
             try:
@@ -561,7 +563,7 @@ def start_project_ai_session(project_id: int):
                         ExternalIssue.project_integration.has(project_id=project.id)
                     ).all()
 
-                    # Write context to user's workspace
+                    # Write global + issue context to user's workspace
                     write_tracked_issue_context(
                         project,
                         issue,
@@ -573,6 +575,20 @@ def start_project_ai_session(project_id: int):
                 current_app.logger.warning(
                     "Failed to populate AGENTS.override.md for issue %s: %s",
                     issue_id,
+                    exc,
+                )
+        else:
+            from ..services.agent_context import write_global_context_only
+            try:
+                # Write only global context to user's workspace
+                write_global_context_only(
+                    project,
+                    identity_user=session_user,
+                )
+            except Exception as exc:
+                # Log but don't fail session creation if context write fails
+                current_app.logger.warning(
+                    "Failed to populate AGENTS.override.md with global context: %s",
                     exc,
                 )
 

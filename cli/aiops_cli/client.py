@@ -341,18 +341,23 @@ class APIClient:
 
         return result
 
-    def list_ai_sessions(self, project_id: int) -> list[dict[str, Any]]:
+    def list_ai_sessions(self, project_id: int, all_users: bool = False) -> list[dict[str, Any]]:
         """List active AI sessions for a project.
 
         Args:
             project_id: Project ID to list sessions for
+            all_users: If True, list sessions for all users (admin only)
 
         Returns:
             List of active session dictionaries
         """
         url = f"{self.base_url}/api/projects/{project_id}/ai/sessions"
+        params = {}
+        if all_users:
+            params["all_users"] = "true"
+
         try:
-            response = self.session.get(url)
+            response = self.session.get(url, params=params)
             response.raise_for_status()
             result = response.json()
             return result.get("sessions", [])

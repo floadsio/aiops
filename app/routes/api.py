@@ -760,7 +760,6 @@ def validate_ai_session(db_session_id: int):
 
         # If session doesn't exist but DB says it's active, mark it inactive
         if not exists and db_session.is_active:
-            from datetime import datetime
             from ..services.ai_session_service import end_session
             end_session(db_session.id)
 

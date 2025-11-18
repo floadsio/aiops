@@ -135,14 +135,10 @@ def ai_status_overview():
         "last_updated": user.claude_usage_last_updated,
     }
 
+    # Skip Claude CLI status check for now - it times out when Claude sessions are active
+    # TODO: Implement non-blocking status check or use a background job
     claude_status = None
-    claude_status_error = None
-    try:
-        claude_status = get_claude_status(user)
-    except AIStatusError as exc:
-        claude_status_error = str(exc)
-    except Exception as exc:  # pragma: no cover - unexpected failures
-        claude_status_error = f"Unable to fetch Claude status: {exc}"
+    claude_status_error = "Claude CLI status check is temporarily disabled to avoid timeouts during active sessions."
 
     return render_template(
         "projects/ai_status.html",

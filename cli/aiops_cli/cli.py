@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import time
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -728,7 +729,10 @@ def issues_sessions(
         else:
             # No project specified - fetch sessions from all projects
             projects = client.list_projects()
-            for proj in projects:
+            for idx, proj in enumerate(projects):
+                # Add small delay between requests to avoid rate limiting
+                if idx > 0:
+                    time.sleep(0.1)
                 proj_id = proj["id"]
                 sessions = client.list_ai_sessions(proj_id, all_users=fetch_all_users)
                 # Add project info to each session

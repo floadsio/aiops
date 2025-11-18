@@ -1770,6 +1770,179 @@ def system_update_ai_tool(ctx: click.Context, tool: str, source: str) -> None:
 
 
 # ============================================================================
+# BACKUP COMMANDS
+# ============================================================================
+
+
+@system.group(name="backup")
+def system_backup() -> None:
+    """Database backup management commands."""
+
+
+@system_backup.command(name="create")
+@click.option("--description", "-d", help="Optional description of the backup")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def backup_create(ctx: click.Context, description: Optional[str], output: Optional[str]) -> None:
+    """Create a new database backup.
+
+    Example:
+        aiops system backup create
+        aiops system backup create --description "Before migration"
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        console.print("[yellow]Creating database backup...[/yellow]")
+        result = client.create_backup(description=description)
+
+        backup = result.get("backup", {})
+        console.print(f"[green]✓[/green] {result.get('message', 'Backup created')}")
+
+        if output_format == "table":
+            console.print(f"\n[bold]Backup ID:[/bold] {backup.get('id')}")
+            console.print(f"[bold]Filename:[/bold] {backup.get('filename')}")
+            console.print(f"[bold]Size:[/bold] {backup.get('size_bytes', 0) / 1024 / 1024:.2f} MB")
+            if backup.get("description"):
+                console.print(f"[bold]Description:[/bold] {backup.get('description')}")
+        else:
+            format_output(result, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@system_backup.command(name="list")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def backup_list(ctx: click.Context, output: Optional[str]) -> None:
+    """List all available backups.
+
+    Example:
+        aiops system backup list
+        aiops system backup list --output json
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        backups = client.list_backups()
+
+        if not backups:
+            console.print("[yellow]No backups found.[/yellow]")
+            return
+
+        if output_format == "table":
+            table = Table(title="Database Backups")
+            table.add_column("ID", justify="right", style="cyan")
+            table.add_column("Filename", style="green")
+            table.add_column("Size", justify="right")
+            table.add_column("Created At")
+            table.add_column("Description", style="dim")
+
+            for backup in backups:
+                size_mb = backup.get("size_bytes", 0) / 1024 / 1024
+                created_at = backup.get("created_at", "N/A")
+                if created_at != "N/A":
+                    # Format ISO datetime to readable format
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    created_at = dt.strftime("%Y-%m-%d %H:%M")
+
+                table.add_row(
+                    str(backup.get("id")),
+                    backup.get("filename", ""),
+                    f"{size_mb:.2f} MB",
+                    created_at,
+                    backup.get("description") or "",
+                )
+
+            console.print(table)
+            console.print(f"\n[dim]Total: {len(backups)} backup(s)[/dim]")
+        else:
+            format_output({"backups": backups}, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@system_backup.command(name="download")
+@click.argument("backup_id", type=int)
+@click.option("--output", "-o", help="Output file path (default: <filename>)")
+@click.pass_context
+def backup_download(ctx: click.Context, backup_id: int, output: Optional[str]) -> None:
+    """Download a backup file.
+
+    BACKUP_ID is the database ID of the backup (from 'aiops system backup list').
+
+    Example:
+        aiops system backup download 5
+        aiops system backup download 5 --output /tmp/my_backup.tar.gz
+    """
+    client = get_client(ctx)
+
+    try:
+        # Get backup details to determine filename
+        backup = client.get_backup(backup_id)
+        filename = backup.get("filename", f"backup_{backup_id}.tar.gz")
+
+        # Determine output path
+        output_path = output or filename
+
+        console.print(f"[yellow]Downloading backup {backup_id}...[/yellow]")
+        client.download_backup(backup_id, output_path)
+
+        console.print(f"[green]✓[/green] Backup downloaded to: {output_path}")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        error_console.print(f"[red]Download failed:[/red] {exc}")
+        sys.exit(1)
+
+
+@system_backup.command(name="restore")
+@click.argument("backup_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def backup_restore(ctx: click.Context, backup_id: int, yes: bool) -> None:
+    """Restore the database from a backup.
+
+    WARNING: This is a destructive operation that will replace the current database!
+
+    BACKUP_ID is the database ID of the backup (from 'aiops system backup list').
+
+    Example:
+        aiops system backup restore 5
+        aiops system backup restore 5 --yes
+    """
+    if not yes:
+        console.print(
+            "[bold red]WARNING:[/bold red] This will replace the current database!",
+        )
+        click.confirm("Are you sure you want to restore from this backup?", abort=True)
+
+    client = get_client(ctx)
+
+    try:
+        console.print(f"[yellow]Restoring database from backup {backup_id}...[/yellow]")
+        result = client.restore_backup(backup_id)
+
+        console.print(f"[green]✓[/green] {result.get('message', 'Database restored')}")
+        console.print("[yellow]Note:[/yellow] You may need to restart the application.")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+# ============================================================================
 # AGENTS COMMANDS
 # ============================================================================
 

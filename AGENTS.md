@@ -90,6 +90,12 @@ aiops system update                            # Update aiops (git pull + deps +
 aiops system restart                           # Restart application
 aiops system update-and-restart                # Combined operation
 aiops update                                   # Update CLI itself
+
+# Database backups
+aiops system backup create --description "..."  # Create backup
+aiops system backup list                        # List all backups
+aiops system backup download <id>               # Download backup file
+aiops system backup restore <id>                # Restore from backup (destructive!)
 ```
 
 ### Standard Workflow for AI Agents

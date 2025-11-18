@@ -499,6 +499,26 @@ class GlobalAgentContext(BaseModel, TimestampMixin):
     updated_by: Mapped[Optional["User"]] = relationship("User")
 
 
+class Backup(BaseModel, TimestampMixin):
+    """Database backups with metadata tracking.
+
+    Stores metadata about database backups for tracking, download, and restore operations.
+    """
+
+    __tablename__ = "backups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    filepath: Mapped[str] = mapped_column(String(512), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    created_by: Mapped[Optional["User"]] = relationship("User")
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

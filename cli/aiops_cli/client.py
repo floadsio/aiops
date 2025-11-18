@@ -579,6 +579,80 @@ class APIClient:
         payload = {"source": normalized_source}
         return self.post(f"system/ai-tools/{normalized_tool}/update", json=payload)
 
+    # Backup management
+    def create_backup(self, description: str | None = None) -> dict[str, Any]:
+        """Create a new database backup.
+
+        Args:
+            description: Optional description of the backup
+
+        Returns:
+            Backup creation result with metadata
+        """
+        payload = {}
+        if description:
+            payload["description"] = description
+        return self.post("system/backups", json=payload)
+
+    def list_backups(self) -> list[dict[str, Any]]:
+        """List all available backups.
+
+        Returns:
+            List of backup metadata dictionaries
+        """
+        result = self.get("system/backups")
+        return result.get("backups", [])
+
+    def get_backup(self, backup_id: int) -> dict[str, Any]:
+        """Get details of a specific backup.
+
+        Args:
+            backup_id: Database ID of the backup
+
+        Returns:
+            Backup metadata dictionary
+        """
+        result = self.get(f"system/backups/{backup_id}")
+        return result.get("backup", {})
+
+    def download_backup(self, backup_id: int, output_path: str) -> None:
+        """Download a backup file.
+
+        Args:
+            backup_id: Database ID of the backup
+            output_path: Local path to save the backup file
+
+        Raises:
+            APIError: If download fails
+        """
+        # Use a direct download approach
+        import requests
+        from pathlib import Path
+
+        url = f"{self.base_url.rstrip('/')}/system/backups/{backup_id}/download"
+        headers = {"X-API-Key": self.api_key}
+
+        response = requests.get(url, headers=headers, stream=True, timeout=300)
+        response.raise_for_status()
+
+        output_file = Path(output_path)
+        with open(output_file, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+    def restore_backup(self, backup_id: int) -> dict[str, Any]:
+        """Restore the database from a backup.
+
+        This is a destructive operation that will replace the current database.
+
+        Args:
+            backup_id: Database ID of the backup to restore
+
+        Returns:
+            Restore result message
+        """
+        return self.post(f"system/backups/{backup_id}/restore")
+
     # ============================================================================
     # AGENTS METHODS
     # ============================================================================

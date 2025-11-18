@@ -53,8 +53,11 @@ def create_app(
         if not hasattr(app, "_orphaned_sessions_scanned"):
             app._orphaned_sessions_scanned = True
             try:
-                from .services.tmux_recovery import scan_and_log_orphaned_sessions
+                from .services.tmux_recovery import scan_and_log_orphaned_sessions, reconnect_persistent_sessions
                 scan_and_log_orphaned_sessions()
+                # Reconnect persistent sessions if enabled
+                if app.config.get("ENABLE_PERSISTENT_SESSIONS", False):
+                    reconnect_persistent_sessions()
             except Exception as exc:  # noqa: BLE001
                 app.logger.warning("Failed to scan for orphaned sessions: %s", exc)
 

@@ -5,7 +5,7 @@ from datetime import timezone
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 from flask_login import current_user  # type: ignore
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload

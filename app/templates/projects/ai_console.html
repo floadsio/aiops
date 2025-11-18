@@ -1115,11 +1115,12 @@
 
       document.querySelectorAll('.copy-resume-cmd').forEach(btn => {
         btn.addEventListener('click', function() {
-          const cmd = this.getAttribute('data-resume-command');
+          const button = this;  // Save button reference for promise chain
+          const cmd = button.getAttribute('data-resume-command');
           navigator.clipboard.writeText(cmd).then(() => {
-            this.textContent = 'Copied!';
+            button.textContent = 'Copied!';
             setTimeout(() => {
-              this.textContent = 'Copy Command';
+              button.textContent = 'Copy Command';
             }, 2000);
           });
         });
@@ -1133,14 +1134,14 @@
 
   async function handleResumeSession(event) {
     const button = event.target;
-    const sessionId = button.getAttribute('data-session-id');
+    const dbSessionId = button.getAttribute('data-session-id');
     const originalText = button.textContent;
 
     button.disabled = true;
     button.textContent = 'Resuming...';
 
     try {
-      const response = await fetch(`/projects/${projectId}/ai/sessions/${sessionId}/resume`, {
+      const response = await fetch(`/projects/${projectId}/ai/sessions/${dbSessionId}/resume`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1156,7 +1157,7 @@
         errorMessage: 'Failed to resume session',
         invalidBodyMessage: 'Received an invalid resume response.',
       });
-      sessionId = data.session_id;
+      sessionId = data.session_id;  // Assign to global sessionId
 
       // Start streaming from the new session
       startSession(sessionId);

@@ -275,8 +275,31 @@ class GitLabIssueProvider(BaseIssueProvider):
     def reopen_issue(self, **_: Any) -> Dict[str, Any]:
         raise IssueSyncError("Reopening GitLab issues via API is not supported yet.")
 
-    def add_comment(self, **_: Any) -> Dict[str, Any]:
-        raise IssueSyncError("Adding comments to GitLab issues via API is not supported.")
+    def add_comment(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        body: str,
+    ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
+        payload = gitlab_provider.create_comment(
+            effective_integration,
+            project_integration,
+            issue_number,
+            body,
+        )
+        # Convert IssueCommentPayload to dict format expected by API
+        return {
+            "id": payload.id,
+            "author": payload.author,
+            "body": payload.body,
+            "created_at": _serialize_datetime(payload.created_at),
+            "url": payload.url,
+        }
 
     def assign_issue(
         self,

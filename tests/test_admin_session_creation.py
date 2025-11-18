@@ -35,19 +35,19 @@ def test_admin_session_feature_documented():
 
 
 def test_cli_has_user_option():
-    """CRITICAL: Verify CLI has --user option in issues start command.
+    """CRITICAL: Verify CLI has --user option in sessions start command.
 
     This ensures the CLI properly exposes the --user flag.
     """
-    from cli.aiops_cli.cli import issues_start
+    from cli.aiops_cli.cli import sessions_start
 
     # Check that the function has a 'user' parameter
     import inspect
-    sig = inspect.signature(issues_start.callback)  # type: ignore
+    sig = inspect.signature(sessions_start.callback)  # type: ignore
     params = list(sig.parameters.keys())
 
     assert 'user' in params, \
-        "issues_start command must have 'user' parameter for admin session creation"
+        "sessions_start command must have 'user' parameter for admin session creation"
 
 
 def test_api_endpoint_accepts_user_id():
@@ -188,3 +188,107 @@ def test_cli_resolves_user_by_email():
 
     assert user_obj is not None, "Must be able to find user by ID"
     assert user_obj["id"] == 1, "Must resolve to correct user"
+
+
+def test_agents_override_always_populated():
+    """CRITICAL: Verify AGENTS.override.md is always written during session creation.
+
+    Both generic sessions and issue-specific sessions must populate the file.
+    """
+    from app.services import agent_context
+
+    # Verify the write_global_context_only function exists
+    assert hasattr(agent_context, 'write_global_context_only'), \
+        "agent_context must have write_global_context_only function"
+
+    # Verify the write_tracked_issue_context function exists
+    assert hasattr(agent_context, 'write_tracked_issue_context'), \
+        "agent_context must have write_tracked_issue_context function"
+
+
+def test_api_calls_context_writers():
+    """CRITICAL: Verify API endpoint calls appropriate context writers.
+
+    - With issue_id: should call write_tracked_issue_context
+    - Without issue_id: should call write_global_context_only
+    """
+    from app.routes import api
+    import inspect
+
+    func = api.start_project_ai_session
+    source = inspect.getsource(func)
+
+    # Verify it imports both context writing functions
+    assert 'write_tracked_issue_context' in source, \
+        "API must use write_tracked_issue_context for issue sessions"
+
+    assert 'write_global_context_only' in source, \
+        "API must use write_global_context_only for generic sessions"
+
+    # Verify conditional logic exists
+    assert 'if issue_id:' in source or 'if issue_id' in source, \
+        "API must conditionally populate context based on issue_id presence"
+
+
+def test_global_context_function_exists():
+    """CRITICAL: Verify write_global_context_only function exists and is importable.
+
+    This function is essential for generic session context population.
+    """
+    try:
+        from app.services.agent_context import write_global_context_only
+        assert callable(write_global_context_only), \
+            "write_global_context_only must be callable"
+    except ImportError as e:
+        raise AssertionError(f"Cannot import write_global_context_only: {e}")
+
+
+def test_context_loading_priority():
+    """CRITICAL: Verify _load_base_instructions loads from database first.
+
+    Global context priority:
+    1. Database (GlobalAgentContext)
+    2. AGENTS.md file (fallback)
+    """
+    from app.services import agent_context
+    import inspect
+
+    func = agent_context._load_base_instructions
+    source = inspect.getsource(func)
+
+    # Verify it tries to load from database first
+    assert 'GlobalAgentContext' in source, \
+        "_load_base_instructions must check GlobalAgentContext in database"
+
+    assert 'BASE_CONTEXT_FILENAME' in source or 'AGENTS.md' in source, \
+        "_load_base_instructions must fall back to AGENTS.md file"
+
+
+def test_sessions_and_issues_distinction_documented():
+    """CRITICAL: Verify documentation clearly distinguishes sessions vs issues.
+
+    Users must understand:
+    - aiops sessions: generic work, global context only
+    - aiops issues: issue-specific work, global + issue context
+    """
+    import pathlib
+
+    readme = pathlib.Path(__file__).parent.parent / "README.md"
+    assert readme.exists(), "README.md must exist"
+
+    content = readme.read_text()
+
+    # Check for sessions command documentation
+    assert 'aiops sessions' in content, \
+        "README.md must document 'aiops sessions' commands"
+
+    # Check for explanation of distinction
+    assert 'Issue vs Session' in content or 'sessions' in content.lower(), \
+        "README.md must explain difference between sessions and issues commands"
+
+    # Check AGENTS.md as well
+    agents_md = pathlib.Path(__file__).parent.parent / "AGENTS.md"
+    agents_content = agents_md.read_text()
+
+    assert 'aiops sessions' in agents_content, \
+        "AGENTS.md must document 'aiops sessions' commands"

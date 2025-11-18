@@ -424,9 +424,15 @@ def list_project_ai_sessions(project_id: int):
 
     # Admins can see all users' sessions, regular users only see their own
     if show_all_users:
-        # Verify user is admin
+        # Verify user is admin (check both API user and session user)
         from flask_login import current_user
-        if not (current_user and current_user.is_authenticated and current_user.is_admin):
+        is_admin = False
+        if hasattr(g, "api_user") and g.api_user:
+            is_admin = getattr(g.api_user, "is_admin", False)
+        elif current_user and current_user.is_authenticated:
+            is_admin = getattr(current_user, "is_admin", False)
+
+        if not is_admin:
             return jsonify({"error": "Admin access required to view all users' sessions."}), 403
         # List all sessions for this project (no user filter)
         sessions = list_active_sessions(project_id=project_id)

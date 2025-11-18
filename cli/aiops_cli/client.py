@@ -662,7 +662,7 @@ class APIClient:
         import requests
         from pathlib import Path
 
-        url = f"{self.base_url.rstrip('/')}/system/backups/{backup_id}/download"
+        url = f"{self.base_url.rstrip('/')}/api/v1/system/backups/{backup_id}/download"
         headers = {"X-API-Key": self.api_key}
 
         response = requests.get(url, headers=headers, stream=True, timeout=300)

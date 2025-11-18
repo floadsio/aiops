@@ -470,6 +470,7 @@ def start_project_ai_session(project_id: int):
     cols = data.get("cols")
     tmux_target = (data.get("tmux_target") or "").strip() or None
     issue_id = data.get("issue_id")  # Optional: track which issue this session is for
+    requested_user_id = data.get("user_id")  # Optional: admin can start session as another user
 
     user_id = _current_user_id()
     if user_id is None:
@@ -477,6 +478,25 @@ def start_project_ai_session(project_id: int):
             user_id = int(current_user.get_id())  # type: ignore[arg-type]
         except (TypeError, ValueError):
             return jsonify({"error": "Unable to resolve current user."}), 400
+
+    # Allow admins to start sessions as other users
+    if requested_user_id and requested_user_id != user_id:
+        # Check if current user is admin
+        is_admin = False
+        if hasattr(g, "api_user") and g.api_user:
+            is_admin = getattr(g.api_user, "is_admin", False)
+        elif current_user and current_user.is_authenticated:
+            is_admin = getattr(current_user, "is_admin", False)
+
+        if not is_admin:
+            return jsonify({"error": "Admin access required to start sessions as other users."}), 403
+
+        # Verify the requested user exists
+        target_user = User.query.get(requested_user_id)
+        if not target_user:
+            return jsonify({"error": f"User ID {requested_user_id} not found."}), 404
+
+        user_id = requested_user_id
 
     # Check if there's already an active session for this issue
     from ..ai_sessions import find_session_for_issue

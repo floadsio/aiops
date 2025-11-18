@@ -825,6 +825,7 @@ def issues_sessions(
 @click.option("--issue", type=int, help="Issue ID to work on")
 @click.option("--tool", type=click.Choice(["claude", "codex", "gemini", "shell"]), help="AI tool to use")
 @click.option("--prompt", help="Initial prompt to send to the AI")
+@click.option("--user", help="User email or ID to start session as (admin only)")
 @click.option("--attach", is_flag=True, default=True, help="Attach to session after starting (default: true)")
 @click.pass_context
 def issues_start(
@@ -833,6 +834,7 @@ def issues_start(
     issue: Optional[int],
     tool: Optional[str],
     prompt: Optional[str],
+    user: Optional[str],
     attach: bool,
 ) -> None:
     """Start a new AI session on a project.
@@ -841,6 +843,7 @@ def issues_start(
         aiops issues start --project aiops --tool shell
         aiops issues start --project 6 --issue 123 --tool claude
         aiops issues start --project aiops --tool codex --prompt "Review code"
+        aiops issues start --project aiops --tool shell --user michael@floads.io
     """
     client = get_client(ctx)
 
@@ -852,6 +855,28 @@ def issues_start(
         # Resolve project
         project_id = resolve_project_id(client, project)
 
+        # Resolve user if specified
+        user_id = None
+        if user:
+            # Try to find user by email or ID
+            users_response = client.get("users")
+            users = users_response.get("users", [])
+
+            # Try as ID first
+            try:
+                target_user_id = int(user)
+                user_obj = next((u for u in users if u["id"] == target_user_id), None)
+            except ValueError:
+                # Try as email
+                user_obj = next((u for u in users if u.get("email") == user), None)
+
+            if not user_obj:
+                error_console.print(f"[red]Error:[/red] User '{user}' not found")
+                sys.exit(1)
+
+            user_id = user_obj["id"]
+            console.print(f"[blue]Starting session as:[/blue] {user_obj.get('email', user_obj['id'])}")
+
         # Start AI session
         payload: dict[str, Any] = {}
         if issue:
@@ -860,6 +885,8 @@ def issues_start(
             payload["tool"] = tool
         if prompt:
             payload["prompt"] = prompt
+        if user_id:
+            payload["user_id"] = user_id
 
         url = f"{client.base_url}/api/projects/{project_id}/ai/sessions"
         response = client.session.post(url, json=payload)

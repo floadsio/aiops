@@ -116,8 +116,14 @@ class APIClient:
 
     def is_admin(self) -> bool:
         """Check if current user is admin."""
-        user_info = self.whoami()
-        return user_info.get("is_admin", False)
+        try:
+            response = self.whoami()
+            # The response is wrapped in {"user": {...}}
+            user_info = response.get("user", {})
+            return user_info.get("is_admin", False)
+        except Exception:
+            # If whoami fails, assume not admin for safety
+            return False
 
     def list_api_keys(self) -> list[dict[str, Any]]:
         """List API keys."""

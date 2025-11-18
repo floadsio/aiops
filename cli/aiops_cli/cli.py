@@ -2072,6 +2072,54 @@ def agents_global_clear(ctx: click.Context) -> None:
 
 
 # ============================================================================
+# INTEGRATIONS COMMANDS
+# ============================================================================
+
+
+@cli.group()
+def integrations() -> None:
+    """Integration management commands."""
+
+
+@integrations.command(name="list")
+@click.option("--tenant", help="Filter by tenant ID, name, or slug")
+@click.option("--provider", type=click.Choice(["github", "gitlab", "jira"]), help="Filter by provider")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def integrations_list(ctx: click.Context, tenant: Optional[str], provider: Optional[str], output: Optional[str]) -> None:
+    """List integrations.
+
+    Examples:
+        aiops integrations list                    # List all integrations
+        aiops integrations list --tenant floads    # List integrations for floads tenant
+        aiops integrations list --provider gitlab  # List only GitLab integrations
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        # Resolve tenant name/slug to ID if provided
+        tenant_id = None
+        if tenant:
+            tenant_id = resolve_tenant_id(client, tenant)
+
+        integrations_data = client.list_integrations(tenant_id=tenant_id, provider=provider)
+
+        if not integrations_data:
+            console.print("[yellow]No integrations found[/yellow]")
+            return
+
+        # Show relevant columns
+        columns = ["id", "provider", "name", "tenant_name", "base_url", "enabled"]
+        format_output(integrations_data, output_format, console, title="Integrations", columns=columns)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+# ============================================================================
 # USER CREDENTIALS COMMANDS
 # ============================================================================
 

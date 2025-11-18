@@ -825,6 +825,19 @@ def create_persistent_session(
 
     # Set up tmux pipe-pane for output capture
     tmux_target_full = f"{session_name}:{window_name}"
+
+    # Enable remain-on-exit so pane stays alive even if shell exits
+    try:
+        subprocess.run(
+            ["tmux", "set-option", "-t", tmux_target_full, "remain-on-exit", "on"],
+            check=True,
+            capture_output=True,
+            timeout=5,
+        )
+        current_app.logger.info("Enabled remain-on-exit for %s", tmux_target_full)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        current_app.logger.warning("Failed to enable remain-on-exit: %s", exc)
+
     try:
         subprocess.run(
             ["tmux", "pipe-pane", "-t", tmux_target_full, "-o", f"cat >> {shlex.quote(pipe_file)}"],

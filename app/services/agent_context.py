@@ -482,6 +482,87 @@ def write_local_issue_context(
     )
 
 
+def write_global_context_only(
+    project: Project,
+    filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
+    *,
+    identity_user: User | None = None,
+) -> Path:
+    """Write AGENTS.override.md with only global context (no issue-specific content).
+
+    This is used for generic sessions not tied to specific issues.
+    """
+    linux_username: str | None = None
+    if identity_user is not None:
+        workspace_path = get_workspace_path(project, identity_user)
+        if workspace_path is None:
+            raise RuntimeError(
+                f"Cannot determine workspace path for user {identity_user.email}"
+            )
+        repo_path = workspace_path
+        linux_username = resolve_linux_username(identity_user)
+        if not linux_username:
+            raise RuntimeError(
+                f"Cannot determine Linux username for user {identity_user.email}"
+            )
+        if not test_path(linux_username, str(repo_path)):
+            raise RuntimeError(
+                f"Workspace not initialized at {repo_path}. "
+                "Please initialize the workspace first."
+            )
+    else:
+        repo_path = Path(project.local_path)
+        if not repo_path.exists():
+            repo_path.mkdir(parents=True, exist_ok=True)
+
+    context_path = repo_path / filename
+
+    # Load global context
+    base_content = _load_base_instructions(repo_path, linux_username=linux_username)
+
+    # No issue context placeholder
+    no_issue_message = "_No issue context populated yet. Use the Populate AGENTS.override.md button to generate it._"
+    appended_section = (
+        f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
+        f"{ISSUE_CONTEXT_START}\n\n"
+        f"{no_issue_message}\n\n"
+        f"{ISSUE_CONTEXT_END}"
+    )
+
+    sections: list[str] = []
+    if base_content:
+        sections.append(base_content.rstrip())
+    sections.append(appended_section.rstrip())
+
+    final_content = "\n\n---\n\n".join(section for section in sections if section).rstrip() + "\n"
+
+    # Write content (using sudo if needed)
+    if identity_user is not None:
+        try:
+            cmd = [
+                "sudo",
+                "-n",
+                "-u",
+                linux_username,
+                "tee",
+                str(context_path),
+            ]
+            subprocess.run(
+                cmd,
+                input=final_content,
+                capture_output=True,
+                text=True,
+                timeout=10.0,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(f"Failed to write workspace file: {exc}") from exc
+    else:
+        context_path.write_text(final_content, encoding="utf-8")
+
+    return context_path
+
+
 def write_tracked_issue_context(
     project: Project,
     primary_issue: ExternalIssue,

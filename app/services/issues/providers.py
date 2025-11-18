@@ -8,7 +8,7 @@ from . import IssueCreateRequest, IssuePayload, IssueSyncError
 from . import github as github_provider
 from . import gitlab as gitlab_provider
 from . import jira as jira_provider
-from .utils import get_effective_integration
+from .utils import get_effective_integration, get_timeout
 
 
 def _serialize_datetime(value: Optional[datetime]) -> Optional[str]:

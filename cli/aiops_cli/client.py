@@ -315,8 +315,7 @@ class APIClient:
         if prompt:
             payload["prompt"] = prompt
 
-        # AI sessions are not yet in v1 API, use legacy endpoint directly
-        url = f"{self.base_url}/api/projects/{project_id}/ai/sessions"
+        url = f"{self.base_url}/api/v1/projects/{project_id}/ai/sessions"
         try:
             response = self.session.post(url, json=payload)
             response.raise_for_status()
@@ -351,7 +350,7 @@ class APIClient:
         Returns:
             List of active session dictionaries
         """
-        url = f"{self.base_url}/api/projects/{project_id}/ai/sessions"
+        url = f"{self.base_url}/api/v1/projects/{project_id}/ai/sessions"
         params = {}
         if all_users:
             params["all_users"] = "true"

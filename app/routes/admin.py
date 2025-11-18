@@ -1335,6 +1335,13 @@ def run_system_update():
     return redirect(redirect_target)
 
 
+@admin_bp.route("/system-status")
+@admin_required
+def system_status():
+    """Display system status page."""
+    return render_template("admin/system_status.html")
+
+
 @admin_bp.route("/settings/ai-tools/<tool>/update", methods=["POST"])
 @admin_required
 def run_ai_tool_update_command(tool: str):

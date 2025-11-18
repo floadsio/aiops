@@ -1522,25 +1522,14 @@ def sessions_list(
         if not all_users and client.is_admin():
             all_users = True
 
-        all_sessions = []
-
-        if project:
-            project_id = resolve_project_id(client, project)
-            sessions = client.list_ai_sessions(project_id, all_users=all_users)
-            for session in sessions:
-                session["project_id"] = project_id
-            all_sessions.extend(sessions)
-        else:
-            projects = client.list_projects()
-            for idx, proj in enumerate(projects):
-                if idx > 0:
-                    time.sleep(0.1)
-                proj_id = proj["id"]
-                sessions = client.list_ai_sessions(proj_id, all_users=all_users)
-                for session in sessions:
-                    session["project_id"] = proj_id
-                    session["project_name"] = proj["name"]
-                all_sessions.extend(sessions)
+        # Use the global sessions endpoint to get all sessions (including issue sessions)
+        project_id = resolve_project_id(client, project) if project else None
+        all_sessions = client.list_all_sessions(
+            project_id=project_id,
+            all_users=all_users,
+            active_only=True,
+            limit=200,
+        )
 
         if not all_sessions:
             console.print("[yellow]No active sessions found[/yellow]")
@@ -1558,16 +1547,7 @@ def sessions_list(
         for session in all_sessions:
             session_id = session.get("session_id", "")[:12] + "..."
             issue_id = str(session.get("issue_id") or "-")
-            command = session.get("command", "")
-            tool_name = "unknown"
-            if "claude" in command.lower():
-                tool_name = "claude"
-            elif "codex" in command.lower():
-                tool_name = "codex"
-            elif "gemini" in command.lower():
-                tool_name = "gemini"
-            elif "bash" in command.lower() or "shell" in command.lower():
-                tool_name = "shell"
+            tool_name = session.get("tool", "unknown")
             tmux_target = session.get("tmux_target", "")
 
             if project:

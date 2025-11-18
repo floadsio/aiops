@@ -56,6 +56,7 @@ def save_session(
     command: Optional[str] = None,
     description: Optional[str] = None,
     tmux_target: Optional[str] = None,
+    issue_id: Optional[int] = None,
 ) -> AISession:
     """Save a new AI session to the database.
 
@@ -67,6 +68,7 @@ def save_session(
         command: The command that was run
         description: Optional description of the session
         tmux_target: Optional tmux window/pane target
+        issue_id: Optional issue ID if this session is for an issue
 
     Returns:
         The created AISession database record
@@ -79,6 +81,7 @@ def save_session(
         command=command,
         description=description,
         tmux_target=tmux_target,
+        issue_id=issue_id,
         started_at=datetime.utcnow(),
         is_active=True,
     )
@@ -109,15 +112,15 @@ def end_session(session_id: int) -> None:
 
 
 def get_user_sessions(
-    user_id: int,
+    user_id: Optional[int] = None,
     project_id: Optional[int] = None,
     tool: Optional[str] = None,
     active_only: bool = True,
 ) -> list[AISession]:
-    """Get AI sessions for a user.
+    """Get AI sessions for a user or all users.
 
     Args:
-        user_id: The user ID
+        user_id: The user ID (None to fetch all users' sessions)
         project_id: Optional project ID filter
         tool: Optional tool name filter (claude, codex, gemini)
         active_only: Only return active sessions
@@ -125,7 +128,10 @@ def get_user_sessions(
     Returns:
         List of AISession records matching the criteria
     """
-    query = AISession.query.filter_by(user_id=user_id)
+    query = AISession.query
+
+    if user_id is not None:
+        query = query.filter_by(user_id=user_id)
 
     if project_id is not None:
         query = query.filter_by(project_id=project_id)
@@ -195,8 +201,11 @@ def get_session_summary(session: AISession) -> dict:
         "id": session.id,
         "tool": session.tool,
         "session_id": session.session_id,
+        "project_id": session.project_id,
         "project_name": project.name if project else "Unknown",
+        "user_id": session.user_id,
         "user_name": user.name if user else "Unknown",
+        "issue_id": session.issue_id,
         "description": session.description,
         "command": session.command,
         "tmux_target": session.tmux_target,

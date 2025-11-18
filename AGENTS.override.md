@@ -1,3 +1,192 @@
+# Project Overview _(version 0.3.1)_
+
+aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
+AI-assisted tmux sessions, and Ansible automation. The codebase favours thin blueprints, well-tested
+service helpers, and clear separation between configuration, database models, and provider adapters.
+
+## Architecture Overview
+
+- **Frontend**: Pico CSS with Material Design enhancements (`app/templates/base.html`)
+- **Backend**: Flask blueprints (`app/routes/`), services (`app/services/`), models (`app/models.py`)
+- **Storage**: SQLite (`instance/app.db`), secrets (`.env`), SSH keys (`instance/keys/`), **backups** (`instance/backups/`)
+- **Infrastructure**: Ansible playbooks (`ansible/playbooks/`)
+- **API**: REST API at `/api/v1` with Swagger UI at `/api/docs`
+
+## AIops CLI for AI Agents
+
+**CRITICAL**: AI agents MUST use the `aiops` CLI for all operations. The CLI is pre-installed at `./.venv/bin/aiops`
+and pre-configured with API credentials. Never call external APIs directly.
+
+```bash
+# Check configuration
+aiops config show
+
+# Activate virtualenv (optional)
+source .venv/bin/activate
+```
+
+## IMPORTANT: Database IDs vs External Issue Numbers
+
+**CRITICAL RULE**: The aiops API uses **database IDs** for ALL operations, NOT external issue numbers.
+
+- ✅ **Correct**: Use database ID from `aiops issues list` (e.g., 506)
+- ❌ **Wrong**: Use external issue number (e.g., GitHub #13)
+
+**Why?** Database IDs are globally unique across all providers (GitHub, GitLab, Jira), preventing conflicts.
+
+**How to find the database ID:**
+```bash
+# Step 1: List issues to get database IDs
+aiops issues list --project <project> --status open
+
+# Output shows:
+# Id    External  Title                Status    Provider
+# 506   13        Feature: Backup...   open      github
+# ^^^   ^^
+# DB ID External #
+
+# Step 2: Use the database ID (506) for all operations
+aiops issues comment 506 "Working on this"  # ✅ Correct
+aiops issues comment 13 "Working on this"   # ❌ Wrong - will get 404 error!
+```
+
+### CLI Command Reference
+
+#### Issue Management
+```bash
+# ALWAYS get database IDs first!
+aiops issues sync --project <project>          # Sync from GitHub/GitLab/Jira
+aiops issues list --status open --project <project>  # List issues (shows DB IDs)
+
+# Use database IDs for all operations (not external issue numbers!)
+aiops issues get <db_id> --output json         # Get details with DB ID
+aiops issues comment <db_id> "Your update"     # Add comment with DB ID
+aiops issues modify-comment <db_id> <comment_id> "Updated text"  # Edit comment
+aiops issues update <db_id> --title "New title"   # Update fields
+aiops issues assign <db_id> --user <user_id>      # Assign issue
+aiops issues close <db_id>                        # Close issue
+
+# Create (need integration ID from existing issue)
+aiops issues create --project <project> --integration <id> --title "..." --description "..."
+```
+
+#### Git Operations
+```bash
+# Repository status and updates
+aiops git status <project>                     # Check repo status
+aiops git pull <project>                       # Pull latest changes
+aiops git push <project>                       # Push commits
+
+# Make changes
+aiops git commit <project> "Message" --files "app/auth.py,app/models.py"
+
+# Branch management
+aiops git branches <project>                   # List branches
+aiops git branch <project> feature-x           # Create branch
+aiops git checkout <project> feature-x         # Switch branch
+
+# Read files
+aiops git cat <project> app/models.py          # Read file
+aiops git files <project> app/                 # List directory
+```
+
+#### Workflow Commands
+```bash
+# High-level workflows combining multiple operations
+# These also use database IDs!
+aiops workflow claim <db_id>                   # Claim issue
+aiops workflow progress <db_id> "status" --comment "..."  # Update progress
+aiops workflow submit <db_id> --project <id> --message "..." --comment "..."
+aiops workflow complete <db_id> --summary "..."  # Complete and close
+```
+
+#### Project & Tenant Management
+```bash
+aiops projects list --tenant <tenant>          # List projects
+aiops projects get <project>                   # Get project details
+aiops projects create --name "..." --repo-url "..." --tenant <tenant>
+
+aiops tenants list                             # List tenants
+aiops tenants get <tenant>                     # Get details
+```
+
+#### System Management (admin only)
+```bash
+aiops system update                            # Update aiops (git pull + deps + migrations)
+aiops system restart                           # Restart application
+aiops system update-and-restart                # Combined operation
+aiops update                                   # Update CLI itself
+
+# Database backups (IMPORTANT for data protection!)
+aiops system backup create                                    # Create backup
+aiops system backup create --description "Before migration"  # Create with description
+aiops system backup list                                      # List all backups
+aiops system backup download <backup_id>                      # Download backup file
+aiops system backup restore <backup_id>                       # Restore from backup (destructive!)
+```
+
+### Database Backup Best Practices
+
+**When to create backups:**
+- Before running database migrations
+- Before major configuration changes
+- Before destructive operations
+- Before upgrading aiops version
+- Periodically (daily/weekly based on change frequency)
+
+**Backup workflow example:**
+```bash
+# Create a backup before migration
+aiops system backup create --description "Before migration to v0.4.0"
+
+# List backups to verify (note: backup IDs are shown)
+aiops system backup list
+
+# If something goes wrong, restore:
+aiops system backup restore <backup_id>  # Will prompt for confirmation
+```
+
+**Important notes:**
+- Backups include SQLite database + SSH keys in compressed tar.gz format
+- Backups are stored in `instance/backups/` directory
+- All backup operations require admin API scope
+- Restore operation is destructive - always confirm you have the right backup ID
+- After restore, you may need to restart the application
+
+### Standard Workflow for AI Agents
+
+**Complete issue workflow (with correct ID usage):**
+
+1. **Sync & List**: `aiops issues sync --project <project> && aiops issues list --status open --project <project>`
+2. **Get DB ID**: Note the database ID from the list (leftmost "Id" column, NOT "External" column)
+3. **Read**: `aiops issues get <db_id> --output json`
+4. **Comment**: `aiops issues comment <db_id> "Starting work..."`
+5. **Work**: Make code changes in your workspace
+6. **Commit**: `aiops git commit <project> "Fix bug" --files "..."`
+7. **Update**: `aiops issues comment <db_id> "Completed: - Fixed X\n- Updated Y\n\nTests passing."`
+8. **Close**: `aiops issues close <db_id>`
+
+**Example with real IDs:**
+```bash
+# List shows: Id=506, External=13, Title="Feature: Backup..."
+aiops issues comment 506 "Working on this"  # ✅ Use DB ID 506
+# NOT: aiops issues comment 13 "..."        # ❌ Will fail with 404!
+```
+
+**Best practices:**
+- **ALWAYS use database IDs from `aiops issues list`, NEVER use external issue numbers**
+- The "Id" column in `aiops issues list` shows database IDs (use these!)
+- The "External" column shows external issue numbers (GitHub #, GitLab !, Jira key)
+- If you get a 404 error, you probably used the external number instead of database ID
+- Add `--output json` for programmatic parsing
+- Comment frequently with file paths and specific changes
+- Use `@username` in Jira comments (auto-resolves to account IDs)
+- Create follow-up issues instead of expanding scope
+- Get integration ID via `aiops issues get <db_id> --output json | grep integration_id`
+- **Create backups before risky operations like migrations or major refactors**
+
+---
+
 # Project Overview _(version 0.1.7)_
 
 aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
@@ -451,59 +640,276 @@ This ensures AI agents work with the actual code location and file ownership is 
 
 ---
 
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
 ## Current Issue Context
 <!-- issue-context:start -->
 
 NOTE: Generated issue context. Update before publishing if needed.
 
-# 6 - Issue: Add Close Button to Pinned Issues on Dashboard
+# 13 - Feature: Database Backup and Download via CLI and Web UI
 
-        _Updated: 2025-11-15 18:45:45Z_
+        _Updated: 2025-11-18 11:42:38Z_
 
         ## Issue Snapshot
         - Provider: github
         - Status: closed
         - Assignee: ivomarino
-        - Labels: none
-        - Source: https://github.com/floadsio/aiops/issues/6
-        - Last Synced: 2025-11-15 17:33 UTC
+        - Labels: enhancement, feature
+        - Source: https://github.com/floadsio/aiops/issues/13
+        - Last Synced: 2025-11-18 02:32 UTC
 
         ## Issue Description
-        ✅ Issue: Add Close Button to Pinned Issues on Dashboard
+        This feature aims to implement database backup, download, and restore via CLI and Web UI.
 
-Description
+**CLI Functionality:**
+*   `aiops system backup create`: Command to initiate a database backup.
+*   `aiops system backup list`: Command to list available backups.
+*   `aiops system backup download <backup_id>`: Command to download a specific backup.
+*   `aiops system restore <backup_id>`: Command to restore the database from a specific backup.
 
-Pinned issues displayed on the Dashboard currently cannot be closed directly from the pinned-issues list.
-To improve workflow efficiency, add a “Close Issue” button next to each pinned issue item.
+**Web UI Functionality:**
+*   An administrative interface (e.g., under \"Admin\" -> \"Settings\") to trigger manual backups.
+*   A list of available backups with options to download them and trigger a restore.
 
-Requirements
-	•	Add a small close icon/button (e.g., ❌ or 🗙) next to each pinned issue.
-	•	When clicked:
-	•	Close the issue in the corresponding service (GitHub, GitLab, or Jira).
-	•	Update local AIops issue state immediately.
-	•	The UI should update without page reload.
-	•	Show a confirmation modal before closing:
-	•	“Are you sure you want to close this issue?”
-	•	After successful closure:
-	•	Show a success toast.
-	•	Remove the issue from the pinned list automatically.
+**Considerations:**
+*   **Storage Location:** Define a secure and configurable location for storing backup files.
+*   **Backup Format:** Determine the appropriate format for database backups (e.g., SQLite dump, compressed archive).
+*   **Security:** Ensure that only authorized users (e.g., administrators) can create, download, and restore backups.
+*   **Retention Policy:** Consider implementing a configurable retention policy for old backups to manage storage space.
+*   **Error Handling:** Robust error handling and user feedback for backup and restore operations.
+*   **Downtime:** Consider the impact of database restore on application availability and plan for minimal downtime.
+*   **Confirmation:** Implement clear confirmation steps before initiating a database restore, as it is a destructive operation.
 
-Notes
-	•	Use the existing integration tokens and identity mappings.
-	•	Respect the permissions/scopes required by the provider.
-	•	Ensure error handling if the provider rejects the close action.
+        
 
-        ## Project Context
+## Issue Comments (4)
+
+            **ivomarino** on 2025-11-18T02:32:16+00:00 ([link](https://github.com/floadsio/aiops/issues/13#issuecomment-3544756296))
+
+Completed: Added backup download feature to the web UI
+
+## Changes Implemented
+
+- Added `download_backup_web()` route to admin blueprint at `/settings/backups/<int:backup_id>/download`
+- Added Download button to the backup list table in Admin Settings
+- Button appears before Restore and Delete buttons with consistent styling
+- Uses Flask's `send_file()` to serve backup files (.db.gz) as downloads
+- Includes proper error handling with flash messages
+
+## Technical Details
+
+**Backend** (app/routes/admin.py:3529-3548):
+- GET endpoint for downloading backup files
+- Reuses existing `get_backup()` service function
+- Returns file with `application/gzip` mimetype
+- Graceful error handling for missing backups
+
+**Frontend** (app/templates/admin/settings.html:360):
+- Download link styled as button matching existing UI
+- Positioned first in action buttons (Download, Restore, Delete)
+- No form submission needed (simple GET request)
+
+## Commit
+https://github.com/floadsio/aiops/commit/3c79c54
+
+The web UI download feature is now fully functional and complements the existing CLI command `aiops system backup download <id>`.
+
+---
+
+**ivomarino** on 2025-11-18T02:23:27+00:00 ([link](https://github.com/floadsio/aiops/issues/13#issuecomment-3544739628))
+
+**Status Update:** Completed implementation
+
+## Summary
+
+Successfully implemented the database backup and download feature across CLI, Web API, and Web UI.
+
+## Changes Made
+
+### Backend Implementation (commit 6455063)
+- **Backup Service** (`app/services/backup_service.py`): Core functionality for creating, listing, downloading, and restoring backups
+  - SQLite database + SSH keys packaged in compressed tar.gz format
+  - Backups stored in `instance/backups/` directory
+  - Automatic cleanup and validation
+
+- **Database Models** (`app/models.py`): Added `Backup` model to track backup metadata
+  - Timestamps, descriptions, file paths, sizes, checksums
+
+- **API Endpoints** (`app/routes/api_v1/system.py`):
+  - `POST /api/v1/system/backups` - Create backup
+  - `GET /api/v1/system/backups` - List all backups
+  - `GET /api/v1/system/backups/<id>` - Get backup details
+  - `GET /api/v1/system/backups/<id>/download` - Download backup file
+  - `POST /api/v1/system/backups/<id>/restore` - Restore from backup
+
+- **Database Migration**: Created migration for Backup model
+
+### CLI Integration (commit 6455063)
+- `aiops system backup create [--description]` - Create new backup
+- `aiops system backup list` - List all backups with details
+- `aiops system backup download <id>` - Download backup to local file
+- `aiops system backup restore <id>` - Restore database (with confirmation prompt)
+
+### Web UI (commit 0c00375)
+- **Admin → Settings**: Added "Database Backups" section
+- Manual backup creation with optional description
+- Backup list table showing:
+  - ID, creation timestamp, description, file size
+  - Download and Restore action buttons
+- Confirmation dialog for destructive restore operations
+- Real-time feedback via toast notifications
+
+### Documentation Updates (commit 810362e)
+- Updated `AGENTS.md` with comprehensive backup CLI documentation
+- Added best practices section for backup workflows
+- Documented when to create backups (migrations, upgrades, etc.)
+- Added security and retention policy considerations
+
+## Testing
+
+All backup operations tested and working:
+- ✅ Backup creation with SQLite + SSH keys
+- ✅ Backup listing and metadata retrieval
+- ✅ Backup download via CLI and Web UI
+- ✅ Backup restore with confirmation
+- ✅ Error handling for missing files and invalid IDs
+- ✅ Admin-only access control enforced
+
+## Files Modified
+
+- `app/models.py`
+- `app/services/backup_service.py` (new)
+- `app/routes/api_v1/system.py`
+- `app/templates/admin/settings.html`
+- `cli/aiops_cli/cli.py`
+- `cli/aiops_cli/client.py`
+- `AGENTS.md`
+- `migrations/versions/[hash]_add_backup_model.py` (new)
+
+## Next Steps
+
+Feature is complete and ready for production use. All acceptance criteria met.
+
+---
+
+**ivomarino** on 2025-11-18T02:05:01+00:00 ([link](https://github.com/floadsio/aiops/issues/13#issuecomment-3544699586))
+
+**Status Update:** completed
+
+## Implementation Summary
+
+Successfully implemented database backup and restore functionality for aiops.
+
+### Features Implemented
+
+**Backend:**
+- ✅ Created `Backup` model for metadata tracking (filename, size, description, creator, timestamps)
+- ✅ Implemented `backup_service.py` with full backup/restore capabilities
+- ✅ Backups include SQLite database + SSH keys in compressed tar.gz format
+- ✅ Backups stored in `instance/backups/` directory
+
+**API Endpoints (Admin-only):**
+- ✅ `POST /api/v1/system/backups` - Create backup with optional description
+- ✅ `GET /api/v1/system/backups` - List all backups with metadata
+- ✅ `GET /api/v1/system/backups/<id>` - Get backup details
+- ✅ `GET /api/v1/system/backups/<id>/download` - Download backup file
+- ✅ `POST /api/v1/system/backups/<id>/restore` - Restore from backup
+
+**CLI Commands:**
+```bash
+aiops system backup create [--description "..."]
+aiops system backup list
+aiops system backup download <id>
+aiops system backup restore <id>
+```
+
+**Security:**
+- ✅ All operations require admin API scope
+- ✅ Confirmation prompt for destructive restore operations
+- ✅ Proper error handling with BackupError exception
+- ✅ File validation before restore
+
+**Database:**
+- ✅ Created migration for backups table with foreign key to users
+
+**Documentation:**
+- ✅ Updated AGENTS.md with CLI command reference
+- ✅ Updated global agents context with backup best practices
+
+### Files Modified
+- `app/models.py` - Added Backup model
+- `app/services/backup_service.py` - New service (144 lines)
+- `app/routes/api_v1/system.py` - Added 5 backup endpoints
+- `cli/aiops_cli/client.py` - Added 5 client methods
+- `cli/aiops_cli/cli.py` - Added 4 CLI commands with rich output
+- `AGENTS.md` - Updated documentation
+- `migrations/` - New migration file
+
+### Usage Example
+```bash
+# Create a backup
+aiops system backup create --description "Before schema changes"
+
+# List all backups
+aiops system backup list
+
+# Download backup
+aiops system backup download 5
+
+# Restore from backup (with confirmation)
+aiops system backup restore 5
+```
+
+Commit: 6455063
+
+---
+
+**ivomarino** on 2025-11-17T22:37:36+00:00 ([link](https://github.com/floadsio/aiops/issues/13#issuecomment-3544145632))
+
+**Status Update:** in progress
+
+Starting work on Feature: Database Backup and Download via CLI and Web UI.
+
+## Project Context
         - Project: aiops
         - Repository: git@github.com:floadsio/aiops.git
         - Local Path: instance/repos/aiops
 
         ## Other Known Issues
-        - [github] 5: Issue: Add Project Filter to Issues Page; status=closed; assignee=ivomarino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/5
-- [github] 3: Feature: Create New Issues Directly from the AIops Issues Page; status=closed; assignee=ivomarino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/3
-- [github] 4: Issue: Improve UI Responsiveness + Redesign Main Menu Layout; status=open; assignee=ivomarino; labels=enhancement; updated=2025-11-15 14:52 UTC; url=https://github.com/floadsio/aiops/issues/4
-- [github] 1: Add Cross-Platform Issue Creation + User Mapping Support in aiops; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-15 14:41 UTC; url=https://github.com/floadsio/aiops/issues/1
+        - [github] 1: Add Cross-Platform Issue Creation + User Mapping Support in aiops; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-15 14:41 UTC; url=https://github.com/floadsio/aiops/issues/1
 - [github] 2: Test issue - organization token; status=closed; updated=2025-11-15 14:36 UTC; url=https://github.com/floadsio/aiops/issues/2
+- [github] 3: Feature: Create New Issues Directly from the AIops Issues Page; status=closed; assignee=ivomarino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/3
+- [github] 5: Issue: Add Project Filter to Issues Page; status=closed; assignee=ivomarino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/5
+- [github] 4: Issue: Improve UI Responsiveness + Redesign Main Menu Layout; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-16 13:43 UTC; url=https://github.com/floadsio/aiops/issues/4
+- [github] 6: Issue: Add Close Button to Pinned Issues on Dashboard; status=closed; assignee=ivomarino; updated=2025-11-15 17:33 UTC; url=https://github.com/floadsio/aiops/issues/6
+- [github] 7: Issue: Implement a Public AIops API for AI Agents and CLI Clients; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-16 22:55 UTC; url=https://github.com/floadsio/aiops/issues/7
+- [github] 8: Issue: Implement aiops CLI Client for macOS & Linux; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-17 21:00 UTC; url=https://github.com/floadsio/aiops/issues/8
+- [github] 9: Publish aiops-cli to PyPI; status=closed; assignee=ivomarino; labels=enhancement; updated=2025-11-17 20:56 UTC; url=https://github.com/floadsio/aiops/issues/9
+- [github] 10: Publish aiops-cli v0.3.0 to PyPI; status=open; assignee=ivomarino; labels=enhancement; updated=2025-11-17 21:45 UTC; url=https://github.com/floadsio/aiops/issues/10
+- [github] 11: Feature: Global AGENTS.md content for override files; status=closed; assignee=ivomarino; labels=enhancement, feature; updated=2025-11-17 22:00 UTC; url=https://github.com/floadsio/aiops/issues/11
+- [github] 12: Cleanup tests and test CLI commenting features; status=closed; updated=2025-11-17 22:07 UTC; url=https://github.com/floadsio/aiops/issues/12
+- [github] 14: Feature: Add GitLab Issue Comment Support; status=closed; assignee=ivomarino; labels=enhancement, feature; updated=2025-11-18 02:49 UTC; url=https://github.com/floadsio/aiops/issues/14
+- [github] 15: Feature: Add GitHub Comment Editing Support; status=open; assignee=ivomarino; labels=enhancement, feature; updated=2025-11-18 02:43 UTC; url=https://github.com/floadsio/aiops/issues/15
+- [github] 16: User-specific integration credentials for personal tokens; status=open; assignee=ivomarino; updated=2025-11-18 10:04 UTC; url=https://github.com/floadsio/aiops/issues/16
 
         ## Workflow Reminders
         1. Confirm the acceptance criteria with the external issue tracker.

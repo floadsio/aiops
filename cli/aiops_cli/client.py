@@ -375,6 +375,40 @@ class APIClient:
         except requests.exceptions.RequestException as exc:
             raise APIError(f"Request failed: {exc}") from exc
 
+    def list_all_sessions(
+        self,
+        project_id: Optional[int] = None,
+        all_users: bool = False,
+        tool: Optional[str] = None,
+        active_only: bool = True,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """List AI sessions across all projects.
+
+        Args:
+            project_id: Optional project ID filter
+            all_users: If True, list sessions for all users (admin only)
+            tool: Optional tool name filter
+            active_only: Only return active sessions
+            limit: Maximum number of sessions to return
+
+        Returns:
+            List of session dictionaries
+        """
+        params: dict[str, Any] = {
+            "active_only": "true" if active_only else "false",
+            "limit": limit,
+        }
+        if project_id is not None:
+            params["project_id"] = project_id
+        if all_users:
+            params["all_users"] = "true"
+        if tool:
+            params["tool"] = tool
+
+        data = self.get("ai/sessions", params=params)
+        return data.get("sessions", [])
+
     # Projects
     def list_projects(self, tenant_id: Optional[int] = None) -> list[dict[str, Any]]:
         """List projects."""

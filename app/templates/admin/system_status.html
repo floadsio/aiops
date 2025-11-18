@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% block title %}System Status | aiops Control Panel{% endblock %}
+{% block extra_head %}
+<style>
+  .status-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  .status-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    border-left: 4px solid var(--pico-primary);
+  }
+
+  .status-header.healthy {
+    border-left-color: #10b981;
+  }
+
+  .status-header.unhealthy {
+    border-left-color: #ef4444;
+  }
+
+  .status-icon {
+    font-size: 2rem;
+  }
+
+  .status-info h1 {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+
+  .status-info p {
+    margin: 0.25rem 0 0 0;
+    color: var(--pico-muted-color);
+  }
+
+  .components-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .component-card {
+    padding: 1.5rem;
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    border-left: 4px solid var(--pico-muted-border-color);
+  }
+
+  .component-card.healthy {
+    border-left-color: #10b981;
+  }
+
+  .component-card.unhealthy {
+    border-left-color: #ef4444;
+  }
+
+  .component-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .component-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  .component-status-badge {
+    font-size: 1.25rem;
+  }
+
+  .component-message {
+    color: var(--pico-muted-color);
+    margin-bottom: 1rem;
+  }
+
+  .component-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    background: var(--pico-background-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .detail-label {
+    color: var(--pico-muted-color);
+  }
+
+  .detail-value {
+    font-weight: 500;
+  }
+
+  .detail-item.available {
+    color: #10b981;
+  }
+
+  .detail-item.unavailable {
+    color: #ef4444;
+  }
+
+  .detail-item.enabled {
+    color: #10b981;
+  }
+
+  .detail-item.disabled {
+    color: var(--pico-muted-color);
+  }
+
+  .refresh-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .auto-refresh {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+  }
+
+  .controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="status-container">
+  <div class="controls">
+    <button onclick="refreshStatus()" class="refresh-button">
+      <span id="refresh-icon">🔄</span>
+      Refresh Status
+    </button>
+    <div class="auto-refresh">
+      <label>
+        <input type="checkbox" id="auto-refresh" onchange="toggleAutoRefresh()">
+        Auto-refresh (30s)
+      </label>
+    </div>
+  </div>
+
+  <div id="status-content">
+    <div class="status-header" id="overall-status">
+      <div class="status-icon" id="overall-icon">⏳</div>
+      <div class="status-info">
+        <h1 id="overall-title">Loading System Status...</h1>
+        <p id="overall-timestamp"></p>
+      </div>
+    </div>
+
+    <div class="components-grid" id="components-grid">
+      <!-- Components will be loaded here -->
+    </div>
+  </div>
+</div>
+
+<script>
+let autoRefreshInterval = null;
+
+async function refreshStatus() {
+  const refreshIcon = document.getElementById('refresh-icon');
+  refreshIcon.style.animation = 'spin 1s linear infinite';
+
+  try {
+    const response = await fetch('/api/v1/system/status', {
+      headers: {
+        'X-CSRF-Token': '{{ csrf_token() }}'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch status');
+    }
+
+    const data = await response.json();
+    updateStatusDisplay(data);
+  } catch (error) {
+    console.error('Error fetching status:', error);
+    document.getElementById('overall-title').textContent = 'Error Loading Status';
+  } finally {
+    refreshIcon.style.animation = '';
+  }
+}
+
+function updateStatusDisplay(data) {
+  // Update overall status
+  const overallStatus = document.getElementById('overall-status');
+  const overallIcon = document.getElementById('overall-icon');
+  const overallTitle = document.getElementById('overall-title');
+  const overallTimestamp = document.getElementById('overall-timestamp');
+
+  if (data.healthy) {
+    overallStatus.className = 'status-header healthy';
+    overallIcon.textContent = '✅';
+    overallTitle.textContent = 'System Status: Healthy';
+  } else {
+    overallStatus.className = 'status-header unhealthy';
+    overallIcon.textContent = '❌';
+    overallTitle.textContent = 'System Status: Unhealthy';
+  }
+
+  const timestamp = new Date(data.timestamp);
+  overallTimestamp.textContent = `Last updated: ${timestamp.toLocaleString()}`;
+
+  // Update components
+  const componentsGrid = document.getElementById('components-grid');
+  componentsGrid.innerHTML = '';
+
+  const componentOrder = ['database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'sessions'];
+
+  componentOrder.forEach(key => {
+    if (data.components[key]) {
+      const component = data.components[key];
+      const card = createComponentCard(key, component);
+      componentsGrid.appendChild(card);
+    }
+  });
+}
+
+function createComponentCard(name, component) {
+  const card = document.createElement('div');
+  card.className = `component-card ${component.healthy ? 'healthy' : 'unhealthy'}`;
+
+  const displayName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+  card.innerHTML = `
+    <div class="component-header">
+      <div class="component-title">
+        ${displayName}
+      </div>
+      <div class="component-status-badge">
+        ${component.healthy ? '✅' : '❌'}
+      </div>
+    </div>
+    <div class="component-message">
+      ${component.message}
+    </div>
+    ${component.details ? createDetailsHTML(name, component.details) : ''}
+  `;
+
+  return card;
+}
+
+function createDetailsHTML(componentName, details) {
+  let html = '<div class="component-details">';
+
+  if (componentName === 'ai_tools' && details.tools) {
+    Object.entries(details.tools).forEach(([tool, info]) => {
+      const status = info.available ? 'available' : 'unavailable';
+      const icon = info.available ? '✓' : '✗';
+      html += `
+        <div class="detail-item ${status}">
+          <span class="detail-label">${icon} ${tool}</span>
+          <span class="detail-value">${info.available ? 'Available' : 'Not Found'}</span>
+        </div>
+      `;
+    });
+  } else if (componentName === 'integrations' && details.integrations) {
+    Object.entries(details.integrations).forEach(([name, info]) => {
+      const status = info.enabled ? 'enabled' : 'disabled';
+      const icon = info.enabled ? '✓' : '○';
+      html += `
+        <div class="detail-item ${status}">
+          <span class="detail-label">${icon} ${name}</span>
+          <span class="detail-value">${info.provider}</span>
+        </div>
+      `;
+    });
+  } else if (componentName === 'sessions' && details.by_tool) {
+    Object.entries(details.by_tool).forEach(([tool, count]) => {
+      html += `
+        <div class="detail-item">
+          <span class="detail-label">${tool}</span>
+          <span class="detail-value">${count} active</span>
+        </div>
+      `;
+    });
+  } else {
+    Object.entries(details).forEach(([key, value]) => {
+      if (typeof value !== 'object') {
+        const displayKey = key.replace(/_/g, ' ');
+        html += `
+          <div class="detail-item">
+            <span class="detail-label">${displayKey}</span>
+            <span class="detail-value">${value}</span>
+          </div>
+        `;
+      }
+    });
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function toggleAutoRefresh() {
+  const checkbox = document.getElementById('auto-refresh');
+
+  if (checkbox.checked) {
+    autoRefreshInterval = setInterval(refreshStatus, 30000);
+  } else {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  }
+}
+
+// Add spin animation
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+document.head.appendChild(style);
+
+// Load initial status
+refreshStatus();
+</script>
+{% endblock %}

@@ -367,7 +367,14 @@ def create_issue_command(
         click.echo(f"Issue URL: {payload.url}")
 
 
-@click.command("version")
+@click.group("system")
+@with_appcontext
+def system_cli_group():
+    """Manage system-wide operations."""
+    pass
+
+
+@system_cli_group.command("version")
 def version_command() -> None:
     """Display the aiops version."""
     click.echo(__version__)
@@ -542,6 +549,6 @@ def register_cli_commands(app) -> None:
     app.cli.add_command(seed_identities_command)
     app.cli.add_command(sync_issues_command)
     app.cli.add_command(create_issue_command)
-    app.cli.add_command(version_command)
+    app.cli.add_command(system_cli_group)
     app.cli.add_command(init_workspace_command)
     app.cli.add_command(test_sudo_command)

@@ -74,6 +74,30 @@ aiops workflow submit <issue_id> --project <id> --message "..." --comment "..."
 aiops workflow complete <issue_id> --summary "..."  # Complete and close
 ```
 
+#### Session Management
+```bash
+# Start and manage sessions
+aiops issues start --project <project> --tool <tool>  # Start new session (auto-attaches)
+aiops issues start --project <project> --tool shell --user <email>  # Admin: start as other user
+aiops issues sessions --project <project>      # List sessions for project
+aiops issues sessions --all-users              # Admin: list all users' sessions
+aiops issues sessions --attach <tmux-target>   # Attach to session by tmux target
+
+# Examples:
+aiops issues start --project aiops --tool shell               # Start shell session
+aiops issues start --project 6 --issue 123 --tool claude      # Start session for issue
+aiops issues start --project aiops --tool codex --user user@example.com  # Admin only
+aiops issues sessions --all-users                              # List all sessions
+aiops issues sessions --attach user:aiops-p6                   # Attach to user's session
+```
+
+**Session Management Notes:**
+- **--user flag (admin only)**: Admins can start sessions as other users for testing and support
+- User can be specified by email (`user@example.com`) or ID (`5`)
+- Sessions run with the target user's UID, using their workspace and SSH keys
+- Auto-attaches by default (use `--no-attach` to skip)
+- **CRITICAL**: Session handling is core functionality - see `tests/test_admin_session_creation.py`
+
 #### Project & Tenant Management
 ```bash
 aiops projects list --tenant <tenant>          # List projects

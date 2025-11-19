@@ -336,6 +336,11 @@ def find_session_for_issue(issue_id: int, user_id: int, project_id: int) -> Opti
                 and session.project_id == project_id
                 and not session.stop_event.is_set()
             ):
+                # Verify the tmux window actually exists before returning the session
+                if session.tmux_target and not session_exists(session.tmux_target):
+                    # Tmux window is gone, mark session as stopped
+                    session.stop_event.set()
+                    continue
                 return session
     return None
 

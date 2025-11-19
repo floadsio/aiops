@@ -815,7 +815,9 @@ def merge_pull_request(project_id: int, pr_number: int):
 
         return jsonify(result), 200
     except Exception as exc:  # noqa: BLE001
+        import traceback
         current_app.logger.error("Failed to merge PR/MR: %s", exc)
+        current_app.logger.error("Traceback: %s", traceback.format_exc())
         return jsonify({"error": f"Failed to merge PR/MR: {str(exc)}"}), 400
 
 

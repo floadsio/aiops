@@ -213,26 +213,30 @@ Update both locations when bumping version:
 1. Header in `AGENTS.md`: `# Project Overview _(version X.Y.Z)_`
 2. Root `VERSION` file (read by `app/version.py`)
 
-## Git Operations with CLI Tools
+## Git Operations Architecture
 
-aiops uses **official CLI tools** (gh, glab) for GitHub/GitLab git operations when Personal Access Tokens (PATs) are available. This provides native multi-user support without SSH key complexity.
+aiops backend uses **official CLI tools** (gh, glab) internally for GitHub/GitLab git operations when Personal Access Tokens (PATs) are available. This provides native multi-user support without SSH key complexity.
+
+**Important: Users and AI tools continue to use `aiops` CLI exclusively.** The gh/glab tools are backend infrastructure only.
 
 **How it works:**
-- Projects with GitHub/GitLab integrations use `gh`/`glab` CLI tools with PAT authentication
-- Each user's PAT token is injected via environment variables (GH_TOKEN, GITLAB_TOKEN)
-- Falls back to SSH keys for projects without integrations
-- Backend services (`app/services/cli_git_service.py`) handle routing
+1. User/AI tool calls `aiops git pull <project>` via CLI
+2. aiops API receives the request
+3. Backend checks if project has GitHub/GitLab integration with PAT
+4. If yes: Backend uses `gh`/`glab` commands internally with PAT authentication
+5. If no: Backend falls back to SSH keys (existing behavior)
 
-**Installation (production):**
-```bash
-sudo apt install gh glab  # Available in Debian Trixie repos
-```
+**Backend infrastructure:**
+- `app/services/gh_service.py` - GitHub CLI wrapper
+- `app/services/glab_service.py` - GitLab CLI wrapper
+- `app/services/cli_git_service.py` - Routing logic
+- Tools installed: gh 2.46.0, glab 1.53.0 (Debian Trixie)
 
 **Benefits:**
 - Multi-user support: Each user's PAT used for git operations
 - No SSH key management: No encryption, ssh-agent, or key lifecycle complexity
 - Backward compatible: Falls back to SSH keys when CLI tools unavailable
-- Official tools: Maintained by GitHub/GitLab teams
+- Transparent to users: No changes to aiops CLI interface
 
 See PR #35 for implementation details.
 

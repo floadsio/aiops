@@ -2363,8 +2363,9 @@ def create_assisted_issue():
                 issue_id=issue.id,
             )
 
-            # Redirect to the session
-            return redirect(url_for('projects.ai_session', session_id=session.id))
+            # Redirect to the AI console for this project
+            flash(f"AI session started for issue #{issue.external_id}", "success")
+            return redirect(url_for('projects.project_ai_console', project_id=project.id))
 
         except Exception as e:
             flash(f"Failed to create assisted issue: {e}", "error")

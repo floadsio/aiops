@@ -31,6 +31,7 @@ from .services.gemini_config_service import (
     sync_credentials_to_cli_home,
 )
 from .services.git_service import build_project_git_env
+from .services.cli_git_service import supports_cli_git
 from .services.tmux_metadata import record_tmux_tool
 from .services.tmux_service import ensure_project_window
 
@@ -58,6 +59,74 @@ def _backslash_quote(value: str) -> str:
     else:
         # Fall back to shlex.quote for complex strings
         return shlex.quote(value)
+
+
+def _build_cli_git_env_exports(project, user) -> list[str]:
+    """Build environment variable exports for GitHub/GitLab CLI tools.
+
+    Args:
+        project: Project model
+        user: User model
+
+    Returns:
+        List of export commands for gh/glab authentication
+    """
+    exports = []
+
+    # Check if project supports CLI git (has GitHub/GitLab integration with PAT)
+    if not supports_cli_git(project):
+        return exports
+
+    # Get integration and provider
+    integration = getattr(project, "integration", None)
+    if not integration:
+        return exports
+
+    provider = getattr(integration, "provider", None)
+
+    # Get token (check project override first, then tenant level)
+    token = None
+    project_integrations = getattr(project, "issue_integrations", [])
+    for pi in project_integrations:
+        if pi.integration_id == integration.id:
+            override_token = getattr(pi, "override_api_token", None)
+            if override_token:
+                token = override_token
+                break
+
+    if not token:
+        token = getattr(integration, "api_token", None) or getattr(integration, "access_token", None)
+
+    if not token:
+        return exports
+
+    # Get base URL (check project override first, then tenant level)
+    base_url = None
+    for pi in project_integrations:
+        if pi.integration_id == integration.id:
+            override_url = getattr(pi, "override_base_url", None)
+            if override_url:
+                base_url = override_url.rstrip("/")
+                break
+
+    if not base_url:
+        base_url = getattr(integration, "base_url", None)
+        if base_url:
+            base_url = base_url.rstrip("/")
+
+    # Export environment variables based on provider
+    if provider == "github":
+        exports.append(f"export GH_TOKEN={shlex.quote(token)}")
+        # Only set GH_HOST for GitHub Enterprise (not github.com)
+        if base_url and "github.com" not in base_url:
+            exports.append(f"export GH_HOST={shlex.quote(base_url)}")
+    elif provider == "gitlab":
+        exports.append(f"export GITLAB_TOKEN={shlex.quote(token)}")
+        # Only set GITLAB_HOST for private instances (not gitlab.com)
+        if base_url and "gitlab.com" not in base_url:
+            exports.append(f"export GITLAB_HOST={shlex.quote(base_url)}")
+
+    return exports
 
 
 class AISession:
@@ -460,6 +529,7 @@ def create_session(
     linux_username_for_session = None
     git_author_exports: list[str] = []
     aiops_env_exports: list[str] = []
+    cli_git_env_exports: list[str] = []
     if user:
         from .services.linux_users import resolve_linux_username
         linux_username_for_session = resolve_linux_username(user)
@@ -513,6 +583,9 @@ def create_session(
             aiops_env_exports.append(
                 f"export AIOPS_API_KEY={shlex.quote(user.aiops_cli_api_key)}"
             )
+
+    # GitHub/GitLab CLI tool credentials (gh/glab)
+    cli_git_env_exports = _build_cli_git_env_exports(project, user)
 
     tmux_path = shutil.which("tmux")
     if not tmux_path:
@@ -629,6 +702,8 @@ def create_session(
                     setup_commands.append(export_cmd)
                 for export_cmd in aiops_env_exports:
                     setup_commands.append(export_cmd)
+                for export_cmd in cli_git_env_exports:
+                    setup_commands.append(export_cmd)
 
                 # Clear screen
                 setup_commands.append("clear")
@@ -664,6 +739,8 @@ def create_session(
                 for export_cmd in codex_env_exports:
                     script_lines.append(export_cmd)
                 for export_cmd in claude_env_exports:
+                    script_lines.append(export_cmd)
+                for export_cmd in cli_git_env_exports:
                     script_lines.append(export_cmd)
 
                 # Clear and run the command

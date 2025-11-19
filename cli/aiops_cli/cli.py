@@ -832,24 +832,31 @@ def issues_sync(
         # Display results
         synced = result.get("synced", 0)
         projects = result.get("projects", [])
+        failed_projects = result.get("failed_projects", [])
         message = result.get("message", "")
+        success_count = result.get("success_count", 0)
+        failure_count = result.get("failure_count", 0)
 
-        if synced == 0:
-            console.print("[yellow]No issues synchronized[/yellow]")
-            if message:
-                console.print(f"[dim]{message}[/dim]")
-            return
+        # Show summary message with appropriate styling
+        if failure_count > 0:
+            if success_count > 0:
+                console.print(f"[yellow]⚠[/yellow] {message}")
+            else:
+                console.print(f"[red]✗[/red] {message}")
+        else:
+            console.print(f"[green]✓[/green] {message}")
 
-        console.print(f"[green]✓[/green] {message}")
-        console.print(f"[green]Total issues synchronized:[/green] {synced}")
+        if synced > 0:
+            console.print(f"[green]Total issues synchronized:[/green] {synced}")
 
         if projects and output_format == "table":
-            # Display project sync details in table format
+            # Display successful project sync details in table format
             console.print()
-            table = Table(title="Project Sync Details")
+            table = Table(title="Successful Syncs")
             table.add_column("Provider", style="cyan", no_wrap=True)
             table.add_column("Tenant", style="yellow")
             table.add_column("Project", style="magenta")
+            table.add_column("Integration", style="blue")
             table.add_column("Issues", style="green", justify="right")
 
             for proj in projects:
@@ -857,13 +864,42 @@ def issues_sync(
                     proj.get("provider", ""),
                     proj.get("tenant_name", ""),
                     proj.get("project_name", ""),
+                    proj.get("integration_name", ""),
                     str(proj.get("issues_synced", 0)),
                 )
 
             console.print(table)
         elif projects:
             # Use standard format_output for JSON/YAML
-            format_output(projects, output_format, console, title="Project Sync Details")
+            format_output(projects, output_format, console, title="Successful Syncs")
+
+        # Display failed integrations if any
+        if failed_projects:
+            if output_format == "table":
+                console.print()
+                failed_table = Table(title="Failed Syncs", title_style="red")
+                failed_table.add_column("Provider", style="cyan", no_wrap=True)
+                failed_table.add_column("Tenant", style="yellow")
+                failed_table.add_column("Project", style="magenta")
+                failed_table.add_column("Integration", style="blue")
+                failed_table.add_column("Status", style="red")
+
+                for proj in failed_projects:
+                    failed_table.add_row(
+                        proj.get("provider", ""),
+                        proj.get("tenant_name", ""),
+                        proj.get("project_name", ""),
+                        proj.get("integration_name", ""),
+                        "Failed",
+                    )
+
+                console.print(failed_table)
+                console.print(
+                    "[dim]Check application logs for detailed error messages[/dim]"
+                )
+            else:
+                # Use standard format_output for JSON/YAML
+                format_output(failed_projects, output_format, console, title="Failed Syncs")
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")

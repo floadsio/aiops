@@ -129,6 +129,7 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
         assert project_integration.last_synced_at is not None
         assert issue.comments == [
             {
+                "id": None,
                 "author": "alice",
                 "body": "Initial context.",
                 "url": "https://gitlab.example/issues/123#note_1",
@@ -147,6 +148,7 @@ def test_sync_project_integration_creates_and_updates(tmp_path, monkeypatch):
         assert issue.external_updated_at == datetime(2024, 1, 2, tzinfo=timezone.utc)
         assert issue.comments == [
             {
+                "id": None,
                 "author": "bob",
                 "body": "Fixed in main.",
                 "url": "https://gitlab.example/issues/123#note_2",

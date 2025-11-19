@@ -867,15 +867,12 @@ def sync_issues():
             "projects": [],
         })
 
-    # Perform sync
-    try:
-        results = sync_tenant_integrations(project_integrations, force_full=force_full)
-    except IssueSyncError as exc:
-        current_app.logger.error("Issue synchronization failed: %s", exc)
-        return jsonify({"error": f"Issue synchronization failed: {str(exc)}"}), 500
+    # Perform sync - now gracefully handles failures
+    results = sync_tenant_integrations(project_integrations, force_full=force_full)
 
-    # Build response with statistics
+    # Build response with statistics - separate successful from failed integrations
     projects_synced = []
+    projects_failed = []
     total_issues = 0
 
     for project_integration in project_integrations:
@@ -889,22 +886,61 @@ def sync_issues():
             if project_integration.project
             else "Unknown project"
         )
+        integration_name = (
+            project_integration.integration.name
+            if project_integration.integration
+            else "Unknown integration"
+        )
         provider = project_integration.integration.provider
-        count = len(results.get(project_integration.id, []))
-        total_issues += count
 
-        projects_synced.append({
-            "project_id": project_integration.project_id,
-            "project_name": project_name,
-            "tenant_name": tenant_name,
-            "provider": provider,
-            "issues_synced": count,
-        })
+        # Check if this integration was successfully synced
+        if project_integration.id in results:
+            count = len(results[project_integration.id])
+            total_issues += count
+            projects_synced.append({
+                "project_integration_id": project_integration.id,
+                "project_id": project_integration.project_id,
+                "project_name": project_name,
+                "tenant_name": tenant_name,
+                "integration_name": integration_name,
+                "provider": provider,
+                "issues_synced": count,
+                "status": "success",
+            })
+        else:
+            # Integration failed to sync
+            projects_failed.append({
+                "project_integration_id": project_integration.id,
+                "project_id": project_integration.project_id,
+                "project_name": project_name,
+                "tenant_name": tenant_name,
+                "integration_name": integration_name,
+                "provider": provider,
+                "status": "failed",
+            })
+
+    # Build summary message
+    success_count = len(projects_synced)
+    failure_count = len(projects_failed)
+
+    if failure_count > 0:
+        if success_count > 0:
+            message = (
+                f"Issue synchronization partially completed: "
+                f"{success_count} integrations succeeded, {failure_count} failed"
+            )
+        else:
+            message = f"Issue synchronization failed for all {failure_count} integrations"
+    else:
+        message = "Issue synchronization completed successfully"
 
     return jsonify({
-        "message": "Issue synchronization completed successfully",
+        "message": message,
         "synced": total_issues,
+        "success_count": success_count,
+        "failure_count": failure_count,
         "projects": projects_synced,
+        "failed_projects": projects_failed,
     })
 
 

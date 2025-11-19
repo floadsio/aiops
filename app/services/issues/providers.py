@@ -194,6 +194,65 @@ class GitHubIssueProvider(BaseIssueProvider):
             "url": getattr(comment, "html_url", None),
         }
 
+    def update_comment(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        comment_id: str,
+        body: str,
+    ) -> Dict[str, Any]:
+        """Update an existing comment on a GitHub issue.
+
+        Args:
+            project_integration: Project integration
+            issue_number: Issue number (e.g. '42')
+            comment_id: Comment ID to update
+            body: New comment text
+
+        Returns:
+            Updated comment metadata
+
+        Raises:
+            IssueSyncError: On API errors
+        """
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
+        # Create a temporary GitHub client with the effective credentials
+        import github as _github
+        timeout = get_timeout(effective_integration)  # type: ignore[arg-type]
+        base_url = effective_integration.base_url or "https://api.github.com"
+        gh_client = _github.Github(effective_integration.api_token, base_url=base_url, timeout=int(timeout))
+
+        repo = gh_client.get_repo(project_integration.external_identifier)
+        try:
+            # Get the comment by ID and update it
+            comment = repo.get_issue_comment(int(comment_id))
+            comment.edit(body)
+            # Refresh to get updated data
+            comment = repo.get_issue_comment(int(comment_id))
+        except github_provider.GithubAPIException as exc:
+            raise IssueSyncError(github_provider._format_github_error(exc)) from exc
+        except ValueError as exc:
+            raise IssueSyncError(f"Invalid comment ID: {comment_id}") from exc
+
+        user = getattr(comment, "user", None)
+        author = None
+        if user is not None:
+            author = getattr(user, "login", None) or getattr(user, "name", None)
+        updated_at = getattr(comment, "updated_at", None)
+
+        return {
+            "id": str(comment.id),
+            "author": str(author) if author else None,
+            "body": getattr(comment, "body", "") or "",
+            "created_at": _serialize_datetime(getattr(comment, "created_at", None)),
+            "updated_at": _serialize_datetime(updated_at),
+            "url": getattr(comment, "html_url", None),
+        }
+
     def assign_issue(
         self,
         *,

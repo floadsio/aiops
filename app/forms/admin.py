@@ -124,6 +124,11 @@ class TenantIntegrationForm(FlaskForm):
 class TenantIntegrationUpdateForm(FlaskForm):
     name = StringField("Name", validators=[DataRequired(), Length(max=255)])
     base_url = URLField("Base URL", validators=[Optional(), URL(), Length(max=512)])
+    api_token = PasswordField(
+        "API Token",
+        description="Leave blank to keep current token",
+        validators=[Optional(), Length(max=4096)],
+    )
     submit = SubmitField("Update Integration")
 
 

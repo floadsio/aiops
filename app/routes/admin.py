@@ -3351,6 +3351,11 @@ def update_tenant_integration(integration_id: int):
     integration.name = new_name
     integration.base_url = (form.base_url.data or "").strip() or None
 
+    # Update API token if provided
+    new_token = (form.api_token.data or "").strip()
+    if new_token:
+        integration.api_token = new_token
+
     db.session.commit()
     flash(f"Integration '{integration.name}' updated successfully.", "success")
     return redirect(url_for("admin.manage_integrations"))

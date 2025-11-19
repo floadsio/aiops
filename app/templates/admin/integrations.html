@@ -86,6 +86,13 @@
                 {{ tenant_update_form.base_url.label }}
                 {{ tenant_update_form.base_url(placeholder="Optional override for self-hosted instances") }}
               </label>
+              <label>
+                {{ tenant_update_form.api_token.label }}
+                {{ tenant_update_form.api_token(placeholder="Leave blank to keep current token") }}
+                {% if tenant_update_form.api_token.description %}
+                <small class="text-muted">{{ tenant_update_form.api_token.description }}</small>
+                {% endif %}
+              </label>
               <button type="submit" class="secondary">{{ tenant_update_form.submit.label.text }}</button>
             </form>
           </details>

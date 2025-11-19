@@ -1830,7 +1830,7 @@ def sessions_respawn(
         url = f"projects/{session_project_id}/tmux/respawn"
         payload = {"tmux_target": tmux_target_str}
 
-        client.post(url, json_data=payload)
+        client.post(url, json=payload)
         console.print(f"[green]✓[/green] Successfully respawned pane: {tmux_target_str}")
 
     except APIError as exc:
@@ -1918,7 +1918,7 @@ def sessions_kill(
         url = f"projects/{session_project_id}/tmux/close"
         payload = {"tmux_target": tmux_target_str}
 
-        client.post(url, json_data=payload)
+        client.post(url, json=payload)
         console.print(f"\n[green]✓[/green] Successfully killed session: {tmux_target_str}")
 
     except APIError as exc:

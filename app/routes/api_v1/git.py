@@ -739,7 +739,9 @@ def _create_gitlab_mr(
     }
 
 
-@api_v1_bp.route("/projects/<int:project_id>/pull-requests/<int:pr_number>/merge", methods=["POST"])
+@api_v1_bp.post("/projects/<int:project_id>/pull-requests/<int:pr_number>/merge")
+@require_api_auth(scopes=["write"])
+@audit_api_request
 def merge_pull_request(project_id: int, pr_number: int):
     """Merge a pull request (GitHub) or merge request (GitLab).
 

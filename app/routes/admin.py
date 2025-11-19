@@ -2363,9 +2363,13 @@ def create_assisted_issue():
                 issue_id=issue.id,
             )
 
-            # Redirect to the AI console for this project
+            # Redirect to the AI console and auto-attach to the session
             flash(f"AI session started for issue #{issue.external_id}", "success")
-            return redirect(url_for('projects.project_ai_console', project_id=project.id))
+            return redirect(url_for(
+                'projects.project_ai_console',
+                project_id=project.id,
+                attach=session.tmux_target
+            ))
 
         except Exception as e:
             flash(f"Failed to create assisted issue: {e}", "error")

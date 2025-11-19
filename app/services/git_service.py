@@ -18,6 +18,7 @@ from ..models import Project, SSHKey
 from ..services.key_service import resolve_private_key_path
 from .linux_users import resolve_linux_username
 from .sudo_service import SudoError, run_as_user
+from . import cli_git_service
 
 log = logging.getLogger(__name__)
 
@@ -288,6 +289,20 @@ def ensure_repo_checkout(project: Project, user: Optional[object] = None) -> Rep
         except (PermissionError, OSError):
             path = _relocate_project_path(project)
 
+    # Try CLI tools first if available (GitHub/GitLab with PAT)
+    if cli_git_service.supports_cli_git(project):
+        try:
+            cli_git_service.clone_repo(project, path, branch=project.default_branch)
+            return Repo(path)
+        except cli_git_service.CliGitServiceError as err:
+            log.warning(
+                "CLI git clone failed for %s, falling back to SSH: %s",
+                project.name,
+                err,
+            )
+            # Fall through to SSH-based clone
+
+    # Fallback to SSH-based clone
     invalid_keys: set[str] = set()
 
     def _attempt_clone(env: dict[str, str] | None) -> Repo:
@@ -513,6 +528,36 @@ def run_git_action(
             clean=clean,
             user=user,
         )
+
+    # Try CLI tools first if available (GitHub/GitLab with PAT)
+    repo_path = Path(repo.working_tree_dir)
+    if cli_git_service.supports_cli_git(project):
+        try:
+            if action == "pull":
+                if clean:
+                    log.info("Performing clean pull for project %s", project.name)
+                    _discard_local_changes(repo)
+                output = cli_git_service.pull_repo(project, repo_path)
+                # Add status after pull
+                status = repo.git.status("--short", "--branch").strip()
+                if status:
+                    output += "\nWorking tree status:\n" + status
+                return output
+            elif action == "push":
+                return cli_git_service.push_repo(project, repo_path, branch=ref)
+            elif action == "status":
+                status_info = cli_git_service.get_repo_status(project, repo_path)
+                return status_info.get("status_summary", "")
+        except cli_git_service.CliGitServiceError as err:
+            log.warning(
+                "CLI git %s failed for %s, falling back to SSH: %s",
+                action,
+                project.name,
+                err,
+            )
+            # Fall through to SSH-based operations
+
+    # Fallback to SSH-based git operations
     messages: list[str] = []
     invalid_keys: set[str] = set()
 

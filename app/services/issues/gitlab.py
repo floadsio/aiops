@@ -402,15 +402,17 @@ def create_comment(
 
 
 def _resolve_assignee(issue_payload: Any) -> Optional[str]:
+    from .utils import normalize_assignee_name
+
     assignee = getattr(issue_payload, "assignee", None)
     if isinstance(assignee, dict):
         name = assignee.get("name") or assignee.get("username")
-        return str(name) if name else None
+        return normalize_assignee_name(str(name) if name else None)
     if isinstance(assignee, list) and assignee:
         primary = assignee[0]
         if isinstance(primary, dict):
             name = primary.get("name") or primary.get("username")
-            return str(name) if name else None
+            return normalize_assignee_name(str(name) if name else None)
     return None
 
 

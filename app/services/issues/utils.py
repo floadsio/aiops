@@ -339,6 +339,38 @@ def summarize_issue(issue: ExternalIssue, include_url: bool = False) -> str:
     return "; ".join(parts)
 
 
+def normalize_assignee_name(name: str | None) -> str | None:
+    """
+    Normalize assignee names by removing organizational suffixes and extra whitespace.
+
+    Handles cases like:
+    - "Michael Turko (Floads)" -> "Michael Turko"
+    - "John Doe  (Acme Corp)" -> "John Doe"
+    - "  Jane Smith  " -> "Jane Smith"
+
+    Args:
+        name: Raw assignee name from provider
+
+    Returns:
+        Normalized assignee name, or None if input is None/empty
+    """
+    if not name:
+        return None
+
+    # Strip leading/trailing whitespace
+    normalized = name.strip()
+
+    # Remove parenthetical suffixes (e.g., "(Floads)", "(Company Name)")
+    # Match pattern: space + opening paren + any chars + closing paren at end
+    normalized = re.sub(r'\s+\([^)]+\)$', '', normalized)
+
+    # Normalize internal whitespace (multiple spaces -> single space)
+    normalized = re.sub(r'\s+', ' ', normalized)
+
+    # Return None if the result is empty after normalization
+    return normalized if normalized else None
+
+
 def _normalize_base_url(url: str) -> str:
     value = url.strip()
     if "://" not in value:

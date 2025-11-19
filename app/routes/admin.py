@@ -2318,36 +2318,26 @@ def create_assisted_issue():
                 labels=labels,
             )
 
-            # Sync to database to get ExternalIssue object
-            sync_project_integration(integration)
-            db.session.commit()
-
-            # Find the newly created issue in the database
+            # Create ExternalIssue record directly in database from the payload
+            # Don't use sync_project_integration as it may fail if other integrations are down
             from ..models import ExternalIssue
-            issue = ExternalIssue.query.filter_by(
+            from datetime import datetime, timezone
+
+            issue = ExternalIssue(
                 project_integration_id=integration.id,
                 external_id=issue_payload.external_id,
-            ).first()
-
-            if not issue:
-                # Log details for debugging
-                current_app.logger.error(
-                    f"Failed to find issue: external_id={issue_payload.external_id}, "
-                    f"project_integration_id={integration.id}, "
-                    f"title={issue_payload.title}"
-                )
-                # Try to find any issues for this integration
-                all_issues = ExternalIssue.query.filter_by(
-                    project_integration_id=integration.id
-                ).all()
-                current_app.logger.error(
-                    f"All issues for integration {integration.id}: "
-                    f"{[(i.id, i.external_id, i.title) for i in all_issues]}"
-                )
-                raise RuntimeError(
-                    f"Failed to find synced issue #{issue_payload.external_id} in database. "
-                    f"Created issue but sync didn't pull it. Check logs for details."
-                )
+                title=issue_payload.title,
+                status=issue_payload.status,
+                assignee=issue_payload.assignee,
+                url=issue_payload.url,
+                labels=issue_payload.labels,
+                external_updated_at=issue_payload.external_updated_at,
+                last_seen_at=datetime.now(timezone.utc),
+                raw_payload=issue_payload.raw,
+                comments=issue_payload.comments,
+            )
+            db.session.add(issue)
+            db.session.commit()
 
             flash(f"Draft issue created: #{issue.external_id}", "success")
 

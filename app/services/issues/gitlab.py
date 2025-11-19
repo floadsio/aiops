@@ -401,6 +401,225 @@ def create_comment(
         raise IssueSyncError(error_msg) from exc
 
 
+def update_issue(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    labels: Optional[List[str]] = None,
+) -> IssuePayload:
+    """Update a GitLab issue.
+
+    Args:
+        integration: GitLab tenant integration
+        project_integration: Project integration containing the project ref
+        external_id: Issue IID (issue number)
+        title: New title (optional)
+        description: New description (optional)
+        labels: New labels list (optional)
+
+    Returns:
+        Updated IssuePayload
+
+    Raises:
+        IssueSyncError: If update fails
+    """
+    project_ref = project_integration.external_identifier
+    if not project_ref:
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
+
+    identifier = str(external_id).strip()
+    issue_ref: int | str
+    try:
+        issue_ref = int(identifier)
+    except (TypeError, ValueError):
+        issue_ref = identifier
+
+    client = _build_client(integration)
+    try:
+        from gitlab import exceptions as gitlab_exc
+
+        project = client.projects.get(project_ref)
+        issue = project.issues.get(issue_ref)
+
+        # Update fields if provided
+        if title is not None:
+            issue.title = title
+        if description is not None:
+            issue.description = description
+        if labels is not None:
+            issue.labels = labels
+
+        issue.save()
+        # Refresh to get updated data
+        issue = project.issues.get(issue_ref)
+
+    except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabGetError) as exc:
+        status = getattr(exc, "response_code", "unknown")
+        raise IssueSyncError(f"GitLab API error: {status}") from exc
+    except gitlab_exc.GitlabError as exc:
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+
+    external_id_value = getattr(issue, "iid", None) or identifier
+    return IssuePayload(
+        external_id=str(external_id_value),
+        title=getattr(issue, "title", "") or "",
+        status=getattr(issue, "state", None),
+        assignee=_resolve_assignee(issue),
+        url=getattr(issue, "web_url", None),
+        labels=[str(label) for label in getattr(issue, "labels", [])],
+        external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
+        raw=issue.attributes if hasattr(issue, "attributes") else {},
+        comments=_collect_issue_comments(issue),
+    )
+
+
+def reopen_issue(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+) -> IssuePayload:
+    """Reopen a closed GitLab issue.
+
+    Args:
+        integration: GitLab tenant integration
+        project_integration: Project integration containing the project ref
+        external_id: Issue IID (issue number)
+
+    Returns:
+        Updated IssuePayload
+
+    Raises:
+        IssueSyncError: If reopen fails
+    """
+    project_ref = project_integration.external_identifier
+    if not project_ref:
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
+
+    identifier = str(external_id).strip()
+    issue_ref: int | str
+    try:
+        issue_ref = int(identifier)
+    except (TypeError, ValueError):
+        issue_ref = identifier
+
+    client = _build_client(integration)
+    try:
+        from gitlab import exceptions as gitlab_exc
+
+        project = client.projects.get(project_ref)
+        issue = project.issues.get(issue_ref)
+        issue.state_event = "reopen"
+        issue.save()
+        # Refresh to get updated data
+        issue = project.issues.get(issue_ref)
+
+    except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabGetError) as exc:
+        status = getattr(exc, "response_code", "unknown")
+        raise IssueSyncError(f"GitLab API error: {status}") from exc
+    except gitlab_exc.GitlabError as exc:
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+
+    external_id_value = getattr(issue, "iid", None) or identifier
+    return IssuePayload(
+        external_id=str(external_id_value),
+        title=getattr(issue, "title", "") or "",
+        status=getattr(issue, "state", None),
+        assignee=_resolve_assignee(issue),
+        url=getattr(issue, "web_url", None),
+        labels=[str(label) for label in getattr(issue, "labels", [])],
+        external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
+        raw=issue.attributes if hasattr(issue, "attributes") else {},
+        comments=_collect_issue_comments(issue),
+    )
+
+
+def update_comment(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+    comment_id: str,
+    body: str,
+) -> IssueCommentPayload:
+    """Update an existing comment on a GitLab issue.
+
+    Args:
+        integration: GitLab tenant integration
+        project_integration: Project integration containing the project ref
+        external_id: Issue IID (issue number)
+        comment_id: Note ID to update
+        body: New comment text
+
+    Returns:
+        Updated IssueCommentPayload
+
+    Raises:
+        IssueSyncError: If update fails
+    """
+    project_ref = project_integration.external_identifier
+    if not project_ref:
+        raise IssueSyncError(
+            "GitLab project integration requires an external project path."
+        )
+
+    identifier = str(external_id).strip()
+    issue_ref: int | str
+    try:
+        issue_ref = int(identifier)
+    except (TypeError, ValueError):
+        issue_ref = identifier
+
+    body = (body or "").strip()
+    if not body:
+        raise IssueSyncError("Comment body is required.")
+
+    client = _build_client(integration)
+    try:
+        from gitlab import exceptions as gitlab_exc
+
+        project = client.projects.get(project_ref)
+        issue = project.issues.get(issue_ref)
+
+        # Get and update the note
+        note = issue.notes.get(int(comment_id))
+        note.body = body
+        note.save()
+        # Refresh to get updated data
+        note = issue.notes.get(int(comment_id))
+
+        # Extract note details
+        author = getattr(note, "author", None)
+        author_name = None
+        if isinstance(author, dict):
+            author_name = author.get("name") or author.get("username")
+
+        note_id = getattr(note, "id", None)
+
+        return IssueCommentPayload(
+            author=str(author_name) if author_name else None,
+            body=getattr(note, "body", "") or "",
+            created_at=parse_datetime(getattr(note, "created_at", None)),
+            url=getattr(note, "web_url", None),
+            id=str(note_id) if note_id else None,
+        )
+
+    except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabGetError) as exc:
+        status = getattr(exc, "response_code", "unknown")
+        raise IssueSyncError(f"GitLab API error: {status}") from exc
+    except gitlab_exc.GitlabError as exc:
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+    except ValueError as exc:
+        raise IssueSyncError(f"Invalid comment ID: {comment_id}") from exc
+
+
 def _resolve_assignee(issue_payload: Any) -> Optional[str]:
     from .utils import normalize_assignee_name
 

@@ -229,10 +229,10 @@ class GitHubIssueProvider(BaseIssueProvider):
         repo = gh_client.get_repo(project_integration.external_identifier)
         try:
             # Get the comment by ID and update it
-            comment = repo.get_issue_comment(int(comment_id))
+            comment = repo.get_comment(int(comment_id))
             comment.edit(body)
             # Refresh to get updated data
-            comment = repo.get_issue_comment(int(comment_id))
+            comment = repo.get_comment(int(comment_id))
         except github_provider.GithubAPIException as exc:
             raise IssueSyncError(github_provider._format_github_error(exc)) from exc
         except ValueError as exc:

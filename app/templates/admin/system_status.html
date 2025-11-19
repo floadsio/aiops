@@ -214,7 +214,7 @@ function updateStatusDisplay(data) {
   const componentsGrid = document.getElementById('components-grid');
   componentsGrid.innerHTML = '';
 
-  const componentOrder = ['database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'sessions'];
+  const componentOrder = ['database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'cli_git_tools', 'sessions'];
 
   componentOrder.forEach(key => {
     if (data.components[key]) {
@@ -255,7 +255,22 @@ function createComponentCard(name, component) {
 function createDetailsHTML(componentName, details) {
   let html = '';
 
-  if (componentName === 'ai_tools' && details.tools) {
+  if (componentName === 'git' && details.tools) {
+    Object.entries(details.tools).forEach(([tool, info]) => {
+      const status = info.available ? 'available' : 'unavailable';
+      const icon = info.available ? '✓' : '○';
+      const version = info.version ? ` (${info.version.split('\n')[0]})` : '';
+      html += `
+        <div class="detail-row ${status}">
+          <span class="detail-label">
+            <span>${icon}</span>
+            <span>${tool}</span>
+          </span>
+          <span class="detail-value">${info.available ? 'Available' + version : info.error || 'Not Found'}</span>
+        </div>
+      `;
+    });
+  } else if (componentName === 'ai_tools' && details.tools) {
     Object.entries(details.tools).forEach(([tool, info]) => {
       const status = info.available ? 'available' : 'unavailable';
       const icon = info.available ? '✓' : '○';
@@ -280,6 +295,24 @@ function createDetailsHTML(componentName, details) {
             <span>${name}</span>
           </span>
           <span class="detail-value">${info.provider}</span>
+        </div>
+      `;
+    });
+  } else if (componentName === 'cli_git_tools' && details.integrations) {
+    details.integrations.forEach(integration => {
+      const status = integration.auth_ok ? 'enabled' : 'disabled';
+      const icon = integration.auth_ok ? '✓' : '✗';
+      const tokenInfo = integration.token_preview ? ` [${integration.token_source}: ${integration.token_preview}]` : '';
+      const errorMsg = integration.error ? `<br><small style="color: var(--pico-del-color);">${integration.error.substring(0, 100)}...</small>` : '';
+      html += `
+        <div class="detail-row ${status}">
+          <span class="detail-label">
+            <span>${icon}</span>
+            <span>${integration.name}</span>
+          </span>
+          <span class="detail-value">
+            ${integration.provider} - ${integration.tenant_name}${tokenInfo}${errorMsg}
+          </span>
         </div>
       `;
     });

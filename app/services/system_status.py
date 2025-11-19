@@ -87,11 +87,14 @@ def check_tmux_server() -> dict[str, Any]:
 
 
 def check_git() -> dict[str, Any]:
-    """Check if git is available.
+    """Check if git and CLI tools (gh, glab) are available.
 
     Returns:
         Status dict with 'healthy', 'message', and 'details'
     """
+    tools_status = {}
+
+    # Check git
     try:
         result = subprocess.run(
             ["git", "--version"],
@@ -101,16 +104,60 @@ def check_git() -> dict[str, Any]:
         )
         if result.returncode == 0:
             version = result.stdout.strip()
-            return {
-                "healthy": True,
-                "message": "Git available",
-                "details": {"version": version}
-            }
-        return {"healthy": False, "message": "Git command failed"}
+            tools_status["git"] = {"available": True, "version": version}
+        else:
+            tools_status["git"] = {"available": False, "error": "Command failed"}
     except FileNotFoundError:
-        return {"healthy": False, "message": "Git not installed"}
+        tools_status["git"] = {"available": False, "error": "Not installed"}
     except Exception as exc:  # noqa: BLE001
-        return {"healthy": False, "message": f"Git error: {exc}"}
+        tools_status["git"] = {"available": False, "error": str(exc)}
+
+    # Check gh (GitHub CLI)
+    try:
+        result = subprocess.run(
+            ["gh", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip().split("\n")[0]  # First line has version
+            tools_status["gh"] = {"available": True, "version": version}
+        else:
+            tools_status["gh"] = {"available": False, "error": "Command failed"}
+    except FileNotFoundError:
+        tools_status["gh"] = {"available": False, "error": "Not installed"}
+    except Exception as exc:  # noqa: BLE001
+        tools_status["gh"] = {"available": False, "error": str(exc)}
+
+    # Check glab (GitLab CLI)
+    try:
+        result = subprocess.run(
+            ["glab", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            tools_status["glab"] = {"available": True, "version": version}
+        else:
+            tools_status["glab"] = {"available": False, "error": "Command failed"}
+    except FileNotFoundError:
+        tools_status["glab"] = {"available": False, "error": "Not installed"}
+    except Exception as exc:  # noqa: BLE001
+        tools_status["glab"] = {"available": False, "error": str(exc)}
+
+    # Determine overall health - git is required, gh/glab are optional
+    git_available = tools_status.get("git", {}).get("available", False)
+    available_count = sum(1 for t in tools_status.values() if t.get("available", False))
+    total_count = len(tools_status)
+
+    return {
+        "healthy": git_available,
+        "message": f"{available_count}/{total_count} Git tools available",
+        "details": {"tools": tools_status}
+    }
 
 
 def check_ai_tools() -> dict[str, Any]:
@@ -229,6 +276,224 @@ def check_integrations() -> dict[str, Any]:
         return {"healthy": False, "message": f"Integration check error: {exc}"}
 
 
+def check_cli_git_tools() -> dict[str, Any]:
+    """Check GitHub (gh) and GitLab (glab) CLI tools authentication.
+
+    Tests authentication with configured PATs for each tenant integration.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    try:
+        from ..models import TenantIntegration
+
+        integrations = TenantIntegration.query.filter(
+            TenantIntegration.provider.in_(["github", "gitlab"])
+        ).all()
+
+        if not integrations:
+            return {
+                "healthy": True,
+                "message": "No GitHub/GitLab integrations configured",
+                "details": {"integrations": []}
+            }
+
+        integration_checks = []
+        auth_failures = 0
+
+        for integration in integrations:
+            # Determine which token is being used
+            token = integration.api_token or integration.access_token
+            token_source = "tenant"
+            token_preview = None
+
+            # Check if there's a project-level override
+            # Note: We check all projects for this integration to see if any have overrides
+            from ..models import ProjectIntegration
+            project_overrides = ProjectIntegration.query.filter_by(
+                integration_id=integration.id
+            ).filter(
+                ProjectIntegration.override_api_token.isnot(None)
+            ).all()
+
+            if project_overrides:
+                token_source = f"project-override ({len(project_overrides)} project(s))"
+
+            if token:
+                # Show first 10 and last 4 characters of token
+                if len(token) > 20:
+                    token_preview = f"{token[:10]}...{token[-4:]}"
+                else:
+                    token_preview = f"{token[:10]}..."
+
+            check_result = {
+                "integration_id": integration.id,
+                "name": integration.name,
+                "provider": integration.provider,
+                "tenant_name": integration.tenant.name if integration.tenant else None,
+                "has_token": bool(token),
+                "token_source": token_source,
+                "token_preview": token_preview,
+                "auth_ok": False,
+                "error": None,
+            }
+
+            # Skip if no token
+            if not token:
+                check_result["error"] = "No access token configured"
+                integration_checks.append(check_result)
+                auth_failures += 1
+                continue
+
+            # Test authentication based on provider
+            if integration.provider == "github":
+                auth_ok, error = _test_github_auth(integration)
+                check_result["auth_ok"] = auth_ok
+                check_result["error"] = error
+                if not auth_ok:
+                    auth_failures += 1
+            elif integration.provider == "gitlab":
+                auth_ok, error = _test_gitlab_auth(integration)
+                check_result["auth_ok"] = auth_ok
+                check_result["error"] = error
+                if not auth_ok:
+                    auth_failures += 1
+
+            integration_checks.append(check_result)
+
+        total = len(integration_checks)
+        passed = total - auth_failures
+
+        return {
+            "healthy": auth_failures == 0,
+            "message": f"{passed}/{total} CLI git integrations authenticated",
+            "details": {"integrations": integration_checks}
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"healthy": False, "message": f"CLI git tools check error: {exc}"}
+
+
+def _test_github_auth(integration: Any) -> tuple[bool, str | None]:
+    """Test GitHub CLI (gh) authentication.
+
+    Args:
+        integration: TenantIntegration with GitHub provider
+
+    Returns:
+        Tuple of (auth_ok, error_message)
+    """
+    try:
+        import os
+
+        token = integration.api_token or integration.access_token
+        if not token:
+            return False, "No token available"
+
+        # Set up environment
+        env = os.environ.copy()
+        env["GH_TOKEN"] = token
+
+        # Add GH_HOST for GitHub Enterprise
+        base_url = getattr(integration, "base_url", None)
+        if base_url and "github.com" not in base_url:
+            env["GH_HOST"] = base_url
+
+        # Test authentication with gh auth status
+        result = subprocess.run(
+            ["gh", "auth", "status"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        # gh auth status returns 0 when authenticated
+        if result.returncode == 0:
+            return True, None
+
+        # Extract error from stderr
+        error_msg = result.stderr.strip() if result.stderr else "Authentication failed"
+        return False, error_msg
+
+    except FileNotFoundError:
+        return False, "gh CLI not installed"
+    except subprocess.TimeoutExpired:
+        return False, "Authentication check timeout"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Check failed: {exc}"
+
+
+def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
+    """Test GitLab CLI (glab) authentication via API call.
+
+    Tests authentication the same way AI tool sessions use it - with GITLAB_TOKEN
+    environment variable. Uses glab api command to verify token validity.
+
+    Args:
+        integration: TenantIntegration with GitLab provider
+
+    Returns:
+        Tuple of (auth_ok, error_message)
+    """
+    try:
+        import os
+        from urllib.parse import urlparse
+
+        token = integration.api_token or integration.access_token
+        if not token:
+            return False, "No token available"
+
+        # Set up environment - same as AI tool sessions
+        env = os.environ.copy()
+        env["GITLAB_TOKEN"] = token
+
+        # Determine hostname for private instances
+        base_url = getattr(integration, "base_url", None)
+        hostname = None
+        if base_url and "gitlab.com" not in base_url:
+            # Extract hostname from URL (e.g., "gitlab.kumbe.it" from "https://gitlab.kumbe.it")
+            parsed = urlparse(base_url)
+            hostname = parsed.netloc or parsed.path.strip("/")
+            env["GITLAB_HOST"] = base_url
+
+        # Test authentication with glab api call to /user endpoint
+        # This mimics how git operations work in AI tool sessions
+        if hostname:
+            result = subprocess.run(
+                ["glab", "api", "user", "--hostname", hostname],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        else:
+            result = subprocess.run(
+                ["glab", "api", "user"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+
+        # glab api returns 0 on success
+        if result.returncode == 0:
+            return True, None
+
+        # Extract error from stderr
+        error_msg = result.stderr.strip() if result.stderr else "Authentication failed"
+        # Simplify error message if it's too long
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
+        return False, error_msg
+
+    except FileNotFoundError:
+        return False, "glab CLI not installed"
+    except subprocess.TimeoutExpired:
+        return False, "Authentication check timeout"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Check failed: {exc}"
+
+
 def check_sessions() -> dict[str, Any]:
     """Check active AI sessions.
 
@@ -271,6 +536,7 @@ def get_system_status() -> dict[str, Any]:
         "ai_tools": check_ai_tools(),
         "workspaces": check_workspaces(),
         "integrations": check_integrations(),
+        "cli_git_tools": check_cli_git_tools(),
         "sessions": check_sessions(),
     }
 

@@ -1,4 +1,4 @@
-# Project Overview _(version 0.3.4)_
+# Project Overview _(version 0.4.0)_
 
 aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
 AI-assisted tmux sessions, and Ansible automation. The codebase favours thin blueprints, well-tested
@@ -212,6 +212,33 @@ aiops system backup restore <id>                # Restore from backup (destructi
 Update both locations when bumping version:
 1. Header in `AGENTS.md`: `# Project Overview _(version X.Y.Z)_`
 2. Root `VERSION` file (read by `app/version.py`)
+
+## Git Operations Architecture
+
+aiops backend uses **official CLI tools** (gh, glab) internally for GitHub/GitLab git operations when Personal Access Tokens (PATs) are available. This provides native multi-user support without SSH key complexity.
+
+**Important: Users and AI tools continue to use `aiops` CLI exclusively.** The gh/glab tools are backend infrastructure only.
+
+**How it works:**
+1. User/AI tool calls `aiops git pull <project>` via CLI
+2. aiops API receives the request
+3. Backend checks if project has GitHub/GitLab integration with PAT
+4. If yes: Backend uses `gh`/`glab` commands internally with PAT authentication
+5. If no: Backend falls back to SSH keys (existing behavior)
+
+**Backend infrastructure:**
+- `app/services/gh_service.py` - GitHub CLI wrapper
+- `app/services/glab_service.py` - GitLab CLI wrapper
+- `app/services/cli_git_service.py` - Routing logic
+- Tools installed: gh 2.46.0, glab 1.53.0 (Debian Trixie)
+
+**Benefits:**
+- Multi-user support: Each user's PAT used for git operations
+- No SSH key management: No encryption, ssh-agent, or key lifecycle complexity
+- Backward compatible: Falls back to SSH keys when CLI tools unavailable
+- Transparent to users: No changes to aiops CLI interface
+
+See PR #35 for implementation details.
 
 ## Global Agent Context
 

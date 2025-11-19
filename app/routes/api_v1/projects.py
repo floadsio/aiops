@@ -306,25 +306,32 @@ def close_tmux_window_api(project_id: int):
     if ":" in tmux_target:
         linux_username = tmux_target.split(":")[0]
 
+    # Try to close the tmux window (may fail if already closed)
+    tmux_error = None
     try:
         close_tmux_target(tmux_target, linux_username=linux_username)
-
-        # Mark all sessions with this tmux target as inactive
-        sessions = AISession.query.filter_by(
-            tmux_target=tmux_target,
-            is_active=True
-        ).all()
-
-        for session in sessions:
-            session.is_active = False
-            session.ended_at = datetime.now(timezone.utc)
-
-        if sessions:
-            db.session.commit()
-
-        return jsonify({"success": True})
     except TmuxServiceError as exc:
-        return jsonify({"error": str(exc)}), 500
+        tmux_error = str(exc)
+
+    # Always mark sessions as inactive in database, even if tmux close failed
+    # (the session may already be dead)
+    sessions = AISession.query.filter_by(
+        tmux_target=tmux_target,
+        is_active=True
+    ).all()
+
+    for session in sessions:
+        session.is_active = False
+        session.ended_at = datetime.now(timezone.utc)
+
+    if sessions:
+        db.session.commit()
+
+    # If tmux close failed and no sessions were found, return error
+    if tmux_error and not sessions:
+        return jsonify({"error": tmux_error}), 500
+
+    return jsonify({"success": True})
 
 
 @api_v1_bp.post("/projects/<int:project_id>/tmux/respawn")

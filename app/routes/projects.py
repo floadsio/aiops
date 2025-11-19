@@ -1284,27 +1284,36 @@ def close_tmux_window(project_id: int):
         return redirect(redirect_target)
 
     linux_username = _current_linux_username()
+
+    # Try to close the tmux window (may fail if already closed)
+    tmux_error = None
     try:
         close_tmux_target(tmux_target, linux_username=linux_username)
-
-        # Mark all sessions with this tmux target as inactive
-        sessions = AISession.query.filter_by(
-            tmux_target=tmux_target,
-            is_active=True
-        ).all()
-
-        for session in sessions:
-            session.is_active = False
-            session.ended_at = datetime.now(timezone.utc)
-
-        if sessions:
-            db.session.commit()
-
     except TmuxServiceError as exc:
+        tmux_error = str(exc)
+
+    # Always mark sessions as inactive in database, even if tmux close failed
+    # (the session may already be dead)
+    sessions = AISession.query.filter_by(
+        tmux_target=tmux_target,
+        is_active=True
+    ).all()
+
+    for session in sessions:
+        session.is_active = False
+        session.ended_at = datetime.now(timezone.utc)
+
+    if sessions:
+        db.session.commit()
+
+    # Handle errors and success messages
+    if tmux_error and not sessions:
+        # Tmux failed and no sessions found - this is an error
         if request.is_json:
-            return jsonify({"error": str(exc)}), 500
-        flash(str(exc), "danger")
+            return jsonify({"error": tmux_error}), 500
+        flash(tmux_error, "danger")
     else:
+        # Either tmux succeeded or we cleaned up sessions - this is success
         if not request.is_json:
             flash(f"Closed tmux window {tmux_target}.", "success")
 

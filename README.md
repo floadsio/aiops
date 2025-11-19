@@ -6,14 +6,30 @@ This project provides a Flask-based web UI and CLI that orchestrates multi-tenan
 
 ## Features
 - **Multi-tenant Management** – Manage tenants and associated projects stored in a relational database (SQLite by default).
-- **Issue Tracking Integration** – Sync and manage issues from GitHub, GitLab, and Jira with automatic assignment and status updates.
+- **Complete Issue Tracking Integration** – Full CRUD operations for issues and comments across GitHub, GitLab, and Jira with complete feature parity.
 - **Per-User Workspaces** – Isolated workspace directories for each user with their own git configuration and SSH keys.
 - **AI-Assisted Development** – Launch AI sessions (Claude Code, Codex, Gemini) directly on issues with automatic context population.
 - **Cross-Platform CLI** – Command-line client for macOS and Linux to manage issues, start AI sessions, and attach to remote tmux sessions via SSH.
-- **Git Operations** – Clone, update, push repositories, manage branches through web UI or CLI.
+- **Git Operations** – Clone, update, push repositories, manage branches, create and merge pull/merge requests through web UI or CLI.
 - **AI Tool Management** – Install and upgrade AI CLIs (Codex, Gemini, Claude) without shell access via admin settings.
 - **Ansible Automation** – Run Ansible jobs via Semaphore to provision remote environments after code updates.
 - **Session Management** – List and reuse active AI sessions, attach to remote tmux sessions from your local machine.
+
+### Issue Management Feature Parity
+
+All three issue providers (GitHub, GitLab, Jira) now support complete feature parity:
+
+| Feature          | GitHub | GitLab | Jira |
+|------------------|--------|--------|------|
+| Create Issues    |   ✓    |   ✓    |  ✓   |
+| Update Issues    |   ✓    |   ✓    |  ✓   |
+| Close Issues     |   ✓    |   ✓    |  ✓   |
+| Reopen Issues    |   ✓    |   ✓    |  ✓   |
+| Add Comments     |   ✓    |   ✓    |  ✓   |
+| Edit Comments    |   ✓    |   ✓    |  ✓   |
+| Assign Issues    |   ✓    |   ✓    |  ✓   |
+
+All operations support user-level and project-level credential overrides, allowing teams and individuals to use their own personal access tokens for attributing work correctly.
 
 ## Getting Started
 1. Install [uv](https://github.com/astral-sh/uv) (macOS/Linux/OpenBSD/FreeBSD binaries available). Example: `curl -Ls https://astral.sh/uv/install.sh | sh`.

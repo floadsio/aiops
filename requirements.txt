@@ -42,6 +42,7 @@ iniconfig>=2.0
 packaging>=24.0
 pygments>=2.18
 bcrypt>=4.1
+cryptography>=42.0
 requests>=2.32
 requests-toolbelt>=1.0
 requests-oauthlib>=1.3

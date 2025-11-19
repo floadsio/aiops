@@ -326,6 +326,16 @@ function createDetailsHTML(componentName, details) {
       const status = project.ssh_ok ? 'enabled' : 'disabled';
       const icon = project.ssh_ok ? '✓' : '✗';
       const errorMsg = project.error ? `<br><small style="color: var(--pico-del-color);">${project.error}</small>` : '';
+
+      // Build SSH key info display
+      let keyInfo = '';
+      if (project.ssh_key) {
+        const keyName = project.ssh_key.name || 'unknown';
+        const keySource = project.ssh_key.source || '?';
+        const keyStorage = project.ssh_key.storage || '?';
+        keyInfo = `<br><small style="color: var(--pico-muted-color);">Key: ${keyName} (${keySource}, ${keyStorage})</small>`;
+      }
+
       html += `
         <div class="detail-row ${status}">
           <span class="detail-label">
@@ -333,7 +343,7 @@ function createDetailsHTML(componentName, details) {
             <span>${project.project_name}</span>
           </span>
           <span class="detail-value">
-            ${project.hostname}${errorMsg}
+            ${project.hostname}${keyInfo}${errorMsg}
           </span>
         </div>
       `;

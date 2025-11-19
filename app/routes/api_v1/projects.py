@@ -12,6 +12,7 @@ from ...extensions import db
 from ...models import Project, Tenant, User
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.git_service import ensure_repo_checkout, get_repo_status
+from ...services.tmux_service import TmuxServiceError, close_tmux_target, respawn_pane
 from . import api_v1_bp
 
 
@@ -265,3 +266,89 @@ def delete_project(project_id: int):
     db.session.delete(project)
     db.session.commit()
     return ("", 204)
+
+
+@api_v1_bp.post("/projects/<int:project_id>/tmux/close")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def close_tmux_window_api(project_id: int):
+    """Close a tmux window for a project.
+
+    Args:
+        project_id: Project ID
+
+    Request body:
+        tmux_target (str): Tmux target in format "session:window"
+
+    Returns:
+        200: Success
+        400: Invalid tmux target
+        403: Access denied
+        404: Project not found
+        500: Tmux operation failed
+    """
+    project = Project.query.get_or_404(project_id)
+    user = g.api_user
+
+    if not _ensure_project_access(project, user):
+        return jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json(silent=True) or {}
+    tmux_target = (data.get("tmux_target") or "").strip()
+
+    if not tmux_target:
+        return jsonify({"error": "Invalid tmux target"}), 400
+
+    # Get linux username from tmux target (format: username:session-window)
+    linux_username = None
+    if ":" in tmux_target:
+        linux_username = tmux_target.split(":")[0]
+
+    try:
+        close_tmux_target(tmux_target, linux_username=linux_username)
+        return jsonify({"success": True})
+    except TmuxServiceError as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_v1_bp.post("/projects/<int:project_id>/tmux/respawn")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def respawn_tmux_pane_api(project_id: int):
+    """Respawn a dead tmux pane for a project.
+
+    Args:
+        project_id: Project ID
+
+    Request body:
+        tmux_target (str): Tmux target in format "session:window"
+
+    Returns:
+        200: Success
+        400: Invalid tmux target
+        403: Access denied
+        404: Project not found
+        500: Tmux operation failed
+    """
+    project = Project.query.get_or_404(project_id)
+    user = g.api_user
+
+    if not _ensure_project_access(project, user):
+        return jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json(silent=True) or {}
+    tmux_target = (data.get("tmux_target") or "").strip()
+
+    if not tmux_target:
+        return jsonify({"error": "Invalid tmux target"}), 400
+
+    # Get linux username from tmux target (format: username:session-window)
+    linux_username = None
+    if ":" in tmux_target:
+        linux_username = tmux_target.split(":")[0]
+
+    try:
+        respawn_pane(tmux_target, linux_username=linux_username)
+        return jsonify({"success": True})
+    except TmuxServiceError as exc:
+        return jsonify({"error": str(exc)}), 500

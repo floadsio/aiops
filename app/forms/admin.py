@@ -621,4 +621,8 @@ class AIAssistedIssueForm(FlaskForm):
         "Start AI session after creation",
         default=False,
     )
+    pin_issue = BooleanField(
+        "Pin issue to dashboard",
+        default=False,
+    )
     submit = SubmitField("Create Issue with AI")

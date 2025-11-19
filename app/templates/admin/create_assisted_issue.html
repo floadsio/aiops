@@ -70,63 +70,6 @@
       gap: 1rem;
       margin-top: 2rem;
     }
-    .result-card {
-      margin-top: 2rem;
-      padding: 1.5rem;
-      border-radius: 1rem;
-      background: rgba(16, 185, 129, 0.1);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-    .result-card h3 {
-      margin: 0 0 1rem;
-      color: #047857;
-      font-size: 1.1rem;
-    }
-    [data-theme="dark"] .result-card h3 {
-      color: #10b981;
-    }
-    .result-item {
-      margin-bottom: 0.75rem;
-      font-size: 0.95rem;
-    }
-    .result-item strong {
-      color: #0f172a;
-    }
-    [data-theme="dark"] .result-item strong {
-      color: #e2e8f0;
-    }
-    .error-card {
-      margin-top: 2rem;
-      padding: 1.5rem;
-      border-radius: 1rem;
-      background: rgba(239, 68, 68, 0.1);
-      border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-    .error-card h3 {
-      margin: 0 0 0.5rem;
-      color: #dc2626;
-      font-size: 1.1rem;
-    }
-    [data-theme="dark"] .error-card h3 {
-      color: #ef4444;
-    }
-    .loading {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .spinner {
-      display: inline-block;
-      width: 1rem;
-      height: 1rem;
-      border: 2px solid rgba(255, 255, 255, 0.3);
-      border-top-color: white;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
   </style>
 {% endblock %}
 {% block content %}
@@ -181,6 +124,10 @@
               {{ form.start_session() }}
               <span>Start AI session after creation</span>
             </label>
+            <label class="checkbox-label">
+              {{ form.pin_issue() }}
+              <span>Pin issue to dashboard</span>
+            </label>
           </div>
         </div>
       </div>
@@ -193,136 +140,6 @@
       </div>
     </form>
 
-    <div id="result-container"></div>
   </div>
 </div>
-
-<script>
-(function() {
-  const form = document.getElementById('create-assisted-form');
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const submitText = submitBtn.querySelector('.submit-text');
-  const resultContainer = document.getElementById('result-container');
-
-  form.addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    // Get form data
-    const formData = new FormData(form);
-    const data = {
-      project_id: parseInt(formData.get('project_id')),
-      description: formData.get('description'),
-      ai_tool: formData.get('ai_tool'),
-      issue_type: formData.get('issue_type') || null,
-      create_branch: formData.get('create_branch') === 'y',
-      start_session: formData.get('start_session') === 'y',
-    };
-
-    // Validation
-    if (!data.description || data.description.trim().length === 0) {
-      alert('Please enter a description of what you want to work on');
-      return;
-    }
-
-    // Show loading state
-    submitBtn.disabled = true;
-    submitText.innerHTML = '<span class="loading"><span class="spinner"></span> Generating issue with AI...</span>';
-    resultContainer.innerHTML = '';
-
-    try {
-      // Get integration_id for the project
-      const integrationsResp = await fetch(`/api/v1/issues/integrations?project_id=${data.project_id}`, {
-        headers: {
-          'X-CSRFToken': formData.get('csrf_token'),
-        },
-      });
-
-      if (!integrationsResp.ok) {
-        throw new Error('Failed to fetch project integrations');
-      }
-
-      const integrations = await integrationsResp.json();
-      if (!integrations || integrations.length === 0) {
-        throw new Error('No integrations found for this project');
-      }
-
-      data.integration_id = integrations[0].id;
-
-      // Create AI-assisted issue
-      const response = await fetch('/api/v1/issues/create-assisted', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': formData.get('csrf_token'),
-        },
-        body: JSON.stringify(data),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || result.details || 'Failed to create issue');
-      }
-
-      // Show success result
-      let resultHTML = `
-        <div class="result-card">
-          <h3>✓ Issue Created Successfully!</h3>
-          <div class="result-item"><strong>Issue:</strong> #${result.external_id} - ${result.title}</div>
-          <div class="result-item"><strong>URL:</strong> <a href="${result.issue_url}" target="_blank">${result.issue_url}</a></div>
-          <div class="result-item"><strong>Database ID:</strong> ${result.issue_id}</div>
-      `;
-
-      if (result.labels && result.labels.length > 0) {
-        resultHTML += `<div class="result-item"><strong>Labels:</strong> ${result.labels.join(', ')}</div>`;
-      }
-
-      if (result.branch_name) {
-        resultHTML += `<div class="result-item" style="color: #047857;"><strong>✓ Branch Created:</strong> ${result.branch_name}</div>`;
-      }
-
-      if (result.branch_error) {
-        resultHTML += `<div class="result-item" style="color: #d97706;"><strong>⚠ Branch Error:</strong> ${result.branch_error}</div>`;
-      }
-
-      if (result.session_url) {
-        resultHTML += `
-          <div class="result-item" style="color: #047857;"><strong>✓ Session Created</strong></div>
-          <div class="result-item"><a href="${result.session_url}" class="primary" role="button">Go to AI Session →</a></div>
-        `;
-      }
-
-      if (result.session_error) {
-        resultHTML += `<div class="result-item" style="color: #d97706;"><strong>⚠ Session Error:</strong> ${result.session_error}</div>`;
-      }
-
-      resultHTML += `
-          <div class="result-item" style="margin-top: 1.5rem;">
-            <a href="${result.issue_url}" class="secondary" role="button" target="_blank">View Issue</a>
-            <a href="{{ url_for('admin.manage_issues') }}" class="secondary outline" role="button" style="margin-left: 0.5rem;">Back to Issues</a>
-          </div>
-        </div>
-      `;
-
-      resultContainer.innerHTML = resultHTML;
-
-      // Reset form
-      form.reset();
-
-    } catch (error) {
-      // Show error
-      resultContainer.innerHTML = `
-        <div class="error-card">
-          <h3>Error Creating Issue</h3>
-          <p>${error.message}</p>
-        </div>
-      `;
-    } finally {
-      // Reset button
-      submitBtn.disabled = false;
-      submitText.textContent = 'Create Issue with AI';
-    }
-  });
-})();
-</script>
 {% endblock %}

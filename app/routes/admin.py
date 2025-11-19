@@ -2240,22 +2240,106 @@ def manage_tenants():
 @admin_required
 def create_assisted_issue():
     """Create an issue with AI assistance."""
+    import json
+    from flask import flash, jsonify
     from ..forms.admin import AIAssistedIssueForm
+    from ..models import ProjectIntegration
+    from ..services.ai_issue_generator import (
+        AIIssueGenerationError,
+        generate_branch_name,
+        generate_issue_from_description,
+    )
+    from ..services.git_service import checkout_or_create_branch
+    from ..services.issues import create_issue_for_project_integration
 
     form = AIAssistedIssueForm()
 
-    # Populate project choices
+    # Populate project choices and build integration map
     projects = Project.query.order_by(Project.name).all()
     form.project_id.choices = [(p.id, f"{p.tenant.name} / {p.name}") for p in projects]
 
+    # Build a map of project_id to first integration_id for JavaScript
+    project_integrations = {}
+    for project in projects:
+        integration = ProjectIntegration.query.filter_by(
+            project_id=project.id
+        ).first()
+        if integration:
+            project_integrations[project.id] = integration.id
+
     if form.validate_on_submit():
-        # This is handled by JavaScript on the frontend
-        # The form submission goes directly to the API
-        pass
+        # Handle form submission server-side
+        project_id = form.project_id.data
+        description = form.description.data
+        ai_tool = form.ai_tool.data
+        issue_type = form.issue_type.data if form.issue_type.data else None
+        create_branch_flag = form.create_branch.data
+        start_session_flag = form.start_session.data
+        pin_issue_flag = form.pin_issue.data
+
+        # Get integration for project
+        integration = ProjectIntegration.query.filter_by(project_id=project_id).first()
+        if not integration:
+            flash("No integration found for this project", "error")
+            return render_template(
+                "admin/create_assisted_issue.html",
+                form=form,
+                project_integrations_json=json.dumps(project_integrations),
+            )
+
+        try:
+            # Generate issue content with AI
+            issue_data = generate_issue_from_description(description, ai_tool, issue_type)
+
+            # Create the issue
+            issue = create_issue_for_project_integration(
+                project_integration_id=integration.id,
+                title=issue_data["title"],
+                description=issue_data["description"],
+                labels=issue_data.get("labels", []),
+            )
+
+            flash(f"Issue created successfully: #{issue.external_id} - {issue.title}", "success")
+
+            # Pin issue if requested
+            if pin_issue_flag:
+                from ..models import PinnedIssue
+                pinned = PinnedIssue(user_id=g.current_user.id, issue_id=issue.id)
+                db.session.add(pinned)
+                db.session.commit()
+                flash("Issue pinned to dashboard", "success")
+
+            # Create branch if requested
+            if create_branch_flag:
+                try:
+                    project = db.session.get(Project, project_id)
+                    branch_prefix = issue_data.get("branch_prefix", "feature")
+                    branch_name = generate_branch_name(
+                        issue.external_id, issue.title, branch_prefix
+                    )
+                    checkout_or_create_branch(
+                        project=project,
+                        branch_name=branch_name,
+                        base_branch=project.default_branch,
+                        create=True,
+                        user=g.current_user,
+                    )
+                    flash(f"Branch created: {branch_name}", "success")
+                except Exception as e:
+                    flash(f"Failed to create branch: {e}", "warning")
+
+            # Redirect to the issue
+            return redirect(f"{issue.url}")
+
+        except AIIssueGenerationError as e:
+            flash(f"AI generation failed: {e}", "error")
+        except Exception as e:
+            flash(f"Failed to create issue: {e}", "error")
 
     return render_template(
         "admin/create_assisted_issue.html",
         form=form,
+        project_integrations_json=json.dumps(project_integrations),
     )
 
 

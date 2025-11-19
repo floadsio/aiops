@@ -170,11 +170,15 @@
       </div>
     </div>
     <div class="export-buttons">
-      <a href="{{ url_for('admin.export_activity', **current_filters, format='csv') }}"
+      {% set csv_params = current_filters.copy() %}
+      {% set _ = csv_params.update({'format': 'csv'}) %}
+      <a href="{{ url_for('admin.export_activity', **csv_params) }}"
          class="secondary" role="button">
         Export CSV
       </a>
-      <a href="{{ url_for('admin.export_activity', **current_filters, format='json') }}"
+      {% set json_params = current_filters.copy() %}
+      {% set _ = json_params.update({'format': 'json'}) %}
+      <a href="{{ url_for('admin.export_activity', **json_params) }}"
          class="secondary" role="button">
         Export JSON
       </a>

@@ -2337,6 +2337,30 @@ def system_status(ctx: click.Context, output: Optional[str]) -> None:
                                 symbol = "✓" if enabled else "○"
                                 color = "green" if enabled else "dim"
                                 console.print(f"  [{color}]{symbol}[/{color}] {integration} ({provider})")
+                        elif key == "projects" and isinstance(value, list):
+                            # Special handling for SSH connectivity projects
+                            for proj in value:
+                                ssh_ok = proj.get("ssh_ok", False)
+                                project_name = proj.get("project_name", "unknown")
+                                hostname = proj.get("hostname", "unknown")
+                                error = proj.get("error")
+                                ssh_key_info = proj.get("ssh_key", {})
+
+                                symbol = "✓" if ssh_ok else "✗"
+                                color = "green" if ssh_ok else "red"
+
+                                # Build key info display
+                                key_display = ""
+                                if ssh_key_info:
+                                    key_name = ssh_key_info.get("name", "unknown")
+                                    key_source = ssh_key_info.get("source", "?")
+                                    key_storage = ssh_key_info.get("storage", "?")
+                                    key_display = f" [dim]({key_name} via {key_source}, {key_storage})[/dim]"
+
+                                if ssh_ok:
+                                    console.print(f"  [{color}]{symbol}[/{color}] {project_name}: {hostname}{key_display}")
+                                else:
+                                    console.print(f"  [{color}]{symbol}[/{color}] {project_name}: {hostname} {error}{key_display}")
                         elif key not in ["error"]:
                             # Show other details
                             console.print(f"  [dim]{key}: {value}[/dim]")

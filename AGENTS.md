@@ -60,7 +60,7 @@ aiops git branches <project>                   # List branches
 aiops git branch <project> feature-x           # Create branch
 aiops git checkout <project> feature-x         # Switch branch
 
-# Pull/Merge Requests (CRITICAL - ALWAYS use aiops CLI)
+# Pull/Merge Requests
 aiops git pr-create <project> \
   --title "Feature: Add authentication" \
   --description "Implements user authentication with JWT tokens" \
@@ -74,25 +74,8 @@ aiops git cat <project> app/models.py          # Read file
 aiops git files <project> app/                 # List directory
 ```
 
-**CRITICAL: Pull/Merge Request Guidelines**
-- **ALWAYS use `aiops git pr-create`** - Never use `gh pr create` or `git push` with upstream PR creation
-- The CLI automatically detects provider (GitHub/GitLab) and creates appropriate PR/MR
-- Supports both GitHub pull requests and GitLab merge requests
-- Assignee is reviewer for GitHub, assignee for GitLab
-- Use `--draft` flag to create draft PRs (GitHub only)
-- Requires integration with "Pull requests" write permission (GitHub fine-grained PAT)
-- Example workflow:
-  ```bash
-  aiops git branch aiops feature-new-auth      # Create branch
-  aiops git checkout aiops feature-new-auth    # Switch to branch
-  # Make changes and commit
-  aiops git push aiops                         # Push commits
-  aiops git pr-create aiops \
-    --title "Add authentication" \
-    --source feature-new-auth \
-    --target main \
-    --assignee reviewer-username
-  ```
+**Note:** Detailed PR/MR creation guidelines and workflows are in the global agent context.
+See `aiops agents global get` or check the **Global Agent Context** section below.
 
 #### Workflow Commands
 ```bash
@@ -227,15 +210,27 @@ Update both locations when bumping version:
 ## Global Agent Context
 
 aiops supports **global AGENTS.md content** stored in the database and included in all `AGENTS.override.md` files.
+This is the preferred way to share critical instructions and guidelines across all AI agent sessions.
 
 **Manage via CLI:**
 ```bash
-aiops agents global get                        # View current
-aiops agents global set -f path/to/content.md  # Set from file
-aiops agents global clear                      # Revert to repo AGENTS.md
+aiops agents global get                        # View current global content
+aiops agents global set -f path/to/content.md  # Set from markdown file
+aiops agents global clear                      # Clear and revert to repo AGENTS.md only
 ```
 
 **Or via Web UI:** Admin → Settings → Global Agent Context
+
+**Best Practices:**
+- Use global context for **critical, cross-cutting guidelines** (e.g., "ALWAYS use aiops CLI for PRs")
+- Keep content concise and focused on universal rules that apply to ALL issues
+- Update via CLI when you want instructions to apply immediately to new sessions
+- Global content appears at the top of every `AGENTS.override.md` file
+- Example use cases:
+  - Required workflows (PR creation, testing procedures)
+  - Security guidelines (credential handling, API usage)
+  - Code standards (formatting, commit message style)
+  - Tool requirements (which CLI commands to use vs. which to avoid)
 
 ## Current Issue Context
 <!-- issue-context:start -->

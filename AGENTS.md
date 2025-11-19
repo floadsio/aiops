@@ -94,12 +94,17 @@ aiops sessions start --project <project> --tool shell --user <email>  # Admin: s
 aiops sessions list --project <project>                   # List sessions
 aiops sessions list --all-users                           # Admin: list all users' sessions
 aiops sessions attach <tmux-target>                       # Attach to session
+aiops sessions kill <target>                              # Kill/close a session
+aiops sessions respawn <target>                           # Respawn a dead session pane
 
 # Examples:
 aiops sessions start --project aiops --tool shell               # Start shell session
 aiops sessions start --project aiops --tool codex --user user@example.com  # Admin only
 aiops sessions list --all-users                                 # List all sessions
 aiops sessions attach user:aiops-p6                             # Attach to user's session
+aiops sessions kill b40b6749d78f                                # Kill session by ID
+aiops sessions kill ivo:aiops-p6                                # Kill session by tmux target
+aiops sessions respawn ivo:aiops-p6                             # Respawn dead pane
 ```
 
 **Session Management Notes:**

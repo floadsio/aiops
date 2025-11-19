@@ -1838,6 +1838,94 @@ def sessions_respawn(
         sys.exit(1)
 
 
+@sessions.command(name="kill")
+@click.argument("target")
+@click.option("--project", help="Filter by project ID or name")
+@click.pass_context
+def sessions_kill(
+    ctx: click.Context,
+    target: str,
+    project: Optional[str],
+) -> None:
+    """Kill/close a tmux session.
+
+    This will terminate the tmux window and end the AI session.
+
+    Examples:
+        aiops sessions kill cb3877c65dbd
+        aiops sessions kill ivo:aiops-p6
+        aiops sessions kill b40b6749d78f --project flamelet-kbe
+    """
+    client = get_client(ctx)
+
+    try:
+        # Use the global sessions endpoint to get all sessions from database
+        # Auto-enable all-users for admins
+        all_users = client.is_admin()
+        project_id = resolve_project_id(client, project) if project else None
+
+        all_sessions = client.list_all_sessions(
+            project_id=project_id,
+            all_users=all_users,
+            active_only=True,
+            limit=200,
+        )
+
+        if not all_sessions:
+            error_console.print("[red]Error:[/red] No active sessions found")
+            sys.exit(1)
+
+        # Find matching session
+        identifier = target.strip()
+        if identifier.endswith("..."):
+            identifier = identifier[:-3]
+
+        target_session = None
+        for session in all_sessions:
+            sid = str(session.get("session_id", ""))
+            tmux_target = session.get("tmux_target", "")
+            if identifier and (sid == identifier or sid.startswith(identifier)):
+                target_session = session
+                break
+            if identifier and tmux_target == identifier:
+                target_session = session
+                break
+
+        if not target_session:
+            error_console.print(
+                f"[red]Error:[/red] Session '{target}' not found"
+            )
+            sys.exit(1)
+
+        # Get session details
+        session_project_id = target_session.get("project_id")
+        tmux_target_str = target_session.get("tmux_target")
+        tool = target_session.get("tool", "")
+        issue_id = target_session.get("issue_id")
+
+        if not session_project_id or not tmux_target_str:
+            error_console.print("[red]Error:[/red] Session missing project or tmux target")
+            sys.exit(1)
+
+        # Display session info
+        console.print(f"\n[yellow]Session to kill:[/yellow]")
+        console.print(f"  Tmux target: {tmux_target_str}")
+        console.print(f"  Tool: {tool}")
+        if issue_id:
+            console.print(f"  Issue: #{issue_id}")
+
+        # Call close API
+        url = f"projects/{session_project_id}/tmux/close"
+        payload = {"tmux_target": tmux_target_str}
+
+        client.post(url, json_data=payload)
+        console.print(f"\n[green]✓[/green] Successfully killed session: {tmux_target_str}")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # TENANTS COMMANDS
 # ============================================================================

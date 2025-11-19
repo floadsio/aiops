@@ -118,11 +118,7 @@
           <div class="checkbox-group">
             <label class="checkbox-label">
               {{ form.create_branch() }}
-              <span>Create feature/fix branch</span>
-            </label>
-            <label class="checkbox-label">
-              {{ form.start_session() }}
-              <span>Start AI session after creation</span>
+              <span>Create feature/fix branch after formatting</span>
             </label>
             <label class="checkbox-label">
               {{ form.pin_issue() }}
@@ -134,7 +130,7 @@
 
       <div class="form-actions">
         <button type="submit" class="primary">
-          <span class="submit-text">Create Issue with AI</span>
+          <span class="submit-text">Create Draft Issue & Start AI Session</span>
         </button>
         <a href="{{ url_for('admin.manage_issues') }}" role="button" class="secondary outline">Cancel</a>
       </div>

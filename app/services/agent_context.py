@@ -482,6 +482,186 @@ def write_local_issue_context(
     )
 
 
+def write_ai_assisted_issue_context(
+    project: Project,
+    issue: ExternalIssue,
+    user_description: str,
+    issue_type_hint: str | None = None,
+    create_branch: bool = False,
+    filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
+    *,
+    identity_user: User | None = None,
+) -> Path:
+    """Write AGENTS.override.md with instructions for AI to format a draft issue.
+
+    This is used for AI-assisted issue creation where the AI needs to:
+    1. Review the user's description
+    2. Format it into a proper issue with title, description sections, labels
+    3. Update the issue using aiops CLI
+    4. Optionally create a feature/fix branch
+    """
+    linux_username: str | None = None
+    if identity_user is not None:
+        workspace_path = get_workspace_path(project, identity_user)
+        if workspace_path is None:
+            raise RuntimeError(
+                f"Cannot determine workspace path for user {identity_user.email}"
+            )
+        repo_path = workspace_path
+        linux_username = resolve_linux_username(identity_user)
+        if not linux_username:
+            raise RuntimeError(
+                f"Cannot determine Linux username for user {identity_user.email}"
+            )
+        if not test_path(linux_username, str(repo_path)):
+            raise RuntimeError(
+                f"Workspace not initialized at {repo_path}. "
+                "Please initialize the workspace first."
+            )
+    else:
+        repo_path = Path(project.local_path)
+        if not repo_path.exists():
+            repo_path.mkdir(parents=True, exist_ok=True)
+
+    context_path = repo_path / filename
+
+    # Load global context
+    base_content = _load_base_instructions(repo_path, linux_username=linux_username)
+
+    # Build the AI instructions
+    type_hint_text = f" This appears to be a **{issue_type_hint}**." if issue_type_hint else ""
+    branch_instruction = ""
+    if create_branch:
+        branch_instruction = dedent("""
+            4. **Create a branch**: After updating the issue, create an appropriate feature or fix branch using:
+               ```bash
+               aiops git branch <project> <branch-name>
+               aiops git checkout <project> <branch-name>
+               ```
+               Branch naming: `feature/<issue-id>-<slug>` or `fix/<issue-id>-<slug>`
+        """).strip()
+
+    issue_context = dedent(f"""
+        # AI-Assisted Issue Creation
+
+        ## Your Task
+
+        You are helping to create a well-structured issue from a user's natural language description.{type_hint_text}
+
+        **Draft Issue**: #{issue.external_id} - {issue.title}
+        **Issue URL**: {issue.url}
+
+        **User's Description**:
+        ```
+        {user_description}
+        ```
+
+        ## What You Need To Do
+
+        1. **Review the description** and understand what the user wants to work on
+
+        2. **Update the issue** with a proper structure using `aiops issues update`:
+           - Create a clear, concise title (under 80 characters, no "Draft:" prefix)
+           - Format the description with proper markdown sections:
+             - **Overview**: Brief summary of the feature/fix
+             - **Requirements**: Bullet list of what needs to be done
+             - **Acceptance Criteria**: Checklist of items that must be completed
+             - **Technical Notes** (optional): Implementation details or considerations
+           - Add appropriate labels (e.g., feature, bug, enhancement, documentation)
+           - Remove the "draft" label once formatted
+
+        3. **Verify the changes**: Use `aiops issues get {issue.id}` to confirm the updates
+
+        {branch_instruction}
+
+        ## Example Commands
+
+        ```bash
+        # Update the issue title
+        aiops issues update {issue.id} --title "Add user authentication with OAuth2"
+
+        # Update the issue description (prepare markdown file first)
+        cat > /tmp/issue-description.md <<'EOF'
+        ## Overview
+        Implement OAuth2 authentication allowing users to login with Google and GitHub.
+
+        ## Requirements
+        - OAuth2 integration with Google
+        - OAuth2 integration with GitHub
+        - Secure session storage
+        - User profile management
+
+        ## Acceptance Criteria
+        - [ ] Users can login with Google account
+        - [ ] Users can login with GitHub account
+        - [ ] Sessions are encrypted and secure
+        - [ ] User profiles sync from OAuth providers
+
+        ## Technical Notes
+        - Use industry-standard OAuth2 library
+        - Store tokens encrypted in database
+        - Implement CSRF protection
+        EOF
+
+        # Set the description from file
+        aiops issues update {issue.id} --description "$(cat /tmp/issue-description.md)"
+
+        # Add/remove labels
+        aiops issues update {issue.id} --add-label feature --add-label security --remove-label draft
+        ```
+
+        ## Important Notes
+
+        - Use the issue ID **{issue.id}** (database ID) not the external issue number
+        - Make sure to remove the "draft" label when you're done
+        - Be concise but thorough in the issue description
+        - Focus on WHAT needs to be done, not HOW (that comes during implementation)
+        - If the user's description is vague, make reasonable assumptions but note them
+
+        Take your time to create a well-structured, professional issue. When you're done, summarize what you created.
+    """).strip()
+
+    appended_section = (
+        f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
+        f"{ISSUE_CONTEXT_START}\n\n"
+        f"{issue_context}\n\n"
+        f"{ISSUE_CONTEXT_END}"
+    )
+
+    sections: list[str] = []
+    if base_content:
+        sections.append(base_content.rstrip())
+    sections.append(appended_section.rstrip())
+
+    final_content = "\n\n---\n\n".join(section for section in sections if section).rstrip() + "\n"
+
+    # Write content (using sudo if needed)
+    if identity_user is not None:
+        try:
+            cmd = [
+                "sudo",
+                "-n",
+                "-u",
+                linux_username,
+                "tee",
+                str(context_path),
+            ]
+            subprocess.run(
+                cmd,
+                input=final_content,
+                capture_output=True,
+                text=True,
+                timeout=10.0,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(f"Failed to write workspace file: {exc}") from exc
+    else:
+        context_path.write_text(final_content, encoding="utf-8")
+
+    return context_path
+
+
 def write_global_context_only(
     project: Project,
     filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,

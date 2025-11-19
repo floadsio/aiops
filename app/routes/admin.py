@@ -2268,16 +2268,15 @@ def create_assisted_issue():
             project_integrations[project.id] = integration.id
 
     if form.validate_on_submit():
-        # Handle form submission server-side
+        # Handle form submission - create draft issue and launch AI session
         project_id = form.project_id.data
         description = form.description.data
         ai_tool = form.ai_tool.data
         issue_type = form.issue_type.data if form.issue_type.data else None
         create_branch_flag = form.create_branch.data
-        start_session_flag = form.start_session.data
         pin_issue_flag = form.pin_issue.data
 
-        # Get integration for project
+        # Get integration and project
         integration = ProjectIntegration.query.filter_by(project_id=project_id).first()
         if not integration:
             flash("No integration found for this project", "error")
@@ -2287,19 +2286,37 @@ def create_assisted_issue():
                 project_integrations_json=json.dumps(project_integrations),
             )
 
-        try:
-            # Generate issue content with AI
-            issue_data = generate_issue_from_description(description, ai_tool, issue_type)
-
-            # Create the issue
-            issue = create_issue_for_project_integration(
-                project_integration_id=integration.id,
-                title=issue_data["title"],
-                description=issue_data["description"],
-                labels=issue_data.get("labels", []),
+        project = db.session.get(Project, project_id)
+        if not project:
+            flash("Project not found", "error")
+            return render_template(
+                "admin/create_assisted_issue.html",
+                form=form,
+                project_integrations_json=json.dumps(project_integrations),
             )
 
-            flash(f"Issue created successfully: #{issue.external_id} - {issue.title}", "success")
+        try:
+            # Create a draft issue with the user's description
+            # Extract first sentence for title
+            first_sentence = description.split('.')[0].strip()
+            if len(first_sentence) > 60:
+                first_sentence = first_sentence[:60] + "..."
+
+            draft_title = f"Draft: {first_sentence}"
+
+            # Build labels list
+            labels = ["draft"]
+            if issue_type:
+                labels.append(issue_type)
+
+            issue = create_issue_for_project_integration(
+                project_integration_id=integration.id,
+                title=draft_title,
+                description=description,
+                labels=labels,
+            )
+
+            flash(f"Draft issue created: #{issue.external_id}", "success")
 
             # Pin issue if requested
             if pin_issue_flag:
@@ -2307,34 +2324,33 @@ def create_assisted_issue():
                 pinned = PinnedIssue(user_id=g.current_user.id, issue_id=issue.id)
                 db.session.add(pinned)
                 db.session.commit()
-                flash("Issue pinned to dashboard", "success")
 
-            # Create branch if requested
-            if create_branch_flag:
-                try:
-                    project = db.session.get(Project, project_id)
-                    branch_prefix = issue_data.get("branch_prefix", "feature")
-                    branch_name = generate_branch_name(
-                        issue.external_id, issue.title, branch_prefix
-                    )
-                    checkout_or_create_branch(
-                        project=project,
-                        branch_name=branch_name,
-                        base_branch=project.default_branch,
-                        create=True,
-                        user=g.current_user,
-                    )
-                    flash(f"Branch created: {branch_name}", "success")
-                except Exception as e:
-                    flash(f"Failed to create branch: {e}", "warning")
+            # Write custom AGENTS.override.md with instructions for AI to format the issue
+            from ..services.agent_context import write_ai_assisted_issue_context
+            write_ai_assisted_issue_context(
+                project=project,
+                issue=issue,
+                user_description=description,
+                issue_type_hint=issue_type,
+                create_branch=create_branch_flag,
+                identity_user=g.current_user,
+            )
 
-            # Redirect to the issue
-            return redirect(f"{issue.url}")
+            # Launch AI session
+            from ..ai_sessions import create_session
+            session = create_session(
+                project=project,
+                user_id=g.current_user.id,
+                tool=ai_tool,
+                issue_id=issue.id,
+            )
 
-        except AIIssueGenerationError as e:
-            flash(f"AI generation failed: {e}", "error")
+            # Redirect to the session
+            return redirect(url_for('projects.ai_session', session_id=session.id))
+
         except Exception as e:
-            flash(f"Failed to create issue: {e}", "error")
+            flash(f"Failed to create assisted issue: {e}", "error")
+            current_app.logger.exception("Error creating AI-assisted issue")
 
     return render_template(
         "admin/create_assisted_issue.html",

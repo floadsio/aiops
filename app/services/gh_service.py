@@ -31,6 +31,7 @@ class GhContext:
     repo_path: Path
     token: str
     repo_url: str
+    github_host: Optional[str] = None  # For GitHub Enterprise instances
 
 
 def _get_project_integration(project: Project) -> Optional[Integration]:
@@ -50,6 +51,52 @@ def _get_project_integration(project: Project) -> Optional[Integration]:
         return None
 
     return integration
+
+
+def _get_github_url(project: Project, integration: Integration) -> Optional[str]:
+    """Get the GitHub base URL for a project.
+
+    Checks project-level override first, then tenant-level base_url.
+    Returns None for github.com (uses default).
+
+    Returns:
+        GitHub instance URL or None for github.com
+    """
+    # Check project-level override first
+    project_integrations = getattr(project, "issue_integrations", [])
+    for pi in project_integrations:
+        if pi.integration_id == integration.id:
+            override_url = getattr(pi, "override_base_url", None)
+            if override_url:
+                return override_url.rstrip("/")
+
+    # Fall back to tenant-level base_url
+    base_url = getattr(integration, "base_url", None)
+    if base_url and "github.com" not in base_url:
+        return base_url.rstrip("/")
+
+    # github.com is the default, no URL needed
+    return None
+
+
+def _get_github_token(project: Project, integration: Integration) -> Optional[str]:
+    """Get the GitHub PAT for a project.
+
+    Checks project-level override first, then tenant-level token.
+
+    Returns:
+        Personal Access Token
+    """
+    # Check project-level override first
+    project_integrations = getattr(project, "issue_integrations", [])
+    for pi in project_integrations:
+        if pi.integration_id == integration.id:
+            override_token = getattr(pi, "override_api_token", None)
+            if override_token:
+                return override_token
+
+    # Fall back to tenant-level token
+    return getattr(integration, "api_token", None) or getattr(integration, "access_token", None)
 
 
 def _run_gh_command(
@@ -78,6 +125,10 @@ def _run_gh_command(
         "GH_TOKEN": ctx.token,
         "GH_REPO": ctx.repo_url,
     }
+
+    # Add GH_HOST for GitHub Enterprise instances
+    if ctx.github_host:
+        env["GH_HOST"] = ctx.github_host
 
     command = ["gh", *args]
 
@@ -123,25 +174,39 @@ def clone_repo(
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_github_token(project, integration)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
+
+    github_url = _get_github_url(project, integration)
 
     # Create parent directory
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Extract owner/repo from URL
     # e.g., https://github.com/owner/repo.git -> owner/repo
+    # or https://github.example.com/owner/repo.git -> owner/repo
     repo_url = project.repo_url
     if repo_url.endswith(".git"):
         repo_url = repo_url[:-4]
-    repo_full_name = repo_url.split("github.com/")[-1]
+
+    # Extract the path part (after domain)
+    # For both github.com and GitHub Enterprise instances
+    parts = repo_url.split("://")[-1].split("/", 1)
+    if len(parts) == 2:
+        repo_full_name = parts[1]
+    else:
+        raise GhServiceError(f"Cannot parse GitHub URL: {repo_url}")
 
     # Use gh repo clone
     env = {
         **subprocess.os.environ.copy(),
         "GH_TOKEN": token,
     }
+
+    # Add GH_HOST for GitHub Enterprise instances
+    if github_url:
+        env["GH_HOST"] = github_url
 
     clone_args = ["repo", "clone", repo_full_name, str(target_path)]
     if branch:
@@ -183,21 +248,21 @@ def pull_repo(project: Project, repo_path: Path) -> str:
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_github_token(project, integration)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
 
-    ctx = GhContext(
-        repo_path=repo_path,
-        token=token,
-        repo_url=project.repo_url,
-    )
+    github_url = _get_github_url(project, integration)
 
     # Run git pull via gh (gh doesn't have a pull command, so use git with auth)
     env = {
         **subprocess.os.environ.copy(),
         "GH_TOKEN": token,
     }
+
+    # Add GH_HOST for GitHub Enterprise instances
+    if github_url:
+        env["GH_HOST"] = github_url
 
     try:
         result = subprocess.run(
@@ -235,14 +300,20 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_github_token(project, integration)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
+
+    github_url = _get_github_url(project, integration)
 
     env = {
         **subprocess.os.environ.copy(),
         "GH_TOKEN": token,
     }
+
+    # Add GH_HOST for GitHub Enterprise instances
+    if github_url:
+        env["GH_HOST"] = github_url
 
     push_args = ["git", "push"]
     if branch:
@@ -283,14 +354,20 @@ def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_github_token(project, integration)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
+
+    github_url = _get_github_url(project, integration)
 
     env = {
         **subprocess.os.environ.copy(),
         "GH_TOKEN": token,
     }
+
+    # Add GH_HOST for GitHub Enterprise instances
+    if github_url:
+        env["GH_HOST"] = github_url
 
     try:
         # Get branch name

@@ -848,11 +848,25 @@ def _merge_github_pr(
     pr = repo.get_pull(pr_number)
 
     # Merge the PR
-    merge_result = pr.merge(
-        commit_message=commit_message or "",
-        merge_method=merge_method,
-        delete_branch=delete_branch,
-    )
+    merge_kwargs = {
+        "merge_method": merge_method,
+    }
+    if commit_message:
+        merge_kwargs["commit_message"] = commit_message
+    if delete_branch:
+        # Note: delete_branch parameter in PyGithub doesn't actually delete the branch
+        # We need to delete it separately after merging
+        pass
+
+    merge_result = pr.merge(**merge_kwargs)
+
+    # Delete branch if requested (GitHub API)
+    if delete_branch and merge_result.merged:
+        try:
+            head_ref = pr.head.ref
+            repo.get_git_ref(f"heads/{head_ref}").delete()
+        except Exception as e:  # noqa: BLE001
+            current_app.logger.warning(f"Failed to delete branch {head_ref}: {e}")
 
     return {
         "merged": merge_result.merged,

@@ -398,7 +398,10 @@ def _test_github_auth(integration: Any) -> tuple[bool, str | None]:
 
 
 def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
-    """Test GitLab CLI (glab) authentication.
+    """Test GitLab CLI (glab) authentication via API call.
+
+    Tests authentication the same way AI tool sessions use it - with GITLAB_TOKEN
+    environment variable. Uses glab api command to verify token validity.
 
     Args:
         integration: TenantIntegration with GitLab provider
@@ -414,41 +417,47 @@ def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
         if not token:
             return False, "No token available"
 
-        # Set up environment
+        # Set up environment - same as AI tool sessions
         env = os.environ.copy()
         env["GITLAB_TOKEN"] = token
 
-        # Determine hostname for glab --hostname flag
+        # Determine hostname for private instances
         base_url = getattr(integration, "base_url", None)
+        hostname = None
         if base_url and "gitlab.com" not in base_url:
             # Extract hostname from URL (e.g., "gitlab.kumbe.it" from "https://gitlab.kumbe.it")
             parsed = urlparse(base_url)
             hostname = parsed.netloc or parsed.path.strip("/")
+            env["GITLAB_HOST"] = base_url
 
-            # Test authentication with glab auth status --hostname
+        # Test authentication with glab api call to /user endpoint
+        # This mimics how git operations work in AI tool sessions
+        if hostname:
             result = subprocess.run(
-                ["glab", "auth", "status", "--hostname", hostname],
+                ["glab", "api", "user", "--hostname", hostname],
                 env=env,
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
         else:
-            # For gitlab.com, use default
             result = subprocess.run(
-                ["glab", "auth", "status"],
+                ["glab", "api", "user"],
                 env=env,
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
 
-        # glab auth status returns 0 when authenticated
+        # glab api returns 0 on success
         if result.returncode == 0:
             return True, None
 
         # Extract error from stderr
         error_msg = result.stderr.strip() if result.stderr else "Authentication failed"
+        # Simplify error message if it's too long
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
         return False, error_msg
 
     except FileNotFoundError:

@@ -201,6 +201,7 @@ class GitHubIssueProvider(BaseIssueProvider):
         issue_number: str,
         comment_id: str,
         body: str,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Update an existing comment on a GitHub issue.
 
@@ -209,6 +210,7 @@ class GitHubIssueProvider(BaseIssueProvider):
             issue_number: Issue number (e.g. '42')
             comment_id: Comment ID to update
             body: New comment text
+            user_id: Optional user ID for user-level credential overrides
 
         Returns:
             Updated comment metadata
@@ -216,9 +218,9 @@ class GitHubIssueProvider(BaseIssueProvider):
         Raises:
             IssueSyncError: On API errors
         """
-        # Use effective integration with project-level credential overrides
+        # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(
-            self.integration, project_integration
+            self.integration, project_integration, user_id
         )
         # Create a temporary GitHub client with the effective credentials
         import github as _github

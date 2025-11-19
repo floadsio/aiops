@@ -704,6 +704,7 @@ def update_issue_comment(issue_id: int, comment_id: str):
             issue_number=issue.external_id,
             comment_id=comment_id,
             body=body,
+            user_id=g.api_user.id if hasattr(g, "api_user") else None,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400

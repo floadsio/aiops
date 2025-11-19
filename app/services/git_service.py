@@ -132,6 +132,12 @@ def _select_project_ssh_key(
 
     project_key = getattr(project, "ssh_key", None)
     if project_key:
+        # Prefer encrypted key in database over filesystem key
+        if project_key.encrypted_private_key:
+            # Key is in database, return the model itself
+            return None, project_key, "project"
+
+        # Fall back to filesystem key
         normalized_key = _normalize_private_key_path(project_key.private_key_path)
         if (
             normalized_key
@@ -154,6 +160,12 @@ def _select_project_ssh_key(
             key=lambda key: getattr(key, "created_at", None) or datetime.min,
         )
         for key in sorted_keys:
+            # Prefer encrypted key in database over filesystem key
+            if key.encrypted_private_key:
+                # Key is in database, return the model itself
+                return None, key, "tenant"
+
+            # Fall back to filesystem key
             normalized_key = _normalize_private_key_path(key.private_key_path)
             if (
                 normalized_key

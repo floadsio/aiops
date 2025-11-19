@@ -84,6 +84,8 @@ class SSHKey(BaseModel, TimestampMixin):
     public_key: Mapped[str] = mapped_column(Text, nullable=False)
     fingerprint: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
     private_key_path: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # Encrypted private key stored in database (alternative to private_key_path)
+    encrypted_private_key: Mapped[Optional[bytes]] = mapped_column(db.LargeBinary, nullable=True)
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     tenant_id: Mapped[Optional[int]] = mapped_column(

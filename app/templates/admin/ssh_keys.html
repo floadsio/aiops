@@ -11,7 +11,7 @@
         <th>Fingerprint</th>
         <th>Tenant</th>
         <th>Added</th>
-        <th>Private Key</th>
+        <th>Storage</th>
         <th>Actions</th>
       </tr>
     </thead>
@@ -31,7 +31,15 @@
           {% endif %}
         </td>
         <td>{{ key.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
-        <td>{{ "Stored" if key.private_key_path else "—" }}</td>
+        <td>
+          {% if key.encrypted_private_key %}
+            <span style="color: var(--pico-ins-color);" title="Encrypted in database">🔒 Database</span>
+          {% elif key.private_key_path %}
+            <span style="color: var(--pico-muted-color);" title="Stored on filesystem">📁 Filesystem</span>
+          {% else %}
+            <span style="color: var(--pico-del-color);">—</span>
+          {% endif %}
+        </td>
         <td>
           <a href="{{ url_for('admin.edit_ssh_key', key_id=key.id) }}">Edit</a>
           <form
@@ -75,9 +83,11 @@
   </label>
   <label>
     {{ form.private_key.label }}
-    {{ form.private_key(rows=6, placeholder="Optional: paste private key material") }}
+    {{ form.private_key(rows=6, placeholder="Paste private key content here (will be encrypted and stored in database)") }}
     {% if form.private_key.description %}
       <small class="text-muted">{{ form.private_key.description }}</small>
+    {% else %}
+      <small class="text-muted">🔒 Private key will be encrypted with Fernet and stored securely in the database. Never stored in plain text on filesystem.</small>
     {% endif %}
     {% for error in form.private_key.errors %}
       <span class="error">{{ error }}</span>

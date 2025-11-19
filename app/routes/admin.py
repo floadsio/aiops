@@ -3392,21 +3392,33 @@ def manage_ssh_keys():
                     user_id=current_user.model.id,
                     tenant_id=form.tenant_id.data or None,
                 )
+
+                # Encrypt private key if provided
+                if private_key_raw:
+                    try:
+                        from ..services.ssh_key_service import encrypt_private_key, SSHKeyServiceError
+                        encrypted_key = encrypt_private_key(private_key_raw)
+                        ssh_key.encrypted_private_key = encrypted_key
+                    except SSHKeyServiceError as exc:
+                        form.private_key.errors.append(
+                            f"Failed to encrypt private key: {exc}"
+                        )
+                        return render_template(
+                            "admin/ssh_keys.html",
+                            form=form,
+                            delete_form=delete_form,
+                            ssh_keys=SSHKey.query.filter_by(user_id=current_user.model.id).order_by(SSHKey.created_at.desc()).all()
+                        )
+
                 db.session.add(ssh_key)
                 try:
-                    db.session.flush()
-                    if private_key_raw:
-                        _store_private_key_file(ssh_key, private_key_raw)
                     db.session.commit()
-                except OSError as exc:
-                    db.session.rollback()
-                    current_app.logger.error("Failed to save SSH private key: %s", exc)
-                    form.private_key.errors.append(
-                        "Failed to store private key on disk."
-                    )
-                else:
-                    flash("SSH key added.", "success")
+                    flash("SSH key added and encrypted successfully.", "success")
                     return redirect(url_for("admin.manage_ssh_keys"))
+                except Exception as exc:
+                    db.session.rollback()
+                    current_app.logger.error("Failed to save SSH key: %s", exc)
+                    form.private_key.errors.append("Failed to save SSH key to database.")
 
     keys = (
         SSHKey.query.filter_by(user_id=current_user.model.id)

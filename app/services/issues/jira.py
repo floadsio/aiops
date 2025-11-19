@@ -489,6 +489,266 @@ def close_issue(
                 pass
 
 
+def update_issue(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+    title: Optional[str] = None,
+    description: Optional[str] = None,
+    labels: Optional[List[str]] = None,
+) -> IssuePayload:
+    """Update a Jira issue.
+
+    Args:
+        integration: Jira integration
+        project_integration: Project integration
+        external_id: Issue key (e.g. 'PROJ-123')
+        title: New summary/title (optional)
+        description: New description (optional)
+        labels: New labels list (optional)
+
+    Returns:
+        Updated IssuePayload
+
+    Raises:
+        IssueSyncError: If update fails
+    """
+    base_url = integration.base_url  # type: ignore[assignment]
+    if not base_url:
+        raise IssueSyncError("Jira integration requires a base URL.")
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
+
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
+    username = (settings.get("username") or "").strip()
+    if not username:
+        raise IssueSyncError("Jira integration requires an account email.")
+
+    issue_key = (external_id or "").strip()
+    if not issue_key:
+        raise IssueSyncError("Jira issue identifier is required.")
+
+    timeout = get_timeout(integration)
+    try:
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover
+        missing = getattr(exc, "name", None) or "jira"
+        raise IssueSyncError(
+            f"Jira support requires the '{missing}' package."
+        ) from exc
+
+    client: Optional[Any] = None
+    try:
+        client = JIRA(
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
+            timeout=timeout,
+        )
+
+        # Build update fields
+        update_fields: dict[str, Any] = {}
+        if title is not None:
+            update_fields["summary"] = title
+        if description is not None:
+            update_fields["description"] = description
+        if labels is not None:
+            update_fields["labels"] = labels
+
+        if update_fields:
+            issue = client.issue(issue_key)
+            issue.update(fields=update_fields)
+
+        # Fetch updated issue
+        issue = client.issue(issue_key, fields=",".join(DEFAULT_FIELDS))
+        issue_data = getattr(issue, "raw", None)
+        if not isinstance(issue_data, dict):
+            raise IssueSyncError("Jira did not return expected issue payload.")
+        return _issue_to_payload(base_url, issue_data)
+
+    except JIRAError as exc:
+        message = getattr(exc, "text", None) or str(exc)
+        raise IssueSyncError(f"Jira API error: {message}") from exc
+    except Exception as exc:  # pragma: no cover
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover
+                pass
+
+
+def reopen_issue(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+) -> IssuePayload:
+    """Reopen a closed Jira issue.
+
+    Args:
+        integration: Jira integration
+        project_integration: Project integration
+        external_id: Issue key (e.g. 'PROJ-123')
+
+    Returns:
+        Updated IssuePayload
+
+    Raises:
+        IssueSyncError: If reopen fails
+    """
+    base_url = integration.base_url  # type: ignore[assignment]
+    if not base_url:
+        raise IssueSyncError("Jira integration requires a base URL.")
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
+
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
+    username = (settings.get("username") or "").strip()
+    if not username:
+        raise IssueSyncError("Jira integration requires an account email.")
+
+    issue_key = (external_id or "").strip()
+    if not issue_key:
+        raise IssueSyncError("Jira issue identifier is required.")
+
+    config: dict[str, Any] = project_integration.config or {}  # type: ignore[assignment]
+    preferred_transition_name = (config.get("reopen_transition") or "").strip().lower()
+
+    timeout = get_timeout(integration)
+    try:
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover
+        missing = getattr(exc, "name", None) or "jira"
+        raise IssueSyncError(
+            f"Jira support requires the '{missing}' package."
+        ) from exc
+
+    client: Optional[Any] = None
+    try:
+        client = JIRA(
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
+            timeout=timeout,
+        )
+        transitions = client.transitions(issue_key)
+
+        # Find reopen transition (commonly "Reopen" or "To Do")
+        transition_id = None
+        for transition in transitions:
+            name = transition.get("name", "").lower()
+            to_status = transition.get("to", {})
+            to_name = to_status.get("name", "").lower() if isinstance(to_status, dict) else ""
+
+            # Check for preferred transition name
+            if preferred_transition_name and preferred_transition_name in name:
+                transition_id = transition["id"]
+                break
+            # Check for common reopen transitions
+            if "reopen" in name or "to do" in name or "open" in to_name:
+                transition_id = transition["id"]
+                break
+
+        if transition_id is None:
+            raise IssueSyncError(
+                "Jira project lacks a suitable transition to reopen issues. "
+                "Configure 'reopen_transition' in project settings."
+            )
+
+        client.transition_issue(issue_key, transition_id)
+        issue = client.issue(issue_key, fields=",".join(DEFAULT_FIELDS))
+        issue_data = getattr(issue, "raw", None)
+        if not isinstance(issue_data, dict):
+            raise IssueSyncError("Jira did not return expected issue payload.")
+        return _issue_to_payload(base_url, issue_data)
+
+    except JIRAError as exc:
+        message = getattr(exc, "text", None) or str(exc)
+        raise IssueSyncError(f"Jira API error: {message}") from exc
+    except Exception as exc:  # pragma: no cover
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover
+                pass
+
+
+def assign_issue(
+    integration: Any,  # TenantIntegration or IntegrationLike
+    project_integration: ProjectIntegration,
+    external_id: str,
+    assignee_account_id: str,
+) -> IssuePayload:
+    """Assign a Jira issue to a user.
+
+    Args:
+        integration: Jira integration
+        project_integration: Project integration
+        external_id: Issue key (e.g. 'PROJ-123')
+        assignee_account_id: Jira account ID of assignee
+
+    Returns:
+        Updated IssuePayload
+
+    Raises:
+        IssueSyncError: If assignment fails
+    """
+    base_url = integration.base_url  # type: ignore[assignment]
+    if not base_url:
+        raise IssueSyncError("Jira integration requires a base URL.")
+    base_url = ensure_base_url(integration, base_url)  # type: ignore[arg-type]
+
+    settings: dict[str, Any] = integration.settings or {}  # type: ignore[assignment]
+    username = (settings.get("username") or "").strip()
+    if not username:
+        raise IssueSyncError("Jira integration requires an account email.")
+
+    issue_key = (external_id or "").strip()
+    if not issue_key:
+        raise IssueSyncError("Jira issue identifier is required.")
+
+    timeout = get_timeout(integration)
+    try:
+        from jira import JIRA, JIRAError  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover
+        missing = getattr(exc, "name", None) or "jira"
+        raise IssueSyncError(
+            f"Jira support requires the '{missing}' package."
+        ) from exc
+
+    client: Optional[Any] = None
+    try:
+        client = JIRA(
+            server=base_url,  # type: ignore[arg-type]
+            basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
+            timeout=timeout,
+        )
+
+        # Assign the issue
+        client.assign_issue(issue_key, assignee_account_id)
+
+        # Fetch updated issue
+        issue = client.issue(issue_key, fields=",".join(DEFAULT_FIELDS))
+        issue_data = getattr(issue, "raw", None)
+        if not isinstance(issue_data, dict):
+            raise IssueSyncError("Jira did not return expected issue payload.")
+        return _issue_to_payload(base_url, issue_data)
+
+    except JIRAError as exc:
+        message = getattr(exc, "text", None) or str(exc)
+        raise IssueSyncError(f"Jira API error: {message}") from exc
+    except Exception as exc:  # pragma: no cover
+        error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+        raise IssueSyncError(error_msg) from exc
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception:  # pragma: no cover
+                pass
+
+
 def _resolve_assignee(fields: dict) -> Optional[str]:
     from .utils import normalize_assignee_name
 

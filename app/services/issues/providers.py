@@ -505,8 +505,29 @@ class JiraIssueProvider(BaseIssueProvider):
         )
         return _payload_to_dict(payload)
 
-    def update_issue(self, **_: Any) -> Dict[str, Any]:
-        raise IssueSyncError("Updating Jira issues via API is not supported yet.")
+    def update_issue(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        status: Optional[str] = None,
+        labels: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
+        payload = jira_provider.update_issue(
+            effective_integration,
+            project_integration,
+            issue_number,
+            title=title,
+            description=description,
+            labels=labels,
+        )
+        return _payload_to_dict(payload)
 
     def close_issue(
         self,
@@ -523,8 +544,22 @@ class JiraIssueProvider(BaseIssueProvider):
         )
         return _payload_to_dict(payload)
 
-    def reopen_issue(self, **_: Any) -> Dict[str, Any]:
-        raise IssueSyncError("Reopening Jira issues via API is not supported yet.")
+    def reopen_issue(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+    ) -> Dict[str, Any]:
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
+        payload = jira_provider.reopen_issue(
+            effective_integration,
+            project_integration,
+            issue_number,
+        )
+        return _payload_to_dict(payload)
 
     def add_comment(
         self,
@@ -581,5 +616,34 @@ class JiraIssueProvider(BaseIssueProvider):
             "url": payload.url,
         }
 
-    def assign_issue(self, **_: Any) -> Dict[str, Any]:
-        raise IssueSyncError("Assigning Jira issues via API is not supported yet.")
+    def assign_issue(
+        self,
+        *,
+        project_integration: ProjectIntegration,
+        issue_number: str,
+        assignee: str,
+    ) -> Dict[str, Any]:
+        """Assign a Jira issue to a user.
+
+        Args:
+            project_integration: Project integration
+            issue_number: Issue key
+            assignee: Jira account ID of the assignee
+
+        Returns:
+            Updated issue data
+
+        Raises:
+            IssueSyncError: If assignment fails
+        """
+        # Use effective integration with project-level credential overrides
+        effective_integration = get_effective_integration(
+            self.integration, project_integration
+        )
+        payload = jira_provider.assign_issue(
+            effective_integration,
+            project_integration,
+            issue_number,
+            assignee_account_id=assignee,
+        )
+        return _payload_to_dict(payload)

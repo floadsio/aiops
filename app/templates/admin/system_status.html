@@ -214,7 +214,7 @@ function updateStatusDisplay(data) {
   const componentsGrid = document.getElementById('components-grid');
   componentsGrid.innerHTML = '';
 
-  const componentOrder = ['database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'cli_git_tools', 'sessions'];
+  const componentOrder = ['database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'cli_git_tools', 'ssh_connectivity', 'sessions'];
 
   componentOrder.forEach(key => {
     if (data.components[key]) {
@@ -312,6 +312,23 @@ function createDetailsHTML(componentName, details) {
           </span>
           <span class="detail-value">
             ${integration.provider} - ${integration.tenant_name}${tokenInfo}${errorMsg}
+          </span>
+        </div>
+      `;
+    });
+  } else if (componentName === 'ssh_connectivity' && details.projects) {
+    details.projects.forEach(project => {
+      const status = project.ssh_ok ? 'enabled' : 'disabled';
+      const icon = project.ssh_ok ? '✓' : '✗';
+      const errorMsg = project.error ? `<br><small style="color: var(--pico-del-color);">${project.error}</small>` : '';
+      html += `
+        <div class="detail-row ${status}">
+          <span class="detail-label">
+            <span>${icon}</span>
+            <span>${project.project_name}</span>
+          </span>
+          <span class="detail-value">
+            ${project.hostname}${errorMsg}
           </span>
         </div>
       `;

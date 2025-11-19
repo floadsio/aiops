@@ -16,6 +16,7 @@ from git.remote import Remote
 from ..extensions import db
 from ..models import Project, SSHKey
 from ..services.key_service import resolve_private_key_path
+from ..services.ssh_key_service import ssh_key_context
 from .linux_users import resolve_linux_username
 from .sudo_service import SudoError, run_as_user
 from . import cli_git_service
@@ -133,6 +134,15 @@ def _select_project_ssh_key(
 
     project_key = getattr(project, "ssh_key", None)
     if project_key:
+        # Prefer encrypted key in database over filesystem key
+        if project_key.encrypted_private_key:
+            # Check if this database key has been marked as invalid
+            db_key_id = f"db-key-{project_key.id}"
+            if db_key_id not in invalid:
+                # Key is in database, return the model itself
+                return None, project_key, "project"
+
+        # Fall back to filesystem key
         normalized_key = _normalize_private_key_path(project_key.private_key_path)
         if (
             normalized_key
@@ -155,6 +165,15 @@ def _select_project_ssh_key(
             key=lambda key: getattr(key, "created_at", None) or datetime.min,
         )
         for key in sorted_keys:
+            # Prefer encrypted key in database over filesystem key
+            if key.encrypted_private_key:
+                # Check if this database key has been marked as invalid
+                db_key_id = f"db-key-{key.id}"
+                if db_key_id not in invalid:
+                    # Key is in database, return the model itself
+                    return None, key, "tenant"
+
+            # Fall back to filesystem key
             normalized_key = _normalize_private_key_path(key.private_key_path)
             if (
                 normalized_key
@@ -314,7 +333,41 @@ def ensure_repo_checkout(project: Project, user: Optional[object] = None) -> Rep
         )
 
     while True:
-        key_path = _resolve_project_ssh_key_path(project, invalid=invalid_keys)
+        key_path, key_model, key_source = _select_project_ssh_key(project, invalid=invalid_keys)
+
+        # Check if we have a database-stored encrypted key
+        if key_model and key_model.encrypted_private_key:
+            log.info(
+                "Using encrypted SSH key from database for %s (source: %s)",
+                project.name,
+                key_source,
+            )
+            try:
+                with ssh_key_context(key_model.encrypted_private_key) as auth_sock:
+                    # Build environment with SSH_AUTH_SOCK pointing to temporary agent
+                    env = os.environ.copy()
+                    env["SSH_AUTH_SOCK"] = auth_sock
+                    env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+                    return _attempt_clone(env)
+            except Exception:
+                log.warning(
+                    "Git clone failed for %s with database key from %s; trying next key.",
+                    project.name,
+                    key_source,
+                )
+                # Mark this key as invalid (using a unique identifier)
+                invalid_keys.add(f"db-key-{key_model.id}")
+                if path.exists() and not (path / ".git").exists():
+                    # cleanup partial clone directory
+                    for item in path.iterdir():
+                        if item.is_file():
+                            item.unlink(missing_ok=True)
+                        elif item.is_dir():
+                            import shutil
+                            shutil.rmtree(item, ignore_errors=True)
+                continue
+
+        # Use filesystem key
         env = _build_git_env(key_path)
         try:
             return _attempt_clone(env if env else None)
@@ -616,7 +669,38 @@ def run_git_action(
         raise ValueError(f"Unsupported git action: {action}")
 
     while True:
-        key_path = _resolve_project_ssh_key_path(project, invalid=invalid_keys)
+        key_path, key_model, key_source = _select_project_ssh_key(project, invalid=invalid_keys)
+
+        # Check if we have a database-stored encrypted key
+        if key_model and key_model.encrypted_private_key:
+            log.info(
+                "Using encrypted SSH key from database for %s action on %s (source: %s)",
+                action,
+                project.name,
+                key_source,
+            )
+            try:
+                with ssh_key_context(key_model.encrypted_private_key) as auth_sock:
+                    # Build environment with SSH_AUTH_SOCK pointing to temporary agent
+                    env = os.environ.copy()
+                    env["SSH_AUTH_SOCK"] = auth_sock
+                    env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+                    return _run_with_env(env)
+            except GitCommandError as err:
+                message = str(err).lower()
+                if "invalid format" in message or "permission denied" in message:
+                    invalid_keys.add(f"db-key-{key_model.id}")
+                    log.warning(
+                        "Git action %s failed for %s with database key from %s; retrying without it.",
+                        action,
+                        project.name,
+                        key_source,
+                    )
+                    continue
+                log.exception("Git action %s failed for %s", action, project.name)
+                raise RuntimeError(f"Git action failed: {err}") from err
+
+        # Use filesystem key
         ssh_key_env = _build_git_env(key_path)
         try:
             return _run_with_env(ssh_key_env)

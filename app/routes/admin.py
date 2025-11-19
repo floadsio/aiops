@@ -2311,11 +2311,13 @@ def create_assisted_issue():
                 labels.append(issue_type)
 
             # Create issue in external tracker (returns IssuePayload)
+            # Assign the issue to the current user who triggered the AI-assisted creation
             issue_payload = create_issue_for_project_integration(
                 project_integration=integration,
                 summary=draft_title,
                 description=description,
                 labels=labels,
+                assignee_user_id=current_user.id,
             )
 
             # Create ExternalIssue record directly in database from the payload

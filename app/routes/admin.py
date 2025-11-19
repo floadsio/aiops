@@ -2310,8 +2310,8 @@ def create_assisted_issue():
                 labels.append(issue_type)
 
             issue = create_issue_for_project_integration(
-                project_integration_id=integration.id,
-                title=draft_title,
+                project_integration=integration,
+                summary=draft_title,
                 description=description,
                 labels=labels,
             )

@@ -439,6 +439,159 @@ def issues_create(
         sys.exit(1)
 
 
+@issues.command(name="create-assisted")
+@click.option("--project", required=True, help="Project ID or name")
+@click.option("--integration", type=int, help="Integration ID (if not provided, uses first integration for project)")
+@click.option("--description", help="Natural language description of what to work on")
+@click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), default="claude", help="AI tool to use")
+@click.option("--type", "issue_type", type=click.Choice(["feature", "bug"]), help="Issue type hint")
+@click.option("--create-branch", is_flag=True, help="Create feature/fix branch")
+@click.option("--start-session", is_flag=True, help="Start AI session for the issue")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
+@click.pass_context
+def issues_create_assisted(
+    ctx: click.Context,
+    project: str,
+    integration: Optional[int],
+    description: Optional[str],
+    tool: str,
+    issue_type: Optional[str],
+    create_branch: bool,
+    start_session: bool,
+    output: Optional[str],
+) -> None:
+    """Create issue with AI assistance from natural language description.
+
+    This command uses AI to generate a well-formatted issue from your description.
+    It can optionally create a feature branch and start an AI session.
+
+    Examples:
+
+        # Interactive mode (prompts for description)
+        aiops issues create-assisted --project myproject
+
+        # Direct mode
+        aiops issues create-assisted --project myproject \\
+            --description "Add user authentication with OAuth2" \\
+            --tool claude --type feature
+
+        # Create branch and start session
+        aiops issues create-assisted --project myproject \\
+            --description "Fix login validation bug" \\
+            --type bug --create-branch --start-session
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        # Resolve project ID
+        project_id = resolve_project_id(client, project)
+
+        # Get integration ID if not provided
+        if not integration:
+            # Get first integration for project
+            integrations = client.get("/api/v1/issues/integrations", params={"project_id": project_id})
+            if not integrations:
+                error_console.print(f"[red]Error:[/red] No integrations found for project {project}")
+                sys.exit(1)
+            integration = integrations[0]["id"]
+            console.print(f"Using integration: {integrations[0]['name']} (ID: {integration})")
+
+        # Get description if not provided
+        if not description:
+            console.print("[yellow]Enter your description of what you want to work on:[/yellow]")
+            console.print("[dim](Type your description, press Enter twice when done)[/dim]")
+            lines = []
+            empty_count = 0
+            while True:
+                try:
+                    line = input()
+                    if not line:
+                        empty_count += 1
+                        if empty_count >= 2:
+                            break
+                    else:
+                        empty_count = 0
+                        lines.append(line)
+                except EOFError:
+                    break
+            description = "\n".join(lines).strip()
+
+            if not description:
+                error_console.print("[red]Error:[/red] Description cannot be empty")
+                sys.exit(1)
+
+        # Show what we're doing
+        console.print(f"\n[cyan]Creating issue with AI assistance...[/cyan]")
+        console.print(f"  Tool: {tool}")
+        console.print(f"  Project ID: {project_id}")
+        console.print(f"  Integration ID: {integration}")
+        if issue_type:
+            console.print(f"  Type: {issue_type}")
+        if create_branch:
+            console.print(f"  Create branch: Yes")
+        if start_session:
+            console.print(f"  Start session: Yes")
+
+        # Create AI-assisted issue
+        payload = {
+            "project_id": project_id,
+            "integration_id": integration,
+            "description": description,
+            "ai_tool": tool,
+            "create_branch": create_branch,
+            "start_session": start_session,
+        }
+        if issue_type:
+            payload["issue_type"] = issue_type
+
+        console.print("\n[cyan]Generating issue with AI...[/cyan]")
+        result = client.post("/api/v1/issues/create-assisted", payload)
+
+        console.print("[green]✓ Issue created successfully![/green]\n")
+
+        # Display results
+        if output_format == "json":
+            import json
+            console.print(json.dumps(result, indent=2))
+        elif output_format == "yaml":
+            import yaml
+            console.print(yaml.dump(result, default_flow_style=False))
+        else:
+            # Table format
+            console.print(f"[bold]Issue #{result['external_id']}[/bold]: {result['title']}")
+            console.print(f"URL: {result['issue_url']}")
+            console.print(f"Database ID: {result['issue_id']}")
+            if result.get("labels"):
+                console.print(f"Labels: {', '.join(result['labels'])}")
+            if result.get("branch_name"):
+                console.print(f"\n[green]✓ Branch created:[/green] {result['branch_name']}")
+            if result.get("branch_error"):
+                console.print(f"\n[yellow]⚠ Branch creation failed:[/yellow] {result['branch_error']}")
+            if result.get("session_url"):
+                console.print(f"\n[green]✓ Session created[/green]")
+                console.print(f"Session URL: {result['session_url']}")
+            if result.get("session_error"):
+                console.print(f"\n[yellow]⚠ Session creation failed:[/yellow] {result['session_error']}")
+
+            console.print(f"\n[dim]Next steps:[/dim]")
+            console.print(f"  1. Review the issue at {result['issue_url']}")
+            if result.get("branch_name"):
+                console.print(f"  2. Checkout branch: git checkout {result['branch_name']}")
+            if result.get("session_url"):
+                console.print(f"  3. Start working in the AI session")
+            else:
+                console.print(f"  2. Start working: aiops issues work {result['issue_id']}")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except Exception as exc:
+        error_console.print(f"[red]Unexpected error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="update")
 @click.argument("issue_id", type=int)
 @click.option("--title", help="New title")

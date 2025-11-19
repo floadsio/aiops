@@ -906,3 +906,166 @@ def sync_issues():
         "synced": total_issues,
         "projects": projects_synced,
     })
+
+
+@api_v1_bp.route("/issues/create-assisted", methods=["POST"])
+@require_api_auth(scopes=["write"])
+def create_assisted_issue():
+    """Create an issue using AI to generate content from a natural language description.
+
+    This endpoint uses an AI tool to generate a well-formatted issue from a user's
+    natural language description. It can optionally create a feature branch and
+    start an AI session for working on the issue.
+
+    Request body:
+        project_id (int): ID of the project
+        integration_id (int): ID of the project integration (GitHub/GitLab/Jira)
+        description (str): Natural language description of what to work on
+        ai_tool (str): AI tool to use for generation (claude, codex, gemini)
+        issue_type (str, optional): Hint about issue type (feature, bug)
+        create_branch (bool, optional): Whether to create a feature branch (default: false)
+        start_session (bool, optional): Whether to start an AI session (default: false)
+        assignee_user_id (int, optional): User ID to assign the issue to
+
+    Returns:
+        JSON response with:
+            - issue_id: Created issue database ID
+            - issue_url: External issue URL
+            - external_id: External issue number/key
+            - title: Generated issue title
+            - branch_name: Created branch name (if create_branch=true)
+            - session_id: Created session ID (if start_session=true)
+            - session_url: URL to attach to session (if start_session=true)
+    """
+    from ...services.ai_issue_generator import (
+        AIIssueGenerationError,
+        generate_branch_name,
+        generate_issue_from_description,
+    )
+    from ...services.git_service import checkout_or_create_branch
+    from ...services.issues import create_issue_for_project_integration
+
+    audit_api_request("POST", "/api/v1/issues/create-assisted")
+
+    data = request.get_json() or {}
+
+    # Validate required fields
+    project_id = data.get("project_id")
+    integration_id = data.get("integration_id")
+    description = data.get("description", "").strip()
+    ai_tool = data.get("ai_tool", "claude")
+
+    if not project_id:
+        return jsonify({"error": "project_id is required"}), 400
+    if not integration_id:
+        return jsonify({"error": "integration_id is required"}), 400
+    if not description:
+        return jsonify({"error": "description is required"}), 400
+
+    # Optional fields
+    issue_type = data.get("issue_type")
+    create_branch = data.get("create_branch", False)
+    start_session = data.get("start_session", False)
+    assignee_user_id = data.get("assignee_user_id")
+
+    # Validate project exists
+    project = db.session.get(Project, project_id)
+    if not project:
+        return jsonify({"error": f"Project {project_id} not found"}), 404
+
+    # Validate integration exists and belongs to project
+    integration = db.session.get(ProjectIntegration, integration_id)
+    if not integration or integration.project_id != project_id:
+        return jsonify({"error": f"Integration {integration_id} not found for project"}), 404
+
+    try:
+        # Step 1: Generate issue content using AI
+        try:
+            issue_data = generate_issue_from_description(description, ai_tool, issue_type)
+        except AIIssueGenerationError as e:
+            return jsonify({
+                "error": "AI generation failed",
+                "details": str(e),
+            }), 500
+
+        # Step 2: Create the issue
+        try:
+            issue = create_issue_for_project_integration(
+                project_integration_id=integration_id,
+                title=issue_data["title"],
+                description=issue_data["description"],
+                labels=issue_data.get("labels", []),
+                assignee_user_id=assignee_user_id,
+            )
+        except Exception as e:
+            return jsonify({
+                "error": "Failed to create issue",
+                "details": str(e),
+            }), 500
+
+        response_data = {
+            "issue_id": issue.id,
+            "issue_url": issue.url,
+            "external_id": issue.external_id,
+            "title": issue.title,
+            "description": issue.description,
+            "labels": issue.labels,
+            "status": issue.status,
+        }
+
+        # Step 3: Create branch if requested
+        branch_name = None
+        if create_branch:
+            try:
+                branch_prefix = issue_data.get("branch_prefix", "feature")
+                branch_name = generate_branch_name(
+                    issue.external_id, issue.title, branch_prefix
+                )
+
+                # Get user for git operations
+                user = g.current_user if hasattr(g, "current_user") else None
+                if user and user.linux_username:
+                    checkout_or_create_branch(
+                        project=project,
+                        branch_name=branch_name,
+                        base_branch=project.default_branch,
+                        create=True,
+                        user=user,
+                    )
+                    response_data["branch_name"] = branch_name
+                else:
+                    response_data["branch_warning"] = "Branch creation skipped: user not configured"
+            except Exception as e:
+                # Branch creation failed, but issue was created successfully
+                response_data["branch_error"] = f"Failed to create branch: {e}"
+
+        # Step 4: Start AI session if requested
+        if start_session:
+            try:
+                from ...services.ai_session_service import save_session
+
+                # Create session record
+                session = save_session(
+                    user_id=g.current_user.id if hasattr(g, "current_user") else None,
+                    project_id=project_id,
+                    issue_id=issue.id,
+                    tool=ai_tool,
+                    session_id=f"assisted-{issue.id}",
+                    tmux_target=None,
+                    description=f"AI-assisted work on issue #{issue.external_id}",
+                )
+
+                response_data["session_id"] = session.id
+                response_data["session_url"] = f"/projects/{project_id}/ai?issue_id={issue.id}"
+            except Exception as e:
+                # Session creation failed, but issue was created successfully
+                response_data["session_error"] = f"Failed to start session: {e}"
+
+        return jsonify(response_data), 201
+
+    except Exception as e:
+        current_app.logger.exception("Unexpected error in create_assisted_issue")
+        return jsonify({
+            "error": "Unexpected error occurred",
+            "details": str(e),
+        }), 500

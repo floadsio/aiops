@@ -2236,6 +2236,29 @@ def manage_tenants():
     )
 
 
+@admin_bp.route("/issues/create-assisted", methods=["GET", "POST"])
+@admin_required
+def create_assisted_issue():
+    """Create an issue with AI assistance."""
+    from ..forms.admin import AIAssistedIssueForm
+
+    form = AIAssistedIssueForm()
+
+    # Populate project choices
+    projects = Project.query.order_by(Project.name).all()
+    form.project_id.choices = [(p.id, f"{p.tenant.name} / {p.name}") for p in projects]
+
+    if form.validate_on_submit():
+        # This is handled by JavaScript on the frontend
+        # The form submission goes directly to the API
+        pass
+
+    return render_template(
+        "admin/create_assisted_issue.html",
+        form=form,
+    )
+
+
 @admin_bp.route("/issues", methods=["GET", "POST"])
 @admin_required
 def manage_issues():

@@ -577,3 +577,48 @@ class UserCredentialDeleteForm(FlaskForm):
 
     credential_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Remove Token")
+
+
+class AIAssistedIssueForm(FlaskForm):
+    """Form for creating an issue with AI assistance."""
+
+    description = TextAreaField(
+        "Description",
+        validators=[DataRequired(), Length(min=10, max=5000)],
+        description="Describe what you want to work on in natural language",
+        render_kw={"placeholder": "Example: I want to add user authentication with OAuth2..."},
+    )
+    project_id = SelectField(
+        "Project",
+        coerce=int,
+        validators=[DataRequired()],
+    )
+    ai_tool = SelectField(
+        "AI Tool",
+        choices=[
+            ("claude", "Claude"),
+            ("codex", "Codex"),
+            ("gemini", "Gemini"),
+        ],
+        default="claude",
+        validators=[DataRequired()],
+    )
+    issue_type = SelectField(
+        "Issue Type",
+        choices=[
+            ("", "Auto-detect"),
+            ("feature", "Feature"),
+            ("bug", "Bug"),
+        ],
+        default="",
+        validators=[Optional()],
+    )
+    create_branch = BooleanField(
+        "Create feature/fix branch",
+        default=False,
+    )
+    start_session = BooleanField(
+        "Start AI session after creation",
+        default=False,
+    )
+    submit = SubmitField("Create Issue with AI")

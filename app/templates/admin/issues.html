@@ -646,6 +646,10 @@
     New Issue
   </button>
 
+  <a href="{{ url_for('admin.create_assisted_issue') }}" class="secondary" role="button">
+    🤖 AI-Assisted Issue
+  </a>
+
   {% if current_user_name %}
     <a href="{{ url_for('admin.manage_issues', status=status_filter if status_filter != 'all' else None, tenant=tenant_filter if tenant_filter != 'all' else None, project=project_filter if project_filter != 'all' else None, assignee='__me__', sort=sort_state.key, direction=sort_state.direction) }}" class="secondary" role="button">
       My Issues

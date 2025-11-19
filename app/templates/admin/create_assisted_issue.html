@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+{% block title %}AI-Assisted Issue Creation | aiops Control Panel{% endblock %}
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .create-assisted-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .create-assisted-card {
+      padding: 2rem;
+      border-radius: 1.25rem;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+    }
+    [data-theme="dark"] .create-assisted-card {
+      background: rgba(15, 23, 42, 0.7);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    .form-section {
+      margin-bottom: 2rem;
+    }
+    .form-section h3 {
+      margin: 0 0 1rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .form-section h3 {
+      color: #e2e8f0;
+    }
+    .form-section p {
+      margin: 0 0 1rem;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .form-section p {
+      color: #94a3b8;
+    }
+    .description-textarea {
+      min-height: 200px;
+      font-family: system-ui, -apple-system, sans-serif;
+      resize: vertical;
+    }
+    .form-grid {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 768px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .form-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .result-card {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+    .result-card h3 {
+      margin: 0 0 1rem;
+      color: #047857;
+      font-size: 1.1rem;
+    }
+    [data-theme="dark"] .result-card h3 {
+      color: #10b981;
+    }
+    .result-item {
+      margin-bottom: 0.75rem;
+      font-size: 0.95rem;
+    }
+    .result-item strong {
+      color: #0f172a;
+    }
+    [data-theme="dark"] .result-item strong {
+      color: #e2e8f0;
+    }
+    .error-card {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .error-card h3 {
+      margin: 0 0 0.5rem;
+      color: #dc2626;
+      font-size: 1.1rem;
+    }
+    [data-theme="dark"] .error-card h3 {
+      color: #ef4444;
+    }
+    .loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .spinner {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+{% endblock %}
+{% block content %}
+<div class="create-assisted-container">
+  <h1>AI-Assisted Issue Creation</h1>
+  <p style="margin-bottom: 2rem; color: #64748b;">
+    Describe what you want to work on in natural language, and AI will help create a properly formatted issue.
+  </p>
+
+  <div class="create-assisted-card">
+    <form id="create-assisted-form" method="post">
+      {{ form.hidden_tag() }}
+
+      <div class="form-section">
+        <h3>What do you want to work on?</h3>
+        <p>Describe your feature idea or bug fix in plain language. The AI will help structure it into a proper issue.</p>
+        {{ form.description(class="description-textarea", placeholder="Example: I want to add user authentication with OAuth2 support. Users should be able to login with Google and GitHub. Need to store user sessions securely.") }}
+      </div>
+
+      <div class="form-grid">
+        <div class="form-section">
+          <label for="{{ form.project_id.id }}">
+            <h3>Project</h3>
+          </label>
+          {{ form.project_id(required=True) }}
+        </div>
+
+        <div class="form-section">
+          <label for="{{ form.ai_tool.id }}">
+            <h3>AI Tool</h3>
+          </label>
+          {{ form.ai_tool(required=True) }}
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-section">
+          <label for="{{ form.issue_type.id }}">
+            <h3>Issue Type (Optional)</h3>
+          </label>
+          {{ form.issue_type() }}
+        </div>
+
+        <div class="form-section">
+          <h3>Options</h3>
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              {{ form.create_branch() }}
+              <span>Create feature/fix branch</span>
+            </label>
+            <label class="checkbox-label">
+              {{ form.start_session() }}
+              <span>Start AI session after creation</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="primary">
+          <span class="submit-text">Create Issue with AI</span>
+        </button>
+        <a href="{{ url_for('admin.manage_issues') }}" role="button" class="secondary outline">Cancel</a>
+      </div>
+    </form>
+
+    <div id="result-container"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const form = document.getElementById('create-assisted-form');
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const submitText = submitBtn.querySelector('.submit-text');
+  const resultContainer = document.getElementById('result-container');
+
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    // Get form data
+    const formData = new FormData(form);
+    const data = {
+      project_id: parseInt(formData.get('project_id')),
+      description: formData.get('description'),
+      ai_tool: formData.get('ai_tool'),
+      issue_type: formData.get('issue_type') || null,
+      create_branch: formData.get('create_branch') === 'y',
+      start_session: formData.get('start_session') === 'y',
+    };
+
+    // Validation
+    if (!data.description || data.description.trim().length === 0) {
+      alert('Please enter a description of what you want to work on');
+      return;
+    }
+
+    // Show loading state
+    submitBtn.disabled = true;
+    submitText.innerHTML = '<span class="loading"><span class="spinner"></span> Generating issue with AI...</span>';
+    resultContainer.innerHTML = '';
+
+    try {
+      // Get integration_id for the project
+      const integrationsResp = await fetch(`/api/v1/issues/integrations?project_id=${data.project_id}`, {
+        headers: {
+          'X-CSRFToken': formData.get('csrf_token'),
+        },
+      });
+
+      if (!integrationsResp.ok) {
+        throw new Error('Failed to fetch project integrations');
+      }
+
+      const integrations = await integrationsResp.json();
+      if (!integrations || integrations.length === 0) {
+        throw new Error('No integrations found for this project');
+      }
+
+      data.integration_id = integrations[0].id;
+
+      // Create AI-assisted issue
+      const response = await fetch('/api/v1/issues/create-assisted', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': formData.get('csrf_token'),
+        },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || result.details || 'Failed to create issue');
+      }
+
+      // Show success result
+      let resultHTML = `
+        <div class="result-card">
+          <h3>✓ Issue Created Successfully!</h3>
+          <div class="result-item"><strong>Issue:</strong> #${result.external_id} - ${result.title}</div>
+          <div class="result-item"><strong>URL:</strong> <a href="${result.issue_url}" target="_blank">${result.issue_url}</a></div>
+          <div class="result-item"><strong>Database ID:</strong> ${result.issue_id}</div>
+      `;
+
+      if (result.labels && result.labels.length > 0) {
+        resultHTML += `<div class="result-item"><strong>Labels:</strong> ${result.labels.join(', ')}</div>`;
+      }
+
+      if (result.branch_name) {
+        resultHTML += `<div class="result-item" style="color: #047857;"><strong>✓ Branch Created:</strong> ${result.branch_name}</div>`;
+      }
+
+      if (result.branch_error) {
+        resultHTML += `<div class="result-item" style="color: #d97706;"><strong>⚠ Branch Error:</strong> ${result.branch_error}</div>`;
+      }
+
+      if (result.session_url) {
+        resultHTML += `
+          <div class="result-item" style="color: #047857;"><strong>✓ Session Created</strong></div>
+          <div class="result-item"><a href="${result.session_url}" class="primary" role="button">Go to AI Session →</a></div>
+        `;
+      }
+
+      if (result.session_error) {
+        resultHTML += `<div class="result-item" style="color: #d97706;"><strong>⚠ Session Error:</strong> ${result.session_error}</div>`;
+      }
+
+      resultHTML += `
+          <div class="result-item" style="margin-top: 1.5rem;">
+            <a href="${result.issue_url}" class="secondary" role="button" target="_blank">View Issue</a>
+            <a href="{{ url_for('admin.manage_issues') }}" class="secondary outline" role="button" style="margin-left: 0.5rem;">Back to Issues</a>
+          </div>
+        </div>
+      `;
+
+      resultContainer.innerHTML = resultHTML;
+
+      // Reset form
+      form.reset();
+
+    } catch (error) {
+      // Show error
+      resultContainer.innerHTML = `
+        <div class="error-card">
+          <h3>Error Creating Issue</h3>
+          <p>${error.message}</p>
+        </div>
+      `;
+    } finally {
+      // Reset button
+      submitBtn.disabled = false;
+      submitText.textContent = 'Create Issue with AI';
+    }
+  });
+})();
+</script>
+{% endblock %}

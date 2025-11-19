@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import subprocess
 from typing import Any
 
@@ -68,11 +69,17 @@ Rules:
 """
 
     try:
+        # Parse command if it's a string with arguments
+        if isinstance(command, str):
+            command_parts = shlex.split(command)
+        else:
+            command_parts = [command]
+
         # Run AI tool with prompt
         if ai_tool == "claude":
             # For Claude, we use the CLI directly
             result = subprocess.run(
-                [command, "--no-cache", prompt],
+                command_parts + ["--no-cache", prompt],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -81,7 +88,7 @@ Rules:
         elif ai_tool == "codex":
             # For Codex
             result = subprocess.run(
-                [command, "query", prompt],
+                command_parts + ["query", prompt],
                 capture_output=True,
                 text=True,
                 timeout=30,
@@ -90,7 +97,7 @@ Rules:
         elif ai_tool == "gemini":
             # For Gemini
             result = subprocess.run(
-                [command, prompt],
+                command_parts + [prompt],
                 capture_output=True,
                 text=True,
                 timeout=30,

@@ -100,6 +100,11 @@
   .spinning {
     animation: spin 1s linear infinite;
   }
+
+  /* Override card-grid to single column */
+  #components-grid.card-grid {
+    grid-template-columns: 1fr;
+  }
 </style>
 {% endblock %}
 
@@ -214,7 +219,7 @@ function updateStatusDisplay(data) {
   const componentsGrid = document.getElementById('components-grid');
   componentsGrid.innerHTML = '';
 
-  const componentOrder = ['database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'cli_git_tools', 'ssh_connectivity', 'sessions'];
+  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'sessions'];
 
   componentOrder.forEach(key => {
     if (data.components[key]) {

@@ -1558,45 +1558,80 @@ def create_user_credential_web():
     from ..models import TenantIntegration, UserIntegrationCredential
 
     form = UserCredentialCreateForm()
+
+    # Populate integration choices (required for form validation)
+    integrations = TenantIntegration.query.filter_by(enabled=True).order_by(
+        TenantIntegration.name
+    ).all()
+    form.integration_id.choices = [
+        (i.id, f"{i.name} ({i.provider})") for i in integrations
+    ]
+
     if not form.validate_on_submit():
+        current_app.logger.error(
+            f"User credential form validation failed: {form.errors}"
+        )
         flash("Invalid user credential request.", "danger")
         return redirect(url_for("admin.manage_settings"))
 
     integration_id = form.integration_id.data
-    api_token = form.api_token.data.strip()
+    api_token = form.api_token.data.strip() if form.api_token.data else ""
 
     # Verify integration exists
     integration = TenantIntegration.query.get(integration_id)
     if not integration:
+        current_app.logger.error(
+            f"Integration {integration_id} not found for user {current_user.id}"
+        )
         flash("Integration not found.", "danger")
         return redirect(url_for("admin.manage_settings"))
 
-    # Check if credential already exists for this user/integration
-    existing = UserIntegrationCredential.query.filter_by(
-        user_id=current_user.id, integration_id=integration_id
-    ).first()
+    try:
+        # Check if credential already exists for this user/integration
+        existing = UserIntegrationCredential.query.filter_by(
+            user_id=current_user.id, integration_id=integration_id
+        ).first()
 
-    if existing:
-        # Update existing
-        existing.api_token = api_token
-        db.session.commit()
+        if existing:
+            # Update existing
+            existing.api_token = api_token
+            db.session.commit()
+            current_app.logger.info(
+                f"Updated personal token for user {current_user.id}, "
+                f"integration {integration_id}"
+            )
+            flash(
+                f'Personal token for "{integration.name}" updated successfully.',
+                "success",
+            )
+        else:
+            # Create new
+            credential = UserIntegrationCredential(
+                user_id=current_user.id,
+                integration_id=integration_id,
+                api_token=api_token,
+            )
+            db.session.add(credential)
+            db.session.commit()
+            current_app.logger.info(
+                f"Created personal token for user {current_user.id}, "
+                f"integration {integration_id}"
+            )
+            flash(
+                f'Personal token for "{integration.name}" created successfully.',
+                "success",
+            )
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.exception(
+            f"Error creating/updating user credential for user {current_user.id}, "
+            f"integration {integration_id}: {exc}"
+        )
         flash(
-            f'Personal token for "{integration.name}" updated successfully.',
-            "success",
+            "An error occurred while saving your personal token. Please try again.",
+            "danger",
         )
-    else:
-        # Create new
-        credential = UserIntegrationCredential(
-            user_id=current_user.id,
-            integration_id=integration_id,
-            api_token=api_token,
-        )
-        db.session.add(credential)
-        db.session.commit()
-        flash(
-            f'Personal token for "{integration.name}" created successfully.',
-            "success",
-        )
+        return redirect(url_for("admin.manage_settings"))
 
     return redirect(url_for("admin.manage_settings"))
 

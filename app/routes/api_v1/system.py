@@ -648,3 +648,194 @@ def restore_system_backup(backup_id: int):
     except BackupError as exc:
         current_app.logger.error(f"Backup restore failed: {exc}")
         return jsonify({"error": str(exc)}), 500
+
+
+# ============================================================================
+# SSH KEYS API ENDPOINTS
+# ============================================================================
+
+
+@api_v1_bp.get("/admin/ssh-keys")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def list_ssh_keys():
+    """List all SSH keys.
+
+    Query params:
+        tenant_id: Filter by tenant ID (optional)
+
+    Returns:
+        200: List of SSH keys with metadata
+    """
+    from ...models import SSHKey, Tenant
+    from ...extensions import db
+
+    tenant_id = request.args.get("tenant_id", type=int)
+
+    query = db.session.query(SSHKey)
+    if tenant_id:
+        query = query.filter(SSHKey.tenant_id == tenant_id)
+
+    keys = query.all()
+
+    result = []
+    for key in keys:
+        tenant = db.session.get(Tenant, key.tenant_id) if key.tenant_id else None
+        result.append({
+            "id": key.id,
+            "name": key.name,
+            "tenant_id": key.tenant_id,
+            "tenant_name": tenant.name if tenant else None,
+            "public_key": key.public_key,
+            "private_key_path": key.private_key_path,
+            "encrypted_private_key": bool(key.encrypted_private_key),
+            "created_at": key.created_at.isoformat() if key.created_at else None,
+        })
+
+    return jsonify({"ssh_keys": result})
+
+
+@api_v1_bp.post("/admin/ssh-keys")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def create_ssh_key():
+    """Create a new SSH key with encrypted private key storage.
+
+    Request body:
+        name: Key name
+        tenant_id: Tenant ID
+        private_key_content: Private key content (will be encrypted)
+        public_key_content: Public key content (optional)
+
+    Returns:
+        201: SSH key created
+        400: Invalid request
+        500: Encryption failed
+    """
+    from ...models import SSHKey
+    from ...extensions import db
+    from ...services.ssh_key_service import encrypt_private_key, SSHKeyServiceError
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    name = data.get("name")
+    tenant_id = data.get("tenant_id")
+    private_key_content = data.get("private_key_content")
+    public_key_content = data.get("public_key_content")
+
+    if not name or not tenant_id or not private_key_content:
+        return jsonify({"error": "name, tenant_id, and private_key_content are required"}), 400
+
+    try:
+        # Encrypt private key
+        encrypted_key = encrypt_private_key(private_key_content)
+
+        # Create SSH key model
+        ssh_key = SSHKey(
+            name=name,
+            tenant_id=tenant_id,
+            public_key=public_key_content,
+            encrypted_private_key=encrypted_key,
+        )
+
+        db.session.add(ssh_key)
+        db.session.commit()
+
+        return jsonify({
+            "id": ssh_key.id,
+            "name": ssh_key.name,
+            "message": "SSH key created and encrypted successfully",
+        }), 201
+
+    except SSHKeyServiceError as exc:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to encrypt SSH key: {exc}")
+        return jsonify({"error": f"Encryption failed: {exc}"}), 500
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to create SSH key: {exc}")
+        return jsonify({"error": str(exc)}), 500
+
+
+@api_v1_bp.delete("/admin/ssh-keys/<int:key_id>")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def delete_ssh_key(key_id: int):
+    """Delete an SSH key from the database.
+
+    Args:
+        key_id: SSH key ID
+
+    Returns:
+        200: SSH key deleted
+        404: SSH key not found
+    """
+    from ...models import SSHKey
+    from ...extensions import db
+
+    ssh_key = db.session.get(SSHKey, key_id)
+    if not ssh_key:
+        return jsonify({"error": "SSH key not found"}), 404
+
+    db.session.delete(ssh_key)
+    db.session.commit()
+
+    return jsonify({"message": f"SSH key {key_id} deleted successfully"})
+
+
+@api_v1_bp.post("/admin/ssh-keys/<int:key_id>/migrate")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def migrate_ssh_key(key_id: int):
+    """Migrate a filesystem SSH key to encrypted database storage.
+
+    Args:
+        key_id: SSH key ID
+
+    Request body:
+        private_key_content: Private key content from filesystem
+
+    Returns:
+        200: SSH key migrated
+        404: SSH key not found
+        400: Invalid request
+        500: Migration failed
+    """
+    from ...models import SSHKey
+    from ...extensions import db
+    from ...services.ssh_key_service import encrypt_private_key, SSHKeyServiceError
+
+    ssh_key = db.session.get(SSHKey, key_id)
+    if not ssh_key:
+        return jsonify({"error": "SSH key not found"}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body required"}), 400
+
+    private_key_content = data.get("private_key_content")
+    if not private_key_content:
+        return jsonify({"error": "private_key_content is required"}), 400
+
+    try:
+        # Encrypt private key
+        encrypted_key = encrypt_private_key(private_key_content)
+
+        # Update SSH key model
+        ssh_key.encrypted_private_key = encrypted_key
+        db.session.commit()
+
+        return jsonify({
+            "message": f"SSH key '{ssh_key.name}' migrated to database storage successfully",
+        })
+
+    except SSHKeyServiceError as exc:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to encrypt SSH key: {exc}")
+        return jsonify({"error": f"Encryption failed: {exc}"}), 500
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.error(f"Failed to migrate SSH key: {exc}")
+        return jsonify({"error": str(exc)}), 500

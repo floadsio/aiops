@@ -213,6 +213,29 @@ Update both locations when bumping version:
 1. Header in `AGENTS.md`: `# Project Overview _(version X.Y.Z)_`
 2. Root `VERSION` file (read by `app/version.py`)
 
+## Git Operations with CLI Tools
+
+aiops uses **official CLI tools** (gh, glab) for GitHub/GitLab git operations when Personal Access Tokens (PATs) are available. This provides native multi-user support without SSH key complexity.
+
+**How it works:**
+- Projects with GitHub/GitLab integrations use `gh`/`glab` CLI tools with PAT authentication
+- Each user's PAT token is injected via environment variables (GH_TOKEN, GITLAB_TOKEN)
+- Falls back to SSH keys for projects without integrations
+- Backend services (`app/services/cli_git_service.py`) handle routing
+
+**Installation (production):**
+```bash
+sudo apt install gh glab  # Available in Debian Trixie repos
+```
+
+**Benefits:**
+- Multi-user support: Each user's PAT used for git operations
+- No SSH key management: No encryption, ssh-agent, or key lifecycle complexity
+- Backward compatible: Falls back to SSH keys when CLI tools unavailable
+- Official tools: Maintained by GitHub/GitLab teams
+
+See PR #35 for implementation details.
+
 ## Global Agent Context
 
 aiops supports **global AGENTS.md content** stored in the database and included in all `AGENTS.override.md` files.

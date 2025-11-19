@@ -737,3 +737,181 @@ def _create_gitlab_mr(
         "state": mr.state,
         "draft": draft,
     }
+
+
+@projects_bp.route("/<int:project_id>/pull-requests/<int:pr_number>/merge", methods=["POST"])
+def merge_pull_request(project_id: int, pr_number: int):
+    """Merge a pull request (GitHub) or merge request (GitLab).
+
+    Args:
+        project_id: Project ID
+        pr_number: PR/MR number
+
+    Request body:
+        method (str): Merge method - 'merge', 'squash', or 'rebase' (default: merge)
+        delete_branch (bool): Delete source branch after merge (default: false)
+        commit_message (str): Custom merge commit message (optional)
+
+    Returns:
+        200: PR/MR merged successfully
+        400: Invalid request or merge failed
+        403: Access denied
+        404: Project or PR/MR not found
+    """
+    project = Project.query.get_or_404(project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json(silent=True) or {}
+    merge_method = (data.get("method") or "merge").strip().lower()
+    delete_branch = data.get("delete_branch", False)
+    commit_message = (data.get("commit_message") or "").strip() or None
+
+    # Validate merge method
+    valid_methods = {"merge", "squash", "rebase"}
+    if merge_method not in valid_methods:
+        return jsonify({
+            "error": f"Invalid merge method '{merge_method}'. Must be one of: {', '.join(valid_methods)}"
+        }), 400
+
+    # Get project's issue integration to access git provider
+    from ...models import ProjectIntegration
+
+    project_integration = ProjectIntegration.query.filter_by(
+        project_id=project.id
+    ).first()
+
+    if not project_integration or not project_integration.integration:
+        return jsonify({
+            "error": "Project has no issue integration configured"
+        }), 400
+
+    integration = project_integration.integration
+    provider = integration.provider.lower()
+
+    try:
+        if provider == "github":
+            result = _merge_github_pr(
+                integration,
+                project_integration,
+                pr_number,
+                merge_method,
+                delete_branch,
+                commit_message,
+            )
+        elif provider == "gitlab":
+            result = _merge_gitlab_mr(
+                integration,
+                project_integration,
+                pr_number,
+                merge_method,
+                delete_branch,
+                commit_message,
+            )
+        else:
+            return jsonify({
+                "error": f"Provider '{provider}' does not support PR/MR merging"
+            }), 400
+
+        return jsonify(result), 200
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Failed to merge PR/MR: %s", exc)
+        return jsonify({"error": f"Failed to merge PR/MR: {str(exc)}"}), 400
+
+
+def _merge_github_pr(
+    integration,
+    project_integration,
+    pr_number: int,
+    merge_method: str,
+    delete_branch: bool,
+    commit_message: str | None,
+):
+    """Merge a GitHub pull request."""
+    import github
+
+    token = integration.api_token
+    base_url = integration.base_url
+
+    # Initialize GitHub client
+    if base_url:
+        gh = github.Github(base_url=base_url, login_or_token=token)
+    else:
+        gh = github.Github(login_or_token=token)
+
+    repo_name = project_integration.external_identifier
+    repo = gh.get_repo(repo_name)
+
+    # Get the PR
+    pr = repo.get_pull(pr_number)
+
+    # Merge the PR
+    merge_result = pr.merge(
+        commit_message=commit_message or "",
+        merge_method=merge_method,
+        delete_branch=delete_branch,
+    )
+
+    return {
+        "merged": merge_result.merged,
+        "message": merge_result.message,
+        "sha": merge_result.sha,
+        "pr_number": pr_number,
+        "title": pr.title,
+        "url": pr.html_url,
+    }
+
+
+def _merge_gitlab_mr(
+    integration,
+    project_integration,
+    mr_number: int,
+    merge_method: str,
+    delete_branch: bool,
+    commit_message: str | None,
+):
+    """Merge a GitLab merge request."""
+    import gitlab
+
+    token = integration.api_token
+    base_url = integration.base_url or "https://gitlab.com"
+
+    # Initialize GitLab client
+    gl = gitlab.Gitlab(base_url, private_token=token)
+    gl.auth()
+
+    project_ref = project_integration.external_identifier
+    gl_project = gl.projects.get(project_ref)
+
+    # Get the MR
+    mr = gl_project.mergerequests.get(mr_number)
+
+    # Prepare merge options
+    merge_options = {
+        "should_remove_source_branch": delete_branch,
+    }
+
+    if commit_message:
+        merge_options["merge_commit_message"] = commit_message
+
+    # GitLab uses different parameter names for merge methods
+    # merge_when_pipeline_succeeds can be set, but we'll merge immediately
+    if merge_method == "squash":
+        merge_options["squash"] = True
+    # Note: GitLab doesn't have a direct rebase merge method via API
+    # The "rebase" method in GitLab UI rebases then merges
+
+    # Merge the MR
+    mr.merge(**merge_options)
+
+    # Refresh to get updated state
+    mr = gl_project.mergerequests.get(mr_number)
+
+    return {
+        "merged": mr.state == "merged",
+        "message": f"Merge request #{mr_number} merged successfully",
+        "sha": mr.merge_commit_sha,
+        "pr_number": mr_number,
+        "title": mr.title,
+        "url": mr.web_url,
+    }

@@ -1331,6 +1331,60 @@ def git_pr_create(
         sys.exit(1)
 
 
+@git.command(name="pr-merge")
+@click.argument("project")
+@click.argument("pr_number", type=int)
+@click.option(
+    "--method",
+    "-m",
+    type=click.Choice(["merge", "squash", "rebase"], case_sensitive=False),
+    default="merge",
+    help="Merge method (default: merge)",
+)
+@click.option(
+    "--delete-branch",
+    is_flag=True,
+    help="Delete source branch after merge",
+)
+@click.option(
+    "--message",
+    help="Custom merge commit message",
+)
+@click.pass_context
+def git_pr_merge(
+    ctx: click.Context,
+    project: str,
+    pr_number: int,
+    method: str,
+    delete_branch: bool,
+    message: Optional[str],
+) -> None:
+    """Merge a pull request (GitHub) or merge request (GitLab)."""
+    client = get_client(ctx)
+
+    try:
+        project_id = resolve_project_id(client, project)
+        result = client.git_merge_pr(
+            project_id=project_id,
+            pr_number=pr_number,
+            method=method.lower(),
+            delete_branch=delete_branch,
+            commit_message=message,
+        )
+
+        console.print(f"[green]✓[/green] Pull/Merge request #{pr_number} merged successfully")
+        console.print(f"  Title: {result['title']}")
+        console.print(f"  URL: {result['url']}")
+        console.print(f"  Method: {method}")
+        if result.get("sha"):
+            console.print(f"  Merge SHA: {result['sha']}")
+        if delete_branch:
+            console.print("  Source branch deleted")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # WORKFLOW COMMANDS
 # ============================================================================

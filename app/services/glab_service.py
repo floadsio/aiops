@@ -30,6 +30,7 @@ class GlabContext:
     repo_path: Path
     token: str
     repo_url: str
+    gitlab_host: Optional[str] = None  # For private GitLab instances
 
 
 def _get_project_integration(project: Project) -> Optional[Integration]:
@@ -49,6 +50,52 @@ def _get_project_integration(project: Project) -> Optional[Integration]:
         return None
 
     return integration
+
+
+def _get_gitlab_url(project: Project, integration: Integration) -> Optional[str]:
+    """Get the GitLab base URL for a project.
+
+    Checks project-level override first, then tenant-level base_url.
+    Returns None for gitlab.com (uses default).
+
+    Returns:
+        GitLab instance URL or None for gitlab.com
+    """
+    # Check project-level override first
+    project_integrations = getattr(project, "issue_integrations", [])
+    for pi in project_integrations:
+        if pi.integration_id == integration.id:
+            override_url = getattr(pi, "override_base_url", None)
+            if override_url:
+                return override_url.rstrip("/")
+
+    # Fall back to tenant-level base_url
+    base_url = getattr(integration, "base_url", None)
+    if base_url and "gitlab.com" not in base_url:
+        return base_url.rstrip("/")
+
+    # gitlab.com is the default, no URL needed
+    return None
+
+
+def _get_gitlab_token(project: Project, integration: Integration) -> Optional[str]:
+    """Get the GitLab PAT for a project.
+
+    Checks project-level override first, then tenant-level token.
+
+    Returns:
+        Personal Access Token
+    """
+    # Check project-level override first
+    project_integrations = getattr(project, "issue_integrations", [])
+    for pi in project_integrations:
+        if pi.integration_id == integration.id:
+            override_token = getattr(pi, "override_api_token", None)
+            if override_token:
+                return override_token
+
+    # Fall back to tenant-level token
+    return getattr(integration, "api_token", None) or getattr(integration, "access_token", None)
 
 
 def _run_glab_command(
@@ -76,6 +123,10 @@ def _run_glab_command(
         **subprocess.os.environ.copy(),
         "GITLAB_TOKEN": ctx.token,
     }
+
+    # Add GITLAB_HOST for private instances
+    if ctx.gitlab_host:
+        env["GITLAB_HOST"] = ctx.gitlab_host
 
     command = ["glab", *args]
 
@@ -121,35 +172,39 @@ def clone_repo(
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_gitlab_token(project, integration)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
+
+    gitlab_url = _get_gitlab_url(project, integration)
 
     # Create parent directory
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Extract group/project from URL
     # e.g., https://gitlab.com/group/project.git -> group/project
+    # or https://gitlab.example.com/group/project.git -> group/project
     repo_url = project.repo_url
     if repo_url.endswith(".git"):
         repo_url = repo_url[:-4]
 
-    # Handle both gitlab.com and self-hosted GitLab instances
-    if "gitlab.com/" in repo_url:
-        repo_full_name = repo_url.split("gitlab.com/")[-1]
+    # Extract the path part (after domain)
+    # For both gitlab.com and self-hosted instances
+    parts = repo_url.split("://")[-1].split("/", 1)
+    if len(parts) == 2:
+        repo_full_name = parts[1]
     else:
-        # For self-hosted, extract domain and path
-        parts = repo_url.split("://")[-1].split("/", 1)
-        if len(parts) == 2:
-            repo_full_name = parts[1]
-        else:
-            raise GlabServiceError(f"Cannot parse GitLab URL: {repo_url}")
+        raise GlabServiceError(f"Cannot parse GitLab URL: {repo_url}")
 
     # Use glab repo clone
     env = {
         **subprocess.os.environ.copy(),
         "GITLAB_TOKEN": token,
     }
+
+    # Add GITLAB_HOST for private instances
+    if gitlab_url:
+        env["GITLAB_HOST"] = gitlab_url
 
     clone_args = ["repo", "clone", repo_full_name, str(target_path)]
     if branch:
@@ -191,14 +246,20 @@ def pull_repo(project: Project, repo_path: Path) -> str:
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_gitlab_token(project, integration)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
+
+    gitlab_url = _get_gitlab_url(project, integration)
 
     env = {
         **subprocess.os.environ.copy(),
         "GITLAB_TOKEN": token,
     }
+
+    # Add GITLAB_HOST for private instances
+    if gitlab_url:
+        env["GITLAB_HOST"] = gitlab_url
 
     try:
         result = subprocess.run(
@@ -236,14 +297,20 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_gitlab_token(project, integration)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
+
+    gitlab_url = _get_gitlab_url(project, integration)
 
     env = {
         **subprocess.os.environ.copy(),
         "GITLAB_TOKEN": token,
     }
+
+    # Add GITLAB_HOST for private instances
+    if gitlab_url:
+        env["GITLAB_HOST"] = gitlab_url
 
     push_args = ["git", "push"]
     if branch:
@@ -284,14 +351,20 @@ def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = getattr(integration, "access_token", None)
+    token = _get_gitlab_token(project, integration)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
+
+    gitlab_url = _get_gitlab_url(project, integration)
 
     env = {
         **subprocess.os.environ.copy(),
         "GITLAB_TOKEN": token,
     }
+
+    # Add GITLAB_HOST for private instances
+    if gitlab_url:
+        env["GITLAB_HOST"] = gitlab_url
 
     try:
         # Get branch name

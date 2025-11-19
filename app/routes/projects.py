@@ -38,7 +38,7 @@ from ..forms.project import (
     IssueCreateForm,
     ProjectKeyForm,
 )
-from ..models import ExternalIssue, Project, ProjectIntegration, SSHKey
+from ..models import AISession, ExternalIssue, Project, ProjectIntegration, SSHKey
 from ..services.agent_context import write_tracked_issue_context
 from ..services.ansible_runner import (
     SemaphoreAPIError,
@@ -1286,6 +1286,20 @@ def close_tmux_window(project_id: int):
     linux_username = _current_linux_username()
     try:
         close_tmux_target(tmux_target, linux_username=linux_username)
+
+        # Mark all sessions with this tmux target as inactive
+        sessions = AISession.query.filter_by(
+            tmux_target=tmux_target,
+            is_active=True
+        ).all()
+
+        for session in sessions:
+            session.is_active = False
+            session.ended_at = datetime.now(timezone.utc)
+
+        if sessions:
+            db.session.commit()
+
     except TmuxServiceError as exc:
         if request.is_json:
             return jsonify({"error": str(exc)}), 500

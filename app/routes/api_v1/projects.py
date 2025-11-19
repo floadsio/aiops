@@ -8,8 +8,10 @@ from typing import Any
 from flask import current_app, g, jsonify, request
 from sqlalchemy.exc import IntegrityError
 
+from datetime import datetime, timezone
+
 from ...extensions import db
-from ...models import Project, Tenant, User
+from ...models import AISession, Project, Tenant, User
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.git_service import ensure_repo_checkout, get_repo_status
 from ...services.tmux_service import TmuxServiceError, close_tmux_target, respawn_pane
@@ -306,6 +308,20 @@ def close_tmux_window_api(project_id: int):
 
     try:
         close_tmux_target(tmux_target, linux_username=linux_username)
+
+        # Mark all sessions with this tmux target as inactive
+        sessions = AISession.query.filter_by(
+            tmux_target=tmux_target,
+            is_active=True
+        ).all()
+
+        for session in sessions:
+            session.is_active = False
+            session.ended_at = datetime.now(timezone.utc)
+
+        if sessions:
+            db.session.commit()
+
         return jsonify({"success": True})
     except TmuxServiceError as exc:
         return jsonify({"error": str(exc)}), 500

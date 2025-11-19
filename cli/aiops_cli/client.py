@@ -517,6 +517,28 @@ class APIClient:
         data = self.get(f"projects/{project_id}/files/{file_path}")
         return data.get("content", "")
 
+    def git_create_pr(
+        self,
+        project_id: int,
+        title: str,
+        description: str,
+        source_branch: str,
+        target_branch: str,
+        assignee: Optional[str] = None,
+        draft: bool = False,
+    ) -> dict[str, Any]:
+        """Create a pull request (GitHub) or merge request (GitLab)."""
+        payload = {
+            "title": title,
+            "description": description,
+            "source_branch": source_branch,
+            "target_branch": target_branch,
+            "draft": draft,
+        }
+        if assignee:
+            payload["assignee"] = assignee
+        return self.post(f"projects/{project_id}/pull-requests", json=payload)
+
     # Workflows
     def workflow_claim_issue(self, issue_id: int) -> dict[str, Any]:
         """Claim issue for work."""

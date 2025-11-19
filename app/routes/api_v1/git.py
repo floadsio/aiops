@@ -542,3 +542,198 @@ def init_workspace(project_id: int):
         return jsonify({"error": str(exc)}), 400
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": f"Failed to initialize workspace: {exc}"}), 500
+
+
+@api_v1_bp.post("/projects/<int:project_id>/pull-requests")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def create_pull_request(project_id: int):
+    """Create a pull request (GitHub) or merge request (GitLab).
+
+    Args:
+        project_id: Project ID
+
+    Request body:
+        title (str): PR/MR title (required)
+        description (str): PR/MR description
+        source_branch (str): Source branch name (required)
+        target_branch (str): Target branch name (default: main)
+        assignee (str): Username to assign as reviewer (GitHub) or assignee (GitLab)
+        draft (bool): Create as draft PR/MR (default: false)
+
+    Returns:
+        201: PR/MR created successfully
+        400: Invalid request or creation failed
+        403: Access denied
+        404: Project not found
+    """
+    project = Project.query.get_or_404(project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied"}), 403
+
+    data = request.get_json(silent=True) or {}
+    title = (data.get("title") or "").strip()
+    description = (data.get("description") or "").strip()
+    source_branch = (data.get("source_branch") or "").strip()
+    target_branch = (data.get("target_branch") or "main").strip()
+    assignee = (data.get("assignee") or "").strip() or None
+    draft = data.get("draft", False)
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not source_branch:
+        return jsonify({"error": "Source branch is required"}), 400
+
+    # Get project's issue integration to access git provider
+    from ...models import ProjectIntegration
+
+    project_integration = ProjectIntegration.query.filter_by(
+        project_id=project.id
+    ).first()
+
+    if not project_integration or not project_integration.integration:
+        return jsonify({
+            "error": "Project has no issue integration configured"
+        }), 400
+
+    integration = project_integration.integration
+    provider = integration.provider.lower()
+
+    try:
+        if provider == "github":
+            result = _create_github_pr(
+                integration,
+                project_integration,
+                title,
+                description,
+                source_branch,
+                target_branch,
+                assignee,
+                draft,
+            )
+        elif provider == "gitlab":
+            result = _create_gitlab_mr(
+                integration,
+                project_integration,
+                title,
+                description,
+                source_branch,
+                target_branch,
+                assignee,
+                draft,
+            )
+        else:
+            return jsonify({
+                "error": f"Provider '{provider}' does not support PR/MR creation"
+            }), 400
+
+        return jsonify(result), 201
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Failed to create PR/MR: %s", exc)
+        return jsonify({"error": f"Failed to create PR/MR: {str(exc)}"}), 400
+
+
+def _create_github_pr(
+    integration,
+    project_integration,
+    title: str,
+    description: str,
+    source_branch: str,
+    target_branch: str,
+    assignee: str | None,
+    draft: bool,
+):
+    """Create a GitHub pull request."""
+    import github
+
+    token = integration.api_token
+    base_url = integration.base_url
+
+    # Initialize GitHub client
+    if base_url:
+        gh = github.Github(base_url=base_url, login_or_token=token)
+    else:
+        gh = github.Github(login_or_token=token)
+
+    repo_name = project_integration.external_identifier
+    repo = gh.get_repo(repo_name)
+
+    # Create PR
+    pr = repo.create_pull(
+        title=title,
+        body=description,
+        head=source_branch,
+        base=target_branch,
+        draft=draft,
+    )
+
+    # Assign reviewer if specified
+    if assignee:
+        try:
+            pr.create_review_request(reviewers=[assignee])
+        except github.GithubException as exc:
+            current_app.logger.warning(
+                "Failed to assign reviewer %s: %s", assignee, exc
+            )
+
+    return {
+        "number": pr.number,
+        "title": pr.title,
+        "url": pr.html_url,
+        "state": pr.state,
+        "draft": pr.draft,
+    }
+
+
+def _create_gitlab_mr(
+    integration,
+    project_integration,
+    title: str,
+    description: str,
+    source_branch: str,
+    target_branch: str,
+    assignee: str | None,
+    draft: bool,
+):
+    """Create a GitLab merge request."""
+    import gitlab
+
+    token = integration.api_token
+    base_url = integration.base_url or "https://gitlab.com"
+
+    # Initialize GitLab client
+    gl = gitlab.Gitlab(base_url, private_token=token)
+    gl.auth()
+
+    project_ref = project_integration.external_identifier
+    gl_project = gl.projects.get(project_ref)
+
+    # Prepare MR data
+    mr_data = {
+        "source_branch": source_branch,
+        "target_branch": target_branch,
+        "title": ("Draft: " if draft else "") + title,
+        "description": description,
+    }
+
+    # Resolve assignee username to user ID if provided
+    if assignee:
+        try:
+            users = gl.users.list(username=assignee, get_all=False)
+            if users:
+                mr_data["assignee_id"] = users[0].id
+        except gitlab.exceptions.GitlabError as exc:
+            current_app.logger.warning(
+                "Failed to resolve assignee %s: %s", assignee, exc
+            )
+
+    # Create MR
+    mr = gl_project.mergerequests.create(mr_data)
+
+    return {
+        "number": mr.iid,
+        "title": mr.title,
+        "url": mr.web_url,
+        "state": mr.state,
+        "draft": draft,
+    }

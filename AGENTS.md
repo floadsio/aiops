@@ -60,10 +60,39 @@ aiops git branches <project>                   # List branches
 aiops git branch <project> feature-x           # Create branch
 aiops git checkout <project> feature-x         # Switch branch
 
+# Pull/Merge Requests (CRITICAL - ALWAYS use aiops CLI)
+aiops git pr-create <project> \
+  --title "Feature: Add authentication" \
+  --description "Implements user authentication with JWT tokens" \
+  --source feature-auth \
+  --target main \
+  --assignee githubusername \
+  --draft                                      # Optional: create as draft
+
 # Read files
 aiops git cat <project> app/models.py          # Read file
 aiops git files <project> app/                 # List directory
 ```
+
+**CRITICAL: Pull/Merge Request Guidelines**
+- **ALWAYS use `aiops git pr-create`** - Never use `gh pr create` or `git push` with upstream PR creation
+- The CLI automatically detects provider (GitHub/GitLab) and creates appropriate PR/MR
+- Supports both GitHub pull requests and GitLab merge requests
+- Assignee is reviewer for GitHub, assignee for GitLab
+- Use `--draft` flag to create draft PRs (GitHub only)
+- Requires integration with "Pull requests" write permission (GitHub fine-grained PAT)
+- Example workflow:
+  ```bash
+  aiops git branch aiops feature-new-auth      # Create branch
+  aiops git checkout aiops feature-new-auth    # Switch to branch
+  # Make changes and commit
+  aiops git push aiops                         # Push commits
+  aiops git pr-create aiops \
+    --title "Add authentication" \
+    --source feature-new-auth \
+    --target main \
+    --assignee reviewer-username
+  ```
 
 #### Workflow Commands
 ```bash

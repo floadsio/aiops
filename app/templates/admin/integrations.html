@@ -73,6 +73,22 @@
           {% else %}
             <span class="badge">Disabled</span>
           {% endif %}
+          <details style="margin-top: 0.5rem;">
+            <summary>Edit integration</summary>
+            {% set tenant_update_form = tenant_integration_update_forms[integration.id] %}
+            <form method="post" action="{{ url_for('admin.update_tenant_integration', integration_id=integration.id) }}" class="integration-inline-form">
+              {{ tenant_update_form.hidden_tag() }}
+              <label>
+                {{ tenant_update_form.name.label }}
+                {{ tenant_update_form.name() }}
+              </label>
+              <label>
+                {{ tenant_update_form.base_url.label }}
+                {{ tenant_update_form.base_url(placeholder="Optional override for self-hosted instances") }}
+              </label>
+              <button type="submit" class="secondary">{{ tenant_update_form.submit.label.text }}</button>
+            </form>
+          </details>
         </td>
         <td>
           {% if integration.project_integrations %}

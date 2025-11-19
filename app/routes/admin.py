@@ -60,6 +60,7 @@ from ..forms.admin import (
     TenantForm,
     TenantIntegrationDeleteForm,
     TenantIntegrationForm,
+    TenantIntegrationUpdateForm,
     TmuxResyncForm,
     UpdateApplicationForm,
     UserCredentialCreateForm,
@@ -3179,6 +3180,14 @@ def manage_integrations():
             update_forms[link.id] = update_form
             delete_forms[link.id] = delete_form
 
+    # Create update forms for tenant integrations
+    tenant_integration_update_forms: dict[int, TenantIntegrationUpdateForm] = {}
+    for integration in integrations:
+        update_form = TenantIntegrationUpdateForm(prefix=f"update-tenant-{integration.id}")
+        update_form.name.data = integration.name
+        update_form.base_url.data = integration.base_url or ""
+        tenant_integration_update_forms[integration.id] = update_form
+
     return render_template(
         "admin/integrations.html",
         integration_form=integration_form,
@@ -3187,6 +3196,7 @@ def manage_integrations():
         integrations=integrations,
         integration_update_forms=update_forms,
         integration_delete_forms=delete_forms,
+        tenant_integration_update_forms=tenant_integration_update_forms,
     )
 
 
@@ -3303,6 +3313,46 @@ def delete_project_integration(project_integration_id: int):
     db.session.delete(link)
     db.session.commit()
     flash("Project integration removed.", "success")
+    return redirect(url_for("admin.manage_integrations"))
+
+
+@admin_bp.route("/integrations/<int:integration_id>/update", methods=["POST"])
+@admin_required
+def update_tenant_integration(integration_id: int):
+    integration = TenantIntegration.query.get_or_404(integration_id)
+
+    prefix = f"update-tenant-{integration_id}"
+    form = TenantIntegrationUpdateForm(prefix=prefix)
+
+    # Handle both prefixed and non-prefixed form submissions
+    prefixed_field = f"{prefix}-name"
+    if prefixed_field not in request.form and "name" in request.form:
+        form = TenantIntegrationUpdateForm()
+
+    if not form.validate_on_submit():
+        flash("Unable to update integration. Please check the form.", "danger")
+        return redirect(url_for("admin.manage_integrations"))
+
+    # Check if name is being changed and if it conflicts with another integration
+    new_name = form.name.data.strip()
+    if new_name != integration.name:
+        existing = TenantIntegration.query.filter_by(
+            tenant_id=integration.tenant_id,
+            name=new_name,
+        ).first()
+        if existing:
+            flash(
+                f"Integration name '{new_name}' already exists for this tenant.",
+                "danger"
+            )
+            return redirect(url_for("admin.manage_integrations"))
+
+    # Update the integration metadata
+    integration.name = new_name
+    integration.base_url = (form.base_url.data or "").strip() or None
+
+    db.session.commit()
+    flash(f"Integration '{integration.name}' updated successfully.", "success")
     return redirect(url_for("admin.manage_integrations"))
 
 

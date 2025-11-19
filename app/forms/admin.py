@@ -121,6 +121,12 @@ class TenantIntegrationForm(FlaskForm):
     save = SubmitField("Save Integration")
 
 
+class TenantIntegrationUpdateForm(FlaskForm):
+    name = StringField("Name", validators=[DataRequired(), Length(max=255)])
+    base_url = URLField("Base URL", validators=[Optional(), URL(), Length(max=512)])
+    submit = SubmitField("Update Integration")
+
+
 class TenantIntegrationDeleteForm(FlaskForm):
     integration_id = HiddenField(validators=[DataRequired()])
     submit = SubmitField("Remove Integration")

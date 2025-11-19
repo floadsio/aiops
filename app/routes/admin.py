@@ -2330,8 +2330,23 @@ def create_assisted_issue():
             ).first()
 
             if not issue:
+                # Log details for debugging
+                current_app.logger.error(
+                    f"Failed to find issue: external_id={issue_payload.external_id}, "
+                    f"project_integration_id={integration.id}, "
+                    f"title={issue_payload.title}"
+                )
+                # Try to find any issues for this integration
+                all_issues = ExternalIssue.query.filter_by(
+                    project_integration_id=integration.id
+                ).all()
+                current_app.logger.error(
+                    f"All issues for integration {integration.id}: "
+                    f"{[(i.id, i.external_id, i.title) for i in all_issues]}"
+                )
                 raise RuntimeError(
-                    f"Failed to find synced issue #{issue_payload.external_id} in database"
+                    f"Failed to find synced issue #{issue_payload.external_id} in database. "
+                    f"Created issue but sync didn't pull it. Check logs for details."
                 )
 
             flash(f"Draft issue created: #{issue.external_id}", "success")

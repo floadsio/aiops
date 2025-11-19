@@ -539,6 +539,23 @@ class APIClient:
             payload["assignee"] = assignee
         return self.post(f"projects/{project_id}/pull-requests", json=payload)
 
+    def git_merge_pr(
+        self,
+        project_id: int,
+        pr_number: int,
+        method: str = "merge",
+        delete_branch: bool = False,
+        commit_message: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Merge a pull request (GitHub) or merge request (GitLab)."""
+        payload = {
+            "method": method,
+            "delete_branch": delete_branch,
+        }
+        if commit_message:
+            payload["commit_message"] = commit_message
+        return self.post(f"projects/{project_id}/pull-requests/{pr_number}/merge", json=payload)
+
     # Workflows
     def workflow_claim_issue(self, issue_id: int) -> dict[str, Any]:
         """Claim issue for work."""

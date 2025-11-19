@@ -1936,7 +1936,7 @@ def sessions_kill(
             sys.exit(1)
 
         # Display session info
-        console.print(f"\n[yellow]Session to kill:[/yellow]")
+        console.print("\n[yellow]Session to kill:[/yellow]")
         console.print(f"  Tmux target: {tmux_target_str}")
         console.print(f"  Tool: {tool}")
         if issue_id:
@@ -2997,6 +2997,233 @@ def credentials_delete(ctx: click.Context, credential_id: int) -> None:
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+# ============================================================================
+# SSH KEYS COMMANDS
+# ============================================================================
+
+
+@cli.group(name="ssh-keys")
+def ssh_keys() -> None:
+    """Manage SSH keys for git operations (admin only)."""
+
+
+@ssh_keys.command(name="list")
+@click.option(
+    "--tenant",
+    "-t",
+    type=int,
+    help="Filter by tenant ID",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Choice(["table", "json", "yaml"]),
+    help="Output format",
+)
+@click.pass_context
+def ssh_keys_list(
+    ctx: click.Context, tenant: Optional[int], output: Optional[str]
+) -> None:
+    """List all SSH keys.
+
+    Shows both filesystem keys and database-encrypted keys.
+    Database keys are marked with [DB] prefix.
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        params = {}
+        if tenant:
+            params["tenant_id"] = tenant
+
+        result = client.get("admin/ssh-keys", params=params)
+        keys = result.get("ssh_keys", [])
+
+        if not keys:
+            console.print("[yellow]No SSH keys configured[/yellow]")
+            console.print("\nUse 'aiops ssh-keys add' to add a key")
+            return
+
+        if output_format == "table":
+            table = Table(title="SSH Keys")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="green")
+            table.add_column("Tenant", style="magenta")
+            table.add_column("Type", style="yellow")
+            table.add_column("Created", style="blue")
+
+            for key in keys:
+                key_type = "[DB]" if key.get("encrypted_private_key") else "Filesystem"
+                table.add_row(
+                    str(key.get("id", "")),
+                    key.get("name", ""),
+                    key.get("tenant_name", ""),
+                    key_type,
+                    key.get("created_at", ""),
+                )
+
+            console.print(table)
+        else:
+            format_output({"ssh_keys": keys}, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@ssh_keys.command(name="add")
+@click.option(
+    "--name",
+    "-n",
+    required=True,
+    help="Name for the SSH key",
+)
+@click.option(
+    "--tenant",
+    "-t",
+    type=int,
+    required=True,
+    help="Tenant ID to associate key with",
+)
+@click.option(
+    "--private-key-file",
+    "-f",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="Path to private key file (will be encrypted and stored in database)",
+)
+@click.option(
+    "--public-key-file",
+    "-p",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="Path to public key file (optional)",
+)
+@click.pass_context
+def ssh_keys_add(
+    ctx: click.Context,
+    name: str,
+    tenant: int,
+    private_key_file: str,
+    public_key_file: Optional[str],
+) -> None:
+    """Add an SSH key and encrypt it in the database.
+
+    The private key will be encrypted using SSH_KEY_ENCRYPTION_KEY from .env
+    and stored in the database. The original file is not modified.
+
+    Example:
+        aiops ssh-keys add --name "my-deploy-key" --tenant 1 --private-key-file ~/.ssh/id_ed25519
+    """
+    client = get_client(ctx)
+
+    try:
+        # Read private key
+        with open(private_key_file, "r") as f:
+            private_key_content = f.read()
+
+        # Read public key if provided
+        public_key_content = None
+        if public_key_file:
+            with open(public_key_file, "r") as f:
+                public_key_content = f.read()
+
+        # Send to API
+        result = client.post(
+            "admin/ssh-keys",
+            json={
+                "name": name,
+                "tenant_id": tenant,
+                "private_key_content": private_key_content,
+                "public_key_content": public_key_content,
+            },
+        )
+
+        key_id = result.get("id")
+        console.print(f"[green]SSH key '{name}' added successfully (ID: {key_id})[/green]")
+        console.print("[yellow]Private key encrypted and stored in database[/yellow]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except OSError as exc:
+        error_console.print(f"[red]Error reading key file:[/red] {exc}")
+        sys.exit(1)
+
+
+@ssh_keys.command(name="delete")
+@click.argument("key_id", type=int)
+@click.confirmation_option(prompt="Are you sure you want to delete this SSH key?")
+@click.pass_context
+def ssh_keys_delete(ctx: click.Context, key_id: int) -> None:
+    """Delete an SSH key from the database.
+
+    This will remove the encrypted key from the database.
+    Projects using this key will fall back to other available keys.
+    """
+    client = get_client(ctx)
+
+    try:
+        client.delete(f"admin/ssh-keys/{key_id}")
+        console.print(f"[green]SSH key {key_id} deleted successfully[/green]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@ssh_keys.command(name="migrate")
+@click.option(
+    "--key-id",
+    "-k",
+    type=int,
+    required=True,
+    help="SSH key ID to migrate",
+)
+@click.option(
+    "--private-key-file",
+    "-f",
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="Path to private key file on filesystem",
+)
+@click.pass_context
+def ssh_keys_migrate(
+    ctx: click.Context, key_id: int, private_key_file: str
+) -> None:
+    """Migrate an existing filesystem SSH key to encrypted database storage.
+
+    This reads the private key from the filesystem and stores it encrypted
+    in the database. The original file is not modified.
+
+    Example:
+        aiops ssh-keys migrate --key-id 5 --private-key-file /path/to/key
+    """
+    client = get_client(ctx)
+
+    try:
+        # Read private key
+        with open(private_key_file, "r") as f:
+            private_key_content = f.read()
+
+        # Send to API
+        result = client.post(
+            f"admin/ssh-keys/{key_id}/migrate",
+            json={"private_key_content": private_key_content},
+        )
+
+        console.print(f"[green]{result.get('message', 'Key migrated successfully')}[/green]")
+        console.print("[yellow]Private key encrypted and stored in database[/yellow]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except OSError as exc:
+        error_console.print(f"[red]Error reading key file:[/red] {exc}")
         sys.exit(1)
 
 

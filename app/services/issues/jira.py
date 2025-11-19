@@ -490,10 +490,12 @@ def close_issue(
 
 
 def _resolve_assignee(fields: dict) -> Optional[str]:
+    from .utils import normalize_assignee_name
+
     assignee = fields.get("assignee")
     if isinstance(assignee, dict):
         value = assignee.get("displayName") or assignee.get("name")
-        return str(value) if value else None
+        return normalize_assignee_name(str(value) if value else None)
     return None
 
 

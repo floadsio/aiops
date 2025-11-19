@@ -267,11 +267,14 @@ def _issue_to_payload(issue: Any) -> IssuePayload:
 
 
 def _resolve_assignee(issue: Any) -> Optional[str]:
+    from .utils import normalize_assignee_name
+
     assignee = getattr(issue, "assignee", None)
     if assignee is None:
         return None
-    login = getattr(assignee, "login", None) or getattr(assignee, "name", None)
-    return str(login) if login else None
+    # Prefer name over login for better consistency with other providers
+    name = getattr(assignee, "name", None) or getattr(assignee, "login", None)
+    return normalize_assignee_name(str(name) if name else None)
 
 
 def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:

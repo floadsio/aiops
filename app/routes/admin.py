@@ -3954,3 +3954,194 @@ def download_backup_web(backup_id: int):
         current_app.logger.exception("Failed to download backup.")
         flash(f"Error downloading backup: {exc}", "danger")
         return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/activity", methods=["GET"])
+@admin_required
+def view_activity():
+    """View system activity log with filtering and pagination."""
+    from ..models import Activity
+    from ..services.activity_service import get_recent_activities
+
+    # Get filter parameters
+    limit_str = request.args.get("limit", "100")
+    try:
+        limit = min(int(limit_str), 1000)  # Max 1000 records
+    except ValueError:
+        limit = 100
+
+    user_id_str = request.args.get("user_id")
+    user_id = None
+    if user_id_str:
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            pass
+
+    action_type = request.args.get("action_type") or None
+    resource_type = request.args.get("resource_type") or None
+    status = request.args.get("status") or None
+    source = request.args.get("source") or None
+
+    # Fetch activities
+    activities = get_recent_activities(
+        limit=limit,
+        user_id=user_id,
+        action_type=action_type,
+        resource_type=resource_type,
+        status=status,
+        source=source,
+    )
+
+    # Get unique filter values for dropdowns
+    all_action_types = (
+        db.session.query(Activity.action_type)
+        .distinct()
+        .order_by(Activity.action_type)
+        .all()
+    )
+    action_types = [a[0] for a in all_action_types if a[0]]
+
+    all_resource_types = (
+        db.session.query(Activity.resource_type)
+        .distinct()
+        .order_by(Activity.resource_type)
+        .all()
+    )
+    resource_types = [r[0] for r in all_resource_types if r[0]]
+
+    all_users = User.query.order_by(User.email).all()
+
+    return render_template(
+        "admin/activity.html",
+        activities=activities,
+        action_types=action_types,
+        resource_types=resource_types,
+        users=all_users,
+        current_filters={
+            "limit": limit,
+            "user_id": user_id,
+            "action_type": action_type,
+            "resource_type": resource_type,
+            "status": status,
+            "source": source,
+        },
+    )
+
+
+@admin_bp.route("/activity/export", methods=["GET"])
+@admin_required
+def export_activity():
+    """Export activity log to CSV or JSON."""
+    from ..models import Activity
+    from ..services.activity_service import get_recent_activities
+    import csv
+    import io
+
+    # Get same filter parameters as view
+    limit_str = request.args.get("limit", "1000")
+    try:
+        limit = min(int(limit_str), 10000)  # Max 10000 for export
+    except ValueError:
+        limit = 1000
+
+    user_id_str = request.args.get("user_id")
+    user_id = None
+    if user_id_str:
+        try:
+            user_id = int(user_id_str)
+        except ValueError:
+            pass
+
+    action_type = request.args.get("action_type") or None
+    resource_type = request.args.get("resource_type") or None
+    status = request.args.get("status") or None
+    source = request.args.get("source") or None
+    export_format = request.args.get("format", "csv")
+
+    # Fetch activities
+    activities = get_recent_activities(
+        limit=limit,
+        user_id=user_id,
+        action_type=action_type,
+        resource_type=resource_type,
+        status=status,
+        source=source,
+    )
+
+    if export_format == "json":
+        # Export as JSON
+        import json
+        from flask import Response
+
+        activity_data = []
+        for activity in activities:
+            activity_dict = {
+                "id": activity.id,
+                "timestamp": activity.created_at.isoformat() if activity.created_at else None,
+                "user_email": activity.user.email if activity.user else None,
+                "action_type": activity.action_type,
+                "resource_type": activity.resource_type,
+                "resource_id": activity.resource_id,
+                "resource_name": activity.resource_name,
+                "status": activity.status,
+                "description": activity.description,
+                "extra_data": activity.extra_data,
+                "error_message": activity.error_message,
+                "ip_address": activity.ip_address,
+                "source": activity.source,
+            }
+            activity_data.append(activity_dict)
+
+        return Response(
+            json.dumps(activity_data, indent=2),
+            mimetype="application/json",
+            headers={"Content-Disposition": "attachment;filename=activity_log.json"},
+        )
+    else:
+        # Export as CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+
+        # Write header
+        writer.writerow([
+            "ID",
+            "Timestamp",
+            "User",
+            "Action Type",
+            "Resource Type",
+            "Resource ID",
+            "Resource Name",
+            "Status",
+            "Description",
+            "IP Address",
+            "Source",
+            "Error Message",
+        ])
+
+        # Write data
+        for activity in activities:
+            writer.writerow([
+                activity.id,
+                activity.created_at.isoformat() if activity.created_at else "",
+                activity.user.email if activity.user else "",
+                activity.action_type or "",
+                activity.resource_type or "",
+                activity.resource_id or "",
+                activity.resource_name or "",
+                activity.status or "",
+                activity.description or "",
+                activity.ip_address or "",
+                activity.source or "",
+                activity.error_message or "",
+            ])
+
+        response = cast(
+            Any,
+            current_app.response_class(
+                output.getvalue(),
+                mimetype="text/csv",
+                headers={"Content-Disposition": "attachment;filename=activity_log.csv"},
+            ),
+        )
+        return response

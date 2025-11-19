@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Log | aiops Control Panel{% endblock %}
+
+{% block extra_head %}
+<style>
+  .activity-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: var(--md-surface);
+    border-radius: 0.5rem;
+    border: 1px solid var(--md-border);
+  }
+  .filter-group {
+    flex: 1 1 auto;
+    min-width: 150px;
+  }
+  .filter-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .filter-group select,
+  .filter-group input {
+    width: 100%;
+  }
+  .activity-table {
+    overflow-x: auto;
+  }
+  .activity-table table {
+    min-width: 100%;
+    font-size: 0.9rem;
+  }
+  .activity-table th {
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .activity-table td {
+    vertical-align: top;
+  }
+  .activity-id {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+  .activity-timestamp {
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .activity-user {
+    font-size: 0.85rem;
+  }
+  .activity-action {
+    font-family: monospace;
+    font-size: 0.85rem;
+    padding: 0.15rem 0.4rem;
+    background: #e2e8f0;
+    border-radius: 0.25rem;
+  }
+  [data-theme="dark"] .activity-action {
+    background: #334155;
+  }
+  .activity-resource {
+    font-size: 0.85rem;
+  }
+  .activity-status {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .activity-status.success {
+    background: #dcfce7;
+    color: #166534;
+  }
+  .activity-status.failure {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+  .activity-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+  }
+  [data-theme="dark"] .activity-status.success {
+    background: #14532d;
+    color: #86efac;
+  }
+  [data-theme="dark"] .activity-status.failure {
+    background: #7f1d1d;
+    color: #fca5a5;
+  }
+  [data-theme="dark"] .activity-status.pending {
+    background: #78350f;
+    color: #fde047;
+  }
+  .activity-description {
+    font-size: 0.85rem;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .activity-source-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .activity-source-badge.web {
+    background: #dbeafe;
+    color: #1e40af;
+  }
+  .activity-source-badge.cli {
+    background: #e0e7ff;
+    color: #4338ca;
+  }
+  [data-theme="dark"] .activity-source-badge.web {
+    background: #1e3a8a;
+    color: #93c5fd;
+  }
+  [data-theme="dark"] .activity-source-badge.cli {
+    background: #312e81;
+    color: #a5b4fc;
+  }
+  .export-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  .activity-stats {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.9rem;
+  }
+  .activity-stats span {
+    color: #64748b;
+  }
+  .activity-stats strong {
+    color: #0f172a;
+  }
+  [data-theme="dark"] .activity-stats strong {
+    color: #e2e8f0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+  <div class="page-header">
+    <div>
+      <h1>Activity Log</h1>
+      <div class="activity-stats">
+        <span>Showing <strong>{{ activities|length }}</strong> activities</span>
+      </div>
+    </div>
+    <div class="export-buttons">
+      <a href="{{ url_for('admin.export_activity', **current_filters, format='csv') }}"
+         class="secondary" role="button">
+        Export CSV
+      </a>
+      <a href="{{ url_for('admin.export_activity', **current_filters, format='json') }}"
+         class="secondary" role="button">
+        Export JSON
+      </a>
+    </div>
+  </div>
+
+  <form method="get" action="{{ url_for('admin.view_activity') }}">
+    <div class="activity-filters">
+      <div class="filter-group">
+        <label for="user_id">User</label>
+        <select name="user_id" id="user_id" onchange="this.form.submit()">
+          <option value="">All Users</option>
+          {% for user in users %}
+          <option value="{{ user.id }}" {% if current_filters.user_id == user.id %}selected{% endif %}>
+            {{ user.email }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="action_type">Action Type</label>
+        <select name="action_type" id="action_type" onchange="this.form.submit()">
+          <option value="">All Actions</option>
+          {% for action in action_types %}
+          <option value="{{ action }}" {% if current_filters.action_type == action %}selected{% endif %}>
+            {{ action }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="resource_type">Resource Type</label>
+        <select name="resource_type" id="resource_type" onchange="this.form.submit()">
+          <option value="">All Resources</option>
+          {% for resource in resource_types %}
+          <option value="{{ resource }}" {% if current_filters.resource_type == resource %}selected{% endif %}>
+            {{ resource }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="status">Status</label>
+        <select name="status" id="status" onchange="this.form.submit()">
+          <option value="">All Statuses</option>
+          <option value="success" {% if current_filters.status == 'success' %}selected{% endif %}>Success</option>
+          <option value="failure" {% if current_filters.status == 'failure' %}selected{% endif %}>Failure</option>
+          <option value="pending" {% if current_filters.status == 'pending' %}selected{% endif %}>Pending</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="source">Source</label>
+        <select name="source" id="source" onchange="this.form.submit()">
+          <option value="">All Sources</option>
+          <option value="web" {% if current_filters.source == 'web' %}selected{% endif %}>Web</option>
+          <option value="cli" {% if current_filters.source == 'cli' %}selected{% endif %}>CLI</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="limit">Limit</label>
+        <select name="limit" id="limit" onchange="this.form.submit()">
+          <option value="50" {% if current_filters.limit == 50 %}selected{% endif %}>50</option>
+          <option value="100" {% if current_filters.limit == 100 %}selected{% endif %}>100</option>
+          <option value="250" {% if current_filters.limit == 250 %}selected{% endif %}>250</option>
+          <option value="500" {% if current_filters.limit == 500 %}selected{% endif %}>500</option>
+          <option value="1000" {% if current_filters.limit == 1000 %}selected{% endif %}>1000</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="display: flex; align-items: flex-end;">
+        <button type="submit" class="secondary">Apply Filters</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="activity-table">
+    {% if activities %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Resource</th>
+          <th>Status</th>
+          <th>Description</th>
+          <th>Source</th>
+          <th>IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for activity in activities %}
+        <tr>
+          <td>
+            <span class="activity-id">#{{ activity.id }}</span>
+          </td>
+          <td>
+            <span class="activity-timestamp">
+              {{ activity.created_at.strftime('%Y-%m-%d %H:%M:%S') if activity.created_at else 'N/A' }}
+            </span>
+          </td>
+          <td>
+            <span class="activity-user">
+              {{ activity.user.email if activity.user else 'System' }}
+            </span>
+          </td>
+          <td>
+            <code class="activity-action">{{ activity.action_type }}</code>
+          </td>
+          <td>
+            <div class="activity-resource">
+              {% if activity.resource_type %}
+                <strong>{{ activity.resource_type }}</strong>
+                {% if activity.resource_id %}
+                  #{{ activity.resource_id }}
+                {% endif %}
+                {% if activity.resource_name %}
+                  <br><small>{{ activity.resource_name }}</small>
+                {% endif %}
+              {% else %}
+                <span style="color: #94a3b8;">N/A</span>
+              {% endif %}
+            </div>
+          </td>
+          <td>
+            <span class="activity-status {{ activity.status }}">
+              {{ activity.status }}
+            </span>
+          </td>
+          <td>
+            <div class="activity-description" title="{{ activity.description or '' }}">
+              {{ activity.description or '-' }}
+            </div>
+            {% if activity.error_message %}
+            <details style="margin-top: 0.5rem;">
+              <summary style="cursor: pointer; color: #dc2626; font-size: 0.75rem;">Error Details</summary>
+              <pre style="font-size: 0.75rem; margin-top: 0.5rem; padding: 0.5rem; background: #fee2e2; border-radius: 0.25rem;">{{ activity.error_message }}</pre>
+            </details>
+            {% endif %}
+          </td>
+          <td>
+            <span class="activity-source-badge {{ activity.source }}">
+              {{ activity.source }}
+            </span>
+          </td>
+          <td>
+            <small>{{ activity.ip_address or '-' }}</small>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; padding: 2rem; color: #64748b;">
+      No activities found matching the current filters.
+    </p>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

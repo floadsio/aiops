@@ -564,6 +564,51 @@ class Backup(BaseModel, TimestampMixin):
     created_by: Mapped[Optional["User"]] = relationship("User")
 
 
+class Activity(BaseModel, TimestampMixin):
+    """Activity log for tracking all aiops operations.
+
+    Captures all user actions across web UI and CLI including issue management,
+    git operations, session management, and system operations.
+    """
+
+    __tablename__ = "activities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    action_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # e.g., 'issue.create', 'git.commit', 'session.start'
+    resource_type: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True, index=True
+    )  # e.g., 'issue', 'project', 'session'
+    resource_id: Mapped[Optional[int]] = mapped_column(
+        Integer, nullable=True, index=True
+    )  # ID of the resource
+    resource_name: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True
+    )  # Human-readable resource name
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="success", index=True
+    )  # 'success', 'failure', 'pending'
+    description: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )  # Human-readable action description
+    extra_data: Mapped[Optional[dict[str, Any]]] = mapped_column(
+        db.JSON, nullable=True
+    )  # Additional context (files, messages, etc.)
+    error_message: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True
+    )  # Error details if status='failure'
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    source: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="web", index=True
+    )  # 'web' or 'cli'
+
+    user: Mapped[Optional["User"]] = relationship("User")
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

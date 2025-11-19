@@ -224,6 +224,27 @@ Configure aiops to trigger Ansible automation through Semaphore by setting the f
 
 After configuring the variables restart the server and open a project. The **Ansible Console** now lists templates fetched from Semaphore; select the template to launch, optionally override arguments, and submit to queue the task remotely.
 
+## GitHub Personal Access Token
+
+Issue synchronization, repository actions, and pull request management require a GitHub personal access token. We recommend using **fine-grained personal access tokens** for better security.
+
+### Required Permissions for Fine-Grained PATs
+
+1. Go to **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens**
+2. Click **Generate new token**
+3. Set token name, expiration, and repository access (organization-wide or specific repositories)
+4. Grant the following **Repository permissions**:
+   - **Contents**: Read and write (required for merging PRs)
+   - **Issues**: Read and write (for issue synchronization)
+   - **Pull requests**: Read and write (for creating and merging PRs)
+   - **Metadata**: Read (automatically added)
+5. Click **Generate token** and copy it immediately—GitHub will not show it again
+6. In aiops, go to **Admin → Integrations**, add or update a GitHub integration, and paste the token
+
+**Note**: Fine-grained PATs require **Contents: Write** permission to merge pull requests, in addition to Pull requests: Write. Classic tokens work but are less secure and considered legacy by GitHub.
+
+Store the token securely and rotate it if it becomes exposed.
+
 ## GitLab Personal Access Token
 
 Issue synchronization and repository actions against GitLab require a personal access token:

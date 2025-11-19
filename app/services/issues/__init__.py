@@ -258,13 +258,81 @@ def sync_tenant_integrations(
     *,
     force_full: bool = False,
 ) -> Dict[int, List[ExternalIssue]]:
+    """Sync issues from multiple project integrations.
+
+    Gracefully handles failures from individual integrations - if one integration
+    fails (e.g., GitLab instance is down), other integrations will still be synced.
+
+    Args:
+        tenant_integrations: Project integrations to sync
+        force_full: Whether to force full sync ignoring last sync time
+
+    Returns:
+        Dict mapping project_integration_id to synced issues for successful syncs.
+        Failed integrations are logged but not included in results.
+    """
     results: Dict[int, List[ExternalIssue]] = {}
+    failed_integrations: List[tuple[int, str, str]] = []
+
     for p_integration in tenant_integrations:
-        results[p_integration.id] = sync_project_integration(  # type: ignore[index]
-            p_integration,
-            force_full=force_full,
+        integration_name = (
+            p_integration.integration.name if p_integration.integration else "Unknown"
         )
-    db.session.commit()
+        provider = (
+            p_integration.integration.provider if p_integration.integration else "unknown"
+        )
+
+        try:
+            synced_issues = sync_project_integration(
+                p_integration,
+                force_full=force_full,
+            )
+            results[p_integration.id] = synced_issues  # type: ignore[index]
+            current_app.logger.info(
+                "Successfully synced %d issues for integration '%s' (provider=%s, id=%d)",
+                len(synced_issues),
+                integration_name,
+                provider,
+                p_integration.id,
+            )
+        except IssueSyncError as exc:
+            # Log the error and continue with other integrations
+            error_msg = str(exc)
+            current_app.logger.error(
+                "Failed to sync integration '%s' (provider=%s, id=%d): %s",
+                integration_name,
+                provider,
+                p_integration.id,
+                error_msg,
+            )
+            failed_integrations.append((p_integration.id, integration_name, error_msg))
+        except Exception as exc:  # noqa: BLE001
+            # Catch unexpected errors and continue
+            error_msg = str(exc) or f"Unknown error: {type(exc).__name__}"
+            current_app.logger.exception(
+                "Unexpected error syncing integration '%s' (provider=%s, id=%d)",
+                integration_name,
+                provider,
+                p_integration.id,
+            )
+            failed_integrations.append((p_integration.id, integration_name, error_msg))
+
+    # Commit all successful syncs
+    if results:
+        db.session.commit()
+        current_app.logger.info(
+            "Issue sync completed: %d integrations succeeded, %d failed",
+            len(results),
+            len(failed_integrations),
+        )
+    else:
+        current_app.logger.warning(
+            "Issue sync completed with no successful integrations (%d failed)",
+            len(failed_integrations),
+        )
+
+    # If all integrations failed, this might indicate a wider issue, but we still
+    # don't raise an exception - the caller should check the results dict
     return results
 
 

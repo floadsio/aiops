@@ -87,11 +87,14 @@ def check_tmux_server() -> dict[str, Any]:
 
 
 def check_git() -> dict[str, Any]:
-    """Check if git is available.
+    """Check if git and CLI tools (gh, glab) are available.
 
     Returns:
         Status dict with 'healthy', 'message', and 'details'
     """
+    tools_status = {}
+
+    # Check git
     try:
         result = subprocess.run(
             ["git", "--version"],
@@ -101,16 +104,60 @@ def check_git() -> dict[str, Any]:
         )
         if result.returncode == 0:
             version = result.stdout.strip()
-            return {
-                "healthy": True,
-                "message": "Git available",
-                "details": {"version": version}
-            }
-        return {"healthy": False, "message": "Git command failed"}
+            tools_status["git"] = {"available": True, "version": version}
+        else:
+            tools_status["git"] = {"available": False, "error": "Command failed"}
     except FileNotFoundError:
-        return {"healthy": False, "message": "Git not installed"}
+        tools_status["git"] = {"available": False, "error": "Not installed"}
     except Exception as exc:  # noqa: BLE001
-        return {"healthy": False, "message": f"Git error: {exc}"}
+        tools_status["git"] = {"available": False, "error": str(exc)}
+
+    # Check gh (GitHub CLI)
+    try:
+        result = subprocess.run(
+            ["gh", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip().split("\n")[0]  # First line has version
+            tools_status["gh"] = {"available": True, "version": version}
+        else:
+            tools_status["gh"] = {"available": False, "error": "Command failed"}
+    except FileNotFoundError:
+        tools_status["gh"] = {"available": False, "error": "Not installed"}
+    except Exception as exc:  # noqa: BLE001
+        tools_status["gh"] = {"available": False, "error": str(exc)}
+
+    # Check glab (GitLab CLI)
+    try:
+        result = subprocess.run(
+            ["glab", "--version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            version = result.stdout.strip()
+            tools_status["glab"] = {"available": True, "version": version}
+        else:
+            tools_status["glab"] = {"available": False, "error": "Command failed"}
+    except FileNotFoundError:
+        tools_status["glab"] = {"available": False, "error": "Not installed"}
+    except Exception as exc:  # noqa: BLE001
+        tools_status["glab"] = {"available": False, "error": str(exc)}
+
+    # Determine overall health - git is required, gh/glab are optional
+    git_available = tools_status.get("git", {}).get("available", False)
+    available_count = sum(1 for t in tools_status.values() if t.get("available", False))
+    total_count = len(tools_status)
+
+    return {
+        "healthy": git_available,
+        "message": f"{available_count}/{total_count} Git tools available",
+        "details": {"tools": tools_status}
+    }
 
 
 def check_ai_tools() -> dict[str, Any]:
@@ -361,6 +408,7 @@ def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
     """
     try:
         import os
+        from urllib.parse import urlparse
 
         token = integration.api_token or integration.access_token
         if not token:
@@ -370,19 +418,30 @@ def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
         env = os.environ.copy()
         env["GITLAB_TOKEN"] = token
 
-        # Add GITLAB_HOST for private instances
+        # Determine hostname for glab --hostname flag
         base_url = getattr(integration, "base_url", None)
         if base_url and "gitlab.com" not in base_url:
-            env["GITLAB_HOST"] = base_url
+            # Extract hostname from URL (e.g., "gitlab.kumbe.it" from "https://gitlab.kumbe.it")
+            parsed = urlparse(base_url)
+            hostname = parsed.netloc or parsed.path.strip("/")
 
-        # Test authentication with glab auth status
-        result = subprocess.run(
-            ["glab", "auth", "status"],
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
+            # Test authentication with glab auth status --hostname
+            result = subprocess.run(
+                ["glab", "auth", "status", "--hostname", hostname],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        else:
+            # For gitlab.com, use default
+            result = subprocess.run(
+                ["glab", "auth", "status"],
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
 
         # glab auth status returns 0 when authenticated
         if result.returncode == 0:

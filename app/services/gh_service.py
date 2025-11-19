@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-from ..models import Integration, Project
+from ..models import Project, TenantIntegration
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +32,7 @@ class GhContext:
     github_host: Optional[str] = None  # For GitHub Enterprise instances
 
 
-def _get_project_integration(project: Project) -> Optional[Integration]:
+def _get_project_integration(project: Project) -> Optional[TenantIntegration]:
     """Get the GitHub integration for a project.
 
     Returns:
@@ -51,7 +51,7 @@ def _get_project_integration(project: Project) -> Optional[Integration]:
     return integration
 
 
-def _get_github_url(project: Project, integration: Integration) -> Optional[str]:
+def _get_github_url(project: Project, integration: TenantIntegration) -> Optional[str]:
     """Get the GitHub base URL for a project.
 
     Checks project-level override first, then tenant-level base_url.
@@ -77,7 +77,7 @@ def _get_github_url(project: Project, integration: Integration) -> Optional[str]
     return None
 
 
-def _get_github_token(project: Project, integration: Integration) -> Optional[str]:
+def _get_github_token(project: Project, integration: TenantIntegration) -> Optional[str]:
     """Get the GitHub PAT for a project.
 
     Checks project-level override first, then tenant-level token.

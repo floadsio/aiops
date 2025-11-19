@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-from ..models import Integration, Project
+from ..models import Project, TenantIntegration
 
 log = logging.getLogger(__name__)
 
@@ -32,11 +32,11 @@ class GlabContext:
     gitlab_host: Optional[str] = None  # For private GitLab instances
 
 
-def _get_project_integration(project: Project) -> Optional[Integration]:
+def _get_project_integration(project: Project) -> Optional[TenantIntegration]:
     """Get the GitLab integration for a project.
 
     Returns:
-        The Integration model if project uses GitLab, None otherwise
+        The TenantIntegration model if project uses GitLab, None otherwise
     """
     # Check if project has an integration
     integration = getattr(project, "integration", None)
@@ -51,7 +51,7 @@ def _get_project_integration(project: Project) -> Optional[Integration]:
     return integration
 
 
-def _get_gitlab_url(project: Project, integration: Integration) -> Optional[str]:
+def _get_gitlab_url(project: Project, integration: TenantIntegration) -> Optional[str]:
     """Get the GitLab base URL for a project.
 
     Checks project-level override first, then tenant-level base_url.
@@ -77,7 +77,7 @@ def _get_gitlab_url(project: Project, integration: Integration) -> Optional[str]
     return None
 
 
-def _get_gitlab_token(project: Project, integration: Integration) -> Optional[str]:
+def _get_gitlab_token(project: Project, integration: TenantIntegration) -> Optional[str]:
     """Get the GitLab PAT for a project.
 
     Checks project-level override first, then tenant-level token.

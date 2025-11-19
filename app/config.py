@@ -68,6 +68,7 @@ def _ensure_codex_flags(
 
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
+    SSH_KEY_ENCRYPTION_KEY = os.getenv("SSH_KEY_ENCRYPTION_KEY")
     INSTANCE_PATH = INSTANCE_PATH
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL", f"sqlite:///{(INSTANCE_DIR / 'app.db').resolve()}"

@@ -677,6 +677,7 @@ def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = No
             "welcome to gitlab",
             "authenticated via",
             "you've successfully",
+            "shell request failed",  # Azure DevOps - auth OK but no shell
         ]):
             return True, None
 

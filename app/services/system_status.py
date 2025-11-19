@@ -494,6 +494,197 @@ def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
         return False, f"Check failed: {exc}"
 
 
+def check_ssh_connectivity() -> dict[str, Any]:
+    """Check SSH connectivity to each project's Git repository.
+
+    Tests SSH connectivity using configured tenant SSH keys.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    try:
+        from ..models import Project
+        from urllib.parse import urlparse
+
+        # Get all projects that use SSH URLs (git@... or ssh://...)
+        projects = Project.query.all()
+        ssh_projects = [
+            p for p in projects
+            if p.repo_url and (
+                p.repo_url.startswith("git@") or
+                p.repo_url.startswith("ssh://")
+            )
+        ]
+
+        if not ssh_projects:
+            return {
+                "healthy": True,
+                "message": "No SSH-based Git projects configured",
+                "details": {"projects": []}
+            }
+
+        project_checks = []
+        connectivity_failures = 0
+
+        for project in ssh_projects:
+            # Extract hostname from Git URL
+            hostname = None
+            if project.repo_url.startswith("git@"):
+                # Format: git@hostname:owner/repo.git
+                hostname = project.repo_url.split("@")[1].split(":")[0]
+            elif project.repo_url.startswith("ssh://"):
+                # Format: ssh://git@hostname/owner/repo.git
+                parsed = urlparse(project.repo_url)
+                hostname = parsed.netloc.split("@")[-1]  # Remove user@ prefix if present
+
+            if not hostname:
+                project_checks.append({
+                    "project_id": project.id,
+                    "project_name": project.name,
+                    "hostname": None,
+                    "ssh_ok": False,
+                    "error": "Could not parse hostname from repo URL"
+                })
+                connectivity_failures += 1
+                continue
+
+            # Test SSH connectivity
+            ssh_ok, error = _test_ssh_connectivity(project, hostname)
+
+            project_checks.append({
+                "project_id": project.id,
+                "project_name": project.name,
+                "hostname": hostname,
+                "ssh_ok": ssh_ok,
+                "error": error,
+            })
+
+            if not ssh_ok:
+                connectivity_failures += 1
+
+        total = len(project_checks)
+        passed = total - connectivity_failures
+
+        return {
+            "healthy": connectivity_failures == 0,
+            "message": f"{passed}/{total} SSH connections OK",
+            "details": {"projects": project_checks}
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"healthy": False, "message": f"SSH connectivity check error: {exc}"}
+
+
+def _test_ssh_connectivity(project: Any, hostname: str) -> tuple[bool, str | None]:
+    """Test SSH connectivity to a Git host using project's SSH key.
+
+    Args:
+        project: Project with SSH key configuration
+        hostname: Git host to test (e.g., "github.com", "gitlab.com")
+
+    Returns:
+        Tuple of (ssh_ok, error_message)
+    """
+    try:
+        from ..services.git_service import _select_project_ssh_key
+        from ..services.ssh_key_service import ssh_key_context
+
+        # Get SSH key for project
+        key_path, key_model, key_source = _select_project_ssh_key(project)
+
+        # No SSH key configured
+        if not key_path and not (key_model and key_model.encrypted_private_key):
+            return False, "No SSH key configured"
+
+        # Build SSH command to test connectivity
+        # Use -T (disable pseudo-terminal) and -o BatchMode=yes (non-interactive)
+        # This will connect and immediately disconnect, testing authentication
+
+        if key_model and key_model.encrypted_private_key:
+            # Use database key with ssh_key_context
+            try:
+                with ssh_key_context(key_model.encrypted_private_key) as auth_sock:
+                    env = {
+                        "SSH_AUTH_SOCK": auth_sock,
+                    }
+                    result = subprocess.run(
+                        [
+                            "ssh",
+                            "-T",
+                            "-o", "BatchMode=yes",
+                            "-o", "StrictHostKeyChecking=accept-new",
+                            "-o", "ConnectTimeout=10",
+                            f"git@{hostname}",
+                        ],
+                        env=env,
+                        capture_output=True,
+                        text=True,
+                        timeout=15,
+                    )
+            except Exception as exc:
+                return False, f"Database key error: {exc}"
+        else:
+            # Use filesystem key
+            result = subprocess.run(
+                [
+                    "ssh",
+                    "-T",
+                    "-i", key_path,
+                    "-o", "IdentitiesOnly=yes",
+                    "-o", "BatchMode=yes",
+                    "-o", "StrictHostKeyChecking=accept-new",
+                    "-o", "ConnectTimeout=10",
+                    f"git@{hostname}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+        # SSH to Git hosts typically returns exit code 1 with a success message
+        # GitHub: "Hi username! You've successfully authenticated..."
+        # GitLab: "Welcome to GitLab, @username!"
+        # BitBucket: "authenticated via ssh key"
+
+        stdout = result.stdout.lower()
+        stderr = result.stderr.lower()
+        output = stdout + stderr
+
+        # Check for success indicators
+        if any(indicator in output for indicator in [
+            "successfully authenticated",
+            "welcome to gitlab",
+            "authenticated via",
+            "you've successfully",
+        ]):
+            return True, None
+
+        # Check for specific error conditions
+        if "permission denied" in output:
+            return False, "Permission denied (key not authorized)"
+        if "connection refused" in output:
+            return False, "Connection refused"
+        if "timeout" in output or "timed out" in output:
+            return False, "Connection timeout"
+        if "could not resolve hostname" in output:
+            return False, "Could not resolve hostname"
+
+        # If we got here, SSH connected but authentication status is unclear
+        # Exit code 1 with output typically means success for Git hosts
+        if result.returncode == 1 and output:
+            return True, None
+
+        # Unknown response
+        error_msg = (stderr or stdout or "Unknown SSH response").strip()
+        if len(error_msg) > 200:
+            error_msg = error_msg[:200] + "..."
+        return False, error_msg
+
+    except subprocess.TimeoutExpired:
+        return False, "SSH connection timeout"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Check failed: {exc}"
+
+
 def check_sessions() -> dict[str, Any]:
     """Check active AI sessions.
 
@@ -537,6 +728,7 @@ def get_system_status() -> dict[str, Any]:
         "workspaces": check_workspaces(),
         "integrations": check_integrations(),
         "cli_git_tools": check_cli_git_tools(),
+        "ssh_connectivity": check_ssh_connectivity(),
         "sessions": check_sessions(),
     }
 

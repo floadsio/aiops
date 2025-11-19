@@ -6,14 +6,12 @@ gh CLI tool with PAT authentication.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from flask import current_app
 
 from ..models import Integration, Project
 

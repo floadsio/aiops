@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from flask import current_app
 
 from ..models import Integration, Project
 

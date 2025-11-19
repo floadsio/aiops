@@ -171,9 +171,9 @@ aiops system backup restore <id>                # Restore from backup (destructi
 - Use `pwd` to verify your location before editing files
 
 ### Production Safety
-- **NEVER auto-update or restart production** (`/home/syseng/aiops/`)
-- Only work in personal workspaces, commit, and push
-- Admin handles production deployments manually
+- **Production restarts allowed when required** - Use `sudo systemctl restart aiops` when configuration changes need to be applied
+- For code changes: Work in personal workspaces, commit, push, then admin handles production deployments
+- For config changes (.env): Can be applied directly to `/home/syseng/aiops/.env` and restarted if needed
 
 ### Development Workflow
 - Load `AGENTS.override.md` for current issue context before coding

@@ -5,6 +5,10 @@ from dotenv import load_dotenv
 from flask import Flask, request
 from flask_wtf.csrf import generate_csrf  # type: ignore
 
+# Load environment variables from .env file BEFORE importing Config
+# This ensures Config class attributes can read env vars correctly
+load_dotenv()
+
 from .cli import register_cli_commands
 from .config import Config
 from .constants import DEFAULT_TENANT_COLOR
@@ -26,9 +30,6 @@ def create_app(
     config_object: Optional[Type[Config]] = None,
     instance_path: Optional[Path] = None,
 ) -> Flask:
-    # Load environment variables from .env file
-    load_dotenv()
-
     if instance_path is not None:
         app = Flask(
             __name__, instance_path=str(instance_path), instance_relative_config=True

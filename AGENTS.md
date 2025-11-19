@@ -183,10 +183,10 @@ aiops system backup restore <id>                # Restore from backup (destructi
 - Use `make start-dev` for auto-reload during development
 - Run `make check` before commits (lint + tests)
 
-### Per-User Workspaces & SSH Keys
+### Per-User Workspaces
 - Each user has a workspace at `/home/{username}/workspace/{tenant_slug}/{project}/`
 - Initialize with: `.venv/bin/flask init-workspace --user-email user@example.com --project-id 1`
-- Use your own SSH keys (`~/.ssh/id_ed25519` or `~/.ssh/id_rsa`) for git authentication
+- For AI tool sessions, users can use their own SSH keys (`~/.ssh/id_ed25519` or `~/.ssh/id_rsa`)
 - Set up: `ssh-keygen -t ed25519 -C "your_email@example.com"` and add public key to GitHub/GitLab
 
 ## Development Commands
@@ -215,16 +215,23 @@ Update both locations when bumping version:
 
 ## Git Operations Architecture
 
-aiops backend uses **official CLI tools** (gh, glab) internally for GitHub/GitLab git operations when Personal Access Tokens (PATs) are available. This provides native multi-user support without SSH key complexity.
+aiops supports **multiple authentication methods** for git operations, with automatic fallback:
 
-**Important: Users and AI tools continue to use `aiops` CLI exclusively.** The gh/glab tools are backend infrastructure only.
+**Priority order:**
+1. **CLI tools (gh/glab) with PAT** - Preferred for GitHub/GitLab (multi-user, simple)
+2. **SSH keys in database** - Encrypted at rest, temporary ssh-agent injection
+3. **SSH keys on filesystem** - Legacy support (`instance/keys/`)
 
-**How it works:**
+**Important: Users and AI tools continue to use `aiops` CLI exclusively.** Authentication is handled transparently by the backend.
+
+### CLI Tools with PAT (Preferred)
+
+When GitHub/GitLab integrations have Personal Access Tokens configured:
+
 1. User/AI tool calls `aiops git pull <project>` via CLI
-2. aiops API receives the request
-3. Backend checks if project has GitHub/GitLab integration with PAT
-4. If yes: Backend uses `gh`/`glab` commands internally with PAT authentication
-5. If no: Backend falls back to SSH keys (existing behavior)
+2. Backend checks if project has GitHub/GitLab integration with PAT
+3. If yes: Backend uses `gh`/`glab` commands internally with PAT authentication
+4. If no: Backend falls back to SSH keys
 
 **Backend infrastructure:**
 - `app/services/gh_service.py` - GitHub CLI wrapper
@@ -232,13 +239,49 @@ aiops backend uses **official CLI tools** (gh, glab) internally for GitHub/GitLa
 - `app/services/cli_git_service.py` - Routing logic
 - Tools installed: gh 2.46.0, glab 1.53.0 (Debian Trixie)
 
-**Benefits:**
-- Multi-user support: Each user's PAT used for git operations
-- No SSH key management: No encryption, ssh-agent, or key lifecycle complexity
-- Backward compatible: Falls back to SSH keys when CLI tools unavailable
-- Transparent to users: No changes to aiops CLI interface
+### SSH Keys in Database
 
-See PR #35 for implementation details.
+For projects without PAT integrations or as fallback, aiops can store SSH keys encrypted in the database:
+
+**Features:**
+- Fernet encryption at rest (requires `SSH_KEY_ENCRYPTION_KEY` in `.env`)
+- Temporary ssh-agent injection per git operation (keys never written to disk)
+- Multi-user support: Each tenant can have SSH keys accessible to all users
+- Automatic cleanup of ssh-agent sessions after operations
+- Health monitoring: System Status page shows SSH connectivity per project
+
+**Backend infrastructure:**
+- `app/services/ssh_key_service.py` - Encryption and ssh-agent management
+- `app/services/git_service.py` - Integration with git operations
+- `app/models.py` - SSHKey.encrypted_private_key field (LargeBinary)
+
+**Security:**
+- Keys encrypted with Fernet symmetric encryption
+- Decrypted only during git operations
+- Temporary ssh-agent process (auto-cleanup)
+- Per-operation key injection (not persistent)
+
+**Setup:**
+```bash
+# Generate encryption key
+python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'
+
+# Add to .env
+echo "SSH_KEY_ENCRYPTION_KEY=your_generated_key_here" >> .env
+```
+
+**Migration from filesystem:**
+```python
+from app.services.ssh_key_service import migrate_key_to_database
+from app.models import SSHKey
+
+# Migrate existing filesystem key to database
+ssh_key = SSHKey.query.filter_by(name="my-key").first()
+migrate_key_to_database(ssh_key, "/path/to/private/key")
+db.session.commit()
+```
+
+See PR #36 for implementation details.
 
 ## Global Agent Context
 

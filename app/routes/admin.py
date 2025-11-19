@@ -2354,13 +2354,15 @@ def create_assisted_issue():
                 identity_user=current_user.model,
             )
 
-            # Launch AI session
+            # Launch AI session in a dedicated tmux session for AI-assisted issues
+            # This keeps it separate from regular development sessions
             from ..ai_sessions import create_session
             session = create_session(
                 project=project,
                 user_id=current_user.id,
                 tool=ai_tool,
                 issue_id=issue.id,
+                tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
             )
 
             # Redirect to the AI console and auto-attach to the session

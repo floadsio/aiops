@@ -192,12 +192,15 @@ aiops system backup restore <id>                # Restore from backup (destructi
 ## Development Commands
 
 - `make sync` - Install dependencies with uv (Python 3.12)
+- `uv pip install -e cli/` - Install aiops CLI in development mode (ALWAYS use uv, never pip)
 - `make format` - Auto-format with Ruff
 - `make lint` - Ruff + MyPy checks
 - `make test` - Run Pytest
 - `make check` - Lint + tests (run before commits)
 - `make start-dev` - Start Flask with auto-reload
 - `.venv/bin/flask version` - Display current version
+
+**IMPORTANT**: Always use `uv pip install -e cli/` to install/update the aiops CLI. Never use `pip` directly as the venv is managed by uv.
 
 ## Coding Standards
 

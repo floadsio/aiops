@@ -968,6 +968,30 @@
                     >
                       Codex
                     </button>
+                    <button
+                      type="button"
+                      class="secondary outline issues-start-codex"
+                      data-project-id="{{ issue.project_id }}"
+                      data-target="{{ issue.codex_target }}"
+                      data-prepare="{{ issue.prepare_endpoint }}"
+                      data-context='{{ issue.codex_payload|tojson }}'
+                      data-tool="gemini"
+                      data-command="{{ ai_tool_commands.get('gemini') or default_ai_shell }}"
+                    >
+                      Gemini
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary outline issues-start-codex"
+                      data-project-id="{{ issue.project_id }}"
+                      data-target="{{ issue.codex_target }}"
+                      data-prepare="{{ issue.prepare_endpoint }}"
+                      data-context='{{ issue.codex_payload|tojson }}'
+                      data-tool="shell"
+                      data-command="{{ ai_tool_commands.get('shell') or default_ai_shell }}"
+                    >
+                      Shell
+                    </button>
                   {% endif %}
                   {% if issue.populate_endpoint %}
                     <button
@@ -1251,6 +1275,30 @@
                 data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
               >
                 Codex
+              </button>
+              <button
+                type="button"
+                class="secondary outline issues-start-codex"
+                data-project-id="{{ issue.project_id }}"
+                data-target="{{ issue.codex_target }}"
+                data-prepare="{{ issue.prepare_endpoint }}"
+                data-context='{{ issue.codex_payload|tojson }}'
+                data-tool="gemini"
+                data-command="{{ ai_tool_commands.get('gemini') or default_ai_shell }}"
+              >
+                Gemini
+              </button>
+              <button
+                type="button"
+                class="secondary outline issues-start-codex"
+                data-project-id="{{ issue.project_id }}"
+                data-target="{{ issue.codex_target }}"
+                data-prepare="{{ issue.prepare_endpoint }}"
+                data-context='{{ issue.codex_payload|tojson }}'
+                data-tool="shell"
+                data-command="{{ ai_tool_commands.get('shell') or default_ai_shell }}"
+              >
+                Shell
               </button>
             {% endif %}
             {% if issue.populate_endpoint %}

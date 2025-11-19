@@ -302,18 +302,44 @@ def check_cli_git_tools() -> dict[str, Any]:
         auth_failures = 0
 
         for integration in integrations:
+            # Determine which token is being used
+            token = integration.api_token or integration.access_token
+            token_source = "tenant"
+            token_preview = None
+
+            # Check if there's a project-level override
+            # Note: We check all projects for this integration to see if any have overrides
+            from ..models import ProjectIntegration
+            project_overrides = ProjectIntegration.query.filter_by(
+                integration_id=integration.id
+            ).filter(
+                ProjectIntegration.override_api_token.isnot(None)
+            ).all()
+
+            if project_overrides:
+                token_source = f"project-override ({len(project_overrides)} project(s))"
+
+            if token:
+                # Show first 10 and last 4 characters of token
+                if len(token) > 20:
+                    token_preview = f"{token[:10]}...{token[-4:]}"
+                else:
+                    token_preview = f"{token[:10]}..."
+
             check_result = {
                 "integration_id": integration.id,
                 "name": integration.name,
                 "provider": integration.provider,
                 "tenant_name": integration.tenant.name if integration.tenant else None,
-                "has_token": bool(integration.api_token or integration.access_token),
+                "has_token": bool(token),
+                "token_source": token_source,
+                "token_preview": token_preview,
                 "auth_ok": False,
                 "error": None,
             }
 
             # Skip if no token
-            if not (integration.api_token or integration.access_token):
+            if not token:
                 check_result["error"] = "No access token configured"
                 integration_checks.append(check_result)
                 auth_failures += 1

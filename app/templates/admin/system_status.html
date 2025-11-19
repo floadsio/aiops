@@ -302,14 +302,17 @@ function createDetailsHTML(componentName, details) {
     details.integrations.forEach(integration => {
       const status = integration.auth_ok ? 'enabled' : 'disabled';
       const icon = integration.auth_ok ? '✓' : '✗';
-      const errorMsg = integration.error ? ` (${integration.error.substring(0, 80)}...)` : '';
+      const tokenInfo = integration.token_preview ? ` [${integration.token_source}: ${integration.token_preview}]` : '';
+      const errorMsg = integration.error ? `<br><small style="color: var(--pico-del-color);">${integration.error.substring(0, 100)}...</small>` : '';
       html += `
         <div class="detail-row ${status}">
           <span class="detail-label">
             <span>${icon}</span>
             <span>${integration.name}</span>
           </span>
-          <span class="detail-value">${integration.provider} - ${integration.tenant_name}${errorMsg}</span>
+          <span class="detail-value">
+            ${integration.provider} - ${integration.tenant_name}${tokenInfo}${errorMsg}
+          </span>
         </div>
       `;
     });

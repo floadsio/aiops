@@ -229,6 +229,177 @@ def check_integrations() -> dict[str, Any]:
         return {"healthy": False, "message": f"Integration check error: {exc}"}
 
 
+def check_cli_git_tools() -> dict[str, Any]:
+    """Check GitHub (gh) and GitLab (glab) CLI tools authentication.
+
+    Tests authentication with configured PATs for each tenant integration.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    try:
+        from ..models import TenantIntegration
+
+        integrations = TenantIntegration.query.filter(
+            TenantIntegration.provider.in_(["github", "gitlab"])
+        ).all()
+
+        if not integrations:
+            return {
+                "healthy": True,
+                "message": "No GitHub/GitLab integrations configured",
+                "details": {"integrations": []}
+            }
+
+        integration_checks = []
+        auth_failures = 0
+
+        for integration in integrations:
+            check_result = {
+                "integration_id": integration.id,
+                "name": integration.name,
+                "provider": integration.provider,
+                "tenant_name": integration.tenant.name if integration.tenant else None,
+                "has_token": bool(integration.api_token or integration.access_token),
+                "auth_ok": False,
+                "error": None,
+            }
+
+            # Skip if no token
+            if not (integration.api_token or integration.access_token):
+                check_result["error"] = "No access token configured"
+                integration_checks.append(check_result)
+                auth_failures += 1
+                continue
+
+            # Test authentication based on provider
+            if integration.provider == "github":
+                auth_ok, error = _test_github_auth(integration)
+                check_result["auth_ok"] = auth_ok
+                check_result["error"] = error
+                if not auth_ok:
+                    auth_failures += 1
+            elif integration.provider == "gitlab":
+                auth_ok, error = _test_gitlab_auth(integration)
+                check_result["auth_ok"] = auth_ok
+                check_result["error"] = error
+                if not auth_ok:
+                    auth_failures += 1
+
+            integration_checks.append(check_result)
+
+        total = len(integration_checks)
+        passed = total - auth_failures
+
+        return {
+            "healthy": auth_failures == 0,
+            "message": f"{passed}/{total} CLI git integrations authenticated",
+            "details": {"integrations": integration_checks}
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"healthy": False, "message": f"CLI git tools check error: {exc}"}
+
+
+def _test_github_auth(integration: Any) -> tuple[bool, str | None]:
+    """Test GitHub CLI (gh) authentication.
+
+    Args:
+        integration: TenantIntegration with GitHub provider
+
+    Returns:
+        Tuple of (auth_ok, error_message)
+    """
+    try:
+        import os
+
+        token = integration.api_token or integration.access_token
+        if not token:
+            return False, "No token available"
+
+        # Set up environment
+        env = os.environ.copy()
+        env["GH_TOKEN"] = token
+
+        # Add GH_HOST for GitHub Enterprise
+        base_url = getattr(integration, "base_url", None)
+        if base_url and "github.com" not in base_url:
+            env["GH_HOST"] = base_url
+
+        # Test authentication with gh auth status
+        result = subprocess.run(
+            ["gh", "auth", "status"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        # gh auth status returns 0 when authenticated
+        if result.returncode == 0:
+            return True, None
+
+        # Extract error from stderr
+        error_msg = result.stderr.strip() if result.stderr else "Authentication failed"
+        return False, error_msg
+
+    except FileNotFoundError:
+        return False, "gh CLI not installed"
+    except subprocess.TimeoutExpired:
+        return False, "Authentication check timeout"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Check failed: {exc}"
+
+
+def _test_gitlab_auth(integration: Any) -> tuple[bool, str | None]:
+    """Test GitLab CLI (glab) authentication.
+
+    Args:
+        integration: TenantIntegration with GitLab provider
+
+    Returns:
+        Tuple of (auth_ok, error_message)
+    """
+    try:
+        import os
+
+        token = integration.api_token or integration.access_token
+        if not token:
+            return False, "No token available"
+
+        # Set up environment
+        env = os.environ.copy()
+        env["GITLAB_TOKEN"] = token
+
+        # Add GITLAB_HOST for private instances
+        base_url = getattr(integration, "base_url", None)
+        if base_url and "gitlab.com" not in base_url:
+            env["GITLAB_HOST"] = base_url
+
+        # Test authentication with glab auth status
+        result = subprocess.run(
+            ["glab", "auth", "status"],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        # glab auth status returns 0 when authenticated
+        if result.returncode == 0:
+            return True, None
+
+        # Extract error from stderr
+        error_msg = result.stderr.strip() if result.stderr else "Authentication failed"
+        return False, error_msg
+
+    except FileNotFoundError:
+        return False, "glab CLI not installed"
+    except subprocess.TimeoutExpired:
+        return False, "Authentication check timeout"
+    except Exception as exc:  # noqa: BLE001
+        return False, f"Check failed: {exc}"
+
+
 def check_sessions() -> dict[str, Any]:
     """Check active AI sessions.
 
@@ -271,6 +442,7 @@ def get_system_status() -> dict[str, Any]:
         "ai_tools": check_ai_tools(),
         "workspaces": check_workspaces(),
         "integrations": check_integrations(),
+        "cli_git_tools": check_cli_git_tools(),
         "sessions": check_sessions(),
     }
 

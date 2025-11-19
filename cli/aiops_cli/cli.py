@@ -487,23 +487,51 @@ def issues_close(ctx: click.Context, issue_id: int) -> None:
 
 @issues.command(name="comment")
 @click.argument("issue_id", type=int)
-@click.argument("body")
+@click.argument("body", required=False)
+@click.option("--file", "-f", "file_path", type=click.Path(exists=True, dir_okay=False), help="Read comment content from file")
 @click.option("--no-mention-resolve", is_flag=True, help="Disable automatic @mention resolution")
 @click.pass_context
-def issues_comment(ctx: click.Context, issue_id: int, body: str, no_mention_resolve: bool) -> None:
+def issues_comment(
+    ctx: click.Context,
+    issue_id: int,
+    body: Optional[str],
+    file_path: Optional[str],
+    no_mention_resolve: bool,
+) -> None:
     """Add comment to issue.
 
     Automatically resolves @mentions to Jira account IDs by looking up users
     from the issue's comment history.
 
     Examples:
+        aiops issues comment 254 "Quick update"
         aiops issues comment 254 "@reviewer Thanks for the info!"
-        aiops issues comment 254 '@"Example User" The tunnel is working great'
+        aiops issues comment 254 --file /tmp/error.log
+        aiops issues comment 254 -f analysis.md
         aiops issues comment 254 "Fixed the issue" --no-mention-resolve
     """
     client = get_client(ctx)
 
     try:
+        # Get comment body from either argument or file
+        if file_path and body:
+            error_console.print("[red]Error:[/red] Cannot specify both BODY and --file option")
+            sys.exit(1)
+        elif file_path:
+            # Read from file
+            try:
+                with open(file_path, "r", encoding="utf-8") as f:
+                    body = f.read()
+                if not body.strip():
+                    error_console.print(f"[red]Error:[/red] File '{file_path}' is empty")
+                    sys.exit(1)
+            except (IOError, OSError) as exc:
+                error_console.print(f"[red]Error:[/red] Failed to read file '{file_path}': {exc}")
+                sys.exit(1)
+        elif not body:
+            error_console.print("[red]Error:[/red] Must provide either BODY argument or --file option")
+            sys.exit(1)
+
         # Resolve @mentions unless disabled
         if not no_mention_resolve and "@" in body:
             # Fetch issue to get comments for user resolution

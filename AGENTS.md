@@ -36,6 +36,7 @@ aiops issues get <id> --output json            # Get details (use DB ID, not ext
 
 # Update and comment
 aiops issues comment <id> "Your update"        # Add comment (@mentions auto-resolve for Jira)
+aiops issues comment <id> --file /path/to/comment.txt  # Add comment from file
 aiops issues modify-comment <id> <comment_id> "Updated text"  # Edit comment
 aiops issues update <id> --title "New title"   # Update fields
 aiops issues assign <id> --user <user_id>      # Assign issue

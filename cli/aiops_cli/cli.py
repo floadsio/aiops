@@ -1288,6 +1288,49 @@ def git_cat(ctx: click.Context, project: str, file_path: str) -> None:
         sys.exit(1)
 
 
+@git.command(name="pr-create")
+@click.argument("project")
+@click.option("--title", "-t", required=True, help="Pull request title")
+@click.option("--description", "-d", help="Pull request description")
+@click.option("--source", "-s", required=True, help="Source branch")
+@click.option("--target", "-b", default="main", help="Target branch (default: main)")
+@click.option("--assignee", "-a", help="GitHub username to assign as reviewer")
+@click.option("--draft", is_flag=True, help="Create as draft PR")
+@click.pass_context
+def git_pr_create(
+    ctx: click.Context,
+    project: str,
+    title: str,
+    description: Optional[str],
+    source: str,
+    target: str,
+    assignee: Optional[str],
+    draft: bool,
+) -> None:
+    """Create a pull request (GitHub) or merge request (GitLab)."""
+    client = get_client(ctx)
+
+    try:
+        project_id = resolve_project_id(client, project)
+        result = client.git_create_pr(
+            project_id=project_id,
+            title=title,
+            description=description or "",
+            source_branch=source,
+            target_branch=target,
+            assignee=assignee,
+            draft=draft,
+        )
+        console.print(f"[green]✓[/green] Pull/Merge request created: {result['url']}")
+        console.print(f"  Number: {result['number']}")
+        console.print(f"  Title: {result['title']}")
+        if assignee:
+            console.print(f"  Assigned to: {assignee}")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # WORKFLOW COMMANDS
 # ============================================================================

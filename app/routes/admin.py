@@ -2322,7 +2322,7 @@ def create_assisted_issue():
             # Pin issue if requested
             if pin_issue_flag:
                 from ..models import PinnedIssue
-                pinned = PinnedIssue(user_id=g.current_user.id, issue_id=issue.id)
+                pinned = PinnedIssue(user_id=current_user.id, issue_id=issue.id)
                 db.session.add(pinned)
                 db.session.commit()
 
@@ -2334,14 +2334,14 @@ def create_assisted_issue():
                 user_description=description,
                 issue_type_hint=issue_type,
                 create_branch=create_branch_flag,
-                identity_user=g.current_user,
+                identity_user=current_user.model,
             )
 
             # Launch AI session
             from ..ai_sessions import create_session
             session = create_session(
                 project=project,
-                user_id=g.current_user.id,
+                user_id=current_user.id,
                 tool=ai_tool,
                 issue_id=issue.id,
             )

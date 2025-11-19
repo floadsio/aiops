@@ -567,7 +567,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
 
             # Test SSH connectivity
             display_host = f"{hostname}:{port}" if port else hostname
-            ssh_ok, error = _test_ssh_connectivity(project, hostname, port)
+            ssh_ok, error, key_info = _test_ssh_connectivity(project, hostname, port)
 
             project_checks.append({
                 "project_id": project.id,
@@ -575,6 +575,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
                 "hostname": display_host,
                 "ssh_ok": ssh_ok,
                 "error": error,
+                "ssh_key": key_info,
             })
 
             if not ssh_ok:
@@ -592,7 +593,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
         return {"healthy": False, "message": f"SSH connectivity check error: {exc}"}
 
 
-def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = None) -> tuple[bool, str | None]:
+def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = None) -> tuple[bool, str | None, dict | None]:
     """Test SSH connectivity to a Git host using project's SSH key.
 
     Args:
@@ -601,7 +602,7 @@ def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = No
         port: Optional SSH port (defaults to 22 if not specified)
 
     Returns:
-        Tuple of (ssh_ok, error_message)
+        Tuple of (ssh_ok, error_message, key_info_dict)
     """
     try:
         from ..services.git_service import _select_project_ssh_key
@@ -610,9 +611,25 @@ def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = No
         # Get SSH key for project
         key_path, key_model, key_source = _select_project_ssh_key(project)
 
+        # Build key info dict
+        key_info = None
+        if key_model:
+            key_info = {
+                "name": key_model.name,
+                "source": key_source,
+                "storage": "database" if key_model.encrypted_private_key else "filesystem",
+            }
+        elif key_path:
+            # Filesystem key without model
+            key_info = {
+                "name": key_path.split("/")[-1] if "/" in key_path else key_path,
+                "source": key_source,
+                "storage": "filesystem",
+            }
+
         # No SSH key configured
         if not key_path and not (key_model and key_model.encrypted_private_key):
-            return False, "No SSH key configured"
+            return False, "No SSH key configured", None
 
         # Build SSH command to test connectivity
         # Use -T (disable pseudo-terminal) and -o BatchMode=yes (non-interactive)
@@ -647,7 +664,7 @@ def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = No
                         timeout=15,
                     )
             except Exception as exc:
-                return False, f"Database key error: {exc}"
+                return False, f"Database key error: {exc}", key_info
         else:
             # Use filesystem key
             ssh_args = ssh_args_base + [
@@ -679,33 +696,33 @@ def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = No
             "you've successfully",
             "shell request failed",  # Azure DevOps - auth OK but no shell
         ]):
-            return True, None
+            return True, None, key_info
 
         # Check for specific error conditions
         if "permission denied" in output:
-            return False, "Permission denied (key not authorized)"
+            return False, "Permission denied (key not authorized)", key_info
         if "connection refused" in output:
-            return False, "Connection refused"
+            return False, "Connection refused", key_info
         if "timeout" in output or "timed out" in output:
-            return False, "Connection timeout"
+            return False, "Connection timeout", key_info
         if "could not resolve hostname" in output:
-            return False, "Could not resolve hostname"
+            return False, "Could not resolve hostname", key_info
 
         # If we got here, SSH connected but authentication status is unclear
         # Exit code 1 with output typically means success for Git hosts
         if result.returncode == 1 and output:
-            return True, None
+            return True, None, key_info
 
         # Unknown response
         error_msg = (stderr or stdout or "Unknown SSH response").strip()
         if len(error_msg) > 200:
             error_msg = error_msg[:200] + "..."
-        return False, error_msg
+        return False, error_msg, key_info
 
     except subprocess.TimeoutExpired:
-        return False, "SSH connection timeout"
+        return False, "SSH connection timeout", None
     except Exception as exc:  # noqa: BLE001
-        return False, f"Check failed: {exc}"
+        return False, f"Check failed: {exc}", None
 
 
 def check_sessions() -> dict[str, Any]:

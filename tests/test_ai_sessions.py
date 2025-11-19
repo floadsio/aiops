@@ -5,8 +5,6 @@ from types import SimpleNamespace
 
 from app import create_app
 from app.ai_sessions import (
-    SSH_AGENT_SSH_COMMAND,
-    _interactive_ssh_agent_commands,
     create_session,
 )
 from app.config import Config
@@ -63,15 +61,16 @@ class FakeSession:
         return None
 
 
-def test_interactive_agent_commands_include_trailing_newline():
-    key_material = "-----BEGIN KEY-----\nline-1\n-----END KEY-----"
-    commands = _interactive_ssh_agent_commands(key_material)
-    heredoc = commands[-1]
-    parts = heredoc.splitlines()
-    encoded_line = parts[1]
-    decoded = base64.b64decode(encoded_line.encode("ascii")).decode("utf-8")
-    assert decoded.endswith("\n")
-    assert decoded.rstrip("\n") == key_material
+# Test disabled - _interactive_ssh_agent_commands removed during SSH key refactoring
+# def test_interactive_agent_commands_include_trailing_newline():
+#     key_material = "-----BEGIN KEY-----\nline-1\n-----END KEY-----"
+#     commands = _interactive_ssh_agent_commands(key_material)
+#     heredoc = commands[-1]
+#     parts = heredoc.splitlines()
+#     encoded_line = parts[1]
+#     decoded = base64.b64decode(encoded_line.encode("ascii")).decode("utf-8")
+#     assert decoded.endswith("\n")
+#     assert decoded.rstrip("\n") == key_material
 
 
 def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
@@ -580,7 +579,6 @@ def test_per_user_session_injects_tenant_key_via_ssh_agent(monkeypatch, tmp_path
         assert "sudo -u devuser" in command
         assert "ssh-agent -s" in command
         assert "AIOPS_KEY_B64" in command
-        assert SSH_AGENT_SSH_COMMAND in command
         assert expected_tool in command
 
 
@@ -662,7 +660,6 @@ def test_per_user_session_ssh_agent_script_for_non_interactive(monkeypatch, tmp_
         assert "ssh-add <<'AIOPS_SSH_KEY'" in command
         assert "-----BEGIN OPENSSH PRIVATE KEY-----" in command
         assert "AIOPS_SSH_KEY" in command
-        assert SSH_AGENT_SSH_COMMAND in command
 
 
 def test_create_session_with_linux_user_switching(monkeypatch, tmp_path):

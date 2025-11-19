@@ -213,6 +213,10 @@ Press `Ctrl+B` then `D` to detach and return to your local shell. Run the same c
 - Browser sessions default to the `codex` CLI when no tool is selected, falling back to `DEFAULT_AI_SHELL` only if the Codex command is unavailable. By default we run `codex --sandbox danger-full-access --ask-for-approval never` so Codex starts with full permissions; override `CODEX_COMMAND`, `CODEX_SANDBOX_MODE`, or `CODEX_APPROVAL_MODE` in `.env` if you prefer another setup.
 - Add Gemini (`gemini-cli`) to `ALLOWED_AI_TOOLS` automatically by setting `GEMINI_COMMAND` (defaults to `gemini`).
 - Add Claude (`claude`) to `ALLOWED_AI_TOOLS` by setting `CLAUDE_COMMAND` (defaults to `claude`). Store per-user Anthropic API keys via the admin settings and these keys are exported as `CLAUDE_CODE_OAUTH_TOKEN` before Claude sessions start.
+- Configure Claude's permission handling with `CLAUDE_PERMISSION_MODE` (defaults to `acceptEdits`):
+  - `acceptEdits`: Auto-accept file edits, prompt for dangerous commands (recommended for security)
+  - `prompt`: Prompt for all actions (default interactive mode, slower)
+  - `yolo`: Skip all permissions with `--dangerously-skip-permissions` (⚠️ dangerous - only use in isolated environments without sensitive data or internet access, per [Anthropic's recommendations](https://www.anthropic.com/engineering/claude-code-best-practices))
 - Use Admin → Settings to check the Claude CLI status and run the `CLAUDE_UPDATE_COMMAND` (default `sudo npm install -g @anthropic-ai/claude-code`) without leaving the browser.
 - The AI Tool Maintenance cards on Admin → Settings run the configured npm or Homebrew updates for Codex, Gemini, and Claude. Override `CODEX_UPDATE_COMMAND`, `GEMINI_UPDATE_COMMAND`, and `CLAUDE_UPDATE_COMMAND`, plus optional `CODEX_BREW_PACKAGE`, `GEMINI_BREW_PACKAGE`, or `CLAUDE_BREW_PACKAGE`, in `.env`.
 - When tmux is installed, terminals attach to a per-tenant session (`<tenant>-shell`), reusing the same workspace on subsequent launches.

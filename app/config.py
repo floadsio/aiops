@@ -66,6 +66,44 @@ def _ensure_codex_flags(
     return shlex.join(tokens)
 
 
+def _ensure_claude_permission_mode(command: str, permission_mode: str | None) -> str:
+    """Add Claude Code permission mode flag if not already present.
+
+    Args:
+        command: Base Claude command
+        permission_mode: Permission mode - one of:
+            - 'acceptEdits': Auto-accept file edits, prompt for dangerous commands (safer)
+            - 'yolo': Skip all permissions (dangerous, use in isolated environments)
+            - 'prompt': Prompt for all actions (default interactive mode)
+            - None or empty: Don't add any permission flag
+
+    Returns:
+        Command with permission mode flag appended if needed
+    """
+    if not command or not permission_mode:
+        return command
+
+    try:
+        tokens = shlex.split(command)
+    except ValueError:
+        return command
+
+    # Check if permission mode is already set
+    for token in tokens:
+        if token in ("--permission-mode", "--dangerously-skip-permissions"):
+            return command
+        if token.startswith("--permission-mode="):
+            return command
+
+    # Add appropriate flag based on mode
+    if permission_mode == "yolo":
+        tokens.append("--dangerously-skip-permissions")
+    elif permission_mode in ("acceptEdits", "prompt"):
+        tokens.extend(["--permission-mode", permission_mode])
+
+    return shlex.join(tokens)
+
+
 class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
     SSH_KEY_ENCRYPTION_KEY = os.getenv("SSH_KEY_ENCRYPTION_KEY")
@@ -84,6 +122,7 @@ class Config:
     CLI_EXTRA_PATHS = os.getenv("CLI_EXTRA_PATHS", "/opt/homebrew/bin:/usr/local/bin")
     CODEX_SANDBOX_MODE = os.getenv("CODEX_SANDBOX_MODE", "danger-full-access")
     CODEX_APPROVAL_MODE = os.getenv("CODEX_APPROVAL_MODE", "never")
+    CLAUDE_PERMISSION_MODE = os.getenv("CLAUDE_PERMISSION_MODE", "acceptEdits")
     _GEMINI_COMMAND = _ensure_gemini_approval_mode(
         os.getenv("GEMINI_COMMAND", "gemini"),
         GEMINI_APPROVAL_MODE,
@@ -93,11 +132,15 @@ class Config:
         sandbox_mode=CODEX_SANDBOX_MODE,
         approval_mode=CODEX_APPROVAL_MODE,
     )
+    _CLAUDE_COMMAND = _ensure_claude_permission_mode(
+        os.getenv("CLAUDE_COMMAND", "claude"),
+        CLAUDE_PERMISSION_MODE,
+    )
     ALLOWED_AI_TOOLS = {
         "codex": _CODEX_COMMAND,
         "aider": os.getenv("AIDER_COMMAND", "aider"),
         "gemini": _GEMINI_COMMAND,
-        "claude": os.getenv("CLAUDE_COMMAND", "claude"),
+        "claude": _CLAUDE_COMMAND,
         "shell": os.getenv("DEFAULT_AI_SHELL", "/bin/bash"),
     }
     DEFAULT_AI_TOOL = os.getenv("DEFAULT_AI_TOOL", "claude")

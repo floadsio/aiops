@@ -2764,7 +2764,7 @@ def system_switch_branch(ctx: click.Context, branch: str, restart: bool, yes: bo
         console.print(f"[cyan]Switching backend to branch '{branch}'...[/cyan]")
 
         # Call API to switch branch
-        result = client.post("/api/v1/system/switch-branch", {
+        result = client.post("/system/switch-branch", {
             "branch": branch,
             "restart": restart,
         })

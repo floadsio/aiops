@@ -527,15 +527,32 @@ def check_ssh_connectivity() -> dict[str, Any]:
         connectivity_failures = 0
 
         for project in ssh_projects:
-            # Extract hostname from Git URL
+            # Extract hostname and port from Git URL
             hostname = None
+            port = None
             if project.repo_url.startswith("git@"):
-                # Format: git@hostname:owner/repo.git
-                hostname = project.repo_url.split("@")[1].split(":")[0]
+                # Format: git@hostname:owner/repo.git or git@hostname:port:owner/repo.git
+                after_at = project.repo_url.split("@")[1]
+                first_colon_part = after_at.split(":")[0]
+
+                # Check if there's a port (hostname:port:path vs hostname:path)
+                # If first part after : is a number, it's a port
+                parts_after_host = after_at.split(":", 1)[1] if ":" in after_at else ""
+                if parts_after_host and ":" in parts_after_host:
+                    # Format: git@hostname:port:path
+                    first_path_part = parts_after_host.split(":")[0]
+                    if first_path_part.isdigit():
+                        hostname = first_colon_part
+                        port = int(first_path_part)
+                    else:
+                        hostname = first_colon_part
+                else:
+                    hostname = first_colon_part
             elif project.repo_url.startswith("ssh://"):
-                # Format: ssh://git@hostname/owner/repo.git
+                # Format: ssh://git@hostname:port/owner/repo.git
                 parsed = urlparse(project.repo_url)
-                hostname = parsed.netloc.split("@")[-1]  # Remove user@ prefix if present
+                hostname = parsed.hostname
+                port = parsed.port
 
             if not hostname:
                 project_checks.append({
@@ -549,12 +566,13 @@ def check_ssh_connectivity() -> dict[str, Any]:
                 continue
 
             # Test SSH connectivity
-            ssh_ok, error = _test_ssh_connectivity(project, hostname)
+            display_host = f"{hostname}:{port}" if port else hostname
+            ssh_ok, error = _test_ssh_connectivity(project, hostname, port)
 
             project_checks.append({
                 "project_id": project.id,
                 "project_name": project.name,
-                "hostname": hostname,
+                "hostname": display_host,
                 "ssh_ok": ssh_ok,
                 "error": error,
             })
@@ -574,12 +592,13 @@ def check_ssh_connectivity() -> dict[str, Any]:
         return {"healthy": False, "message": f"SSH connectivity check error: {exc}"}
 
 
-def _test_ssh_connectivity(project: Any, hostname: str) -> tuple[bool, str | None]:
+def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = None) -> tuple[bool, str | None]:
     """Test SSH connectivity to a Git host using project's SSH key.
 
     Args:
         project: Project with SSH key configuration
         hostname: Git host to test (e.g., "github.com", "gitlab.com")
+        port: Optional SSH port (defaults to 22 if not specified)
 
     Returns:
         Tuple of (ssh_ok, error_message)
@@ -599,6 +618,19 @@ def _test_ssh_connectivity(project: Any, hostname: str) -> tuple[bool, str | Non
         # Use -T (disable pseudo-terminal) and -o BatchMode=yes (non-interactive)
         # This will connect and immediately disconnect, testing authentication
 
+        # Build SSH command with optional port
+        ssh_args_base = [
+            "ssh",
+            "-T",
+            "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=accept-new",
+            "-o", "ConnectTimeout=10",
+        ]
+
+        # Add port if specified
+        if port:
+            ssh_args_base.extend(["-p", str(port)])
+
         if key_model and key_model.encrypted_private_key:
             # Use database key with ssh_key_context
             try:
@@ -606,15 +638,9 @@ def _test_ssh_connectivity(project: Any, hostname: str) -> tuple[bool, str | Non
                     env = {
                         "SSH_AUTH_SOCK": auth_sock,
                     }
+                    ssh_args = ssh_args_base + [f"git@{hostname}"]
                     result = subprocess.run(
-                        [
-                            "ssh",
-                            "-T",
-                            "-o", "BatchMode=yes",
-                            "-o", "StrictHostKeyChecking=accept-new",
-                            "-o", "ConnectTimeout=10",
-                            f"git@{hostname}",
-                        ],
+                        ssh_args,
                         env=env,
                         capture_output=True,
                         text=True,
@@ -624,17 +650,13 @@ def _test_ssh_connectivity(project: Any, hostname: str) -> tuple[bool, str | Non
                 return False, f"Database key error: {exc}"
         else:
             # Use filesystem key
+            ssh_args = ssh_args_base + [
+                "-i", key_path,
+                "-o", "IdentitiesOnly=yes",
+                f"git@{hostname}",
+            ]
             result = subprocess.run(
-                [
-                    "ssh",
-                    "-T",
-                    "-i", key_path,
-                    "-o", "IdentitiesOnly=yes",
-                    "-o", "BatchMode=yes",
-                    "-o", "StrictHostKeyChecking=accept-new",
-                    "-o", "ConnectTimeout=10",
-                    f"git@{hostname}",
-                ],
+                ssh_args,
                 capture_output=True,
                 text=True,
                 timeout=15,

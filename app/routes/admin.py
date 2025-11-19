@@ -2310,12 +2310,29 @@ def create_assisted_issue():
             if issue_type:
                 labels.append(issue_type)
 
-            issue = create_issue_for_project_integration(
+            # Create issue in external tracker (returns IssuePayload)
+            issue_payload = create_issue_for_project_integration(
                 project_integration=integration,
                 summary=draft_title,
                 description=description,
                 labels=labels,
             )
+
+            # Sync to database to get ExternalIssue object
+            sync_project_integration(integration)
+            db.session.commit()
+
+            # Find the newly created issue in the database
+            from ..models import ExternalIssue
+            issue = ExternalIssue.query.filter_by(
+                project_integration_id=integration.id,
+                external_id=issue_payload.external_id,
+            ).first()
+
+            if not issue:
+                raise RuntimeError(
+                    f"Failed to find synced issue #{issue_payload.external_id} in database"
+                )
 
             flash(f"Draft issue created: #{issue.external_id}", "success")
 

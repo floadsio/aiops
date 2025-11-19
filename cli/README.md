@@ -223,6 +223,21 @@ aiops git files aiops
 
 # Read file
 aiops git cat aiops app/models.py
+
+# Create pull/merge request
+aiops git pr-create aiops \
+  --title "Fix authentication bug" \
+  --description "Fixes login timeout issue..." \
+  --source feature/fix-auth \
+  --target main \
+  --assignee reviewer-username
+
+# Merge pull/merge request
+aiops git pr-merge aiops 28                        # Basic merge
+aiops git pr-merge aiops 28 --delete-branch        # Delete branch after merge
+aiops git pr-merge aiops 30 --method squash        # Squash merge
+aiops git pr-merge aiops 32 --method rebase        # Rebase merge
+aiops git pr-merge aiops 34 --method squash --delete-branch --message "Custom message"
 ```
 
 ### Workflows (AI Agent Commands)

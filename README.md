@@ -119,6 +119,16 @@ aiops sessions list --all-users  # Admin: all users
 aiops sessions attach cb3877c65dbd
 aiops sessions attach user:aiops-p6
 
+# Git operations
+aiops git status aiops
+aiops git commit aiops "Fix bug" --files "app/auth.py"
+aiops git push aiops
+
+# Create and merge pull requests
+aiops git pr-create aiops --title "Fix bug" --description "..." --source feature-branch --target main
+aiops git pr-merge aiops 28 --delete-branch
+aiops git pr-merge aiops 30 --method squash --delete-branch
+
 # Database backups (admin only)
 aiops system backup create --description "Pre-deployment backup"
 aiops system backup list

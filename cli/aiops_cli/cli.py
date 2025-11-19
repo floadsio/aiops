@@ -2725,6 +2725,73 @@ def system_update_ai_tool(ctx: click.Context, tool: str, source: str) -> None:
         sys.exit(1)
 
 
+@system.command(name="switch-branch")
+@click.argument("branch", required=True)
+@click.option("--restart/--no-restart", default=True, help="Restart after switching branch")
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def system_switch_branch(ctx: click.Context, branch: str, restart: bool, yes: bool) -> None:
+    """Switch the aiops backend to a specific git branch.
+
+    This command allows you to test feature branches by:
+    1. Switching the production backend (/home/syseng/aiops) to the specified branch
+    2. Optionally restarting the service to apply changes
+
+    Requires admin API key.
+
+    Examples:
+        # Switch to feature branch and restart
+        aiops system switch-branch feature/36-ai-assisted-issue-creation
+
+        # Switch without restarting
+        aiops system switch-branch main --no-restart
+
+        # Switch without confirmation prompt
+        aiops system switch-branch feature/new-feature -y
+    """
+    client = get_client(ctx)
+
+    if not yes:
+        restart_msg = " and restart" if restart else ""
+        if not click.confirm(
+            f"Are you sure you want to switch backend to branch '{branch}'{restart_msg}?",
+            default=False,
+        ):
+            console.print("[yellow]Aborted![/yellow]")
+            sys.exit(0)
+
+    try:
+        console.print(f"[cyan]Switching backend to branch '{branch}'...[/cyan]")
+
+        # Call API to switch branch
+        result = client.post("/api/v1/system/switch-branch", {
+            "branch": branch,
+            "restart": restart,
+        })
+
+        if result.get("success"):
+            console.print(f"[green]✓ Branch switched successfully![/green]")
+            console.print(f"Current branch: {result.get('current_branch')}")
+
+            if result.get("git_output"):
+                console.print("\n[bold]Git output:[/bold]")
+                console.print(f"[dim]{result.get('git_output')}[/dim]")
+
+            if restart and result.get("restarted"):
+                console.print("\n[green]✓ Service restarted[/green]")
+                console.print("[yellow]Note:[/yellow] The backend may take a few seconds to become available.")
+            elif restart:
+                console.print("\n[yellow]⚠ Service restart initiated but status unknown[/yellow]")
+        else:
+            error_console.print(f"[red]✗ Failed to switch branch[/red]")
+            error_console.print(f"Error: {result.get('error', 'Unknown error')}")
+            sys.exit(1)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # BACKUP COMMANDS
 # ============================================================================

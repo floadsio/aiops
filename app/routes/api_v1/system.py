@@ -839,3 +839,132 @@ def migrate_ssh_key(key_id: int):
         db.session.rollback()
         current_app.logger.error(f"Failed to migrate SSH key: {exc}")
         return jsonify({"error": str(exc)}), 500
+
+
+@api_v1_bp.route("/system/switch-branch", methods=["POST"])
+@require_api_auth(scopes=["admin"])
+def switch_branch():
+    """Switch the aiops backend to a specific git branch.
+
+    This endpoint allows switching the production backend to a different branch
+    for testing feature branches. It optionally restarts the service.
+
+    Request body:
+        branch (str): Git branch name to switch to
+        restart (bool): Whether to restart the service after switching (default: true)
+
+    Returns:
+        JSON response with:
+            - success: Whether the operation succeeded
+            - current_branch: The current branch after switching
+            - git_output: Output from git commands
+            - restarted: Whether the service was restarted
+    """
+    audit_api_request("POST", "/api/v1/system/switch-branch")
+
+    data = request.get_json() or {}
+    branch = data.get("branch", "").strip()
+    restart_service = data.get("restart", True)
+
+    if not branch:
+        return jsonify({"error": "branch is required"}), 400
+
+    # Get the production aiops path
+    prod_path = Path("/home/syseng/aiops")
+    if not prod_path.exists():
+        return jsonify({"error": "Production path /home/syseng/aiops not found"}), 404
+
+    try:
+        # Fetch latest from remote
+        fetch_result = subprocess.run(
+            ["sudo", "-u", "syseng", "git", "-C", str(prod_path), "fetch", "--all"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        if fetch_result.returncode != 0:
+            return jsonify({
+                "success": False,
+                "error": f"Git fetch failed: {fetch_result.stderr}",
+            }), 500
+
+        # Checkout the specified branch
+        checkout_result = subprocess.run(
+            ["sudo", "-u", "syseng", "git", "-C", str(prod_path), "checkout", branch],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        if checkout_result.returncode != 0:
+            return jsonify({
+                "success": False,
+                "error": f"Git checkout failed: {checkout_result.stderr}",
+            }), 500
+
+        # Pull latest changes for the branch
+        pull_result = subprocess.run(
+            ["sudo", "-u", "syseng", "git", "-C", str(prod_path), "pull"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        # Get current branch name
+        branch_result = subprocess.run(
+            ["sudo", "-u", "syseng", "git", "-C", str(prod_path), "branch", "--show-current"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=True,
+        )
+        current_branch = branch_result.stdout.strip()
+
+        # Combine git output
+        git_output = (
+            f"Fetch: {fetch_result.stdout}\n"
+            f"Checkout: {checkout_result.stdout}\n"
+            f"Pull: {pull_result.stdout}"
+        ).strip()
+
+        response = {
+            "success": True,
+            "current_branch": current_branch,
+            "git_output": git_output,
+            "restarted": False,
+        }
+
+        # Restart service if requested
+        if restart_service:
+            def restart_in_background():
+                time.sleep(1)  # Give time to return response
+                try:
+                    subprocess.run(
+                        ["sudo", "systemctl", "restart", "aiops"],
+                        check=True,
+                        timeout=10,
+                    )
+                except Exception as e:
+                    current_app.logger.error(f"Failed to restart service: {e}")
+
+            thread = threading.Thread(target=restart_in_background, daemon=True)
+            thread.start()
+            response["restarted"] = True
+
+        return jsonify(response)
+
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "success": False,
+            "error": "Git operation timed out",
+        }), 500
+    except Exception as e:
+        current_app.logger.exception("Failed to switch branch")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+        }), 500

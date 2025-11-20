@@ -560,26 +560,13 @@
     display: flex;
     gap: 0.5rem;
     flex-wrap: wrap;
-    width: 100%;
-    box-sizing: border-box;
-  }
-  .tmux-session-actions a,
-  .tmux-session-actions form {
-    flex: 1 1 auto;
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  .tmux-session-actions form {
-    margin: 0;
-    display: flex;
+    align-items: flex-start;
   }
   .tmux-session-actions button,
-  .tmux-session-actions a[role="button"] {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    justify-content: center;
+  .tmux-session-actions a {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
   }
   @media (max-width: 767px) {
     .tmux-session-row {
@@ -587,21 +574,15 @@
     }
     .tmux-session-actions {
       flex-direction: column;
-      align-items: stretch;
       width: 100%;
-    }
-    .tmux-session-actions a,
-    .tmux-session-actions form {
-      flex: none;
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
+      gap: 0.75rem;
     }
     .tmux-session-actions button,
-    .tmux-session-actions a[role="button"] {
+    .tmux-session-actions a {
       width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
+      justify-content: center;
+      font-size: 1rem;
+      padding: 0.6rem 1rem;
     }
   }
   @media (min-width: 768px) {
@@ -611,25 +592,6 @@
     }
     .tmux-session-actions {
       justify-content: flex-end;
-      flex-wrap: wrap;
-      width: 100%;
-    }
-    .tmux-session-actions a,
-    .tmux-session-actions form {
-      flex: 0 1 auto;
-      width: auto;
-      max-width: none;
-    }
-    .tmux-session-actions button,
-    .tmux-session-actions a[role="button"] {
-      width: auto;
-      max-width: none;
-      min-width: 7rem;
-    }
-  }
-  @media (min-width: 1024px) {
-    .tmux-session-actions {
-      flex-wrap: nowrap;
     }
   }
   .tmux-recent-grid {
@@ -701,71 +663,32 @@
   }
   .tmux-recent-actions {
     display: flex;
-    width: 100%;
     gap: 0.5rem;
-    box-sizing: border-box;
-    flex: 1 1 100%;
     flex-wrap: wrap;
+    align-items: flex-start;
+    margin-top: 0.75rem;
   }
-  .tmux-recent-actions .tmux-action {
-    flex: 1 1 auto;
-    display: flex;
-    min-width: 0;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  .tmux-recent-actions form {
-    margin: 0;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-  }
-  .tmux-recent-actions .tmux-action-btn {
-    width: 100%;
-    max-width: 100%;
-    justify-content: center;
-    align-items: center;
-    display: inline-flex;
-    padding: 0.4rem 0.65rem;
-    min-height: 2.5rem;
-    box-sizing: border-box;
+  .tmux-recent-actions button,
+  .tmux-recent-actions a {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
   }
   @media (max-width: 767px) {
     .tmux-recent-card {
-      flex-direction: column;
-      align-items: stretch;
-      width: 100%;
-      min-height: auto;
       padding: 1rem;
     }
     .tmux-recent-actions {
       flex-direction: column;
-      align-items: stretch;
       width: 100%;
-      flex: 1 1 100%;
-      gap: 0.65rem;
+      gap: 0.75rem;
     }
-    .tmux-recent-actions .tmux-action {
-      flex: none;
+    .tmux-recent-actions button,
+    .tmux-recent-actions a {
       width: 100%;
-      max-width: 100%;
-    }
-    .tmux-recent-actions .tmux-action,
-    .tmux-recent-actions form,
-    .tmux-recent-actions .tmux-action-btn {
-      width: 100%;
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-  }
-  @media (min-width: 768px) {
-    .tmux-recent-actions {
-      flex-wrap: wrap;
-    }
-  }
-  @media (min-width: 1024px) {
-    .tmux-recent-actions {
-      flex-wrap: nowrap;
+      justify-content: center;
+      font-size: 1rem;
+      padding: 0.6rem 1rem;
     }
   }
   .update-form {
@@ -1198,34 +1121,30 @@
           </div>
           <div class="tmux-recent-actions">
             {% if window.project %}
-              <div class="tmux-action">
-                {% if window.pane_dead %}
-                  <button
-                    type="button"
-                    class="secondary outline tmux-action-btn respawn-tmux-pane"
-                    data-project-id="{{ window.project.project_id }}"
-                    data-tmux-target="{{ window.target }}"
-                    data-window-name="{{ window.window }}"
-                  >🔄 Restart</button>
-                {% else %}
-                  <a
-                    role="button"
-                    class="secondary outline tmux-action-btn"
-                    href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
-                  >
-                    🔗 Reattach
-                  </a>
-                {% endif %}
-              </div>
-              <div class="tmux-action">
+              {% if window.pane_dead %}
                 <button
                   type="button"
-                  class="secondary outline tmux-action-btn close-tmux-window"
+                  class="secondary outline respawn-tmux-pane"
                   data-project-id="{{ window.project.project_id }}"
                   data-tmux-target="{{ window.target }}"
                   data-window-name="{{ window.window }}"
-                >✕ Close</button>
-              </div>
+                >🔄 Restart</button>
+              {% else %}
+                <a
+                  role="button"
+                  class="secondary outline"
+                  href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
+                >
+                  🔗 Reattach
+                </a>
+              {% endif %}
+              <button
+                type="button"
+                class="secondary outline close-tmux-window"
+                data-project-id="{{ window.project.project_id }}"
+                data-tmux-target="{{ window.target }}"
+                data-window-name="{{ window.window }}"
+              >✕ Close</button>
             {% endif %}
           </div>
         </article>
@@ -1423,7 +1342,7 @@
                       {% if session.pane_dead %}
                         <button
                           type="button"
-                          class="secondary outline tmux-action-btn respawn-tmux-pane"
+                          class="secondary outline respawn-tmux-pane"
                           data-project-id="{{ project.id }}"
                           data-tmux-target="{{ session.target }}"
                           data-window-name="{{ session.window }}"
@@ -1431,7 +1350,7 @@
                       {% else %}
                         <a
                           role="button"
-                          class="secondary outline tmux-action-btn"
+                          class="secondary outline"
                           href="{{ url_for(
                             'projects.project_ai_console',
                             project_id=project.id,
@@ -1443,7 +1362,7 @@
                       {% endif %}
                       <button
                         type="button"
-                        class="secondary outline tmux-action-btn close-tmux-window"
+                        class="secondary outline close-tmux-window"
                         data-project-id="{{ project.id }}"
                         data-tmux-target="{{ session.target }}"
                         data-window-name="{{ session.window }}"

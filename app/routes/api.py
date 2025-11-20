@@ -14,6 +14,8 @@ from ..ai_sessions import (
     close_session,
     create_session,
     get_session,
+    find_session_for_issue,
+    _resolve_command,
     resize_session,
     write_to_session,
 )
@@ -541,6 +543,12 @@ def start_project_ai_session(project_id: int):
     issue_id = data.get("issue_id")  # Optional: track which issue this session is for
     requested_user_id = data.get("user_id")  # Optional: admin can start session as another user
     permission_mode = data.get("permission_mode")  # Optional: override permission mode (e.g., "yolo")
+    resolved_command = None
+
+    try:
+        resolved_command = _resolve_command(tool, command)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
 
     user_id = _current_user_id()
     if user_id is None:
@@ -568,11 +576,16 @@ def start_project_ai_session(project_id: int):
 
         user_id = requested_user_id
 
-    # Check if there's already an active session for this issue
-    from ..ai_sessions import find_session_for_issue
+    # Check if there's already an active session for this issue with the same tool/command
     existing_session = None
     if issue_id:
-        existing_session = find_session_for_issue(issue_id, user_id, project_id)
+        existing_session = find_session_for_issue(
+            issue_id,
+            user_id,
+            project_id,
+            expected_tool=tool,
+            expected_command=resolved_command,
+        )
 
     # For SSH attachment, return the system user running the Flask app (e.g., syseng)
     # This is the user that owns the tmux server process, not the user inside the pane

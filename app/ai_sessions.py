@@ -137,6 +137,7 @@ class AISession:
         session_id: str,
         project_id: int,
         user_id: int,
+        tool: str | None,
         command: str,
         pid: int,
         fd: int,
@@ -146,6 +147,7 @@ class AISession:
         self.id = session_id
         self.project_id = project_id
         self.user_id = user_id
+        self.tool = tool
         self.command = command
         self.pid = pid
         self.fd = fd
@@ -396,7 +398,14 @@ def session_exists(tmux_target: str) -> bool:
         return False
 
 
-def find_session_for_issue(issue_id: int, user_id: int, project_id: int) -> Optional[AISession]:
+def find_session_for_issue(
+    issue_id: int,
+    user_id: int,
+    project_id: int,
+    *,
+    expected_tool: str | None = None,
+    expected_command: str | None = None,
+) -> Optional[AISession]:
     """Find an active AI session working on a specific issue for a user.
 
     Args:
@@ -420,7 +429,19 @@ def find_session_for_issue(issue_id: int, user_id: int, project_id: int) -> Opti
                     # Tmux window is gone, mark session as stopped
                     session.stop_event.set()
                     continue
-                return session
+
+                matches_tool = True
+                if expected_tool is not None and session.tool is not None:
+                    matches_tool = session.tool == expected_tool
+                if session.tool is None and expected_tool is not None:
+                    matches_tool = True
+
+                matches_command = True
+                if expected_command is not None and session.command is not None:
+                    matches_command = session.command == expected_command
+
+                if matches_tool and matches_command:
+                    return session
     return None
 
 
@@ -667,6 +688,7 @@ def create_session(
         session_id,
         project.id,
         user_id,
+        tool,
         command_str,
         pid,
         fd,

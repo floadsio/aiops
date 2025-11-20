@@ -3612,22 +3612,22 @@ def activity_list(
                 console.print("[yellow]No activities found matching the filters.[/yellow]")
                 return
 
-            table = Table(title=f"Recent Activities ({count} shown)")
-            table.add_column("ID", style="dim")
-            table.add_column("Time", style="cyan")
-            table.add_column("User")
-            table.add_column("Action")
-            table.add_column("Resource")
-            table.add_column("Status")
-            table.add_column("Source", style="dim")
+            table = Table(title=f"Recent Activities ({count} shown)", box=None, padding=(0, 1))
+            table.add_column("ID", style="dim", width=4)
+            table.add_column("Time", style="cyan", width=11)
+            table.add_column("User", width=10)
+            table.add_column("Action", width=14)
+            table.add_column("Resource", width=16)
+            table.add_column("St", width=3)
+            table.add_column("Src", style="dim", width=3)
 
             for activity in activities:
-                # Format timestamp
+                # Format timestamp - compact format (MMM DD HH:MM)
                 timestamp = activity.get("timestamp", "")
                 if timestamp:
                     from datetime import datetime
                     dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                    time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                    time_str = dt.strftime("%b %d %H:%M")
                 else:
                     time_str = "N/A"
 
@@ -3640,36 +3640,34 @@ def activity_list(
                 else:
                     user = f"User {activity.get('user_id', 'N/A')}"
 
-                # Format resource
+                # Format resource - compact format
                 resource_type = activity.get("resource_type", "")
-                resource_id = activity.get("resource_id", "")
                 resource_name = activity.get("resource_name", "")
                 if resource_name:
-                    resource = f"{resource_type}: {resource_name}"
-                elif resource_id:
-                    resource = f"{resource_type} #{resource_id}"
+                    # Just show the name without type prefix
+                    resource = resource_name[:16]
                 else:
-                    resource = resource_type or "-"
+                    resource = resource_type[:16] if resource_type else "-"
 
-                # Status color
+                # Status - use colored symbols
                 status = activity.get("status", "")
-                status_style = {
-                    "success": "green",
-                    "failure": "red",
-                    "pending": "yellow",
-                }.get(status, "")
+                status_symbol = {
+                    "success": "[green]✓[/green]",
+                    "failure": "[red]✗[/red]",
+                    "pending": "[yellow]○[/yellow]",
+                }.get(status, "?")
 
-                # Source icon
+                # Source - compact icons
                 source = activity.get("source", "")
-                source_icon = "🖥️  CLI" if source == "cli" else "🌐 Web"
+                source_icon = "CLI" if source == "cli" else "Web"
 
                 table.add_row(
                     str(activity.get("id", "")),
                     time_str,
-                    user,
-                    activity.get("action_type", "")[:25],
-                    resource[:30],
-                    f"[{status_style}]{status}[/{status_style}]" if status_style else status,
+                    user[:10],
+                    activity.get("action_type", "")[:14],
+                    resource,
+                    status_symbol,
                     source_icon,
                 )
 

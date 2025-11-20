@@ -206,6 +206,7 @@
   const codexAccessValues = new Set(['never', 'on-failure']);
   const sessionStorageKey = `aiops-session-context-${projectId}`;
   let storedSessionContext = null;
+  let storedContextTool = null;
   let plannedPrompt = '';
   let pendingPrompt = false;
   let commandAutofill = true;
@@ -385,6 +386,7 @@
       return false;
     }
     storedSessionContext = context;
+    storedContextTool = context.tool || null;
     if (context.tool && aiToolSelect) {
       const optionExists = Array.from(aiToolSelect.options).some(opt => opt.value === context.tool);
       if (optionExists) {
@@ -668,7 +670,7 @@
   function startSession(options = {}) {
     const { tmuxTargetOverride } = options;
     const attachOnly = Boolean(tmuxTargetOverride);
-    const tool = aiToolSelect.value;
+    const tool = (aiToolSelect && aiToolSelect.value) || storedContextTool || '';
     const command = commandInput.value.trim();
     const selectedTmuxTarget = attachOnly
       ? tmuxTargetOverride

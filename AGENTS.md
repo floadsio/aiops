@@ -176,6 +176,7 @@ aiops system backup restore <id>                # Restore from backup (destructi
 - For config changes (.env): Can be applied directly to `/home/syseng/aiops/.env` and restarted if needed
 
 ### Development Workflow
+- **ALWAYS read `AGENTS.override.md` first** - Auto-generated file containing merged global context, project AGENTS.md, and issue-specific details
 - Load `AGENTS.override.md` for current issue context before coding
 - Keep routes (`app/routes/`) thin, push logic to services (`app/services/`)
 - Add provider stubs in `tests/services/issues/` for external integrations

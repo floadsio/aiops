@@ -1202,6 +1202,7 @@ def issues_work(
         tmux_target = result.get("tmux_target")  # Actual tmux session:window to attach to
         is_existing = result.get("existing", False)  # Whether reusing existing session
         context_populated = result.get("context_populated", False)  # Whether AGENTS.override.md was populated
+        context_sources = result.get("context_sources", [])  # Sources that were merged
         warning = result.get("warning")  # Optional warning from claim-issue
 
         console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
@@ -1213,7 +1214,10 @@ def issues_work(
             console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
         if workspace_path:
             console.print(f"[blue]Workspace:[/blue] {workspace_path}")
-        if context_populated:
+        if context_populated and context_sources:
+            sources_str = " + ".join(context_sources)
+            console.print(f"[blue]Context:[/blue] AGENTS.override.md populated from: {sources_str}")
+        elif context_populated:
             console.print("[blue]Context:[/blue] AGENTS.override.md populated with issue details")
 
         # If attach flag is set, attach to tmux session
@@ -1803,6 +1807,8 @@ def sessions_start(
         ssh_user = result.get("ssh_user")
         tmux_target = result.get("tmux_target")
         is_existing = result.get("existing", False)
+        context_populated = result.get("context_populated", False)
+        context_sources = result.get("context_sources", [])
 
         if is_existing:
             console.print(f"[green]✓[/green] Reusing existing session (session ID: {session_id})")
@@ -1813,6 +1819,9 @@ def sessions_start(
             console.print(f"[blue]Workspace:[/blue] {workspace_path}")
         if tmux_target:
             console.print(f"[blue]Tmux target:[/blue] {tmux_target}")
+        if context_populated and context_sources:
+            sources_str = " + ".join(context_sources)
+            console.print(f"[blue]Context:[/blue] AGENTS.override.md populated from: {sources_str}")
 
         if attach and tmux_target:
             console.print("\n[yellow]Attaching to session...[/yellow]")

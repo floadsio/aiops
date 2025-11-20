@@ -693,14 +693,15 @@ def project_ai_console(project_id: int):
                     reverse=True,
                 )
                 try:
-                    write_tracked_issue_context(
+                    _, sources = write_tracked_issue_context(
                         project,
                         issue,
                         all_issues,
                         identity_user=getattr(current_user, "model", None),
                     )
+                    sources_str = " + ".join(sources) if sources else "issue context"
                     flash(
-                        f"Issue context prepared: {issue.title} (#{issue.external_id})",
+                        f"Issue context prepared from: {sources_str} (#{issue.external_id})",
                         "success",
                     )
                 except OSError as exc:
@@ -835,7 +836,7 @@ def prepare_issue_context(project_id: int, issue_id: int):
     prompt = ""
     agents_path = None
     try:
-        agents_path = write_tracked_issue_context(
+        agents_path, _ = write_tracked_issue_context(
             project,
             issue,
             all_issues,
@@ -919,12 +920,13 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
     )
 
     try:
-        tracked_path = write_tracked_issue_context(
+        tracked_path, sources = write_tracked_issue_context(
             project,
             issue,
             all_issues,
             identity_user=getattr(current_user, "model", None),
         )
+        sources_str = " + ".join(sources) if sources else "issue context"
     except OSError as exc:
         current_app.logger.exception(
             "Failed to populate agent context for project %s", project.id
@@ -933,9 +935,10 @@ def populate_issue_agents_md(project_id: int, issue_id: int):
 
     return jsonify(
         {
-            "message": "Updated agent context files.",
+            "message": f"Updated agent context files from: {sources_str}",
             "tracked_path": str(tracked_path),
             "local_path": str(tracked_path),
+            "sources": sources,
         }
     )
 

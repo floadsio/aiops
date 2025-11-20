@@ -25,6 +25,7 @@ aiops git push <project>
 
 ### Important Notes
 
+- **Always read AGENTS files first**: Before starting any task, read both `AGENTS.md` and `AGENTS.override.md` (if present) to understand the current issue context and project guidelines
 - **Issue IDs**: Use database ID from `aiops issues list`, NOT external issue number
 - **Never commit AGENTS.override.md** to version control - it's auto-generated
 - **Work in your workspace**: `/home/{username}/workspace/{tenant_slug}/{project}/`

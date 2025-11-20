@@ -13,11 +13,13 @@ from sqlalchemy.orm import selectinload
 from ..ai_sessions import (
     close_session,
     create_session,
+    find_session_for_issue,
     get_session,
     find_session_for_issue,
     _resolve_command,
     resize_session,
     write_to_session,
+    _resolve_command,
 )
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
 from ..extensions import csrf, db
@@ -546,7 +548,7 @@ def start_project_ai_session(project_id: int):
     resolved_command = None
 
     try:
-        resolved_command = _resolve_command(tool, command)
+        resolved_command = _resolve_command(tool, command, permission_mode=permission_mode)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 

@@ -186,6 +186,7 @@ class PersistentAISession:
         session_id: str,
         project_id: int,
         user_id: int,
+        tool: str | None,
         command: str,
         tmux_target: str,
         pipe_file: str,
@@ -194,6 +195,7 @@ class PersistentAISession:
         self.id = session_id
         self.project_id = project_id
         self.user_id = user_id
+        self.tool = tool
         self.command = command
         self.tmux_target = tmux_target
         self.pipe_file = pipe_file
@@ -431,10 +433,11 @@ def find_session_for_issue(
                     continue
 
                 matches_tool = True
-                if expected_tool is not None and session.tool is not None:
-                    matches_tool = session.tool == expected_tool
-                if session.tool is None and expected_tool is not None:
-                    matches_tool = True
+                if expected_tool is not None:
+                    if getattr(session, "tool", None) is None:
+                        matches_tool = False
+                    else:
+                        matches_tool = session.tool == expected_tool
 
                 matches_command = True
                 if expected_command is not None and session.command is not None:
@@ -1046,6 +1049,7 @@ def create_persistent_session(
         session_id,
         project.id,
         user_id,
+        tool,
         command_str,
         tmux_target_full,
         pipe_file,

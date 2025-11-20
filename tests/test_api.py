@@ -323,6 +323,7 @@ def test_project_ai_session_reuse_respects_tool(test_app, monkeypatch):
     login(client)
 
     project = _create_seed_project(test_app, project_name="reuse-project")
+    test_app.config["ENABLE_PERSISTENT_SESSIONS"] = False
 
     find_calls: list[tuple] = []
     existing = SimpleNamespace(
@@ -353,7 +354,7 @@ def test_project_ai_session_reuse_respects_tool(test_app, monkeypatch):
     monkeypatch.setattr("app.routes.api.create_session", fake_create_session)
 
     reuse_resp = client.post(
-        f"/api/projects/{project.id}/ai/sessions",
+        f"/api/v1/projects/{project.id}/ai/sessions",
         json={"issue_id": 123, "tool": "claude"},
     )
     assert reuse_resp.status_code == 201
@@ -363,7 +364,7 @@ def test_project_ai_session_reuse_respects_tool(test_app, monkeypatch):
     assert create_calls == []
 
     fresh_resp = client.post(
-        f"/api/projects/{project.id}/ai/sessions",
+        f"/api/v1/projects/{project.id}/ai/sessions",
         json={"issue_id": 123, "tool": "codex"},
     )
     assert fresh_resp.status_code == 201

@@ -316,3 +316,64 @@ def test_project_ai_session_attach_existing(test_app, monkeypatch):
     )
     assert response.status_code == 201
     assert captured["tmux_target"] == "aiops:tenant-shell"
+
+
+def test_project_ai_session_reuse_respects_tool(test_app, monkeypatch):
+    client = test_app.test_client()
+    login(client)
+
+    project = _create_seed_project(test_app, project_name="reuse-project")
+
+    find_calls: list[tuple] = []
+    existing = SimpleNamespace(
+        id="existing-claude",
+        project_id=project.id,
+        user_id=1,
+        issue_id=123,
+        tmux_target="aiops:existing",
+    )
+
+    def fake_find_session(issue_id, user_id, project_id, *, expected_tool=None, expected_command=None):
+        find_calls.append((issue_id, user_id, project_id, expected_tool, expected_command))
+        if expected_tool == "claude":
+            return existing
+        return None
+
+    create_calls: list[dict] = []
+
+    def fake_create_session(project_obj, user_id, **kwargs):
+        create_calls.append(kwargs)
+        return SimpleNamespace(
+            id="new-codex",
+            project_id=project.id,
+            tmux_target="aiops:new",
+        )
+
+    monkeypatch.setattr("app.routes.api.find_session_for_issue", fake_find_session)
+    monkeypatch.setattr("app.routes.api.create_session", fake_create_session)
+
+    reuse_resp = client.post(
+        f"/api/projects/{project.id}/ai/sessions",
+        json={"issue_id": 123, "tool": "claude"},
+    )
+    assert reuse_resp.status_code == 201
+    reuse_payload = reuse_resp.get_json()
+    assert reuse_payload["session_id"] == "existing-claude"
+    assert reuse_payload["existing"] is True
+    assert create_calls == []
+
+    fresh_resp = client.post(
+        f"/api/projects/{project.id}/ai/sessions",
+        json={"issue_id": 123, "tool": "codex"},
+    )
+    assert fresh_resp.status_code == 201
+    fresh_payload = fresh_resp.get_json()
+    assert fresh_payload["session_id"] == "new-codex"
+    assert fresh_payload["existing"] is False
+    assert len(create_calls) == 1
+
+    assert len(find_calls) == 2
+    # Ensure we resolved and compared the commands so tool changes trigger a new session
+    first_expected_command = find_calls[0][4]
+    second_expected_command = find_calls[1][4]
+    assert first_expected_command != second_expected_command

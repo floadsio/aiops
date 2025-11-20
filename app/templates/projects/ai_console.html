@@ -36,6 +36,10 @@
     </p>
   </div>
   <label>{{ form.prompt.label }} {{ form.prompt(id="initial_prompt", rows=4, placeholder="Optional one-shot instruction to send when the session starts") }}</label>
+  <label style="font-size: 0.9em;">
+    <input type="checkbox" id="yolo_mode_checkbox" />
+    <span style="color: #ff6b6b;" title="Skip all permissions for Claude (dangerous)">⚠️ Yolo Mode - Skip all permissions</span>
+  </label>
   <div class="grid">
     <button type="submit" id="start-session">Start Session</button>
     <button type="button" id="stop-session" class="secondary">Stop Session</button>
@@ -685,6 +689,14 @@
       rows,
       issue_id: issueId
     };
+
+    // Add permission mode if specified in stored context or yolo checkbox
+    const yoloCheckbox = document.getElementById('yolo_mode_checkbox');
+    if (storedSessionContext && storedSessionContext.permissionMode) {
+      payload.permission_mode = storedSessionContext.permissionMode;
+    } else if (yoloCheckbox && yoloCheckbox.checked) {
+      payload.permission_mode = 'yolo';
+    }
 
     if (selectedTmuxTarget && attachOnly) {
       payload.tmux_target = selectedTmuxTarget;

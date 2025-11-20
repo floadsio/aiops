@@ -1079,6 +1079,10 @@
         </div>
         <div class="issue-row-actions">
           {% if project %}
+            <label style="margin-right: 1em; font-size: 0.9em;">
+              <input type="checkbox" class="yolo-mode-checkbox" data-project-id="{{ project.id }}" data-issue-id="{{ issue.id }}" />
+              <span style="color: #ff6b6b;" title="Skip all permissions (dangerous)">⚠️ Yolo Mode</span>
+            </label>
             <button
               type="button"
               class="secondary start-ai-session-btn"
@@ -1796,6 +1800,10 @@
           return;
         }
 
+        // Check if yolo mode is enabled for this issue
+        const yoloCheckbox = document.querySelector(`.yolo-mode-checkbox[data-project-id="${projectId}"][data-issue-id="${issueId}"]`);
+        const yoloMode = yoloCheckbox && yoloCheckbox.checked;
+
         // Prepare context for auto-start
         const context = {
           tool: tool,
@@ -1803,6 +1811,7 @@
           prompt: '',
           command: '',
           tmuxTarget: null,
+          permissionMode: yoloMode ? 'yolo' : null,
         };
 
         // Store in sessionStorage

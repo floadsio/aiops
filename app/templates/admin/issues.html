@@ -948,6 +948,10 @@
                     </form>
                   {% endif %}
                   {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
+                    <label style="margin-right: 1em; font-size: 0.9em;">
+                      <input type="checkbox" class="yolo-mode-checkbox-issue" data-issue-id="{{ issue.id }}" data-project-id="{{ issue.project_id }}" />
+                      <span style="color: #ff6b6b;" title="Skip all permissions (dangerous)">⚠️ Yolo</span>
+                    </label>
                     <button
                       type="button"
                       class="secondary outline issues-start-codex"
@@ -957,6 +961,7 @@
                       data-context='{{ issue.codex_payload|tojson }}'
                       data-tool="claude"
                       data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
+                      data-issue-id="{{ issue.id }}"
                     >
                       Claude
                     </button>
@@ -969,6 +974,7 @@
                       data-context='{{ issue.codex_payload|tojson }}'
                       data-tool="codex"
                       data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
+                      data-issue-id="{{ issue.id }}"
                     >
                       Codex
                     </button>
@@ -981,6 +987,7 @@
                       data-context='{{ issue.codex_payload|tojson }}'
                       data-tool="gemini"
                       data-command="{{ ai_tool_commands.get('gemini') or default_ai_shell }}"
+                      data-issue-id="{{ issue.id }}"
                     >
                       Gemini
                     </button>
@@ -993,6 +1000,7 @@
                       data-context='{{ issue.codex_payload|tojson }}'
                       data-tool="shell"
                       data-command="{{ ai_tool_commands.get('shell') or default_ai_shell }}"
+                      data-issue-id="{{ issue.id }}"
                     >
                       Shell
                     </button>
@@ -1256,6 +1264,10 @@
               </form>
             {% endif %}
             {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
+              <label style="margin-right: 1em; font-size: 0.9em;">
+                <input type="checkbox" class="yolo-mode-checkbox-issue" data-issue-id="{{ issue.id }}" data-project-id="{{ issue.project_id }}" />
+                <span style="color: #ff6b6b;" title="Skip all permissions (dangerous)">⚠️ Yolo</span>
+              </label>
               <button
                 type="button"
                 class="secondary outline issues-start-codex"
@@ -1265,6 +1277,7 @@
                 data-context='{{ issue.codex_payload|tojson }}'
                 data-tool="claude"
                 data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
+                data-issue-id="{{ issue.id }}"
               >
                 Claude
               </button>
@@ -1277,6 +1290,7 @@
                 data-context='{{ issue.codex_payload|tojson }}'
                 data-tool="codex"
                 data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
+                data-issue-id="{{ issue.id }}"
               >
                 Codex
               </button>
@@ -1289,6 +1303,7 @@
                 data-context='{{ issue.codex_payload|tojson }}'
                 data-tool="gemini"
                 data-command="{{ ai_tool_commands.get('gemini') or default_ai_shell }}"
+                data-issue-id="{{ issue.id }}"
               >
                 Gemini
               </button>
@@ -1301,6 +1316,7 @@
                 data-context='{{ issue.codex_payload|tojson }}'
                 data-tool="shell"
                 data-command="{{ ai_tool_commands.get('shell') or default_ai_shell }}"
+                data-issue-id="{{ issue.id }}"
               >
                 Shell
               </button>
@@ -1387,9 +1403,14 @@
         const payloadRaw = button.dataset.context;
         const toolOverride = button.dataset.tool;
         const commandOverride = button.dataset.command;
+        const issueId = button.dataset.issueId;
         if (!projectId || !target || !prepareEndpoint || !payloadRaw) {
           return;
         }
+
+        // Check if yolo mode is enabled
+        const yoloCheckbox = document.querySelector(`.yolo-mode-checkbox-issue[data-issue-id="${issueId}"][data-project-id="${projectId}"]`);
+        const yoloMode = yoloCheckbox && yoloCheckbox.checked;
 
         let payload;
         try {
@@ -1409,6 +1430,10 @@
         const storageKey = `aiops-session-context-${projectId}`;
 
         const finalize = (context) => {
+          // Add yolo mode if checked
+          if (yoloMode) {
+            context.permissionMode = 'yolo';
+          }
           try {
             sessionStorage.setItem(storageKey, JSON.stringify(context));
           } catch (error) {

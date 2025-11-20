@@ -378,3 +378,83 @@ def test_project_ai_session_reuse_respects_tool(test_app, monkeypatch):
     first_expected_command = find_calls[0][4]
     second_expected_command = find_calls[1][4]
     assert first_expected_command != second_expected_command
+
+
+def test_project_ai_session_uses_new_tmux_target_when_tool_differs(test_app, monkeypatch):
+    client = test_app.test_client()
+    login(client)
+
+    project = _create_seed_project(test_app, project_name="multi-session")
+    test_app.config["ENABLE_PERSISTENT_SESSIONS"] = False
+
+    monkeypatch.setattr("app.routes.api.find_session_for_issue", lambda *a, **k: None)
+
+    created: list[dict] = []
+
+    def fake_create_session(project_obj, user_id, **kwargs):
+        created.append(kwargs)
+        return SimpleNamespace(
+            id=f"session-{len(created)}",
+            tmux_target=kwargs.get("tmux_target"),
+            project_id=project_obj.id,
+        )
+
+    monkeypatch.setattr("app.routes.api.create_session", fake_create_session)
+
+    first = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"issue_id": 123, "tool": "claude"},
+    )
+    second = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"issue_id": 123, "tool": "codex"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert len(created) == 2
+    first_target = created[0]["tmux_target"]
+    second_target = created[1]["tmux_target"]
+    assert first_target
+    assert second_target
+    assert first_target != second_target
+    assert first.get_json()["tmux_target"] == first_target
+    assert second.get_json()["tmux_target"] == second_target
+
+
+def test_project_ai_session_without_issue_gets_unique_tmux_target(test_app, monkeypatch):
+    client = test_app.test_client()
+    login(client)
+
+    project = _create_seed_project(test_app, project_name="project-only-sessions")
+    test_app.config["ENABLE_PERSISTENT_SESSIONS"] = False
+
+    created: list[dict] = []
+
+    def fake_create_session(project_obj, user_id, **kwargs):
+        created.append(kwargs)
+        return SimpleNamespace(
+            id=f"session-{len(created)}",
+            tmux_target=kwargs.get("tmux_target"),
+            project_id=project_obj.id,
+        )
+
+    monkeypatch.setattr("app.routes.api.create_session", fake_create_session)
+
+    first = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"tool": "claude"},
+    )
+    second = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"tool": "codex"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert len(created) == 2
+    first_target = created[0]["tmux_target"]
+    second_target = created[1]["tmux_target"]
+    assert first_target
+    assert second_target
+    assert first_target != second_target

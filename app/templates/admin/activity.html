@@ -360,6 +360,7 @@
       </div>
 
       <form method="post" action="{{ url_for('admin.cleanup_activities') }}" onsubmit="return confirm('Are you sure you want to delete old activities? This cannot be undone.');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
           <div>
             <label for="days_to_keep">

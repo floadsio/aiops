@@ -43,10 +43,27 @@
     }
     .issues-table table {
       width: 100%;
+      table-layout: fixed;
     }
     .issues-table th {
       white-space: nowrap;
+      padding: 0.75rem 0.5rem;
+      font-size: 0.9rem;
     }
+    .issues-table td {
+      padding: 0.75rem 0.5rem;
+      vertical-align: top;
+    }
+    .issues-table th:nth-child(1) { width: 5%; }  /* ID */
+    .issues-table th:nth-child(2) { width: 25%; } /* Title */
+    .issues-table th:nth-child(3) { width: 12%; } /* Status */
+    .issues-table th:nth-child(4) { width: 6%; }  /* Provider */
+    .issues-table th:nth-child(5) { width: 10%; } /* Project */
+    .issues-table th:nth-child(6) { width: 8%; }  /* Tenant */
+    .issues-table th:nth-child(7) { width: 8%; }  /* Updated */
+    .issues-table th:nth-child(8) { width: 8%; }  /* Assignee */
+    .issues-table th:nth-child(9) { width: 8%; }  /* Labels */
+    .issues-table th:nth-child(10) { width: 10%; } /* Actions */
     .issues-table .sort-link {
       display: inline-flex;
       align-items: center;
@@ -67,10 +84,19 @@
     .issues-table .sort-link.is-active .sort-indicator {
       opacity: 1;
     }
+    .issues-table td:nth-child(2) {
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    .issues-table td:nth-child(10) .issues-actions {
+      margin-bottom: 0;
+    }
     .issue-title-button {
       background: none;
       border: none;
       color: #2563eb;
+      text-align: left;
+      width: 100%;
       font: inherit;
       padding: 0;
       cursor: pointer;

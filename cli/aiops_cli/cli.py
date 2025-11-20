@@ -3507,6 +3507,159 @@ def ssh_keys_migrate(
         sys.exit(1)
 
 
+# ============================================================================
+# ACTIVITY COMMANDS
+# ============================================================================
+
+
+@cli.group(name="activity")
+def activity() -> None:
+    """Activity log commands."""
+
+
+@activity.command(name="list")
+@click.option("--user-id", "-u", type=int, help="Filter by user ID")
+@click.option("--action-type", "-a", help="Filter by action type (e.g., git.pull, issue.create)")
+@click.option("--resource-type", "-r", help="Filter by resource type (e.g., project, issue)")
+@click.option("--status", "-s", type=click.Choice(["success", "failure", "pending"]), help="Filter by status")
+@click.option("--source", type=click.Choice(["web", "cli"]), help="Filter by source")
+@click.option("--limit", "-l", type=int, default=50, help="Maximum number of activities to return (default: 50)")
+@click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), default="table", help="Output format")
+@click.pass_context
+def activity_list(
+    ctx: click.Context,
+    user_id: Optional[int],
+    action_type: Optional[str],
+    resource_type: Optional[str],
+    status: Optional[str],
+    source: Optional[str],
+    limit: int,
+    output: str,
+) -> None:
+    """List recent activity log entries.
+
+    Examples:
+        # List last 50 activities
+        aiops activity list
+
+        # List CLI activities only
+        aiops activity list --source cli
+
+        # List failed operations
+        aiops activity list --status failure
+
+        # List git operations
+        aiops activity list --action-type git.pull
+
+        # Export to JSON
+        aiops activity list --limit 100 --output json
+    """
+    try:
+        client = get_client(ctx)
+
+        # Build query parameters
+        params = {"limit": limit}
+        if user_id:
+            params["user_id"] = user_id
+        if action_type:
+            params["action_type"] = action_type
+        if resource_type:
+            params["resource_type"] = resource_type
+        if status:
+            params["status"] = status
+        if source:
+            params["source"] = source
+
+        # Make API request to list activities
+        # Note: admin routes are not under /api/v1, need to call directly
+        import requests
+        config = ctx.obj["config"]
+        headers = {"X-API-Key": config.api_key}
+        response = requests.get(f"{config.url}/admin/activity/list", headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+
+        if not result.get("ok"):
+            error_console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
+            sys.exit(1)
+
+        activities = result.get("activities", [])
+        count = result.get("count", 0)
+
+        if output == "json":
+            import json
+            console.print(json.dumps(activities, indent=2))
+        elif output == "yaml":
+            import yaml
+            console.print(yaml.dump(activities, default_flow_style=False))
+        else:
+            # Table output
+            if not activities:
+                console.print("[yellow]No activities found matching the filters.[/yellow]")
+                return
+
+            table = Table(title=f"Recent Activities ({count} shown)")
+            table.add_column("ID", style="dim")
+            table.add_column("Time", style="cyan")
+            table.add_column("User")
+            table.add_column("Action")
+            table.add_column("Resource")
+            table.add_column("Status")
+            table.add_column("Source", style="dim")
+
+            for activity in activities:
+                # Format timestamp
+                timestamp = activity.get("timestamp", "")
+                if timestamp:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                    time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    time_str = "N/A"
+
+                # Format user
+                user = activity.get("user_email", "") or f"User {activity.get('user_id', 'N/A')}"
+
+                # Format resource
+                resource_type = activity.get("resource_type", "")
+                resource_id = activity.get("resource_id", "")
+                resource_name = activity.get("resource_name", "")
+                if resource_name:
+                    resource = f"{resource_type}: {resource_name}"
+                elif resource_id:
+                    resource = f"{resource_type} #{resource_id}"
+                else:
+                    resource = resource_type or "-"
+
+                # Status color
+                status = activity.get("status", "")
+                status_style = {
+                    "success": "green",
+                    "failure": "red",
+                    "pending": "yellow",
+                }.get(status, "")
+
+                # Source icon
+                source = activity.get("source", "")
+                source_icon = "🖥️  CLI" if source == "cli" else "🌐 Web"
+
+                table.add_row(
+                    str(activity.get("id", "")),
+                    time_str,
+                    user[:30],
+                    activity.get("action_type", "")[:25],
+                    resource[:30],
+                    f"[{status_style}]{status}[/{status_style}]" if status_style else status,
+                    source_icon,
+                )
+
+            console.print(table)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     cli(obj={})

@@ -23,6 +23,8 @@ from ..models import ExternalIssue, Project, ProjectIntegration, Tenant, User
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
 from ..services.tmux_service import session_name_for_user
 from ..services.issues.utils import normalize_issue_status
+from ..services.activity_logger import log_api_activity, log_git_operation, log_session_operation
+from ..services.activity_service import ActivityType, ResourceType
 
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
 
@@ -251,6 +253,13 @@ def _ensure_project_access(project: Project) -> bool:
 
 
 @api_bp.post("/projects")
+@log_api_activity(
+    action_type=ActivityType.PROJECT_CREATE,
+    resource_type=ResourceType.PROJECT,
+    get_resource_id=lambda data: data.get("project", {}).get("id"),
+    get_resource_name=lambda data: data.get("project", {}).get("name"),
+    get_description=lambda data: f"Created project: {data.get('project', {}).get('name')}",
+)
 def create_project():
     data = request.get_json(silent=True) or {}
     name = (data.get("name") or "").strip()
@@ -369,6 +378,8 @@ def list_issues():
 
 @api_bp.post("/projects/<int:project_id>/git")
 def project_git_action(project_id: int):
+    from ..services.activity_service import log_activity
+
     project = Project.query.get_or_404(project_id)
     if not _ensure_project_access(project):
         return jsonify({"error": "Access denied."}), 403
@@ -385,6 +396,28 @@ def project_git_action(project_id: int):
         output = run_git_action(
             project, action, ref=ref, clean=clean, user=_current_user_obj()
         )
+
+        # Log git operations (except status which is read-only)
+        if action in {"pull", "push"}:
+            action_type_map = {
+                "pull": ActivityType.GIT_PULL,
+                "push": ActivityType.GIT_PUSH,
+            }
+            user_id = g.api_user.id if hasattr(g, "api_user") and g.api_user else None
+            user_agent = request.headers.get("User-Agent", "").lower()
+            source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+
+            log_activity(
+                action_type=action_type_map.get(action, f"git.{action}"),
+                user_id=user_id,
+                resource_type=ResourceType.PROJECT,
+                resource_id=project.id,
+                resource_name=project.name,
+                status="success",
+                description=f"Git {action} on project {project.name}",
+                source=source,
+            )
+
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 400
 
@@ -492,6 +525,8 @@ def list_project_ai_sessions(project_id: int):
 
 @api_bp.post("/projects/<int:project_id>/ai/sessions")
 def start_project_ai_session(project_id: int):
+    from ..services.activity_service import log_activity
+
     project = Project.query.get_or_404(project_id)
     if not _ensure_project_access(project):
         return jsonify({"error": "Access denied."}), 403
@@ -640,6 +675,24 @@ def start_project_ai_session(project_id: int):
         "existing": not was_created,  # Indicate if this is an existing session
         "context_populated": was_created and issue_id is not None,  # Whether AGENTS.override.md was populated
     }
+
+    # Log session creation activity (only for new sessions)
+    if was_created:
+        api_user_id = g.api_user.id if hasattr(g, "api_user") and g.api_user else None
+        user_agent = request.headers.get("User-Agent", "").lower()
+        source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+
+        log_activity(
+            action_type=ActivityType.SESSION_START,
+            user_id=api_user_id,
+            resource_type=ResourceType.PROJECT,
+            resource_id=project.id,
+            resource_name=project.name,
+            status="success",
+            description=f"Started AI session for project {project.name}",
+            extra_data={"tool": tool, "issue_id": issue_id} if tool else {"issue_id": issue_id} if issue_id else None,
+            source=source,
+        )
 
     return jsonify(response_data), 201
 

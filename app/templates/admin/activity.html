@@ -170,6 +170,10 @@
       </div>
     </div>
     <div class="export-buttons">
+      <a href="{{ url_for('admin.view_activity', **current_filters) }}"
+         class="contrast" role="button" title="Refresh activity log">
+        🔄 Refresh
+      </a>
       {% set csv_params = current_filters.copy() %}
       {% set _ = csv_params.update({'format': 'csv'}) %}
       <a href="{{ url_for('admin.export_activity', **csv_params) }}"

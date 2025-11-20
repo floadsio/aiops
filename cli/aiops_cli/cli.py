@@ -1029,6 +1029,15 @@ def issues_sessions(
             console.print("\n[yellow]Attaching to tmux session...[/yellow]")
             console.print("[dim]Press Ctrl+B then D to detach from tmux[/dim]\n")
 
+            # Track the attach activity in the database
+            session_db_id = target_session.get("id")
+            if session_db_id:
+                try:
+                    client.post(f"/ai/sessions/{session_db_id}/attach")
+                except APIError:
+                    # Don't fail attach if tracking fails - just log and continue
+                    pass
+
             attach_to_tmux_session(
                 ctx,
                 session_id=str(target_session.get("session_id")),
@@ -1962,6 +1971,13 @@ def sessions_attach(
 
         console.print("\n[yellow]Attaching to session...[/yellow]")
         console.print("[dim]Press Ctrl+B then D to detach[/dim]\n")
+
+        # Track the attach activity in the database
+        try:
+            client.post(f"/ai/sessions/{session_db_id}/attach")
+        except APIError:
+            # Don't fail attach if tracking fails - just log and continue
+            pass
 
         # Use tmux_server_user (Flask process user) for SSH, not linux_username (process owner inside tmux)
         ssh_user = target_session.get("tmux_server_user") or target_session.get("ssh_user")
@@ -3615,8 +3631,14 @@ def activity_list(
                 else:
                     time_str = "N/A"
 
-                # Format user
-                user = activity.get("user_email", "") or f"User {activity.get('user_id', 'N/A')}"
+                # Format user - extract name from email for brevity
+                user_email = activity.get("user_email", "")
+                if user_email and "@" in user_email:
+                    user = user_email.split("@")[0]
+                elif user_email:
+                    user = user_email
+                else:
+                    user = f"User {activity.get('user_id', 'N/A')}"
 
                 # Format resource
                 resource_type = activity.get("resource_type", "")
@@ -3644,7 +3666,7 @@ def activity_list(
                 table.add_row(
                     str(activity.get("id", "")),
                     time_str,
-                    user[:30],
+                    user,
                     activity.get("action_type", "")[:25],
                     resource[:30],
                     f"[{status_style}]{status}[/{status_style}]" if status_style else status,

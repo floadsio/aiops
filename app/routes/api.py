@@ -692,12 +692,13 @@ def start_project_ai_session(project_id: int):
         "context_populated": was_created and issue_id is not None,  # Whether AGENTS.override.md was populated
     }
 
-    # Log session creation activity (only for new sessions)
-    if was_created:
-        api_user_id = g.api_user.id if hasattr(g, "api_user") and g.api_user else None
-        user_agent = request.headers.get("User-Agent", "").lower()
-        source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+    # Log session activity
+    api_user_id = g.api_user.id if hasattr(g, "api_user") and g.api_user else None
+    user_agent = request.headers.get("User-Agent", "").lower()
+    source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
 
+    if was_created:
+        # Log new session creation
         log_activity(
             action_type=ActivityType.SESSION_START,
             user_id=api_user_id,
@@ -707,6 +708,19 @@ def start_project_ai_session(project_id: int):
             status="success",
             description=f"Started AI session for project {project.name}",
             extra_data={"tool": tool, "issue_id": issue_id} if tool else {"issue_id": issue_id} if issue_id else None,
+            source=source,
+        )
+    else:
+        # Log attach to existing session
+        log_activity(
+            action_type=ActivityType.SESSION_ATTACH,
+            user_id=api_user_id,
+            resource_type=ResourceType.PROJECT,
+            resource_id=project.id,
+            resource_name=project.name,
+            status="success",
+            description=f"Attached to existing AI session for project {project.name}",
+            extra_data={"tool": tool, "issue_id": issue_id, "session_id": session.id} if tool else {"issue_id": issue_id, "session_id": session.id} if issue_id else {"session_id": session.id},
             source=source,
         )
 
@@ -926,6 +940,63 @@ def resume_ai_session(db_session_id: int):
             "message": f"Resumed {db_session.tool} session in project {project.name}",
         }
     ), 201
+
+
+@api_bp.post("/ai/sessions/<int:db_session_id>/attach")
+def track_session_attach(db_session_id: int):
+    """Track when a user attaches to an existing session (CLI usage).
+
+    This endpoint doesn't perform the attach operation itself (that's done via SSH+tmux),
+    but logs the activity for tracking purposes.
+    """
+    from ..models import AISession as AISessionModel
+    from ..services.activity_service import log_activity
+
+    user_id = _current_user_id()
+    if user_id is None:
+        return jsonify({"error": "Unable to resolve current user."}), 400
+
+    # Fetch the session from database
+    db_session = AISessionModel.query.get_or_404(db_session_id)
+
+    # Verify user has access (admins can attach to any session)
+    is_admin = False
+    if hasattr(g, "api_user") and g.api_user:
+        is_admin = getattr(g.api_user, "is_admin", False)
+    elif current_user and current_user.is_authenticated:
+        is_admin = getattr(current_user, "is_admin", False)
+
+    if db_session.user_id != user_id and not is_admin:
+        return jsonify({"error": "Access denied."}), 403
+
+    # Get the project
+    project = Project.query.get_or_404(db_session.project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied to project."}), 403
+
+    # Log the attach activity
+    api_user_id = g.api_user.id if hasattr(g, "api_user") and g.api_user else None
+    user_agent = request.headers.get("User-Agent", "").lower()
+    source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+
+    log_activity(
+        action_type=ActivityType.SESSION_ATTACH,
+        user_id=api_user_id,
+        resource_type=ResourceType.PROJECT,
+        resource_id=project.id,
+        resource_name=project.name,
+        status="success",
+        description=f"Attached to AI session for project {project.name}",
+        extra_data={"tool": db_session.tool, "session_id": db_session.id, "tmux_target": db_session.tmux_target},
+        source=source,
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "message": f"Session attach tracked for project {project.name}",
+        }
+    ), 200
 
 
 @api_bp.get("/activities")

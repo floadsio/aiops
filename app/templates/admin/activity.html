@@ -167,6 +167,7 @@
       <h1>Activity Log</h1>
       <div class="activity-stats">
         <span>Showing <strong>{{ activities|length }}</strong> activities</span>
+        <span id="total-activities-stat" style="margin-left: 1rem; color: #64748b;"></span>
       </div>
     </div>
     <div class="export-buttons">
@@ -347,5 +348,109 @@
     </p>
     {% endif %}
   </div>
+
+  <!-- Cleanup Section -->
+  <details style="margin-top: 2rem;">
+    <summary style="cursor: pointer; font-weight: 600; padding: 1rem; background: var(--md-surface); border-radius: 0.5rem; border: 1px solid var(--md-border);">
+      🗑️ Database Cleanup
+    </summary>
+    <div style="padding: 1.5rem; background: var(--md-surface); border-radius: 0.5rem; border: 1px solid var(--md-border); border-top: none; margin-top: -0.5rem;">
+      <div id="cleanup-stats" style="margin-bottom: 1rem; padding: 1rem; background: var(--md-surface-container); border-radius: 0.5rem;">
+        <p style="margin: 0;">Loading statistics...</p>
+      </div>
+
+      <form method="post" action="{{ url_for('admin.cleanup_activities') }}" onsubmit="return confirm('Are you sure you want to delete old activities? This cannot be undone.');">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div>
+            <label for="days_to_keep">
+              Days to Keep
+              <small style="color: #64748b;">Delete activities older than this many days</small>
+            </label>
+            <input type="number" id="days_to_keep" name="days_to_keep" value="90" min="1" max="3650" required>
+          </div>
+          <div>
+            <label for="max_records">
+              Max Records (optional)
+              <small style="color: #64748b;">Keep at least this many most recent records</small>
+            </label>
+            <input type="number" id="max_records" name="max_records" placeholder="e.g., 100000" min="1000">
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1rem;">
+          <label>
+            <input type="checkbox" id="dry_run" name="dry_run" value="1" checked>
+            Dry Run (preview only, don't delete)
+          </label>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+          <button type="submit" class="secondary">Run Cleanup</button>
+          <button type="button" onclick="document.getElementById('dry_run').checked = false; this.form.submit();" class="contrast">
+            Delete Now
+          </button>
+        </div>
+      </form>
+
+      <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border-left: 4px solid #3b82f6; border-radius: 0.25rem;">
+        <strong>💡 Cleanup Tips:</strong>
+        <ul style="margin: 0.5rem 0 0 1.5rem; padding: 0;">
+          <li>Always run with "Dry Run" first to preview what will be deleted</li>
+          <li>Set "Days to Keep" to retain recent activities (recommended: 90-180 days)</li>
+          <li>Set "Max Records" to ensure a minimum number of activities are kept</li>
+          <li>The system will keep whichever preserves MORE data (days OR max records)</li>
+        </ul>
+      </div>
+    </div>
+  </details>
 </main>
+
+<script>
+  // Load activity statistics
+  fetch('{{ url_for("admin.activity_stats") }}')
+    .then(response => response.json())
+    .then(data => {
+      if (data.ok) {
+        const stats = data.stats;
+        const statsDiv = document.getElementById('cleanup-stats');
+        const totalStat = document.getElementById('total-activities-stat');
+
+        // Update total in header
+        if (totalStat && stats.total_count > 0) {
+          totalStat.textContent = `(${stats.total_count.toLocaleString()} total in database)`;
+        }
+
+        // Update cleanup stats
+        if (stats.total_count === 0) {
+          statsDiv.innerHTML = '<p style="margin: 0; color: #64748b;">No activities in database yet.</p>';
+        } else {
+          const oldestDate = stats.oldest_activity ? new Date(stats.oldest_activity).toLocaleDateString() : 'N/A';
+          const newestDate = stats.newest_activity ? new Date(stats.newest_activity).toLocaleDateString() : 'N/A';
+
+          statsDiv.innerHTML = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div>
+                <strong>Total Activities:</strong><br>
+                <span style="font-size: 1.5rem; color: #3b82f6;">${stats.total_count.toLocaleString()}</span>
+              </div>
+              <div>
+                <strong>Age Range:</strong><br>
+                <span style="font-size: 0.9rem;">${oldestDate} - ${newestDate}</span><br>
+                <small style="color: #64748b;">${stats.age_days} days</small>
+              </div>
+              <div>
+                <strong>Estimated Size:</strong><br>
+                <span style="font-size: 1.5rem; color: ${stats.size_estimate_mb > 100 ? '#dc2626' : '#10b981'};">${stats.size_estimate_mb} MB</span>
+              </div>
+            </div>
+          `;
+        }
+      }
+    })
+    .catch(error => {
+      console.error('Failed to load activity stats:', error);
+      document.getElementById('cleanup-stats').innerHTML = '<p style="margin: 0; color: #dc2626;">Failed to load statistics.</p>';
+    });
+</script>
+
 {% endblock %}

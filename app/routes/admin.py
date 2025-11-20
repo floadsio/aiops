@@ -4145,3 +4145,74 @@ def export_activity():
             ),
         )
         return response
+
+
+@admin_bp.route("/activity/cleanup", methods=["POST"])
+@admin_required
+def cleanup_activities():
+    """Clean up old activity log entries."""
+    from ..services.activity_cleanup import (
+        ActivityCleanupError,
+        cleanup_old_activities,
+        get_cleanup_stats,
+    )
+
+    # Get parameters from form
+    days_to_keep = request.form.get("days_to_keep", "90")
+    max_records = request.form.get("max_records", "")
+    dry_run = bool(request.form.get("dry_run"))
+
+    try:
+        days = int(days_to_keep)
+        max_recs = int(max_records) if max_records else None
+
+        # Get stats before cleanup
+        stats_before = get_cleanup_stats()
+
+        # Perform cleanup
+        result = cleanup_old_activities(
+            days_to_keep=days, max_records_to_keep=max_recs, dry_run=dry_run
+        )
+
+        if dry_run:
+            flash(
+                f"[DRY RUN] Would delete {result['deleted']} activities. "
+                f"Total: {result['total_before']} → {result['total_after']}",
+                "info",
+            )
+        else:
+            flash(
+                f"Successfully deleted {result['deleted']} old activities. "
+                f"Total: {result['total_before']} → {result['total_after']}",
+                "success",
+            )
+
+    except ValueError:
+        flash("Invalid cleanup parameters.", "danger")
+    except ActivityCleanupError as exc:
+        flash(f"Cleanup failed: {exc}", "danger")
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Unexpected error during activity cleanup")
+        flash(f"Unexpected error during cleanup: {exc}", "danger")
+
+    return redirect(url_for("admin.view_activity"))
+
+
+@admin_bp.route("/activity/stats", methods=["GET"])
+@admin_required
+def activity_stats():
+    """Get activity log statistics (JSON endpoint)."""
+    from ..services.activity_cleanup import get_cleanup_stats
+
+    try:
+        stats = get_cleanup_stats()
+        # Convert datetime objects to strings for JSON serialization
+        if stats["oldest_activity"]:
+            stats["oldest_activity"] = stats["oldest_activity"].isoformat()
+        if stats["newest_activity"]:
+            stats["newest_activity"] = stats["newest_activity"].isoformat()
+
+        return jsonify({"ok": True, "stats": stats})
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Failed to get activity stats")
+        return jsonify({"ok": False, "error": str(exc)}), 500

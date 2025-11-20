@@ -222,7 +222,7 @@ def _set_winsize(fd: int, rows: int, cols: int) -> None:
         pass
 
 
-def _resolve_command(tool: str | None, command: str | None) -> str:
+def _resolve_command(tool: str | None, command: str | None, permission_mode: str | None = None) -> str:
     tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
     fallback_shell = current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
     default_tool = current_app.config.get("DEFAULT_AI_TOOL", "codex")
@@ -234,10 +234,18 @@ def _resolve_command(tool: str | None, command: str | None) -> str:
         command_str = tool_commands.get(tool)
         if not command_str:
             raise ValueError("Unsupported AI tool")
+        # Override permission mode for Claude if specified
+        if tool == "claude" and permission_mode:
+            from .config import _ensure_claude_permission_mode
+            command_str = _ensure_claude_permission_mode(command_str, permission_mode)
         return command_str
 
     command_str = tool_commands.get(default_tool)
     if command_str:
+        # Override permission mode for Claude if default tool is Claude and permission_mode specified
+        if default_tool == "claude" and permission_mode:
+            from .config import _ensure_claude_permission_mode
+            command_str = _ensure_claude_permission_mode(command_str, permission_mode)
         return command_str
 
     return fallback_shell
@@ -519,8 +527,9 @@ def create_session(
     tmux_target: str | None = None,
     tmux_session_name: str | None = None,
     issue_id: int | None = None,
+    permission_mode: str | None = None,
 ) -> AISession:
-    command_str = _resolve_command(tool, command)
+    command_str = _resolve_command(tool, command, permission_mode=permission_mode)
     uses_gemini = _uses_gemini(command_str, tool)
     if uses_gemini:
         ensure_user_config(user_id)
@@ -839,12 +848,13 @@ def create_persistent_session(
     tmux_target: str | None = None,
     tmux_session_name: str | None = None,
     issue_id: int | None = None,
+    permission_mode: str | None = None,
 ) -> PersistentAISession:
     """Create a persistent AI session that survives backend restarts.
 
     Uses tmux pipe-pane for output capture instead of PTY fork.
     """
-    command_str = _resolve_command(tool, command)
+    command_str = _resolve_command(tool, command, permission_mode=permission_mode)
     uses_gemini = _uses_gemini(command_str, tool)
     if uses_gemini:
         ensure_user_config(user_id)

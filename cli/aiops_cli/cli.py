@@ -1048,6 +1048,7 @@ def issues_sessions(
 @click.option("--prompt", help="Initial prompt to send to the AI")
 @click.option("--user", help="User email or ID to start session as (admin only)")
 @click.option("--attach", is_flag=True, default=True, help="Attach to session after starting (default: true)")
+@click.option("--yolo", is_flag=True, help="Skip all permissions for Claude (dangerous)")
 @click.pass_context
 def issues_start(
     ctx: click.Context,
@@ -1057,6 +1058,7 @@ def issues_start(
     prompt: Optional[str],
     user: Optional[str],
     attach: bool,
+    yolo: bool,
 ) -> None:
     """Start a new AI session on a project.
 
@@ -1108,6 +1110,8 @@ def issues_start(
             payload["prompt"] = prompt
         if user_id:
             payload["user_id"] = user_id
+        if yolo:
+            payload["permission_mode"] = "yolo"
 
         url = f"{client.base_url}/api/v1/projects/{project_id}/ai/sessions"
         response = client.session.post(url, json=payload)
@@ -1726,6 +1730,7 @@ def sessions() -> None:
 @click.option("--prompt", help="Initial prompt to send")
 @click.option("--user", help="User email or ID to start session as (admin only)")
 @click.option("--attach/--no-attach", default=True, help="Attach to session after starting")
+@click.option("--yolo", is_flag=True, help="Skip all permissions for Claude (dangerous)")
 @click.pass_context
 def sessions_start(
     ctx: click.Context,
@@ -1734,6 +1739,7 @@ def sessions_start(
     prompt: Optional[str],
     user: Optional[str],
     attach: bool,
+    yolo: bool,
 ) -> None:
     """Start a generic session (not tied to a specific issue).
 
@@ -1775,6 +1781,8 @@ def sessions_start(
             payload["prompt"] = prompt
         if user_id:
             payload["user_id"] = user_id
+        if yolo:
+            payload["permission_mode"] = "yolo"
 
         url = f"{client.base_url}/api/v1/projects/{project_id}/ai/sessions"
         response = client.session.post(url, json=payload)

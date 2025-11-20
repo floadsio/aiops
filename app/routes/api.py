@@ -540,6 +540,7 @@ def start_project_ai_session(project_id: int):
     tmux_target = (data.get("tmux_target") or "").strip() or None
     issue_id = data.get("issue_id")  # Optional: track which issue this session is for
     requested_user_id = data.get("user_id")  # Optional: admin can start session as another user
+    permission_mode = data.get("permission_mode")  # Optional: override permission mode (e.g., "yolo")
 
     user_id = _current_user_id()
     if user_id is None:
@@ -647,6 +648,7 @@ def start_project_ai_session(project_id: int):
                     tmux_target=tmux_target,
                     tmux_session_name=tmux_session_name,
                     issue_id=issue_id,
+                    permission_mode=permission_mode,
                 )
             else:
                 session = create_session(
@@ -659,6 +661,7 @@ def start_project_ai_session(project_id: int):
                     tmux_target=tmux_target,
                     tmux_session_name=tmux_session_name,
                     issue_id=issue_id,
+                    permission_mode=permission_mode,
                 )
             was_created = True
         except ValueError as exc:

@@ -635,6 +635,7 @@ def start_project_ai_session(project_id: int):
         # Populate AGENTS.override.md before starting session
         # - With issue: include global + issue-specific context
         # - Without issue: include only global context
+        context_sources: list[str] = []
         if issue_id:
             from ..services.agent_context import write_tracked_issue_context
             try:
@@ -647,7 +648,7 @@ def start_project_ai_session(project_id: int):
                     ).all()
 
                     # Write global + issue context to user's workspace
-                    write_tracked_issue_context(
+                    _, context_sources = write_tracked_issue_context(
                         project,
                         issue,
                         all_issues,
@@ -664,7 +665,7 @@ def start_project_ai_session(project_id: int):
             from ..services.agent_context import write_global_context_only
             try:
                 # Write only global context to user's workspace
-                write_global_context_only(
+                _, context_sources = write_global_context_only(
                     project,
                     identity_user=session_user,
                 )
@@ -717,7 +718,8 @@ def start_project_ai_session(project_id: int):
         "tmux_target": session.tmux_target,  # Actual tmux session:window to attach to
         "ssh_user": flask_system_user,  # User to SSH as (owns tmux server)
         "existing": not was_created,  # Indicate if this is an existing session
-        "context_populated": was_created and issue_id is not None,  # Whether AGENTS.override.md was populated
+        "context_populated": was_created and len(context_sources) > 0,  # Whether AGENTS.override.md was populated
+        "context_sources": context_sources if was_created else [],  # List of sources that were merged
     }
 
     # Log session activity

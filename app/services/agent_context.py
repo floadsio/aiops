@@ -667,10 +667,13 @@ def write_global_context_only(
     filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
     *,
     identity_user: User | None = None,
-) -> Path:
+) -> tuple[Path, list[str]]:
     """Write AGENTS.override.md with only global context (no issue-specific content).
 
     This is used for generic sessions not tied to specific issues.
+
+    Returns:
+        tuple[Path, list[str]]: Path to the written file and list of sources that were merged
     """
     linux_username: str | None = None
     if identity_user is not None:
@@ -697,8 +700,26 @@ def write_global_context_only(
 
     context_path = repo_path / filename
 
+    # Track which sources were merged
+    sources_merged: list[str] = []
+
     # Load global context
     base_content = _load_base_instructions(repo_path, linux_username=linux_username)
+    if base_content:
+        # Check if we loaded from database or file
+        try:
+            from ..models import GlobalAgentContext
+            global_context = GlobalAgentContext.query.first()
+            if global_context and global_context.content and global_context.content.strip():
+                sources_merged.append("global context")
+        except RuntimeError:
+            # Running outside of application context (e.g., in tests)
+            pass
+
+        # Check if AGENTS.md file exists in repo
+        agents_md_path = repo_path / "AGENTS.md"
+        if agents_md_path.exists() or (linux_username and test_path(linux_username, str(agents_md_path))):
+            sources_merged.append("AGENTS.md")
 
     # No issue context placeholder
     no_issue_message = "_No issue context populated yet. Use the Populate AGENTS.override.md button to generate it._"
@@ -740,7 +761,7 @@ def write_global_context_only(
     else:
         context_path.write_text(final_content, encoding="utf-8")
 
-    return context_path
+    return context_path, sources_merged
 
 
 def write_tracked_issue_context(
@@ -750,8 +771,12 @@ def write_tracked_issue_context(
     filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
     *,
     identity_user: User | None = None,
-) -> Path:
-    """Update a tracked AGENTS.override.md file with the latest context for the selected issue."""
+) -> tuple[Path, list[str]]:
+    """Update a tracked AGENTS.override.md file with the latest context for the selected issue.
+
+    Returns:
+        tuple[Path, list[str]]: Path to the written file and list of sources that were merged
+    """
     linux_username: str | None = None
     # Use user's workspace if identity_user is provided, otherwise use project.local_path
     if identity_user is not None:
@@ -778,14 +803,36 @@ def write_tracked_issue_context(
             repo_path.mkdir(parents=True, exist_ok=True)
 
     context_path = repo_path / filename
+
+    # Track which sources were merged
+    sources_merged: list[str] = []
+
     # Load base instructions, using sudo when linux_username is set
     base_content = _load_base_instructions(repo_path, linux_username=linux_username)
+    if base_content:
+        # Check if we loaded from database or file
+        try:
+            from ..models import GlobalAgentContext
+            global_context = GlobalAgentContext.query.first()
+            if global_context and global_context.content and global_context.content.strip():
+                sources_merged.append("global context")
+        except RuntimeError:
+            # Running outside of application context (e.g., in tests)
+            pass
+
+        # Check if AGENTS.md file exists in repo
+        agents_md_path = repo_path / "AGENTS.md"
+        if agents_md_path.exists() or (linux_username and test_path(linux_username, str(agents_md_path))):
+            sources_merged.append("AGENTS.md")
+
     issue_content = render_issue_context(
         project,
         primary_issue,
         all_issues,
         identity_user=identity_user,
     ).rstrip()
+    sources_merged.append(f"issue #{primary_issue.external_id}")
+
     header_note = "NOTE: Generated issue context. Update before publishing if needed."
     appended_section = (
         f"{ISSUE_CONTEXT_SECTION_TITLE}\n"
@@ -866,7 +913,7 @@ def write_tracked_issue_context(
         # Legacy path - direct file write
         context_path.write_text(final_content, encoding="utf-8")
 
-    return context_path
+    return context_path, sources_merged
 
 
 def _render_git_identity_section(identity_user: User | None) -> str:

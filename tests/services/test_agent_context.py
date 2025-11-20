@@ -191,7 +191,7 @@ def test_write_tracked_issue_context_includes_git_identity(
     issue = _make_issue("github", external_id="123")
     identity = SimpleNamespace(name="Owner One", email="owner@example.com")
 
-    path = write_tracked_issue_context(
+    path, sources = write_tracked_issue_context(
         project,
         issue,
         [issue],
@@ -204,6 +204,8 @@ def test_write_tracked_issue_context_includes_git_identity(
     assert "owner@example.com" in contents
     assert "git config user.name" in contents
     assert "export GIT_AUTHOR_EMAIL" in contents
+    # Check that sources list includes the issue
+    assert "issue #123" in sources
 
 
 def test_write_tracked_issue_context_omits_git_identity_without_user(tmp_path):
@@ -211,7 +213,7 @@ def test_write_tracked_issue_context_omits_git_identity_without_user(tmp_path):
     Path(project.local_path).mkdir(parents=True, exist_ok=True)
     issue = _make_issue("gitlab", external_id="789")
 
-    path = write_tracked_issue_context(
+    path, sources = write_tracked_issue_context(
         project,
         issue,
         [issue],
@@ -219,3 +221,5 @@ def test_write_tracked_issue_context_omits_git_identity_without_user(tmp_path):
 
     contents = path.read_text()
     assert "## Git Identity" not in contents
+    # Check that sources list includes the issue
+    assert "issue #789" in sources

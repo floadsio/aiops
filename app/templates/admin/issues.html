@@ -98,6 +98,13 @@
       word-wrap: break-word;
       overflow-wrap: break-word;
     }
+    .issue-status-form--inline {
+      display: inline;
+    }
+    .issue-status-form--inline .issue-status-select {
+      width: 100%;
+      max-width: 100%;
+    }
     .issue-title-button {
       background: none;
       border: none;
@@ -921,8 +928,8 @@
             </td>
             <td>
               {% set requires_custom = issue.status and issue.status not in issue.status_choices %}
-              <form method="post" action="{{ issue.status_update_endpoint }}" class="issue-status-form issue-status-form--table" data-issue-status-form>
-                <select name="status_choice" class="issue-status-select" aria-label="Update status for {{ issue.external_id }}" data-status-select>
+              <form method="post" action="{{ issue.status_update_endpoint }}" class="issue-status-form issue-status-form--table issue-status-form--inline" data-issue-status-form>
+                <select name="status_choice" class="issue-status-select" aria-label="Update status for {{ issue.external_id }}" data-status-select onchange="this.form.submit()">
                   <option value="" {% if not issue.status %}selected{% endif %}>Unspecified</option>
                   {% for choice in issue.status_choices %}
                     <option value="{{ choice }}" {% if issue.status == choice %}selected{% endif %}>{{ choice }}</option>
@@ -942,7 +949,6 @@
                 <input type="hidden" name="status" value="{{ issue.status or '' }}" data-status-hidden />
                 <input type="hidden" name="next" value="{{ current_view_url }}" />
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <button type="submit" class="secondary outline">Save</button>
               </form>
             </td>
             <td>{{ issue.provider|capitalize }}</td>
@@ -1058,12 +1064,6 @@
                     >
                       Populate AGENTS.override.md
                     </button>
-                  {% endif %}
-                  {% if issue.can_close and issue.close_endpoint %}
-                    <form method="post" action="{{ issue.close_endpoint }}" class="inline-form">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                      <button type="submit" class="secondary outline">✕ Close Issue</button>
-                    </form>
                   {% endif %}
                 </div>
               {% else %}

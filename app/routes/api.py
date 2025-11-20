@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import re
+import uuid
 from datetime import timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +33,23 @@ from ..services.activity_logger import log_api_activity, log_git_operation, log_
 from ..services.activity_service import ActivityType, ResourceType
 
 api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-zA-Z0-9_-]+", "-", str(value).strip().lower()).strip("-")
+    return slug or "session"
+
+
+def _generate_tmux_target(session_name: str, project: Project, tool: str | None, issue_id: int | None) -> str:
+    base = _slugify(getattr(project, "name", "") or f"project-{getattr(project, 'id', '')}")
+    parts: list[str] = [base]
+    if issue_id:
+        parts.append(f"issue{issue_id}")
+    if tool:
+        parts.append(_slugify(tool))
+    parts.append(uuid.uuid4().hex[:6])
+    window_name = "-".join(part for part in parts if part)
+    return f"{session_name}:{window_name}"
 
 
 @api_bp.before_request
@@ -605,6 +624,13 @@ def start_project_ai_session(project_id: int):
         if not session_user:
             session_user = User.query.get(user_id)
         tmux_session_name = session_name_for_user(session_user)
+        if not tmux_target:
+            tmux_target = _generate_tmux_target(
+                tmux_session_name,
+                project,
+                tool,
+                issue_id,
+            )
 
         # Populate AGENTS.override.md before starting session
         # - With issue: include global + issue-specific context

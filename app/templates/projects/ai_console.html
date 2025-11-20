@@ -391,9 +391,23 @@
         aiToolSelect.value = context.tool;
       }
     }
-    if (context.command && commandInput) {
-      commandInput.value = context.command;
-      commandAutofill = false;
+    const configuredCommand = (aiToolCommands && context.tool) ? aiToolCommands[context.tool] : '';
+    const currentCommand = (context.command || '').trim();
+    if (commandInput) {
+      const configuredToken = (configuredCommand || '').trim().split(/\s+/)[0] || '';
+      const currentToken = currentCommand ? currentCommand.split(/\s+/)[0] : '';
+      const shouldForceDefault =
+        !currentCommand ||
+        (configuredToken && currentToken && configuredToken.toLowerCase() !== currentToken.toLowerCase());
+
+      if (shouldForceDefault && configuredCommand) {
+        commandInput.value = configuredCommand;
+        commandAutofill = true;
+      } else if (currentCommand) {
+        commandInput.value = currentCommand;
+        commandAutofill = false;
+      }
+
       if (aiToolSelect && aiToolSelect.value === 'codex') {
         syncCodexAccessFromCommand();
       }

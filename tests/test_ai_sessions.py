@@ -835,3 +835,49 @@ def test_create_session_logs_user_switch_failure(monkeypatch, tmp_path, capsys):
         session = create_session(project, user_id=998, tool="codex")
         assert session is not None
         assert session.command == app.config["ALLOWED_AI_TOOLS"]["codex"]
+
+
+def test_find_session_for_issue_respects_tool_for_persistent(monkeypatch):
+    from app.ai_sessions import (
+        PersistentAISession,
+        _register_session,
+        find_session_for_issue,
+    )
+
+    # Clear session registry
+    monkeypatch.setattr("app.ai_sessions._sessions", {})
+    monkeypatch.setattr("app.ai_sessions.session_exists", lambda _: True)
+
+    session = PersistentAISession(
+        "s-1",
+        project_id=1,
+        user_id=10,
+        tool="claude",
+        command="claude --permission-mode acceptEdits",
+        tmux_target="aiops:win",
+        pipe_file="/tmp/fake-pipe",
+        issue_id=77,
+    )
+    _register_session(session)
+
+    # Matches when tool/command align
+    found = find_session_for_issue(
+        issue_id=77,
+        user_id=10,
+        project_id=1,
+        expected_tool="claude",
+        expected_command="claude --permission-mode acceptEdits",
+    )
+    assert found is session
+
+    # Different tool should not match
+    assert (
+        find_session_for_issue(
+            issue_id=77,
+            user_id=10,
+            project_id=1,
+            expected_tool="codex",
+            expected_command="codex --sandbox danger",
+        )
+        is None
+    )

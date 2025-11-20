@@ -3571,17 +3571,7 @@ def activity_list(
             params["source"] = source
 
         # Make API request to list activities
-        # Note: admin routes are not under /api/v1, need to call directly
-        import requests
-        config = ctx.obj["config"]
-        headers = {"X-API-Key": config.api_key}
-        response = requests.get(f"{config.url}/admin/activity/list", headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-
-        if not result.get("ok"):
-            error_console.print(f"[red]Error:[/red] {result.get('error', 'Unknown error')}")
-            sys.exit(1)
+        result = client.get("/activities", params=params)
 
         activities = result.get("activities", [])
         count = result.get("count", 0)

@@ -3612,14 +3612,13 @@ def activity_list(
                 console.print("[yellow]No activities found matching the filters.[/yellow]")
                 return
 
-            table = Table(title=f"Recent Activities ({count} shown)", box=None, padding=(0, 1))
-            table.add_column("ID", style="dim", width=4)
-            table.add_column("Time", style="cyan", width=11)
-            table.add_column("User", width=10)
-            table.add_column("Action", width=14)
-            table.add_column("Resource", width=16)
-            table.add_column("St", width=3)
-            table.add_column("Src", style="dim", width=3)
+            table = Table(title=f"Recent Activities ({count} shown)")
+            table.add_column("Time", style="cyan", no_wrap=True)
+            table.add_column("User", no_wrap=True)
+            table.add_column("Action", no_wrap=True)
+            table.add_column("Resource", no_wrap=True)
+            table.add_column("St", justify="center", no_wrap=True)
+            table.add_column("Src", style="dim", no_wrap=True)
 
             for activity in activities:
                 # Format timestamp - compact format (MMM DD HH:MM)
@@ -3662,7 +3661,6 @@ def activity_list(
                 source_icon = "CLI" if source == "cli" else "Web"
 
                 table.add_row(
-                    str(activity.get("id", "")),
                     time_str,
                     user[:10],
                     activity.get("action_type", "")[:14],

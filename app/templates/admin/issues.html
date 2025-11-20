@@ -18,7 +18,7 @@
     }
     .issue-filter-form {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
       gap: 0.5rem;
     }
@@ -26,8 +26,9 @@
       border-radius: 0.5rem;
       border: 1px solid rgba(148, 163, 184, 0.6);
       background: rgba(255, 255, 255, 0.92);
-      min-width: 8rem;
-      flex: 0 1 auto;
+      width: auto;
+      max-width: 12rem;
+      flex: 1 1 0;
     }
     [data-theme="dark"] .issue-filter-form select {
       border-color: rgba(148, 163, 184, 0.5);
@@ -473,13 +474,16 @@
         flex-direction: column;
         align-items: stretch;
       }
-      .issue-filter-form,
+      .issue-filter-form {
+        flex-wrap: wrap;
+        width: 100%;
+      }
       .issue-refresh-form {
         width: 100%;
       }
       .issue-filter-form select,
       .issue-refresh-form button {
-        flex: 1;
+        flex: 1 1 45%;
         min-width: 0;
       }
     }

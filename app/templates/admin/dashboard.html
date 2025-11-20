@@ -841,9 +841,7 @@
     color: #94a3b8;
   }
   .issue-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    display: block;
     padding: 1.25rem;
     border: 1px solid #e2e8f0;
     border-radius: 0.5rem;
@@ -862,10 +860,6 @@
   [data-theme="dark"] .issue-row:hover {
     border-color: #475569;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  }
-  .issue-row-content {
-    flex: 1;
-    min-width: 0;
   }
   .issue-row-header {
     display: flex;
@@ -961,7 +955,7 @@
     gap: 0.5rem;
     flex-wrap: wrap;
     align-items: flex-start;
-    margin-left: 1rem;
+    margin-top: 1rem;
   }
   .issue-row-actions button,
   .issue-row-actions a {
@@ -980,16 +974,14 @@
   /* Mobile responsive layout */
   @media (max-width: 768px) {
     .issue-row {
-      flex-direction: column;
-      gap: 1rem;
       padding: 1rem;
     }
 
     .issue-row-actions {
       width: 100%;
-      margin-left: 0;
       flex-direction: column;
       gap: 0.75rem;
+      margin-top: 1rem;
     }
 
     .issue-row-actions button,
@@ -1038,43 +1030,41 @@
       {% set integration = issue.project_integration %}
       {% set project = integration.project if integration else none %}
       <article class="issue-row">
-        <div class="issue-row-content">
-          <div class="issue-row-header">
-            {% if project %}
-              <a href="{{ url_for('projects.project_detail', project_id=project.id) }}" class="issue-project-link">
-                {{ project.name }}
-              </a>
-              <span class="separator">·</span>
-            {% endif %}
-            <span class="issue-id">#{{ issue.external_id }}</span>
-          </div>
-          <h3 class="issue-title">
-            <a href="{{ url_for('admin.manage_issues') }}?issue_id={{ issue.id }}" class="issue-title-link">
-              {{ issue.title }}
+        <div class="issue-row-header">
+          {% if project %}
+            <a href="{{ url_for('projects.project_detail', project_id=project.id) }}" class="issue-project-link">
+              {{ project.name }}
             </a>
-          </h3>
-          <div class="issue-row-meta">
-            {% if issue.status %}
-              <span class="issue-status-badge">
-                {{ issue.status }}
-              </span>
-            {% endif %}
-            {% if issue.assignee %}
-              <span>Assigned to {{ issue.assignee }}</span>
-            {% endif %}
-            {% if issue.labels %}
-              <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                {% for label in issue.labels[:3] %}
-                  <span class="issue-label-badge">
-                    {{ label }}
-                  </span>
-                {% endfor %}
-                {% if issue.labels|length > 3 %}
-                  <span class="issue-label-more">+{{ issue.labels|length - 3 }} more</span>
-                {% endif %}
-              </div>
-            {% endif %}
-          </div>
+            <span class="separator">·</span>
+          {% endif %}
+          <span class="issue-id">#{{ issue.external_id }}</span>
+        </div>
+        <h3 class="issue-title">
+          <a href="{{ url_for('admin.manage_issues') }}?issue_id={{ issue.id }}" class="issue-title-link">
+            {{ issue.title }}
+          </a>
+        </h3>
+        <div class="issue-row-meta">
+          {% if issue.status %}
+            <span class="issue-status-badge">
+              {{ issue.status }}
+            </span>
+          {% endif %}
+          {% if issue.assignee %}
+            <span>Assigned to {{ issue.assignee }}</span>
+          {% endif %}
+          {% if issue.labels %}
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+              {% for label in issue.labels[:3] %}
+                <span class="issue-label-badge">
+                  {{ label }}
+                </span>
+              {% endfor %}
+              {% if issue.labels|length > 3 %}
+                <span class="issue-label-more">+{{ issue.labels|length - 3 }} more</span>
+              {% endif %}
+            </div>
+          {% endif %}
         </div>
         <div class="issue-row-actions">
           {% if project %}

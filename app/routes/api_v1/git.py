@@ -6,6 +6,7 @@ from __future__ import annotations
 from flask import current_app, g, jsonify, request
 
 from ...models import Project
+from ...services.activity_service import ActivityType, ResourceType, log_activity
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.git_service import get_repo_status, run_git_action
 from ...services.workspace_service import (
@@ -53,6 +54,20 @@ def git_pull(project_id: int):
 
     try:
         output = run_git_action(project, "pull", ref=ref, clean=clean, user=user)
+
+        # Log activity
+        user_agent = request.headers.get("User-Agent", "").lower()
+        source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+        log_activity(
+            action_type=ActivityType.GIT_PULL,
+            user_id=user.id,
+            resource_type=ResourceType.PROJECT,
+            resource_id=project.id,
+            resource_name=project.name,
+            status="success",
+            description=f"Git pull on project {project.name}",
+            source=source,
+        )
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 400
 
@@ -85,6 +100,20 @@ def git_push(project_id: int):
 
     try:
         output = run_git_action(project, "push", ref=ref, user=user)
+
+        # Log activity
+        user_agent = request.headers.get("User-Agent", "").lower()
+        source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+        log_activity(
+            action_type=ActivityType.GIT_PUSH,
+            user_id=user.id,
+            resource_type=ResourceType.PROJECT,
+            resource_id=project.id,
+            resource_name=project.name,
+            status="success",
+            description=f"Git push on project {project.name}",
+            source=source,
+        )
     except Exception as exc:  # noqa: BLE001
         return jsonify({"error": str(exc)}), 400
 
@@ -173,6 +202,20 @@ def git_commit(project_id: int):
             linux_username,
             ["git", "-C", str(workspace_path), "commit", "-m", message],
             timeout=30.0,
+        )
+
+        # Log activity
+        user_agent = request.headers.get("User-Agent", "").lower()
+        source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+        log_activity(
+            action_type=ActivityType.GIT_COMMIT,
+            user_id=user.id,
+            resource_type=ResourceType.PROJECT,
+            resource_id=project.id,
+            resource_name=project.name,
+            status="success",
+            description=f"Git commit on project {project.name}: {message[:50]}",
+            source=source,
         )
 
         return jsonify({

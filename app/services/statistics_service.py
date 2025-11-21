@@ -9,7 +9,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
-from ..models import ExternalIssue, Project, ProjectIntegration
+from ..models import ExternalIssue, Project, ProjectIntegration, User
 
 
 def get_resolution_statistics(
@@ -238,7 +238,10 @@ def get_contributor_statistics(
                         commenters.add(author)
                         contributor_stats[author]["commented_count"] += 1
 
-    # Convert to list and sort by activity
+    # Get all aiops users to prioritize them
+    aiops_users = {user.email.lower() for user in db.session.query(User).all()}
+
+    # Convert to list with user type flag
     result = [
         {
             "contributor": name,
@@ -246,11 +249,13 @@ def get_contributor_statistics(
             "commented_count": stats["commented_count"],
             "total_activity": stats["assigned_count"] + stats["commented_count"],
             "issues": stats["issues"][:5],  # Limit to 5 recent issues
+            "is_aiops_user": name.lower() in aiops_users,
         }
         for name, stats in contributor_stats.items()
     ]
 
-    result.sort(key=lambda x: x["total_activity"], reverse=True)
+    # Sort: aiops users first (by activity), then others (by activity)
+    result.sort(key=lambda x: (not x["is_aiops_user"], -x["total_activity"]))
 
     return result
 

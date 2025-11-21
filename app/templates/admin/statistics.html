@@ -403,7 +403,12 @@
       {% for contributor in contributor_stats[:10] %}
         <div class="contributor-card">
           <div class="contributor-card__header">
-            <div class="contributor-card__name">{{ contributor.contributor }}</div>
+            <div class="contributor-card__name">
+              {{ contributor.contributor }}
+              {% if contributor.is_aiops_user %}
+                <span style="display: inline-block; background: rgba(16, 185, 129, 0.18); color: rgba(6, 95, 70, 0.95); padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 600; margin-left: 0.5rem;">aiops user</span>
+              {% endif %}
+            </div>
             <div class="contributor-card__activity">
               <span>📋 {{ contributor.assigned_count }} assigned</span>
               <span>💬 {{ contributor.commented_count }} comments</span>

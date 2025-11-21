@@ -4277,3 +4277,81 @@ def activity_list_api():
         activity_list.append(activity_dict)
 
     return jsonify({"ok": True, "count": len(activity_list), "activities": activity_list})
+
+
+@admin_bp.route("/statistics", methods=["GET"])
+@login_required
+def view_statistics():
+    """View issue resolution statistics and workflow metrics."""
+    from ..services.statistics_service import (
+        get_contributor_statistics,
+        get_project_list,
+        get_resolution_statistics,
+        get_workflow_statistics,
+    )
+
+    # Get filter parameters
+    project_id_str = request.args.get("project_id")
+    days_str = request.args.get("days", "30")
+
+    project_id = None
+    if project_id_str:
+        try:
+            project_id = int(project_id_str)
+        except ValueError:
+            pass
+
+    try:
+        days = int(days_str)
+        days = max(1, min(days, 365))  # Limit to 1-365 days
+    except ValueError:
+        days = 30
+
+    # Get tenant_id for filtering
+    tenant_id = None
+    if not current_user.is_admin:
+        # Non-admin users see only their tenant's data
+        user_projects = Project.query.filter_by(owner_id=current_user.id).first()
+        if user_projects:
+            tenant_id = user_projects.tenant_id
+
+    # Fetch statistics
+    try:
+        resolution_stats = get_resolution_statistics(
+            tenant_id=tenant_id, project_id=project_id, days=days
+        )
+        workflow_stats = get_workflow_statistics(
+            tenant_id=tenant_id, project_id=project_id
+        )
+        contributor_stats = get_contributor_statistics(
+            tenant_id=tenant_id, project_id=project_id, days=days
+        )
+        project_list = get_project_list(tenant_id=tenant_id)
+    except Exception:  # noqa: BLE001
+        current_app.logger.exception("Failed to fetch statistics")
+        flash("Error loading statistics.", "danger")
+        resolution_stats = {
+            "total_resolved": 0,
+            "avg_resolution_time_hours": 0,
+            "project_breakdown": {},
+            "period_days": days,
+        }
+        workflow_stats = {
+            "total_issues": 0,
+            "open_count": 0,
+            "closed_count": 0,
+            "other_count": 0,
+            "status_distribution": {},
+        }
+        contributor_stats = []
+        project_list = []
+
+    return render_template(
+        "admin/statistics.html",
+        resolution_stats=resolution_stats,
+        workflow_stats=workflow_stats,
+        contributor_stats=contributor_stats,
+        project_list=project_list,
+        selected_project_id=project_id,
+        selected_days=days,
+    )

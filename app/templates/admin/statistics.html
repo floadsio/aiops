@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+{% block title %}Statistics | aiops Control Panel{% endblock %}
+{% block extra_head %}
+<style>
+  .stats-filters {
+    margin-bottom: 2rem;
+    padding: 1.25rem;
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+  .stats-filters form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    margin: 0;
+  }
+  .stats-filters label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    flex: 1 1 200px;
+  }
+  .stats-filters select {
+    width: 100%;
+  }
+  .stats-filters button {
+    flex: 0 0 auto;
+  }
+  [data-theme="dark"] .stats-filters {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .stat-card {
+    padding: 1.25rem;
+    border-radius: 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: var(--md-surface);
+    box-shadow: var(--shadow-1);
+  }
+
+  .stat-card__label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pico-muted-color);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+  }
+
+  .stat-card__value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin: 0;
+  }
+
+  .stat-card__unit {
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+    margin-top: 0.25rem;
+  }
+
+  .stat-card--primary {
+    border-left: 4px solid var(--pico-primary);
+  }
+
+  .stat-card--success {
+    border-left: 4px solid var(--pico-ins-color);
+  }
+
+  .stat-card--info {
+    border-left: 4px solid #3b82f6;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .section-header h2 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+
+  .stats-table-container {
+    margin-bottom: 2.5rem;
+  }
+
+  .project-breakdown-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .project-breakdown-card {
+    padding: 1rem;
+    border-radius: 0.7rem;
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  [data-theme="dark"] .project-breakdown-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  .project-breakdown-card__name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .project-breakdown-card__stat {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-top: 0.35rem;
+  }
+
+  .project-breakdown-card__stat strong {
+    font-weight: 600;
+  }
+
+  .contributor-card {
+    padding: 1rem 1.25rem;
+    border-radius: 0.7rem;
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    margin-bottom: 0.75rem;
+  }
+
+  [data-theme="dark"] .contributor-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  .contributor-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .contributor-card__name {
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  .contributor-card__activity {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+  }
+
+  .contributor-card__issues {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .contributor-card__issues-title {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--pico-muted-color);
+    margin-bottom: 0.5rem;
+  }
+
+  .contributor-card__issue {
+    font-size: 0.85rem;
+    margin: 0.25rem 0;
+    padding-left: 0.75rem;
+  }
+
+  .contributor-card__issue a {
+    color: var(--pico-primary);
+    text-decoration: none;
+  }
+
+  .contributor-card__issue a:hover {
+    text-decoration: underline;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .status-badge--open {
+    background: rgba(59, 130, 246, 0.15);
+    color: rgba(30, 64, 175, 0.95);
+  }
+
+  .status-badge--closed {
+    background: rgba(16, 185, 129, 0.18);
+    color: rgba(6, 95, 70, 0.95);
+  }
+
+  [data-theme="dark"] .status-badge--open {
+    background: rgba(96, 165, 250, 0.22);
+    color: rgba(191, 219, 254, 0.9);
+  }
+
+  [data-theme="dark"] .status-badge--closed {
+    background: rgba(45, 212, 191, 0.25);
+    color: rgba(167, 243, 208, 0.95);
+  }
+
+  .chart-container {
+    position: relative;
+    height: 300px;
+    margin: 1.5rem 0;
+  }
+
+  @media (max-width: 768px) {
+    .stats-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stat-card__value {
+      font-size: 2rem;
+    }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<article>
+  <header>
+    <h1>📊 Issue Statistics</h1>
+    <p>Insights into issue resolution metrics, team productivity, and workflow performance.</p>
+  </header>
+
+  <div class="stats-filters">
+    <form method="get">
+      <label>
+        <span>Project</span>
+        <select name="project_id" id="project_id">
+          <option value="">All Projects</option>
+          {% for project in project_list %}
+            <option value="{{ project.id }}" {% if project.id == selected_project_id %}selected{% endif %}>
+              {{ project.name }} ({{ project.tenant_name }})
+            </option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>
+        <span>Time Period</span>
+        <select name="days" id="days">
+          <option value="7" {% if selected_days == 7 %}selected{% endif %}>Last 7 days</option>
+          <option value="30" {% if selected_days == 30 %}selected{% endif %}>Last 30 days</option>
+          <option value="90" {% if selected_days == 90 %}selected{% endif %}>Last 90 days</option>
+          <option value="180" {% if selected_days == 180 %}selected{% endif %}>Last 180 days</option>
+          <option value="365" {% if selected_days == 365 %}selected{% endif %}>Last 365 days</option>
+        </select>
+      </label>
+
+      <button type="submit">Apply Filters</button>
+    </form>
+  </div>
+
+  <section>
+    <div class="section-header">
+      <h2>Resolution Metrics</h2>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card stat-card--success">
+        <div class="stat-card__label">Resolved Issues</div>
+        <div class="stat-card__value">{{ resolution_stats.total_resolved }}</div>
+        <div class="stat-card__unit">in last {{ resolution_stats.period_days }} days</div>
+      </div>
+
+      <div class="stat-card stat-card--primary">
+        <div class="stat-card__label">Avg Resolution Time</div>
+        <div class="stat-card__value">
+          {% if resolution_stats.avg_resolution_time_hours < 1 %}
+            {{ (resolution_stats.avg_resolution_time_hours * 60)|round|int }}
+          {% elif resolution_stats.avg_resolution_time_hours < 24 %}
+            {{ resolution_stats.avg_resolution_time_hours|round(1) }}
+          {% else %}
+            {{ (resolution_stats.avg_resolution_time_hours / 24)|round(1) }}
+          {% endif %}
+        </div>
+        <div class="stat-card__unit">
+          {% if resolution_stats.avg_resolution_time_hours < 1 %}
+            minutes
+          {% elif resolution_stats.avg_resolution_time_hours < 24 %}
+            hours
+          {% else %}
+            days
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="stat-card stat-card--info">
+        <div class="stat-card__label">Total Issues</div>
+        <div class="stat-card__value">{{ workflow_stats.total_issues }}</div>
+        <div class="stat-card__unit">across all projects</div>
+      </div>
+    </div>
+
+    {% if resolution_stats.project_breakdown %}
+      <div class="section-header" style="margin-top: 2rem;">
+        <h3>Resolution by Project</h3>
+      </div>
+      <div class="project-breakdown-grid">
+        {% for project_name, stats in resolution_stats.project_breakdown.items() %}
+          <div class="project-breakdown-card">
+            <div class="project-breakdown-card__name">{{ project_name }}</div>
+            <div class="project-breakdown-card__stat">
+              <span>Resolved:</span>
+              <strong>{{ stats.count }}</strong>
+            </div>
+            <div class="project-breakdown-card__stat">
+              <span>Avg Time:</span>
+              <strong>
+                {% if stats.avg_resolution_time < 1 %}
+                  {{ (stats.avg_resolution_time * 60)|round|int }}m
+                {% elif stats.avg_resolution_time < 24 %}
+                  {{ stats.avg_resolution_time|round(1) }}h
+                {% else %}
+                  {{ (stats.avg_resolution_time / 24)|round(1) }}d
+                {% endif %}
+              </strong>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
+  <section style="margin-top: 3rem;">
+    <div class="section-header">
+      <h2>Workflow Overview</h2>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-card__label">Open Issues</div>
+        <div class="stat-card__value">{{ workflow_stats.open_count }}</div>
+        <div class="stat-card__unit">
+          {{ ((workflow_stats.open_count / workflow_stats.total_issues * 100) if workflow_stats.total_issues else 0)|round|int }}% of total
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-card__label">Closed Issues</div>
+        <div class="stat-card__value">{{ workflow_stats.closed_count }}</div>
+        <div class="stat-card__unit">
+          {{ ((workflow_stats.closed_count / workflow_stats.total_issues * 100) if workflow_stats.total_issues else 0)|round|int }}% of total
+        </div>
+      </div>
+
+      {% if workflow_stats.other_count > 0 %}
+        <div class="stat-card">
+          <div class="stat-card__label">Other Status</div>
+          <div class="stat-card__value">{{ workflow_stats.other_count }}</div>
+          <div class="stat-card__unit">
+            {{ ((workflow_stats.other_count / workflow_stats.total_issues * 100) if workflow_stats.total_issues else 0)|round|int }}% of total
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if workflow_stats.status_distribution %}
+      <div class="chart-container">
+        <canvas id="statusChart"></canvas>
+      </div>
+    {% endif %}
+  </section>
+
+  {% if contributor_stats %}
+    <section style="margin-top: 3rem;">
+      <div class="section-header">
+        <h2>Top Contributors</h2>
+      </div>
+
+      {% for contributor in contributor_stats[:10] %}
+        <div class="contributor-card">
+          <div class="contributor-card__header">
+            <div class="contributor-card__name">{{ contributor.contributor }}</div>
+            <div class="contributor-card__activity">
+              <span>📋 {{ contributor.assigned_count }} assigned</span>
+              <span>💬 {{ contributor.commented_count }} comments</span>
+            </div>
+          </div>
+
+          {% if contributor.issues %}
+            <div class="contributor-card__issues">
+              <div class="contributor-card__issues-title">Recent Issues</div>
+              {% for issue in contributor.issues %}
+                <div class="contributor-card__issue">
+                  • <a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.title }}</a>
+                  <span class="status-badge status-badge--{{ 'closed' if issue.status in ['closed', 'resolved', 'done'] else 'open' }}">
+                    {{ issue.status or 'unknown' }}
+                  </span>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </section>
+  {% endif %}
+</article>
+
+<script>
+  // Status distribution chart
+  {% if workflow_stats.status_distribution %}
+    const ctx = document.getElementById('statusChart');
+    if (ctx) {
+      const statusData = {{ workflow_stats.status_distribution|tojson }};
+      const labels = Object.keys(statusData);
+      const values = Object.values(statusData);
+
+      // Generate colors
+      const colors = labels.map((label, index) => {
+        const hue = (index * 137.5) % 360; // Golden angle for better color distribution
+        return `hsl(${hue}, 70%, 60%)`;
+      });
+
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderWidth: 2,
+            borderColor: 'rgba(255, 255, 255, 0.8)'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                padding: 15,
+                font: {
+                  size: 12
+                }
+              }
+            },
+            title: {
+              display: true,
+              text: 'Issue Status Distribution',
+              font: {
+                size: 16,
+                weight: '600'
+              }
+            }
+          }
+        }
+      });
+    }
+  {% endif %}
+</script>
+{% endblock %}

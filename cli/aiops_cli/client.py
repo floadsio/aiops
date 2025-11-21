@@ -254,6 +254,22 @@ class APIClient:
         """Close issue."""
         return self.post(f"issues/{issue_id}/close")
 
+    def remap_issue(self, issue_id: int, target_project_id: int) -> dict[str, Any]:
+        """Remap an issue to a different aiops project.
+
+        Args:
+            issue_id: Issue database ID to remap
+            target_project_id: Target project ID to remap to
+
+        Returns:
+            Response data with updated issue
+
+        Note:
+            This updates the internal aiops mapping only - the external issue tracker
+            (GitHub/GitLab/Jira) remains unchanged. Requires admin access.
+        """
+        return self.post(f"issues/{issue_id}/remap", json={"project_id": target_project_id})
+
     def add_issue_comment(self, issue_id: int, body: str) -> dict[str, Any]:
         """Add comment to issue."""
         return self.post(f"issues/{issue_id}/comments", json={"body": body})

@@ -638,6 +638,42 @@ def issues_close(ctx: click.Context, issue_id: int) -> None:
         sys.exit(1)
 
 
+@issues.command(name="remap")
+@click.argument("issue_id", type=int)
+@click.option("--project", "-p", "project_identifier", required=True, help="Target project ID or name")
+@click.pass_context
+def issues_remap(ctx: click.Context, issue_id: int, project_identifier: str) -> None:
+    """Remap an issue to a different aiops project.
+
+    This updates the internal aiops mapping only - the external issue tracker
+    (GitHub/GitLab/Jira) remains unchanged.
+
+    Examples:
+        aiops issues remap 547 --project my-project
+        aiops issues remap 547 -p 6
+    """
+    client = get_client(ctx)
+
+    try:
+        # Resolve project identifier to ID
+        target_project_id = resolve_project_id(client, project_identifier)
+
+        # Get current issue details for confirmation message
+        issue = client.get_issue(issue_id)
+        old_project_name = issue.get("project_name", "unknown")
+
+        # Remap the issue
+        result = client.remap_issue(issue_id, target_project_id)
+
+        new_project_name = result.get("issue", {}).get("project_name", "unknown")
+        console.print(
+            f"[green]Successfully remapped issue #{issue_id} from '{old_project_name}' to '{new_project_name}'[/green]"
+        )
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 @issues.command(name="comment")
 @click.argument("issue_id", type=int)
 @click.argument("body", required=False)

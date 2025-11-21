@@ -104,8 +104,8 @@ def _format_table(
                 if col in ("id", "external_id", "project_id", "tenant_id", "user_id", "integration_id"):
                     # Numeric IDs - narrow, no wrap
                     table.add_column(col_name, style="cyan", no_wrap=True, width=8)
-                elif col in ("status", "provider", "tool", "pinned"):
-                    # Status/enum fields - moderate width, no wrap
+                elif col in ("status", "provider", "tool", "pinned", "tenant_name", "project_name"):
+                    # Status/enum fields and names - moderate width, no wrap
                     table.add_column(col_name, style="cyan", no_wrap=True, width=12)
                 elif col in ("started_at",):
                     # Timestamps - moderate width, no wrap

@@ -105,6 +105,7 @@ def _project_to_dict(
         "default_branch": project.default_branch,
         "local_path": project.local_path,
         "tenant_id": project.tenant_id,
+        "tenant_name": project.tenant.name if project.tenant else "Unknown",
         "owner_id": project.owner_id,
         "tenant_color": (
             project.tenant.color if project.tenant else DEFAULT_TENANT_COLOR

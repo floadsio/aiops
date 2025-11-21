@@ -339,7 +339,7 @@ def issues_pinned(ctx: click.Context, output: Optional[str]) -> None:
             return
 
         # Show relevant columns for pinned issues
-        columns = ["id", "external_id", "title", "status_label", "project_name"]
+        columns = ["id", "external_id", "title", "status_label", "tenant_name", "project_name"]
         format_output(pinned_issues, output_format, console, title="Pinned Issues", columns=columns)
 
     except APIError as exc:
@@ -380,7 +380,7 @@ def issues_list(
             limit=limit,
         )
         # Show only the most relevant columns for list view
-        columns = ["id", "external_id", "title", "status", "provider", "project_name", "assignee"]
+        columns = ["id", "external_id", "title", "status", "provider", "tenant_name", "project_name", "assignee"]
         format_output(issues_data, output_format, console, title="Issues", columns=columns)
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
@@ -661,13 +661,15 @@ def issues_remap(ctx: click.Context, issue_id: int, project_identifier: str) -> 
         # Get current issue details for confirmation message
         issue = client.get_issue(issue_id)
         old_project_name = issue.get("project_name", "unknown")
+        old_tenant_name = issue.get("tenant_name", "unknown")
 
         # Remap the issue
         result = client.remap_issue(issue_id, target_project_id)
 
         new_project_name = result.get("issue", {}).get("project_name", "unknown")
+        new_tenant_name = result.get("issue", {}).get("tenant_name", "unknown")
         console.print(
-            f"[green]Successfully remapped issue #{issue_id} from '{old_project_name}' to '{new_project_name}'[/green]"
+            f"[green]Successfully remapped issue #{issue_id} from '{old_tenant_name}/{old_project_name}' to '{new_tenant_name}/{new_project_name}'[/green]"
         )
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
@@ -1014,7 +1016,8 @@ def issues_sessions(
         table.add_column("Issue", style="magenta", no_wrap=True, width=8)
         table.add_column("Tool", style="green", no_wrap=True, width=10)
         if not project:
-            # Show project name when listing all sessions
+            # Show tenant and project name when listing all sessions
+            table.add_column("Tenant", style="blue", no_wrap=True, width=12)
             table.add_column("Project", style="yellow", no_wrap=True, width=12)
         table.add_column("Tmux Target", style="blue", overflow="fold")
 
@@ -1035,8 +1038,9 @@ def issues_sessions(
             if project:
                 table.add_row(session_id, issue_id, tool_name, tmux_target)
             else:
+                tenant_name = session.get("tenant_name", "-")
                 project_name = session.get("project_name", str(session.get("project_id", "-")))
-                table.add_row(session_id, issue_id, tool_name, project_name, tmux_target)
+                table.add_row(session_id, issue_id, tool_name, tenant_name, project_name, tmux_target)
 
         console.print(table)
 
@@ -1918,6 +1922,7 @@ def sessions_list(
         table.add_column("Tool", style="green", no_wrap=True, width=10)
         table.add_column("Status", style="white", no_wrap=True, width=8)
         if not project:
+            table.add_column("Tenant", style="blue", no_wrap=True, width=12)
             table.add_column("Project", style="yellow", no_wrap=True, width=12)
         table.add_column("Tmux Target", style="blue", overflow="fold")
 
@@ -1932,8 +1937,9 @@ def sessions_list(
             if project:
                 table.add_row(session_id, issue_id, tool_name, status, tmux_target)
             else:
+                tenant_name = session.get("tenant_name", "-")
                 project_name = session.get("project_name", str(session.get("project_id", "-")))
-                table.add_row(session_id, issue_id, tool_name, status, project_name, tmux_target)
+                table.add_row(session_id, issue_id, tool_name, status, tenant_name, project_name, tmux_target)
 
         console.print(table)
 
@@ -2640,6 +2646,7 @@ def system_status(ctx: click.Context, output: Optional[str]) -> None:
                             for proj in value:
                                 ssh_ok = proj.get("ssh_ok", False)
                                 project_name = proj.get("project_name", "unknown")
+                                tenant_name = proj.get("tenant_name", "unknown")
                                 hostname = proj.get("hostname", "unknown")
                                 error = proj.get("error")
                                 ssh_key_info = proj.get("ssh_key", {})
@@ -2655,10 +2662,13 @@ def system_status(ctx: click.Context, output: Optional[str]) -> None:
                                     key_storage = ssh_key_info.get("storage", "?")
                                     key_display = f" [dim]({key_name} via {key_source}, {key_storage})[/dim]"
 
+                                # Include tenant in display
+                                project_display = f"{tenant_name}/{project_name}"
+
                                 if ssh_ok:
-                                    console.print(f"  [{color}]{symbol}[/{color}] {project_name}: {hostname}{key_display}")
+                                    console.print(f"  [{color}]{symbol}[/{color}] {project_display}: {hostname}{key_display}")
                                 else:
-                                    console.print(f"  [{color}]{symbol}[/{color}] {project_name}: {hostname} {error}{key_display}")
+                                    console.print(f"  [{color}]{symbol}[/{color}] {project_display}: {hostname} {error}{key_display}")
                         elif key not in ["error"]:
                             # Show other details
                             console.print(f"  [dim]{key}: {value}[/dim]")

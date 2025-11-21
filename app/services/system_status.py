@@ -558,6 +558,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
                 project_checks.append({
                     "project_id": project.id,
                     "project_name": project.name,
+                    "tenant_name": project.tenant.name if project.tenant else "Unknown",
                     "hostname": None,
                     "ssh_ok": False,
                     "error": "Could not parse hostname from repo URL"
@@ -572,6 +573,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
             project_checks.append({
                 "project_id": project.id,
                 "project_name": project.name,
+                "tenant_name": project.tenant.name if project.tenant else "Unknown",
                 "hostname": display_host,
                 "ssh_ok": ssh_ok,
                 "error": error,

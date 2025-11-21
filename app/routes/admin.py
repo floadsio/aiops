@@ -3123,9 +3123,16 @@ def manage_projects():
         return redirect(url_for("admin.manage_projects"))
 
     if form.validate_on_submit() and not delete_form.submit.data:
+        # Slugify project name for filesystem path
+        def _slugify(name: str) -> str:
+            cleaned = "".join(char.lower() if char.isalnum() else "-" for char in name)
+            cleaned = "-".join(filter(None, cleaned.split("-")))
+            return cleaned or "project"
+
         storage_root = Path(current_app.config["REPO_STORAGE_PATH"])
         storage_root.mkdir(parents=True, exist_ok=True)
-        local_path = storage_root / f"{form.name.data.lower().replace(' ', '-')}"
+        slug = _slugify(form.name.data)
+        local_path = storage_root / slug
 
         project = Project(
             name=form.name.data,
@@ -3139,8 +3146,18 @@ def manage_projects():
         db.session.add(project)
         db.session.commit()
 
-        ensure_repo_checkout(project)
-        flash("Project registered and repository cloned.", "success")
+        try:
+            ensure_repo_checkout(project)
+            flash("Project registered and repository cloned.", "success")
+        except Exception as exc:  # noqa: BLE001
+            current_app.logger.warning(
+                "Failed to clone repository for project %s: %s", project.name, exc
+            )
+            flash(
+                f"Project registered but repository clone failed: {exc}. "
+                "You can try cloning manually later.",
+                "warning"
+            )
         return redirect(url_for("admin.manage_projects"))
 
     projects = Project.query.order_by(Project.created_at.desc()).all()

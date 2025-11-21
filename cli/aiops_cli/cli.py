@@ -2357,6 +2357,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
         aiops update              # Update to latest version
         aiops update --check-only # Check for updates without installing
     """
+    import shutil
     import subprocess
     from importlib.metadata import PackageNotFoundError, version
     from pathlib import Path
@@ -2418,6 +2419,45 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
         # Check if it's a git repository
         if (repo_path / ".git").exists():
             console.print(f"[dim]Repository path: {repo_path}[/dim]")
+
+            # Clean up generated files that might conflict with git pull
+            console.print("[dim]Cleaning up generated files...[/dim]")
+            cleanup_patterns = [
+                cli_path / "*.egg-info",
+                repo_path / "**/__pycache__",
+                repo_path / "**/*.pyc",
+            ]
+
+            for pattern in cleanup_patterns:
+                if "*" in str(pattern):
+                    # Handle glob patterns
+                    if "**" in str(pattern):
+                        # Recursive glob
+                        parent = Path(str(pattern).split("**")[0])
+                        glob_pattern = "**/" + str(pattern).split("**/")[1]
+                        for match in parent.glob(glob_pattern):
+                            try:
+                                if match.is_dir():
+                                    shutil.rmtree(match)
+                                else:
+                                    match.unlink()
+                            except Exception as e:
+                                # Ignore cleanup errors, they're not critical
+                                pass
+                    else:
+                        # Simple glob
+                        parent = pattern.parent
+                        for match in parent.glob(pattern.name):
+                            try:
+                                if match.is_dir():
+                                    shutil.rmtree(match)
+                                else:
+                                    match.unlink()
+                            except Exception as e:
+                                # Ignore cleanup errors, they're not critical
+                                pass
+
+            console.print("[green]✓[/green] Cleanup complete")
 
             # Pull latest changes
             console.print("[dim]Pulling latest changes from git...[/dim]")

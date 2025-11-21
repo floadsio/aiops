@@ -3372,6 +3372,116 @@ def manage_integrations():
     )
 
 
+@admin_bp.route("/integrations/<int:integration_id>", methods=["GET", "POST"])
+@admin_required
+def integration_detail(integration_id: int):
+    """View and manage all projects mapped to a specific integration."""
+    integration = TenantIntegration.query.options(
+        selectinload(TenantIntegration.tenant),
+        selectinload(TenantIntegration.project_integrations).selectinload(
+            ProjectIntegration.project
+        ),
+    ).get_or_404(integration_id)
+
+    # Form for adding new project mappings
+    add_project_form = ProjectIntegrationForm(prefix="add")
+
+    # Get all projects in the same tenant
+    available_projects = Project.query.filter_by(
+        tenant_id=integration.tenant_id
+    ).order_by(Project.name).all()
+
+    # Filter out already mapped projects
+    mapped_project_ids = {link.project_id for link in integration.project_integrations}
+    unmapped_projects = [p for p in available_projects if p.id not in mapped_project_ids]
+
+    # Set up choices for the form
+    project_choices = [(p.id, p.name) for p in unmapped_projects]
+    add_project_form.project_id.choices = project_choices
+    add_project_form.integration_id.data = integration.id
+
+    # Handle form submission for adding a new project mapping
+    if add_project_form.link.data and add_project_form.validate_on_submit():
+        project = Project.query.get(add_project_form.project_id.data)
+
+        if project and project.tenant_id == integration.tenant_id:
+            # Check for existing link
+            existing_link = ProjectIntegration.query.filter_by(
+                integration_id=integration.id,
+                project_id=project.id,
+            ).first()
+
+            if existing_link:
+                flash(f"Project '{project.name}' is already linked to this integration.", "warning")
+            else:
+                # Prepare config
+                config: dict[str, str] = {}
+                jira_jql = (add_project_form.jira_jql.data or "").strip()
+                if jira_jql and integration.provider.lower() == "jira":
+                    config["jql"] = jira_jql
+
+                # Prepare per-project credential overrides
+                override_api_token = (add_project_form.override_api_token.data or "").strip() or None
+                override_base_url = (add_project_form.override_base_url.data or "").strip() or None
+                override_settings: dict[str, str] | None = None
+                override_username = (add_project_form.override_username.data or "").strip()
+                if override_username:
+                    override_settings = {"username": override_username}
+
+                # Create the link
+                project_integration = ProjectIntegration(
+                    project_id=project.id,
+                    integration_id=integration.id,
+                    external_identifier=add_project_form.external_identifier.data.strip(),
+                    config=config,
+                    override_api_token=override_api_token,
+                    override_base_url=override_base_url,
+                    override_settings=override_settings,
+                )
+                db.session.add(project_integration)
+                db.session.commit()
+                flash(f"Project '{project.name}' successfully linked to integration.", "success")
+                return redirect(url_for("admin.integration_detail", integration_id=integration.id))
+        else:
+            flash("Invalid project selection.", "danger")
+
+    # Create update and delete forms for existing mappings
+    update_forms: dict[int, ProjectIntegrationUpdateForm] = {}
+    delete_forms: dict[int, ProjectIntegrationDeleteForm] = {}
+
+    for link in integration.project_integrations:
+        # Update form
+        update_form = ProjectIntegrationUpdateForm(prefix=f"update-{link.id}")
+        update_form.external_identifier.data = link.external_identifier
+        if integration.provider.lower() == "jira":
+            update_form.jira_jql.data = (link.config or {}).get("jql", "")
+        update_form.override_base_url.data = link.override_base_url or ""
+        if link.override_settings:
+            update_form.override_username.data = link.override_settings.get("username", "")
+        update_forms[link.id] = update_form
+
+        # Delete form
+        delete_form = ProjectIntegrationDeleteForm(prefix=f"delete-{link.id}")
+        delete_forms[link.id] = delete_form
+
+    # Sort project integrations by project name
+    sorted_links = sorted(
+        integration.project_integrations,
+        key=lambda link: link.project.name if link.project else ""
+    )
+
+    return render_template(
+        "admin/integration_detail.html",
+        integration=integration,
+        project_integrations=sorted_links,
+        add_project_form=add_project_form,
+        update_forms=update_forms,
+        delete_forms=delete_forms,
+        unmapped_projects=unmapped_projects,
+        has_unmapped_projects=len(unmapped_projects) > 0,
+    )
+
+
 @admin_bp.route("/integrations/test", methods=["POST"])
 @admin_required
 def test_integration() -> Any:

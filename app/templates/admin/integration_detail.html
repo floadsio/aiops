@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}{{ integration.name }} | Integration Details{% endblock %}
+{% block content %}
+<style>
+  .integration-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .integration-info {
+    flex: 1;
+    min-width: 300px;
+  }
+  .integration-stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    text-align: center;
+    padding: 1rem;
+    background: var(--pico-card-background-color);
+    border-radius: var(--pico-border-radius);
+    border: 1px solid var(--pico-card-border-color);
+    min-width: 120px;
+  }
+  .stat-number {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--pico-primary);
+  }
+  .stat-label {
+    font-size: 0.875rem;
+    color: var(--pico-muted-color);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .project-card {
+    border: 1px solid var(--pico-card-border-color);
+    border-radius: var(--pico-border-radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background: var(--pico-card-background-color);
+  }
+  .project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+  .project-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0;
+  }
+  .project-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
+  }
+  .detail-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+  }
+  .detail-label {
+    font-weight: 600;
+    min-width: 100px;
+  }
+  .integration-inline-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .integration-inline-form button {
+    align-self: flex-start;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--pico-muted-color);
+  }
+  .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 640px) {
+    .integration-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .integration-stats {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .stat-card {
+      flex: 1;
+    }
+    .project-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+  }
+</style>
+
+<div class="integration-header">
+  <div class="integration-info">
+    <p>
+      <a href="{{ url_for('admin.manage_integrations') }}">← Back to Integrations</a>
+    </p>
+    <h1>{{ integration.name }}</h1>
+    <p>
+      {% if integration.tenant %}
+        <span class="tenant-badge" style="--tenant-color: {{ integration.tenant.color or default_tenant_color }}">
+          <span class="tenant-badge__swatch" aria-hidden="true"></span>
+          {{ integration.tenant.name }}
+        </span>
+      {% endif %}
+      <span class="badge">{{ integration.provider|capitalize }}</span>
+      {% if integration.enabled %}
+        <span class="badge success">Enabled</span>
+      {% else %}
+        <span class="badge">Disabled</span>
+      {% endif %}
+    </p>
+    {% if integration.base_url %}
+      <p><small><strong>Base URL:</strong> <code>{{ integration.base_url }}</code></small></p>
+    {% endif %}
+  </div>
+
+  <div class="integration-stats">
+    <div class="stat-card">
+      <div class="stat-number">{{ project_integrations|length }}</div>
+      <div class="stat-label">Project{{ 's' if project_integrations|length != 1 else '' }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-number">{{ project_integrations | sum(attribute='issues.__len__', start=0) }}</div>
+      <div class="stat-label">Issue{{ 's' if (project_integrations | sum(attribute='issues.__len__', start=0)) != 1 else '' }}</div>
+    </div>
+  </div>
+</div>
+
+<h2>Mapped Projects ({{ project_integrations|length }})</h2>
+
+{% if project_integrations %}
+  {% for link in project_integrations %}
+    <div class="project-card">
+      <div class="project-header">
+        <div>
+          <h3 class="project-name">
+            <a href="{{ url_for('projects.project_detail', project_id=link.project.id) }}">
+              {{ link.project.name }}
+            </a>
+          </h3>
+        </div>
+        <div>
+          {% if link.issues %}
+            <span class="badge">{{ link.issues|length }} issue{{ 's' if link.issues|length != 1 else '' }}</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="project-details">
+        <div class="detail-row">
+          <span class="detail-label">External ID:</span>
+          <code>{{ link.external_identifier }}</code>
+        </div>
+        {% if link.config and link.config.get('jql') %}
+          <div class="detail-row">
+            <span class="detail-label">JQL Filter:</span>
+            <code>{{ link.config.get('jql') }}</code>
+          </div>
+        {% endif %}
+        {% if link.last_synced_at %}
+          <div class="detail-row">
+            <span class="detail-label">Last Synced:</span>
+            <span>{{ link.last_synced_at.strftime("%Y-%m-%d %H:%M") }} UTC</span>
+          </div>
+        {% endif %}
+        {% if link.override_base_url %}
+          <div class="detail-row">
+            <span class="detail-label">Override URL:</span>
+            <code>{{ link.override_base_url }}</code>
+          </div>
+        {% endif %}
+        {% if link.override_settings and link.override_settings.get('username') %}
+          <div class="detail-row">
+            <span class="detail-label">Override User:</span>
+            <code>{{ link.override_settings.get('username') }}</code>
+          </div>
+        {% endif %}
+      </div>
+
+      <details>
+        <summary>Edit mapping</summary>
+        {% set update_form = update_forms[link.id] %}
+        {% set delete_form = delete_forms[link.id] %}
+        <form method="post" action="{{ url_for('admin.update_project_integration', project_integration_id=link.id) }}" class="integration-inline-form">
+          {{ update_form.hidden_tag() }}
+          <label>
+            {{ update_form.external_identifier.label }}
+            {{ update_form.external_identifier() }}
+          </label>
+          {% if integration.provider.lower() == 'jira' %}
+            <label>
+              {{ update_form.jira_jql.label }}
+              {{ update_form.jira_jql(rows=2) }}
+            </label>
+          {% endif %}
+          <label>
+            {{ update_form.override_base_url.label }}
+            {{ update_form.override_base_url(placeholder=update_form.override_base_url.description) }}
+          </label>
+          <label>
+            {{ update_form.override_api_token.label }}
+            {{ update_form.override_api_token(placeholder="Leave blank to keep existing") }}
+          </label>
+          <label>
+            {{ update_form.override_username.label }}
+            {{ update_form.override_username(placeholder=update_form.override_username.description) }}
+          </label>
+          <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.delete_project_integration', project_integration_id=link.id) }}" class="integration-inline-form">
+          {{ delete_form.hidden_tag() }}
+          {{ delete_form.submit(
+            class_="secondary outline",
+            onclick="return confirm('Remove this project mapping? Issues will remain in the database but won\\'t sync anymore.')"
+          ) }}
+        </form>
+      </details>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon">📦</div>
+    <p><strong>No projects mapped yet</strong></p>
+    <p>Add projects below to start syncing issues from this integration.</p>
+  </div>
+{% endif %}
+
+{% if has_unmapped_projects %}
+<article>
+  <header>
+    <h2>Add Project Mapping</h2>
+  </header>
+  <p>Link a project from the <strong>{{ integration.tenant.name }}</strong> tenant to this integration.</p>
+  <form method="post">
+    {{ add_project_form.hidden_tag() }}
+    <label>
+      {{ add_project_form.project_id.label }}
+      {{ add_project_form.project_id() }}
+      {% for error in add_project_form.project_id.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    <label>
+      {{ add_project_form.external_identifier.label }}
+      {{ add_project_form.external_identifier(placeholder=add_project_form.external_identifier.description) }}
+      {% for error in add_project_form.external_identifier.errors %}
+        <span class="error">{{ error }}</span>
+      {% endfor %}
+    </label>
+    {% if integration.provider.lower() == 'jira' %}
+      <label>
+        {{ add_project_form.jira_jql.label }}
+        {{ add_project_form.jira_jql(rows=2, placeholder=add_project_form.jira_jql.description) }}
+        {% for error in add_project_form.jira_jql.errors %}
+          <span class="error">{{ error }}</span>
+        {% endfor %}
+      </label>
+    {% endif %}
+    <details>
+      <summary>Project-specific credential overrides (optional)</summary>
+      <label>
+        {{ add_project_form.override_base_url.label }}
+        {{ add_project_form.override_base_url(placeholder=add_project_form.override_base_url.description) }}
+      </label>
+      <label>
+        {{ add_project_form.override_api_token.label }}
+        {{ add_project_form.override_api_token(placeholder="Different API token for this project") }}
+      </label>
+      <label>
+        {{ add_project_form.override_username.label }}
+        {{ add_project_form.override_username(placeholder=add_project_form.override_username.description) }}
+      </label>
+    </details>
+    <button type="submit" name="{{ add_project_form.link.name }}" value="1">
+      {{ add_project_form.link.label.text }}
+    </button>
+  </form>
+</article>
+{% else %}
+  <article>
+    <p class="text-muted">
+      <strong>All projects in the {{ integration.tenant.name }} tenant are already mapped to this integration.</strong>
+      {% if integration.tenant %}
+        <br>To add more projects, <a href="{{ url_for('admin.manage_projects') }}">create a new project</a> in this tenant first.
+      {% endif %}
+    </p>
+  </article>
+{% endif %}
+
+{% endblock %}

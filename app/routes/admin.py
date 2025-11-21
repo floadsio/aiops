@@ -3395,9 +3395,10 @@ def integration_detail(integration_id: int):
     mapped_project_ids = {link.project_id for link in integration.project_integrations}
     unmapped_projects = [p for p in available_projects if p.id not in mapped_project_ids]
 
-    # Set up choices for the form
+    # Set up choices for the form (both fields are SelectFields and need choices)
     project_choices = [(p.id, p.name) for p in unmapped_projects]
     add_project_form.project_id.choices = project_choices
+    add_project_form.integration_id.choices = [(integration.id, integration.name)]
     add_project_form.integration_id.data = integration.id
 
     # Handle form submission for adding a new project mapping

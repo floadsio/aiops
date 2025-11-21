@@ -3,6 +3,16 @@
 {% block content %}
 <h1>Issue Integrations</h1>
 <p>Register tenant-level credentials for GitHub, GitLab, or Jira and map them to one or more projects. Each integration can sync issues from multiple repositories or project boards.</p>
+
+<article style="background: var(--pico-code-background-color); border-left: 4px solid var(--pico-primary); margin-bottom: 1.5rem;">
+  <p><strong>💡 How to map an integration to multiple projects:</strong></p>
+  <ol style="margin: 0.5rem 0 0 0; padding-left: 1.5rem;">
+    <li>Click on an <strong>integration name</strong> in the table below</li>
+    <li>On the integration detail page, you can add/remove project mappings</li>
+    <li>Each project can have its own external identifier and settings</li>
+  </ol>
+</article>
+
 <style>
   .button-row {
     display: flex;
@@ -18,6 +28,42 @@
   }
   .integration-inline-form button {
     align-self: flex-start;
+  }
+  .integration-name-link {
+    font-weight: 600;
+    font-size: 1.05rem;
+    text-decoration: none;
+    color: var(--pico-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .integration-name-link:hover {
+    text-decoration: underline;
+  }
+  .integration-name-link::after {
+    content: "→";
+    font-size: 1.1rem;
+    transition: transform 0.2s;
+  }
+  .integration-name-link:hover::after {
+    transform: translateX(3px);
+  }
+  .manage-projects-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    text-decoration: none;
+    background: var(--pico-primary);
+    color: var(--pico-primary-inverse);
+    border-radius: var(--pico-border-radius);
+    transition: background 0.2s;
+  }
+  .manage-projects-btn:hover {
+    background: var(--pico-primary-hover);
+    color: var(--pico-primary-inverse);
   }
   @media (max-width: 640px) {
     .button-row {
@@ -65,7 +111,7 @@
           {% endif %}
         </td>
         <td>
-          <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" style="font-weight: 600;">
+          <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="integration-name-link" title="Click to manage project mappings">
             {{ integration.name }}
           </a>
         </td>
@@ -103,12 +149,12 @@
         </td>
         <td>
           {% if integration.project_integrations %}
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
               <span class="badge" style="font-size: 1rem; padding: 0.35rem 0.75rem;">
                 {{ integration.project_integrations|length }} project{{ 's' if integration.project_integrations|length != 1 else '' }}
               </span>
-              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="secondary" style="font-size: 0.875rem;">
-                View & Manage →
+              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn">
+                Manage Projects
               </a>
             </div>
             <details style="margin-top: 0.75rem;">
@@ -127,10 +173,9 @@
               </ul>
             </details>
           {% else %}
-            <span class="text-muted">No linked projects.</span>
-            <br>
-            <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="secondary" style="font-size: 0.875rem; margin-top: 0.25rem; display: inline-block;">
-              Add projects →
+            <span class="text-muted" style="display: block; margin-bottom: 0.5rem;">No linked projects yet</span>
+            <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn">
+              Add Projects
             </a>
           {% endif %}
         </td>

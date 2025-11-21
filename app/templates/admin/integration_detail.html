@@ -140,9 +140,13 @@
       <div class="stat-number">{{ project_integrations|length }}</div>
       <div class="stat-label">Project{{ 's' if project_integrations|length != 1 else '' }}</div>
     </div>
+    {% set total_issues = namespace(count=0) %}
+    {% for link in project_integrations %}
+      {% set total_issues.count = total_issues.count + (link.issues|length) %}
+    {% endfor %}
     <div class="stat-card">
-      <div class="stat-number">{{ project_integrations | sum(attribute='issues.__len__', start=0) }}</div>
-      <div class="stat-label">Issue{{ 's' if (project_integrations | sum(attribute='issues.__len__', start=0)) != 1 else '' }}</div>
+      <div class="stat-number">{{ total_issues.count }}</div>
+      <div class="stat-label">Issue{{ 's' if total_issues.count != 1 else '' }}</div>
     </div>
   </div>
 </div>

@@ -109,6 +109,59 @@ class APIClient:
         """Make DELETE request."""
         return self._request("DELETE", path)
 
+    def _upload_request(
+        self,
+        method: str,
+        path: str,
+        files: Optional[dict[str, Any]] = None,
+        data: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        """Make HTTP request with file uploads (multipart/form-data).
+
+        Args:
+            method: HTTP method
+            path: API path
+            files: Files to upload
+            data: Form data
+
+        Returns:
+            Response data
+
+        Raises:
+            APIError: If request fails
+        """
+        url = f"{self.base_url}/api/v1/{path.lstrip('/')}"
+
+        # Create headers without Content-Type (requests will set it for multipart)
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+        }
+
+        try:
+            response = requests.request(
+                method=method,
+                url=url,
+                files=files,
+                data=data,
+                headers=headers,
+            )
+            response.raise_for_status()
+
+            # Handle empty responses (204 No Content)
+            if response.status_code == 204:
+                return None
+
+            return response.json()
+        except requests.exceptions.HTTPError as exc:
+            try:
+                error_data = exc.response.json()
+                error_msg = error_data.get("error", str(exc))
+            except Exception:  # noqa: BLE001
+                error_msg = str(exc)
+            raise APIError(error_msg, exc.response.status_code) from exc
+        except requests.exceptions.RequestException as exc:
+            raise APIError(f"Request failed: {exc}") from exc
+
     # Authentication
     def whoami(self) -> dict[str, Any]:
         """Get current user info."""
@@ -441,6 +494,30 @@ class APIClient:
             Validation result with 'exists' and 'marked_inactive' fields
         """
         return self.get(f"ai/sessions/{session_db_id}/validate")
+
+    def upload_session_file(
+        self, project_id: int, session_id: str, file_path: str, custom_name: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Upload file to session workspace.
+
+        Args:
+            project_id: Project ID
+            session_id: Session ID
+            file_path: Path to file on local machine
+            custom_name: Optional custom filename (defaults to original filename)
+
+        Returns:
+            Upload result with workspace_path, filename, and size
+        """
+        import os
+
+        filename = custom_name or os.path.basename(file_path)
+
+        with open(file_path, "rb") as f:
+            files = {"file": (filename, f)}
+            return self._upload_request(
+                "POST", f"projects/{project_id}/ai/sessions/{session_id}/upload", files=files
+            )
 
     # Projects
     def list_projects(self, tenant_id: Optional[int] = None) -> list[dict[str, Any]]:

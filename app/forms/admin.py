@@ -621,4 +621,4 @@ class AIAssistedIssueForm(FlaskForm):
         "Pin issue to dashboard",
         default=False,
     )
-    submit = SubmitField("Create Draft Issue & Start AI Session")
+    submit = SubmitField("Create Issue & Start AI Session")

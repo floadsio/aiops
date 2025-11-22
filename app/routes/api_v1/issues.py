@@ -16,7 +16,11 @@ from ...services.issues.providers import (
     GitLabIssueProvider,
     JiraIssueProvider,
 )
-from ...services.issues import IssueSyncError, sync_tenant_integrations
+from ...services.issues import (
+    IssueSyncError,
+    serialize_issue_comments,
+    sync_tenant_integrations,
+)
 from ...services.issues.utils import normalize_issue_status
 from ...services.user_identity_service import get_user_identity  # type: ignore
 from . import api_v1_bp
@@ -1024,16 +1028,36 @@ def create_assisted_issue():
                 "details": str(e),
             }), 500
 
-        # Step 2: Create the issue
+        # Step 2: Create the issue and persist it locally
         try:
-            issue = create_issue_for_project_integration(
-                project_integration_id=integration_id,
-                title=issue_data["title"],
+            issue_payload = create_issue_for_project_integration(
+                project_integration=integration,
+                summary=issue_data["title"],
                 description=issue_data["description"],
                 labels=issue_data.get("labels", []),
+                issue_type=issue_type,
                 assignee_user_id=assignee_user_id,
             )
+
+            from ...models import ExternalIssue
+
+            issue = ExternalIssue(
+                project_integration_id=integration.id,
+                external_id=issue_payload.external_id,
+                title=issue_payload.title,
+                status=issue_payload.status,
+                assignee=issue_payload.assignee,
+                url=issue_payload.url,
+                labels=issue_payload.labels or [],
+                external_updated_at=issue_payload.external_updated_at,
+                last_seen_at=datetime.now(timezone.utc),
+                raw_payload=issue_payload.raw,
+                comments=serialize_issue_comments(issue_payload.comments or []),
+            )
+            db.session.add(issue)
+            db.session.commit()
         except Exception as e:
+            db.session.rollback()
             return jsonify({
                 "error": "Failed to create issue",
                 "details": str(e),
@@ -1044,7 +1068,7 @@ def create_assisted_issue():
             "issue_url": issue.url,
             "external_id": issue.external_id,
             "title": issue.title,
-            "description": issue.description,
+            "description": issue_data.get("description"),
             "labels": issue.labels,
             "status": issue.status,
         }
@@ -1063,9 +1087,8 @@ def create_assisted_issue():
                 if user and user.linux_username:
                     checkout_or_create_branch(
                         project=project,
-                        branch_name=branch_name,
-                        base_branch=project.default_branch,
-                        create=True,
+                        branch=branch_name,
+                        base=project.default_branch,
                         user=user,
                     )
                     response_data["branch_name"] = branch_name

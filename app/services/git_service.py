@@ -873,7 +873,23 @@ def get_repo_status(project: Project, user: Optional[object] = None) -> dict[str
             "error": str(exc),
         }
 
+    # Filter AGENTS.override.md from dirty check since it's auto-generated
+    # Check if repo is dirty excluding AGENTS.override.md
+    AGENTS_OVERRIDE = "AGENTS.override.md"
     dirty = repo.is_dirty()
+    if dirty:
+        # If repo is dirty, check if it's only AGENTS.override.md
+        # Get all modified/staged files
+        changed_files = set()
+        # Index changes (staged)
+        changed_files.update(item.a_path for item in repo.index.diff("HEAD"))
+        # Working tree changes (unstaged)
+        changed_files.update(item.a_path for item in repo.index.diff(None))
+        # Filter out AGENTS.override.md
+        changed_files_filtered = {f for f in changed_files if f != AGENTS_OVERRIDE}
+        # Only dirty if there are changes other than AGENTS.override.md
+        dirty = len(changed_files_filtered) > 0
+
     active_branch = getattr(repo.head, "ref", None)
     branch_name = active_branch.name if active_branch else "detached"
     status_summary = repo.git.status("--short", "--branch").strip()
@@ -905,10 +921,13 @@ def get_repo_status(project: Project, user: Optional[object] = None) -> dict[str
     except Exception:  # noqa: BLE001
         head_commit = None
 
+    # Filter AGENTS.override.md from untracked files as well
+    untracked_files = [f for f in repo.untracked_files if f != AGENTS_OVERRIDE]
+
     return {
         "branch": branch_name,
         "dirty": dirty,
-        "untracked_files": repo.untracked_files,
+        "untracked_files": untracked_files,
         "status_summary": status_summary,
         "last_pull": last_pull_iso,
         "last_pull_display": last_pull_display,

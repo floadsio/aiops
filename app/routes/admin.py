@@ -2251,7 +2251,10 @@ def create_assisted_issue():
         generate_issue_from_description,
     )
     from ..services.git_service import checkout_or_create_branch
-    from ..services.issues import create_issue_for_project_integration
+    from ..services.issues import (
+        create_issue_for_project_integration,
+        serialize_issue_comments,
+    )
 
     form = AIAssistedIssueForm()
 
@@ -2297,26 +2300,30 @@ def create_assisted_issue():
             )
 
         try:
-            # Create a draft issue with the user's description
-            # Extract first sentence for title
-            first_sentence = description.split('.')[0].strip()
-            if len(first_sentence) > 60:
-                first_sentence = first_sentence[:60] + "..."
+            # Let the AI structure the issue before creation
+            try:
+                issue_data = generate_issue_from_description(
+                    description, ai_tool, issue_type
+                )
+            except AIIssueGenerationError as exc:
+                flash(f"AI generation failed: {exc}", "error")
+                return render_template(
+                    "admin/create_assisted_issue.html",
+                    form=form,
+                    project_integrations_json=json.dumps(project_integrations),
+                )
 
-            draft_title = f"Draft: {first_sentence}"
-
-            # Build labels list
-            labels = ["draft"]
-            if issue_type:
-                labels.append(issue_type)
+            branch_prefix = issue_data.get("branch_prefix", "feature")
+            labels = issue_data.get("labels", []) or []
 
             # Create issue in external tracker (returns IssuePayload)
             # Assign the issue to the current user who triggered the AI-assisted creation
             issue_payload = create_issue_for_project_integration(
                 project_integration=integration,
-                summary=draft_title,
-                description=description,
+                summary=issue_data["title"],
+                description=issue_data["description"],
                 labels=labels,
+                issue_type=issue_type or None,
                 assignee_user_id=current_user.id,
             )
 
@@ -2332,16 +2339,32 @@ def create_assisted_issue():
                 status=issue_payload.status,
                 assignee=issue_payload.assignee,
                 url=issue_payload.url,
-                labels=issue_payload.labels,
+                labels=issue_payload.labels or [],
                 external_updated_at=issue_payload.external_updated_at,
                 last_seen_at=datetime.now(timezone.utc),
                 raw_payload=issue_payload.raw,
-                comments=issue_payload.comments,
+                comments=serialize_issue_comments(issue_payload.comments or []),
             )
             db.session.add(issue)
             db.session.commit()
 
-            flash(f"Draft issue created: #{issue.external_id}", "success")
+            flash(f"Issue created: #{issue.external_id}", "success")
+
+            # Create branch if requested
+            if create_branch_flag:
+                try:
+                    branch_name = generate_branch_name(
+                        issue.external_id, issue.title, branch_prefix
+                    )
+                    checkout_or_create_branch(
+                        project=project,
+                        branch=branch_name,
+                        base=project.default_branch,
+                        user=current_user.model,
+                    )
+                    flash(f"Branch {branch_name} created.", "success")
+                except Exception as exc:
+                    flash(f"Failed to create branch: {exc}", "warning")
 
             # Pin issue if requested
             if pin_issue_flag:
@@ -2350,14 +2373,13 @@ def create_assisted_issue():
                 db.session.add(pinned)
                 db.session.commit()
 
-            # Write custom AGENTS.override.md with instructions for AI to format the issue
-            from ..services.agent_context import write_ai_assisted_issue_context
-            write_ai_assisted_issue_context(
+            # Write tracked AGENTS.override.md with structured issue context
+            from ..services.agent_context import write_tracked_issue_context
+
+            write_tracked_issue_context(
                 project=project,
-                issue=issue,
-                user_description=description,
-                issue_type_hint=issue_type,
-                create_branch=create_branch_flag,
+                primary_issue=issue,
+                all_issues=[issue],
                 identity_user=current_user.model,
             )
 

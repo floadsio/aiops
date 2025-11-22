@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -17,6 +18,7 @@ from app.models import (
 )
 from app.security import hash_password
 from app.services.agent_context import MISSING_ISSUE_DETAILS_MESSAGE
+from app.services.issues import IssuePayload
 
 
 class AdminTestConfig(Config):
@@ -338,6 +340,118 @@ def test_api_issues_can_filter_by_project(client, login_admin, app):
     assert data["count"] == 1
     assert data["issues"][0]["external_id"] == external_id
     assert data["issues"][0]["project_id"] == project_id
+
+
+def test_ai_assisted_issue_uses_structured_content(
+    client, login_admin, app, monkeypatch, tmp_path
+):
+    calls: dict[str, Any] = {}
+    structured_body = "Structured body with sections"
+
+    def fake_generate(description, ai_tool, issue_type):
+        calls["generate"] = (description, ai_tool, issue_type)
+        return {
+            "title": "Structured Issue Title",
+            "description": structured_body,
+            "labels": ["ai-generated", "feature"],
+            "branch_prefix": "feature",
+        }
+
+    def fake_create_issue(
+        project_integration,
+        summary,
+        description,
+        labels,
+        issue_type=None,
+        assignee_user_id=None,
+        **kwargs,
+    ):
+        calls["create_issue"] = {
+            "summary": summary,
+            "description": description,
+            "labels": labels,
+            "issue_type": issue_type,
+            "assignee_user_id": assignee_user_id,
+        }
+        return IssuePayload(
+            external_id="ISSUE-500",
+            title=summary,
+            status="open",
+            assignee="admin@example.com",
+            url="https://example.com/ISSUE-500",
+            labels=labels or [],
+            external_updated_at=None,
+            raw={"body": description},
+            comments=[],
+        )
+
+    def fake_write_tracked_issue_context(
+        project,
+        primary_issue,
+        all_issues,
+        filename="AGENTS.override.md",
+        *,
+        identity_user=None,
+    ):
+        calls["context_issue"] = primary_issue.external_id
+        path = tmp_path / filename
+        path.write_text("context", encoding="utf-8")
+        return path, []
+
+    class DummySession:
+        tmux_target = "tmux-1"
+
+    def fake_create_session(project, user_id, tool, issue_id, tmux_session_name):
+        calls["session"] = {
+            "project_id": project.id,
+            "issue_id": issue_id,
+            "tool": tool,
+            "user_id": user_id,
+        }
+        return DummySession()
+
+    monkeypatch.setattr(
+        "app.services.ai_issue_generator.generate_issue_from_description", fake_generate
+    )
+    monkeypatch.setattr(
+        "app.services.issues.create_issue_for_project_integration", fake_create_issue
+    )
+    monkeypatch.setattr(
+        "app.services.agent_context.write_tracked_issue_context",
+        fake_write_tracked_issue_context,
+    )
+    monkeypatch.setattr("app.ai_sessions.create_session", fake_create_session)
+
+    with app.app_context():
+        project_id = Project.query.first().id
+        user_id = User.query.filter_by(email="admin@example.com").one().id
+
+    response = client.post(
+        "/admin/issues/create-assisted",
+        data={
+            "project_id": project_id,
+            "description": "build structured issue",
+            "ai_tool": "claude",
+            "issue_type": "feature",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert calls["generate"] == ("build structured issue", "claude", "feature")
+    assert calls["create_issue"]["summary"] == "Structured Issue Title"
+    assert calls["create_issue"]["description"] == structured_body
+    assert calls["create_issue"]["labels"] == ["ai-generated", "feature"]
+    assert calls["create_issue"]["assignee_user_id"] == user_id
+    assert calls["context_issue"] == "ISSUE-500"
+    assert calls["session"]["tool"] == "claude"
+
+    with app.app_context():
+        issue = ExternalIssue.query.filter_by(external_id="ISSUE-500").one()
+        assert issue.title == "Structured Issue Title"
+        assert issue.labels == ["ai-generated", "feature"]
+        assert issue.url == "https://example.com/ISSUE-500"
+        assert issue.raw_payload == {"body": structured_body}
 
 
 def test_admin_can_update_issue_status(client, login_admin, app):

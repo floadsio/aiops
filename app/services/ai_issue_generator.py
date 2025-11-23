@@ -79,7 +79,7 @@ Rules:
         if ai_tool == "claude":
             # For Claude, we use the CLI directly
             result = subprocess.run(
-                command_parts + ["--no-cache", prompt],
+                command_parts + [prompt],
                 capture_output=True,
                 text=True,
                 timeout=30,

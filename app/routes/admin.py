@@ -2352,7 +2352,7 @@ def create_assisted_issue():
 
             # Write custom AGENTS.override.md with instructions for AI to format the issue
             from ..services.agent_context import write_ai_assisted_issue_context
-            write_ai_assisted_issue_context(
+            context_path, sources = write_ai_assisted_issue_context(
                 project=project,
                 issue=issue,
                 user_description=description,
@@ -2372,8 +2372,10 @@ def create_assisted_issue():
                 tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
             )
 
-            # Redirect to the AI console and auto-attach to the session
+            # Inform user about context sources
+            sources_msg = " + ".join(sources) if sources else "project defaults"
             flash(f"AI session started for issue #{issue.external_id}", "success")
+            flash(f"AGENTS.override.md populated from: {sources_msg}", "info")
             return redirect(url_for(
                 'projects.project_ai_console',
                 project_id=project.id,

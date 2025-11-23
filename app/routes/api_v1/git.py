@@ -642,6 +642,10 @@ def create_pull_request(project_id: int):
     integration = project_integration.integration
     provider = integration.provider.lower()
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
     try:
         if provider == "github":
             result = _create_github_pr(
@@ -653,6 +657,7 @@ def create_pull_request(project_id: int):
                 target_branch,
                 assignee,
                 draft,
+                user_id,
             )
         elif provider == "gitlab":
             result = _create_gitlab_mr(
@@ -664,6 +669,7 @@ def create_pull_request(project_id: int):
                 target_branch,
                 assignee,
                 draft,
+                user_id,
             )
         else:
             return jsonify({
@@ -685,12 +691,19 @@ def _create_github_pr(
     target_branch: str,
     assignee: str | None,
     draft: bool,
+    user_id: int | None = None,
 ):
     """Create a GitHub pull request."""
     import github
+    from ...services.issues.utils import get_effective_integration
 
-    token = integration.api_token
-    base_url = integration.base_url
+    # Get effective integration with user-specific credentials if user_id is provided
+    effective_integration = get_effective_integration(
+        integration, project_integration, user_id
+    )
+
+    token = effective_integration.api_token
+    base_url = effective_integration.base_url
 
     # Initialize GitHub client
     if base_url:
@@ -737,12 +750,19 @@ def _create_gitlab_mr(
     target_branch: str,
     assignee: str | None,
     draft: bool,
+    user_id: int | None = None,
 ):
     """Create a GitLab merge request."""
     import gitlab
+    from ...services.issues.utils import get_effective_integration
 
-    token = integration.api_token
-    base_url = integration.base_url or "https://gitlab.com"
+    # Get effective integration with user-specific credentials if user_id is provided
+    effective_integration = get_effective_integration(
+        integration, project_integration, user_id
+    )
+
+    token = effective_integration.api_token
+    base_url = effective_integration.base_url or "https://gitlab.com"
 
     # Initialize GitLab client
     gl = gitlab.Gitlab(base_url, private_token=token)
@@ -834,6 +854,10 @@ def merge_pull_request(project_id: int, pr_number: int):
     integration = project_integration.integration
     provider = integration.provider.lower()
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
     try:
         if provider == "github":
             result = _merge_github_pr(
@@ -843,6 +867,7 @@ def merge_pull_request(project_id: int, pr_number: int):
                 merge_method,
                 delete_branch,
                 commit_message,
+                user_id,
             )
         elif provider == "gitlab":
             result = _merge_gitlab_mr(
@@ -852,6 +877,7 @@ def merge_pull_request(project_id: int, pr_number: int):
                 merge_method,
                 delete_branch,
                 commit_message,
+                user_id,
             )
         else:
             return jsonify({
@@ -873,12 +899,19 @@ def _merge_github_pr(
     merge_method: str,
     delete_branch: bool,
     commit_message: str | None,
+    user_id: int | None = None,
 ):
     """Merge a GitHub pull request."""
     import github
+    from ...services.issues.utils import get_effective_integration
 
-    token = integration.api_token
-    base_url = integration.base_url
+    # Get effective integration with user-specific credentials if user_id is provided
+    effective_integration = get_effective_integration(
+        integration, project_integration, user_id
+    )
+
+    token = effective_integration.api_token
+    base_url = effective_integration.base_url
 
     # Initialize GitHub client
     if base_url:
@@ -930,12 +963,19 @@ def _merge_gitlab_mr(
     merge_method: str,
     delete_branch: bool,
     commit_message: str | None,
+    user_id: int | None = None,
 ):
     """Merge a GitLab merge request."""
     import gitlab
+    from ...services.issues.utils import get_effective_integration
 
-    token = integration.api_token
-    base_url = integration.base_url or "https://gitlab.com"
+    # Get effective integration with user-specific credentials if user_id is provided
+    effective_integration = get_effective_integration(
+        integration, project_integration, user_id
+    )
+
+    token = effective_integration.api_token
+    base_url = effective_integration.base_url or "https://gitlab.com"
 
     # Initialize GitLab client
     gl = gitlab.Gitlab(base_url, private_token=token)

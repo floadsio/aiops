@@ -1030,6 +1030,8 @@ def create_assisted_issue():
 
         # Step 2: Create the issue and persist it locally
         try:
+            # Pass creator_user_id to ensure issue is created with correct user's credentials
+            creator_user_id = g.current_user.id if hasattr(g, "current_user") else None
             issue_payload = create_issue_for_project_integration(
                 project_integration=integration,
                 summary=issue_data["title"],
@@ -1037,6 +1039,7 @@ def create_assisted_issue():
                 labels=issue_data.get("labels", []),
                 issue_type=issue_type,
                 assignee_user_id=assignee_user_id,
+                creator_user_id=creator_user_id,
             )
 
             from ...models import ExternalIssue

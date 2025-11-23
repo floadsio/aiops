@@ -407,6 +407,7 @@ def create_issue_for_project_integration(
     custom_fields: Optional[Dict[str, Any]] = None,
     *,
     assignee_user_id: Optional[int] = None,
+    creator_user_id: Optional[int] = None,
 ) -> IssuePayload:
     integration = project_integration.integration
     if integration is None:
@@ -429,6 +430,13 @@ def create_issue_for_project_integration(
         milestone=milestone,
         priority=priority,
         custom_fields=dict(custom_fields) if custom_fields is not None else None,
+    )
+
+    # Get effective integration with user-specific credentials if creator_user_id is provided
+    # This ensures issues are created with the correct user's credentials
+    from .utils import get_effective_integration
+    effective_integration = get_effective_integration(
+        integration, project_integration, creator_user_id
     )
 
     # Resolve assignee from user identity mapping if provided
@@ -465,16 +473,17 @@ def create_issue_for_project_integration(
 
     try:
         # Call the provider's create_issue function with appropriate assignee parameter
+        # Use effective_integration to ensure correct user credentials are used
         if provider_key == "jira":
             return creator(  # type: ignore[call-arg]
-                integration,
+                effective_integration,
                 project_integration,
                 request,
                 assignee_account_id=assignee_account_id,
             )
         else:  # GitHub or GitLab
             return creator(  # type: ignore[call-arg]
-                integration, project_integration, request, assignee=assignee_username
+                effective_integration, project_integration, request, assignee=assignee_username
             )
     except IssueSyncError:
         raise

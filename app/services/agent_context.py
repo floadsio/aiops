@@ -471,8 +471,12 @@ def write_local_issue_context(
     filename: str = DEFAULT_CONTEXT_FILENAME,
     *,
     identity_user: User | None = None,
-) -> Path:
-    """Alias for tracked issue context writing (kept for compatibility)."""
+) -> tuple[Path, list[str]]:
+    """Alias for tracked issue context writing (kept for compatibility).
+
+    Returns:
+        tuple[Path, list[str]]: Path to the written file and list of sources that were merged
+    """
     return write_tracked_issue_context(
         project,
         primary_issue,
@@ -491,7 +495,7 @@ def write_ai_assisted_issue_context(
     filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
     *,
     identity_user: User | None = None,
-) -> Path:
+) -> tuple[Path, list[str]]:
     """Write AGENTS.override.md with instructions for AI to format a draft issue.
 
     This is used for AI-assisted issue creation where the AI needs to:
@@ -499,6 +503,9 @@ def write_ai_assisted_issue_context(
     2. Format it into a proper issue with title, description sections, labels
     3. Update the issue using aiops CLI
     4. Optionally create a feature/fix branch
+
+    Returns:
+        tuple[Path, list[str]]: Path to the written file and list of sources that were merged
     """
     linux_username: str | None = None
     if identity_user is not None:
@@ -525,8 +532,26 @@ def write_ai_assisted_issue_context(
 
     context_path = repo_path / filename
 
+    # Track which sources were merged
+    sources_merged: list[str] = []
+
     # Load global context
     base_content = _load_base_instructions(repo_path, linux_username=linux_username)
+    if base_content:
+        # Check if we loaded from database or file
+        try:
+            from ..models import GlobalAgentContext
+            global_context = GlobalAgentContext.query.first()
+            if global_context and global_context.content and global_context.content.strip():
+                sources_merged.append("global context")
+        except RuntimeError:
+            # Running outside of application context (e.g., in tests)
+            pass
+
+        # Check if AGENTS.md file exists in repo
+        agents_md_path = repo_path / "AGENTS.md"
+        if agents_md_path.exists() or (linux_username and test_path(linux_username, str(agents_md_path))):
+            sources_merged.append("AGENTS.md")
 
     # Build the AI instructions
     type_hint_text = f" This appears to be a **{issue_type_hint}**." if issue_type_hint else ""
@@ -633,6 +658,9 @@ def write_ai_assisted_issue_context(
         sections.append(base_content.rstrip())
     sections.append(appended_section.rstrip())
 
+    # Add AI-assisted draft issue to sources
+    sources_merged.append(f"AI-assisted draft issue #{issue.external_id}")
+
     final_content = "\n\n---\n\n".join(section for section in sections if section).rstrip() + "\n"
 
     # Write content (using sudo if needed)
@@ -659,7 +687,7 @@ def write_ai_assisted_issue_context(
     else:
         context_path.write_text(final_content, encoding="utf-8")
 
-    return context_path
+    return context_path, sources_merged
 
 
 def write_global_context_only(

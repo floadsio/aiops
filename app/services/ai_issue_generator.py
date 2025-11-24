@@ -86,9 +86,12 @@ Rules:
                 check=False,
             )
         elif ai_tool == "codex":
-            # For Codex
+            # For Codex, force the non-interactive exec subcommand (CLI expects it)
+            codex_command = list(command_parts)
+            if not any(token in {"exec", "e"} for token in codex_command[1:]):
+                codex_command.append("exec")
             result = subprocess.run(
-                command_parts + ["query", prompt],
+                codex_command + [prompt],
                 capture_output=True,
                 text=True,
                 timeout=30,

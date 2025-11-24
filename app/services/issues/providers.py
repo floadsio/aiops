@@ -521,12 +521,23 @@ class JiraIssueProvider(BaseIssueProvider):
         )
 
         # Get creator Jira account ID for attribution
+        # Priority: UserIntegrationCredential.settings (per-integration) > UserIdentityMap (global)
         creator_account_id = None
         if user_id:
-            from ...models import UserIdentityMap
-            identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
-            if identity_map and identity_map.jira_account_id:
-                creator_account_id = identity_map.jira_account_id
+            from ...models import UserIdentityMap, UserIntegrationCredential
+
+            # First, check for per-integration Jira account ID in UserIntegrationCredential.settings
+            user_cred = UserIntegrationCredential.query.filter_by(
+                user_id=user_id, integration_id=self.integration.id
+            ).first()
+            if user_cred and user_cred.settings:
+                creator_account_id = user_cred.settings.get('jira_account_id')
+
+            # Fallback to global UserIdentityMap if not found per-integration
+            if not creator_account_id:
+                identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
+                if identity_map and identity_map.jira_account_id:
+                    creator_account_id = identity_map.jira_account_id
 
         payload = jira_provider.create_issue(
             effective_integration,

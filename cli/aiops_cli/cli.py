@@ -351,6 +351,7 @@ def issues_pinned(ctx: click.Context, output: Optional[str]) -> None:
 @click.option("--status", help="Filter by status (open, closed)")
 @click.option("--provider", help="Filter by provider (github, gitlab, jira)")
 @click.option("--project", help="Filter by project ID or name")
+@click.option("--assignee", help="Filter by assignee name")
 @click.option("--limit", type=int, help="Limit number of results")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
@@ -359,6 +360,7 @@ def issues_list(
     status: Optional[str],
     provider: Optional[str],
     project: Optional[str],
+    assignee: Optional[str],
     limit: Optional[int],
     output: Optional[str],
 ) -> None:
@@ -377,6 +379,7 @@ def issues_list(
             status=status,
             provider=provider,
             project_id=project_id,
+            assignee=assignee,
             limit=limit,
         )
         # Show only the most relevant columns for list view

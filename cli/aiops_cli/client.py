@@ -193,6 +193,7 @@ class APIClient:
         status: Optional[str] = None,
         provider: Optional[str] = None,
         project_id: Optional[int] = None,
+        assignee: Optional[str] = None,
         limit: Optional[int] = None,
     ) -> list[dict[str, Any]]:
         """List issues."""
@@ -203,6 +204,8 @@ class APIClient:
             params["provider"] = provider
         if project_id:
             params["project_id"] = project_id
+        if assignee:
+            params["assignee"] = assignee
         if limit:
             params["limit"] = limit
         data = self.get("issues", params=params)

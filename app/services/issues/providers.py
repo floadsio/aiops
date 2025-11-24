@@ -519,11 +519,22 @@ class JiraIssueProvider(BaseIssueProvider):
         effective_integration = get_effective_integration(
             self.integration, project_integration, user_id
         )
+
+        # Get creator Jira account ID for attribution
+        creator_account_id = None
+        if user_id:
+            from ...models import UserIdentityMap
+            identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
+            if identity_map and identity_map.jira_account_id:
+                creator_account_id = identity_map.jira_account_id
+
         payload = jira_provider.create_issue(
             effective_integration,
             project_integration,
             request,
             assignee_account_id=assignee,
+            creator_user_id=user_id,
+            creator_username=creator_account_id,
         )
         return _payload_to_dict(payload)
 

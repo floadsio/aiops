@@ -74,11 +74,22 @@ class GitHubIssueProvider(BaseIssueProvider):
         effective_integration = get_effective_integration(
             self.integration, project_integration, user_id
         )
+
+        # Get creator username for attribution
+        creator_username = None
+        if user_id:
+            from ...models import UserIdentityMap
+            identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
+            if identity_map and identity_map.github_username:
+                creator_username = identity_map.github_username
+
         payload = github_provider.create_issue(
             effective_integration,
             project_integration,
             request,
             assignee=assignee,
+            creator_user_id=user_id,
+            creator_username=creator_username,
         )
         return _payload_to_dict(payload)
 
@@ -320,11 +331,22 @@ class GitLabIssueProvider(BaseIssueProvider):
         effective_integration = get_effective_integration(
             self.integration, project_integration, user_id
         )
+
+        # Get creator username for attribution
+        creator_username = None
+        if user_id:
+            from ...models import UserIdentityMap
+            identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
+            if identity_map and identity_map.gitlab_username:
+                creator_username = identity_map.gitlab_username
+
         payload = gitlab_provider.create_issue(
             effective_integration,
             project_integration,
             request,
             assignee=assignee,
+            creator_user_id=user_id,
+            creator_username=creator_username,
         )
         return _payload_to_dict(payload)
 

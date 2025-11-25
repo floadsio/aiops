@@ -2262,10 +2262,6 @@ def create_assisted_issue():
     projects = Project.query.order_by(Project.name).all()
     form.project_id.choices = [(p.id, f"{p.tenant.name} / {p.name}") for p in projects]
 
-    # Set default AI tool from config (only for GET requests, not POST)
-    if request.method == "GET":
-        form.ai_tool.data = current_app.config.get("DEFAULT_AI_TOOL", "claude")
-
     # Build a map of project_id to first integration_id for JavaScript
     project_integrations = {}
     for project in projects:

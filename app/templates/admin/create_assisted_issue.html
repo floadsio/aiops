@@ -214,9 +214,63 @@
         flex-direction: column;
       }
     }
+
+    /* Summary section */
+    .approval-summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: rgba(248, 250, 252, 0.5);
+      border-radius: 0.75rem;
+      border: 1px solid rgba(226, 232, 240, 0.5);
+    }
+    [data-theme="dark"] .approval-summary {
+      background: rgba(15, 23, 42, 0.3);
+      border-color: rgba(148, 163, 184, 0.15);
+    }
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .summary-icon {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+    .summary-content {
+      flex: 1;
+    }
+    .summary-content .label {
+      font-size: 0.8rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.25rem;
+    }
+    [data-theme="dark"] .summary-content .label {
+      color: #94a3b8;
+    }
+    .summary-content .value {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .summary-content .value {
+      color: #e2e8f0;
+    }
+    @media (max-width: 768px) {
+      .approval-summary {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
 {% endblock %}
 {% block content %}
+<!-- Hidden data container for current user info -->
+<div style="display: none;" data-current-user="{{ current_user_name }}"></div>
+
 <div class="create-assisted-container">
   <h1>AI-Assisted Issue Creation</h1>
   <p style="margin-bottom: 2rem; color: #64748b;">
@@ -311,6 +365,38 @@
         {{ form.hidden_tag() }}
         <input type="hidden" id="reformulatedData" name="reformulated_data" value="">
 
+        <!-- Summary Section -->
+        <div class="approval-summary" id="approvalSummary">
+          <div class="summary-item">
+            <div class="summary-icon" id="summaryPlatformIcon">📋</div>
+            <div class="summary-content">
+              <div class="label">Platform</div>
+              <div class="value" id="summaryPlatform">—</div>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">📁</div>
+            <div class="summary-content">
+              <div class="label">Project</div>
+              <div class="value" id="summaryProject">—</div>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">👤</div>
+            <div class="summary-content">
+              <div class="label">Owner</div>
+              <div class="value" id="summaryOwner">—</div>
+            </div>
+          </div>
+          <div class="summary-item">
+            <div class="summary-icon">🔧</div>
+            <div class="summary-content">
+              <div class="label">AI Tool</div>
+              <div class="value" id="summaryTool">—</div>
+            </div>
+          </div>
+        </div>
+
         <div class="approval-field">
           <label for="approvalTitle">Issue Title</label>
           <input type="text" id="approvalTitle" name="title" required>
@@ -385,6 +471,73 @@
   editBtn.addEventListener('click', handleEditAndRerun);
   cancelBtn.addEventListener('click', handleCancel);
   approvalForm.addEventListener('submit', handleApprove);
+
+  // Populate summary section with project and form data
+  async function populateSummary() {
+    try {
+      const projectId = projectField.value;
+      const aiTool = createForm.ai_tool ? createForm.ai_tool.value : 'Claude';
+
+      // Set AI Tool
+      document.getElementById('summaryTool').textContent = aiTool;
+
+      // Set Owner (current user from the page)
+      const userElement = document.querySelector('[data-current-user]');
+      const userName = userElement ? userElement.getAttribute('data-current-user') : 'Unknown';
+      document.getElementById('summaryOwner').textContent = userName;
+
+      // Get project details
+      if (projectId) {
+        try {
+          const response = await fetch(`${API_BASE}/projects/${projectId}`, {
+            method: 'GET',
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const project = data.project || data;
+
+            // Set Project name
+            document.getElementById('summaryProject').textContent = project.name || 'Unknown';
+
+            // Determine platform from integrations or repository URL
+            let platform = 'Unknown';
+            let platformIcon = '📋';
+
+            // Check project repo_url for platform hints
+            const repoUrl = project.repo_url || '';
+            if (repoUrl.includes('github.com')) {
+              platform = 'GitHub';
+              platformIcon = '🔗';
+            } else if (repoUrl.includes('gitlab')) {
+              platform = 'GitLab';
+              platformIcon = '🟠';
+            } else if (repoUrl.includes('jira')) {
+              platform = 'Jira';
+              platformIcon = '🔵';
+            } else {
+              // Try to infer from integrations if available
+              platform = 'Git';
+              platformIcon = '📋';
+            }
+
+            document.getElementById('summaryPlatform').textContent = platform;
+            document.getElementById('summaryPlatformIcon').textContent = platformIcon;
+          }
+        } catch (error) {
+          console.warn('Could not fetch project details:', error);
+          document.getElementById('summaryProject').textContent = 'Project ' + projectId;
+        }
+      } else {
+        document.getElementById('summaryProject').textContent = 'Not selected';
+      }
+    } catch (error) {
+      console.warn('Error populating summary:', error);
+    }
+  }
 
   async function handleReformulate(e) {
     e.preventDefault();
@@ -486,6 +639,9 @@
       // Show approval section
       inputSection.classList.add('hidden');
       approvalSection.classList.add('active');
+
+      // Populate summary section
+      await populateSummary();
 
     } catch (error) {
       console.error('Reformulation error:', error);

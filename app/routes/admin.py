@@ -2326,6 +2326,7 @@ def create_assisted_issue():
                 "admin/create_assisted_issue.html",
                 form=form,
                 project_integrations_json=json.dumps(project_integrations),
+                current_user_name=current_user.name if hasattr(current_user, 'name') else current_user.email,
             )
 
         issue_type = form.issue_type.data if form.issue_type.data else None
@@ -2338,6 +2339,7 @@ def create_assisted_issue():
                 "admin/create_assisted_issue.html",
                 form=form,
                 project_integrations_json=json.dumps(project_integrations),
+                current_user_name=current_user.name if hasattr(current_user, 'name') else current_user.email,
             )
 
         project = db.session.get(Project, project_id)
@@ -2347,6 +2349,7 @@ def create_assisted_issue():
                 "admin/create_assisted_issue.html",
                 form=form,
                 project_integrations_json=json.dumps(project_integrations),
+                current_user_name=current_user.name if hasattr(current_user, 'name') else current_user.email,
             )
 
         try:
@@ -2469,6 +2472,7 @@ def create_assisted_issue():
         "admin/create_assisted_issue.html",
         form=form,
         project_integrations_json=json.dumps(project_integrations),
+        current_user_name=current_user.name if hasattr(current_user, 'name') else current_user.email,
     )
 
 

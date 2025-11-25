@@ -1255,6 +1255,41 @@ def manage_settings():
         for cred in user_credentials
     }
 
+    # Ollama Configuration
+    from ..forms.admin import (
+        OllamaConfigForm,
+        OllamaEndpointDeleteForm,
+        OllamaEndpointForm,
+        OllamaSetDefaultForm,
+        OllamaTestForm,
+    )
+    from ..services.ollama_config_service import get_ollama_config
+
+    ollama_config = get_ollama_config()
+    ollama_endpoint_form = OllamaEndpointForm()
+    ollama_endpoint_form.next.data = url_for("admin.manage_settings")
+    ollama_config_form = OllamaConfigForm()
+    ollama_config_form.next.data = url_for("admin.manage_settings")
+    ollama_config_form.api_key.data = ollama_config.get("api_key", "ollama")
+    ollama_config_form.default_model.data = ollama_config.get("default_model", "llama3.2")
+    ollama_config_form.timeout.data = str(ollama_config.get("timeout", 120))
+    ollama_test_form = OllamaTestForm()
+    ollama_test_form.next.data = url_for("admin.manage_settings")
+
+    # Create delete and set-default forms for each endpoint
+    ollama_endpoint_delete_forms = {}
+    ollama_set_default_forms = {}
+    for endpoint_name in ollama_config.get("endpoints", {}).keys():
+        delete_form = OllamaEndpointDeleteForm()
+        delete_form.endpoint_name.data = endpoint_name
+        delete_form.next.data = url_for("admin.manage_settings")
+        ollama_endpoint_delete_forms[endpoint_name] = delete_form
+
+        default_form = OllamaSetDefaultForm()
+        default_form.endpoint_name.data = endpoint_name
+        default_form.next.data = url_for("admin.manage_settings")
+        ollama_set_default_forms[endpoint_name] = default_form
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1285,6 +1320,12 @@ def manage_settings():
         user_credential_create_form=user_credential_create_form,
         user_credentials=user_credentials,
         user_credential_delete_forms=user_credential_delete_forms,
+        ollama_config=ollama_config,
+        ollama_endpoint_form=ollama_endpoint_form,
+        ollama_config_form=ollama_config_form,
+        ollama_test_form=ollama_test_form,
+        ollama_endpoint_delete_forms=ollama_endpoint_delete_forms,
+        ollama_set_default_forms=ollama_set_default_forms,
         now=datetime.utcnow(),
     )
 
@@ -4517,3 +4558,160 @@ def view_statistics():
         selected_project_id=project_id,
         selected_days=days,
     )
+
+
+@admin_bp.route("/settings/ollama/endpoint/add", methods=["POST"])
+@admin_required
+def add_ollama_endpoint():
+    """Add a new Ollama endpoint."""
+    from ..forms.admin import OllamaEndpointForm
+    from ..services.ollama_config_service import add_ollama_endpoint as add_endpoint
+
+    form = OllamaEndpointForm()
+    if not form.validate_on_submit():
+        flash("Invalid endpoint data.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    name = (form.name.data or "").strip()
+    url = (form.url.data or "").strip()
+
+    try:
+        add_endpoint(name, url)
+        flash(f"Added Ollama endpoint '{name}' ({url}).", "success")
+    except Exception as exc:
+        current_app.logger.exception("Failed to add Ollama endpoint")
+        flash(f"Failed to add endpoint: {exc}", "danger")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/ollama/endpoint/delete", methods=["POST"])
+@admin_required
+def delete_ollama_endpoint():
+    """Delete an Ollama endpoint."""
+    from ..forms.admin import OllamaEndpointDeleteForm
+    from ..services.ollama_config_service import remove_ollama_endpoint
+
+    form = OllamaEndpointDeleteForm()
+    if not form.validate_on_submit():
+        flash("Invalid request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    name = (form.endpoint_name.data or "").strip()
+
+    try:
+        if remove_ollama_endpoint(name):
+            flash(f"Deleted Ollama endpoint '{name}'.", "success")
+        else:
+            flash(f"Endpoint '{name}' not found.", "warning")
+    except Exception as exc:
+        current_app.logger.exception("Failed to delete Ollama endpoint")
+        flash(f"Failed to delete endpoint: {exc}", "danger")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/ollama/endpoint/set-default", methods=["POST"])
+@admin_required
+def set_default_ollama_endpoint():
+    """Set the default Ollama endpoint."""
+    from ..forms.admin import OllamaSetDefaultForm
+    from ..services.ollama_config_service import set_default_endpoint
+
+    form = OllamaSetDefaultForm()
+    if not form.validate_on_submit():
+        flash("Invalid request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    name = (form.endpoint_name.data or "").strip()
+
+    try:
+        set_default_endpoint(name)
+        flash(f"Set '{name}' as the default Ollama endpoint.", "success")
+    except ValueError as exc:
+        flash(str(exc), "warning")
+    except Exception as exc:
+        current_app.logger.exception("Failed to set default Ollama endpoint")
+        flash(f"Failed to set default endpoint: {exc}", "danger")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/ollama/config/save", methods=["POST"])
+@admin_required
+def save_ollama_config():
+    """Save Ollama configuration settings."""
+    from ..forms.admin import OllamaConfigForm
+    from ..services.ollama_config_service import (
+        get_ollama_config,
+        save_ollama_config as save_config,
+    )
+
+    form = OllamaConfigForm()
+    if not form.validate_on_submit():
+        flash("Invalid configuration data.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    api_key = (form.api_key.data or "").strip()
+    default_model = (form.default_model.data or "").strip()
+    timeout_str = (form.timeout.data or "").strip()
+
+    try:
+        timeout = int(timeout_str)
+        if timeout < 1:
+            raise ValueError("Timeout must be at least 1 second")
+    except ValueError as exc:
+        flash(f"Invalid timeout value: {exc}", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        config = get_ollama_config()
+        config["api_key"] = api_key
+        config["default_model"] = default_model
+        config["timeout"] = timeout
+        save_config(config)
+        flash(f"Saved Ollama configuration.", "success")
+    except Exception as exc:
+        current_app.logger.exception("Failed to save Ollama configuration")
+        flash(f"Failed to save configuration: {exc}", "danger")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)
+
+
+@admin_bp.route("/settings/ollama/test", methods=["POST"])
+@admin_required
+def test_ollama():
+    """Test Ollama connection."""
+    from ..forms.admin import OllamaTestForm
+    from ..services.ollama_config_service import test_ollama_connection
+
+    form = OllamaTestForm()
+    if not form.validate_on_submit():
+        flash("Invalid test request.", "danger")
+        return redirect(url_for("admin.manage_settings"))
+
+    try:
+        result = test_ollama_connection()
+        if result["success"]:
+            models_list = ", ".join(result.get("models", [])[:5])
+            if result.get("model_count", 0) > 5:
+                models_list += f" ... ({result['model_count']} total)"
+            flash(
+                f"✓ {result['message']}. Available models: {models_list}",
+                "success",
+            )
+        else:
+            flash(
+                f"✗ {result['message']}: {result.get('error', 'Unknown error')}",
+                "danger",
+            )
+    except Exception as exc:
+        current_app.logger.exception("Failed to test Ollama connection")
+        flash(f"Test failed: {exc}", "danger")
+
+    redirect_target = form.next.data or url_for("admin.manage_settings")
+    return redirect(redirect_target)

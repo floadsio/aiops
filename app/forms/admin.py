@@ -622,3 +622,51 @@ class AIAssistedIssueForm(FlaskForm):
         default=False,
     )
     submit = SubmitField("Create Issue & Start AI Session")
+
+
+class OllamaEndpointForm(FlaskForm):
+    name = StringField("Endpoint Name", validators=[DataRequired(), Length(max=128)])
+    url = StringField(
+        "Endpoint URL",
+        validators=[DataRequired(), Length(max=512)],
+        render_kw={"placeholder": "http://10.10.99.15:11434"},
+    )
+    next = HiddenField()
+    submit = SubmitField("Add Endpoint")
+
+
+class OllamaConfigForm(FlaskForm):
+    api_key = StringField(
+        "API Key",
+        validators=[DataRequired(), Length(max=256)],
+        render_kw={"placeholder": "ollama"},
+    )
+    default_model = StringField(
+        "Default Model",
+        validators=[DataRequired(), Length(max=128)],
+        render_kw={"placeholder": "llama3.2"},
+    )
+    timeout = StringField(
+        "Timeout (seconds)",
+        validators=[DataRequired()],
+        render_kw={"placeholder": "120"},
+    )
+    next = HiddenField()
+    submit = SubmitField("Save Configuration")
+
+
+class OllamaEndpointDeleteForm(FlaskForm):
+    endpoint_name = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Delete")
+
+
+class OllamaSetDefaultForm(FlaskForm):
+    endpoint_name = HiddenField(validators=[DataRequired()])
+    next = HiddenField()
+    submit = SubmitField("Set as Default")
+
+
+class OllamaTestForm(FlaskForm):
+    next = HiddenField()
+    submit = SubmitField("Test Connection")

@@ -822,6 +822,131 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
+  <!-- Ollama Configuration -->
+  <section class="settings-category">
+    <h2>Ollama Configuration</h2>
+    <div class="settings-grid">
+      <article class="settings-card settings-card-full">
+        <h3>Ollama Endpoints</h3>
+        <p>Configure Ollama LLM endpoints for AI-powered operations. Add multiple endpoints and set a default.</p>
+
+        <details>
+          <summary><strong>Add new endpoint</strong></summary>
+          <form method="post" action="{{ url_for('admin.add_ollama_endpoint') }}">
+            {{ ollama_endpoint_form.hidden_tag() }}
+            <label>
+              {{ ollama_endpoint_form.name.label }}
+              {{ ollama_endpoint_form.name() }}
+              {% for error in ollama_endpoint_form.name.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <label>
+              {{ ollama_endpoint_form.url.label }}
+              {{ ollama_endpoint_form.url() }}
+              <small>Example: http://10.10.99.15:11434</small>
+              {% for error in ollama_endpoint_form.url.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <button type="submit" class="secondary">{{ ollama_endpoint_form.submit.label.text }}</button>
+          </form>
+        </details>
+
+        <h3>Configured Endpoints</h3>
+        {% if ollama_config.endpoints %}
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">URL</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for name, url in ollama_config.endpoints.items() %}
+                  {% set delete_form = ollama_endpoint_delete_forms[name] %}
+                  {% set default_form = ollama_set_default_forms[name] %}
+                  {% set is_default = (url == ollama_config.default_endpoint) %}
+                  <tr>
+                    <th scope="row">{{ name }}</th>
+                    <td><code>{{ url }}</code></td>
+                    <td>
+                      {% if is_default %}
+                        <span class="badge success">Default</span>
+                      {% else %}
+                        <span class="badge">Available</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        {% if not is_default %}
+                          <form method="post" action="{{ url_for('admin.set_default_ollama_endpoint') }}" style="margin: 0;">
+                            {{ default_form.hidden_tag() }}
+                            <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">Set as Default</button>
+                          </form>
+                        {% endif %}
+                        <form method="post" action="{{ url_for('admin.delete_ollama_endpoint') }}" style="margin: 0;" onsubmit="return confirm('Are you sure you want to delete this endpoint?');">
+                          {{ delete_form.hidden_tag() }}
+                          <button type="submit" class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">🗑️ Delete</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted">No endpoints configured. Add one above to get started.</p>
+        {% endif %}
+
+        <h3 style="margin-top: 2rem;">General Settings</h3>
+        <form method="post" action="{{ url_for('admin.save_ollama_config') }}">
+          {{ ollama_config_form.hidden_tag() }}
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <label>
+              {{ ollama_config_form.api_key.label }}
+              {{ ollama_config_form.api_key(type="password") }}
+              <small>API key for authentication (default: ollama)</small>
+              {% for error in ollama_config_form.api_key.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <label>
+              {{ ollama_config_form.default_model.label }}
+              {{ ollama_config_form.default_model() }}
+              <small>Model to use by default (e.g., llama3.2, codellama, mistral)</small>
+              {% for error in ollama_config_form.default_model.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <label>
+              {{ ollama_config_form.timeout.label }}
+              {{ ollama_config_form.timeout() }}
+              <small>Request timeout in seconds</small>
+              {% for error in ollama_config_form.timeout.errors %}
+                <span class="error">{{ error }}</span>
+              {% endfor %}
+            </label>
+            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+              <button type="submit" class="secondary">{{ ollama_config_form.submit.label.text }}</button>
+            </div>
+          </div>
+        </form>
+
+        <h3 style="margin-top: 2rem;">Test Connection</h3>
+        <p class="text-muted">Test the connection to the default Ollama endpoint using the current configuration.</p>
+        <form method="post" action="{{ url_for('admin.test_ollama') }}">
+          {{ ollama_test_form.hidden_tag() }}
+          <button type="submit" class="primary">🧪 {{ ollama_test_form.submit.label.text }}</button>
+        </form>
+      </article>
+    </div>
+  </section>
+
   <!-- Global Agent Context -->
   <section>
     <div>

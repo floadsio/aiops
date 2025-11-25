@@ -759,8 +759,8 @@ def check_sessions() -> dict[str, Any]:
 def check_ollama() -> dict[str, Any]:
     """Check Ollama service availability and connectivity.
 
-    Tests connection to Ollama at http://localhost:11434 and retrieves
-    version and model information if available.
+    Reads Ollama endpoint from system configuration and tests connectivity.
+    Retrieves version and model information if available.
 
     Returns:
         Status dict with 'healthy', 'message', and 'details'
@@ -768,9 +768,42 @@ def check_ollama() -> dict[str, Any]:
     import json
 
     try:
+        from ..models import SystemConfig
+
+        # Get Ollama endpoint from system configuration
+        config_entry = SystemConfig.query.filter_by(key="ollama_config").first()
+        if not config_entry:
+            return {
+                "healthy": False,
+                "message": "Ollama not configured",
+                "details": {"endpoint": None}
+            }
+
+        # SystemConfig.value is auto-deserialized as dict, but handle both cases
+        if isinstance(config_entry.value, dict):
+            ollama_config = config_entry.value
+        else:
+            try:
+                ollama_config = json.loads(config_entry.value)
+            except (json.JSONDecodeError, TypeError):
+                return {
+                    "healthy": False,
+                    "message": "Invalid Ollama configuration",
+                    "details": {"endpoint": None}
+                }
+
+        endpoint = ollama_config.get("default_endpoint")
+        if not endpoint:
+            return {
+                "healthy": False,
+                "message": "Ollama endpoint not configured",
+                "details": {"endpoint": None}
+            }
+
         # Test Ollama version endpoint
+        version_url = f"{endpoint}/api/version"
         result = subprocess.run(
-            ["curl", "-s", "http://localhost:11434/api/version"],
+            ["curl", "-s", version_url],
             capture_output=True,
             text=True,
             timeout=5,
@@ -786,8 +819,9 @@ def check_ollama() -> dict[str, Any]:
             # Try to get model list
             models_count = 0
             try:
+                tags_url = f"{endpoint}/api/tags"
                 models_result = subprocess.run(
-                    ["curl", "-s", "http://localhost:11434/api/tags"],
+                    ["curl", "-s", tags_url],
                     capture_output=True,
                     text=True,
                     timeout=5,
@@ -808,33 +842,33 @@ def check_ollama() -> dict[str, Any]:
                 "details": {
                     "version": version,
                     "models": models_count,
-                    "endpoint": "http://localhost:11434",
+                    "endpoint": endpoint,
                 }
             }
 
         return {
             "healthy": False,
             "message": "Ollama service not responding",
-            "details": {"endpoint": "http://localhost:11434"}
+            "details": {"endpoint": endpoint}
         }
 
     except subprocess.TimeoutExpired:
         return {
             "healthy": False,
             "message": "Ollama connection timeout",
-            "details": {"endpoint": "http://localhost:11434"}
+            "details": {"endpoint": endpoint if "endpoint" in locals() else None}
         }
     except FileNotFoundError:
         return {
             "healthy": False,
             "message": "curl not available (cannot check Ollama)",
-            "details": {"endpoint": "http://localhost:11434"}
+            "details": {"endpoint": endpoint if "endpoint" in locals() else None}
         }
     except Exception as exc:  # noqa: BLE001
         return {
             "healthy": False,
             "message": f"Ollama check error: {exc}",
-            "details": {"endpoint": "http://localhost:11434"}
+            "details": {"endpoint": endpoint if "endpoint" in locals() else None}
         }
 
 

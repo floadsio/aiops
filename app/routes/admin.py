@@ -2371,9 +2371,18 @@ def create_assisted_issue():
             # Pin issue if requested
             if pin_issue_flag:
                 from ..models import PinnedIssue
-                pinned = PinnedIssue(user_id=current_user.id, issue_id=issue.id)
-                db.session.add(pinned)
-                db.session.commit()
+                try:
+                    # Check if already pinned to avoid UNIQUE constraint error
+                    existing = PinnedIssue.query.filter_by(
+                        user_id=current_user.id, issue_id=issue.id
+                    ).first()
+                    if not existing:
+                        pinned = PinnedIssue(user_id=current_user.id, issue_id=issue.id)
+                        db.session.add(pinned)
+                        db.session.commit()
+                except Exception as exc:
+                    db.session.rollback()
+                    current_app.logger.warning(f"Failed to pin issue: {exc}")
 
             # Write tracked AGENTS.override.md with structured issue context
             from ..services.agent_context import write_tracked_issue_context

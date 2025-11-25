@@ -198,8 +198,8 @@ document.getElementById('create-assisted-form').addEventListener('submit', funct
   // Show loading overlay
   overlay.classList.add('active');
 
-  // Disable form inputs
-  const inputs = this.querySelectorAll('input, textarea, select, button');
+  // Disable form inputs (but not the CSRF token)
+  const inputs = this.querySelectorAll('input[type="text"], input[type="email"], input[type="password"], textarea, select, button');
   inputs.forEach(input => input.disabled = true);
 });
 </script>

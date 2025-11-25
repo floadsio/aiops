@@ -374,8 +374,8 @@ document.getElementById('confirm-form').addEventListener('submit', function(e) {
   // Show loading overlay
   overlay.classList.add('active');
 
-  // Disable form inputs
-  const inputs = this.querySelectorAll('input, button');
+  // Disable form inputs (but not hidden inputs like CSRF token)
+  const inputs = this.querySelectorAll('input[type="button"], input[type="submit"], button');
   inputs.forEach(input => input.disabled = true);
 });
 </script>

@@ -613,12 +613,4 @@ class AIAssistedIssueForm(FlaskForm):
         default="",
         validators=[Optional()],
     )
-    create_branch = BooleanField(
-        "Create feature/fix branch after formatting",
-        default=False,
-    )
-    pin_issue = BooleanField(
-        "Pin issue to dashboard",
-        default=False,
-    )
-    submit = SubmitField("Create Issue & Start AI Session")
+    submit = SubmitField("Generate Issue Preview")

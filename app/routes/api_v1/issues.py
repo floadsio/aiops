@@ -1009,17 +1009,21 @@ def reformulate_issue_description():
 
     except AIIssueGenerationError as e:
         current_app.logger.error(f"AIIssueGenerationError: {str(e)}", exc_info=True)
+        error_details = str(e)
+        current_app.logger.error(f"Full error details: {error_details}")
         return jsonify({
             "success": False,
             "error": "AI reformulation failed",
-            "details": str(e),
+            "details": error_details,
         }), 500
     except Exception as e:
         current_app.logger.exception("Unexpected error in reformulate_issue_description")
+        error_details = f"{type(e).__name__}: {str(e)}"
+        current_app.logger.error(f"Full exception details: {error_details}")
         return jsonify({
             "success": False,
             "error": "Unexpected error occurred",
-            "details": str(e),
+            "details": error_details,
         }), 500
 
 

@@ -31,7 +31,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
-from ..extensions import db
+from ..extensions import csrf, db
 from ..forms.admin import (
     AIToolUpdateForm,
     APIKeyCreateForm,
@@ -2239,6 +2239,7 @@ def manage_tenants():
 
 @admin_bp.route("/issues/create-assisted", methods=["GET", "POST"])
 @admin_required
+@csrf.exempt
 def create_assisted_issue():
     """Create an issue with AI assistance (Step 1: Generate preview)."""
     import json

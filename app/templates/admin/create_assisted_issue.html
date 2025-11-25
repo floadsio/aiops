@@ -145,9 +145,8 @@
   </div>
 
   <div class="create-assisted-card">
-    <form id="create-assisted-form" method="post" novalidate>
+    <form id="create-assisted-form" method="post">
       {{ form.hidden_tag() }}
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
       <div class="form-section">
         <h3>What do you want to work on?</h3>

@@ -144,6 +144,9 @@ def list_issues():
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", type=int, default=0)
 
+    import logging
+    logging.warning(f"[DEBUG] assignee filter requested: {assignee!r}")
+
     # Build query
     query = ExternalIssue.query.options(
         selectinload(ExternalIssue.project_integration)

@@ -7,6 +7,7 @@ issues from natural language descriptions using AI tools like Claude.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shlex
 import subprocess
@@ -14,13 +15,18 @@ from typing import Any
 
 from flask import current_app
 
+from .codex_config_service import CodexConfigError, ensure_codex_auth
+
 
 class AIIssueGenerationError(Exception):
     """Raised when AI issue generation fails."""
 
 
 def generate_issue_from_description(
-    description: str, ai_tool: str = "claude", issue_type: str | None = None
+    description: str,
+    ai_tool: str = "claude",
+    issue_type: str | None = None,
+    user_id: int | None = None,
 ) -> dict[str, Any]:
     """Generate a structured issue from a natural language description.
 
@@ -28,6 +34,7 @@ def generate_issue_from_description(
         description: Natural language description of what the user wants to work on
         ai_tool: AI tool to use for generation (claude, codex, gemini)
         issue_type: Optional hint about issue type (feature, bug, etc.)
+        user_id: User ID for authentication (required for codex)
 
     Returns:
         Dictionary with:
@@ -90,12 +97,31 @@ Rules:
             codex_command = list(command_parts)
             if not any(token in {"exec", "e"} for token in codex_command[1:]):
                 codex_command.append("exec")
+
+            # Set up Codex authentication environment
+            codex_env = os.environ.copy()
+            if user_id is not None:
+                try:
+                    cli_auth_path = ensure_codex_auth(user_id)
+                    codex_env["CODEX_CONFIG_DIR"] = str(cli_auth_path.parent)
+                    codex_env["CODEX_AUTH_FILE"] = str(cli_auth_path)
+                except CodexConfigError as exc:
+                    raise AIIssueGenerationError(
+                        f"Codex authentication failed: {exc}. "
+                        "Please configure Codex credentials in Settings."
+                    ) from exc
+            else:
+                current_app.logger.warning(
+                    "Codex called without user_id; authentication may fail"
+                )
+
             result = subprocess.run(
                 codex_command + [prompt],
                 capture_output=True,
                 text=True,
                 timeout=30,
                 check=False,
+                env=codex_env,
             )
         elif ai_tool == "gemini":
             # For Gemini

@@ -180,7 +180,11 @@ Rules:
         )
 
         # Extract generated text from response
-        if isinstance(response, dict):
+        # The ollama client returns a GenerateResponse object, not a dict
+        if hasattr(response, 'response'):
+            # GenerateResponse object has a 'response' attribute
+            generated_text = response.response
+        elif isinstance(response, dict):
             generated_text = response.get("response", "")
         else:
             generated_text = str(response)
@@ -191,6 +195,12 @@ Rules:
         logger.info(
             "Ollama generation successful",
             extra={"response_length": len(generated_text)},
+        )
+
+        # Debug: Log the type and first chars of generated_text
+        logger.info(
+            f"Generated text before extraction: type={type(generated_text).__name__}, "
+            f"length={len(generated_text)}, first_50={repr(generated_text[:50])}"
         )
 
         # Extract and parse JSON from response

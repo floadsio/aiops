@@ -2322,6 +2322,10 @@ def create_assisted_issue():
                 "admin/preview_assisted_issue.html",
                 issue_data=issue_data,
                 preview_token=preview_token,
+                project=project,
+                integration=integration.integration,
+                current_user=current_user,
+                ai_tool=ai_tool,
             )
 
         except Exception as e:

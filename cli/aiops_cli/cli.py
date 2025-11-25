@@ -557,6 +557,17 @@ def issues_create_assisted(
 
         # Display preview for user review
         console.print("\n[bold]AI-Generated Issue Preview:[/bold]\n")
+
+        # Display metadata
+        console.print("[bold]Metadata:[/bold]")
+        project_display = preview_result.get('project_name', 'Unknown')
+        if preview_result.get('tenant_name'):
+            project_display = f"{preview_result['tenant_name']} / {project_display}"
+        console.print(f"  Project: {project_display}")
+        console.print(f"  Platform: [cyan]{preview_result['platform'].upper()}[/cyan]")
+        console.print(f"  AI Tool: {preview_result['ai_tool']}")
+
+        console.print("\n[bold]Content:[/bold]")
         console.print(f"[bold]Title:[/bold] {preview_result['title']}\n")
         console.print("[bold]Description:[/bold]")
         console.print(preview_result['description'])

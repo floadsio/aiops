@@ -1038,6 +1038,10 @@ def preview_assisted_issue():
             "description": issue_data["description"],
             "labels": issue_data.get("labels", []),
             "branch_prefix": issue_data.get("branch_prefix", "feature"),
+            "project_name": project.name,
+            "tenant_name": project.tenant.name if project.tenant else None,
+            "platform": integration.provider.lower(),
+            "ai_tool": ai_tool,
         }), 200
 
     except Exception as e:

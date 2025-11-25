@@ -233,6 +233,16 @@
   </div>
 
   <div class="create-assisted-card">
+    <!-- Error Message Container -->
+    <div id="errorContainer" style="display: none; margin-bottom: 1.5rem;">
+      <article style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 1rem; border-radius: 0.5rem;">
+        <p style="margin: 0; color: #991b1b;">
+          <strong style="display: block; margin-bottom: 0.25rem;">Error</strong>
+          <span id="errorMessage"></span>
+        </p>
+      </article>
+    </div>
+
     <!-- Input Section (Step 1) -->
     <div id="input-section">
       <form id="create-assisted-form" method="post">
@@ -354,6 +364,21 @@
   const descriptionField = createForm.description;
   const projectField = createForm.project_id;
   const issueTypeField = createForm.issue_type;
+  const errorContainer = document.getElementById('errorContainer');
+  const errorMessage = document.getElementById('errorMessage');
+
+  // Helper functions
+  function showError(message) {
+    errorMessage.textContent = message;
+    errorContainer.style.display = 'block';
+    // Scroll to error
+    errorContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function hideError() {
+    errorContainer.style.display = 'none';
+    errorMessage.textContent = '';
+  }
 
   // Form submission handlers
   reformulateBtn.addEventListener('click', handleReformulate);
@@ -363,11 +388,12 @@
 
   async function handleReformulate(e) {
     e.preventDefault();
+    hideError();
 
     // Validate input
     const description = descriptionField.value.trim();
     if (!description) {
-      alert('Please describe what you want to work on');
+      showError('Please describe what you want to work on.');
       descriptionField.focus();
       return;
     }
@@ -457,7 +483,7 @@
     } catch (error) {
       console.error('Reformulation error:', error);
       loadingOverlay.classList.remove('active');
-      alert(`Error: ${error.message}\n\nMake sure Ollama is running and accessible. Check browser console for details.`);
+      showError(`Failed to reformulate issue: ${error.message}`);
     } finally {
       if (loadingOverlay.classList.contains('active')) {
         loadingOverlay.classList.remove('active');
@@ -492,6 +518,7 @@
 
   async function handleApprove(e) {
     e.preventDefault();
+    hideError();
 
     // Show loading
     loadingOverlay.classList.add('active');
@@ -548,7 +575,7 @@
     } catch (error) {
       console.error('Approval error:', error);
       loadingOverlay.classList.remove('active');
-      alert(`Error creating issue: ${error.message}\n\nCheck the browser console for details.`);
+      showError(`Error creating issue: ${error.message}`);
     }
   }
 </script>

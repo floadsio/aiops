@@ -23,6 +23,7 @@ def generate_issue_from_description(
     description: str,
     ai_tool: str = "claude",
     issue_type: str | None = None,
+    user_id: int | None = None,
 ) -> dict[str, Any]:
     """Generate a structured issue from a natural language description.
 
@@ -30,6 +31,7 @@ def generate_issue_from_description(
         description: Natural language description of what the user wants to work on
         ai_tool: AI tool to use for generation (claude, codex, gemini)
         issue_type: Optional hint about issue type (feature, bug, etc.)
+        user_id: User ID for authentication (required for codex, gemini)
 
     Returns:
         Dictionary with:
@@ -77,6 +79,41 @@ Rules:
         else:
             command_parts = [command]
 
+        # Set up authentication environment for AI tools
+        env = None
+        if ai_tool == "codex":
+            # Codex requires authentication setup
+            if user_id is None:
+                raise AIIssueGenerationError(
+                    "User ID required for Codex authentication"
+                )
+            try:
+                from .codex_config_service import ensure_codex_auth
+                auth_path = ensure_codex_auth(user_id)
+                env = {
+                    **current_app.config.get("AI_TOOL_ENV", {}),
+                    "CODEX_CONFIG_DIR": str(auth_path.parent),
+                    "CODEX_AUTH_FILE": str(auth_path),
+                }
+            except Exception as exc:
+                raise AIIssueGenerationError(
+                    f"Failed to set up Codex authentication: {exc}"
+                ) from exc
+        elif ai_tool == "gemini":
+            # Gemini requires authentication setup
+            if user_id is None:
+                raise AIIssueGenerationError(
+                    "User ID required for Gemini authentication"
+                )
+            try:
+                from .gemini_config_service import ensure_user_config
+                ensure_user_config(user_id)
+                # Gemini uses its own config discovery, no env needed
+            except Exception as exc:
+                raise AIIssueGenerationError(
+                    f"Failed to set up Gemini authentication: {exc}"
+                ) from exc
+
         # Run AI tool with prompt
         if ai_tool == "claude":
             # For Claude, we use the CLI directly
@@ -86,6 +123,7 @@ Rules:
                 text=True,
                 timeout=30,
                 check=False,
+                env=env,
             )
         elif ai_tool == "codex":
             # For Codex, force the non-interactive exec subcommand (CLI expects it)
@@ -99,6 +137,7 @@ Rules:
                 text=True,
                 timeout=30,
                 check=False,
+                env=env,
             )
         elif ai_tool == "gemini":
             # For Gemini
@@ -108,6 +147,7 @@ Rules:
                 text=True,
                 timeout=30,
                 check=False,
+                env=env,
             )
         else:
             raise AIIssueGenerationError(f"Unsupported AI tool: {ai_tool}")

@@ -8,9 +8,11 @@ from __future__ import annotations
 from flask import jsonify, request
 
 from . import api_v1_bp
+from ...services.api_auth import require_api_auth
 
 
 @api_v1_bp.get("/activities")
+@require_api_auth(scopes=["read"])
 def list_activities_api():
     """List activities via API (for CLI)."""
     from ...models import Activity

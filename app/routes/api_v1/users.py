@@ -9,9 +9,11 @@ from flask import g, jsonify
 from flask_login import current_user
 
 from . import api_v1_bp
+from ...services.api_auth import require_api_auth
 
 
 @api_v1_bp.get("/users")
+@require_api_auth(scopes=["admin"])
 def list_users():
     """List all users (admin only for security)."""
     from ...models import User

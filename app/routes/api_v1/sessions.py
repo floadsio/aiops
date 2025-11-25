@@ -27,6 +27,7 @@ from ...ai_sessions import (
 )
 from ...models import AISession as AISessionModel, ExternalIssue, Project, User
 from ...services.activity_service import ActivityType, ResourceType, log_activity
+from ...services.api_auth import require_api_auth
 from ...services.tmux_service import session_name_for_user
 
 
@@ -87,6 +88,7 @@ def _get_project_session(project_id: int, session_id: str):
 
 
 @api_v1_bp.get("/projects/<int:project_id>/ai/sessions")
+@require_api_auth(scopes=["read"])
 def list_project_ai_sessions(project_id: int):
     """List active AI sessions for a project."""
     project = Project.query.get_or_404(project_id)
@@ -141,6 +143,7 @@ def list_project_ai_sessions(project_id: int):
 
 
 @api_v1_bp.post("/projects/<int:project_id>/ai/sessions")
+@require_api_auth(scopes=["write"])
 def start_project_ai_session(project_id: int):
     project = Project.query.get_or_404(project_id)
     if not _ensure_project_access(project):
@@ -350,6 +353,7 @@ def start_project_ai_session(project_id: int):
 
 
 @api_v1_bp.post("/projects/<int:project_id>/ai/sessions/<session_id>/input")
+@require_api_auth(scopes=["write"])
 def send_project_ai_input(project_id: int, session_id: str):
     session, error_response, status = _get_project_session(project_id, session_id)
     if error_response is not None:
@@ -365,6 +369,7 @@ def send_project_ai_input(project_id: int, session_id: str):
 
 
 @api_v1_bp.post("/projects/<int:project_id>/ai/sessions/<session_id>/resize")
+@require_api_auth(scopes=["write"])
 def resize_project_ai_session(project_id: int, session_id: str):
     session, error_response, status = _get_project_session(project_id, session_id)
     if error_response is not None:
@@ -381,6 +386,7 @@ def resize_project_ai_session(project_id: int, session_id: str):
 
 
 @api_v1_bp.delete("/projects/<int:project_id>/ai/sessions/<session_id>")
+@require_api_auth(scopes=["write"])
 def stop_project_ai_session(project_id: int, session_id: str):
     session, error_response, status = _get_project_session(project_id, session_id)
     if error_response is not None:
@@ -391,6 +397,7 @@ def stop_project_ai_session(project_id: int, session_id: str):
 
 
 @api_v1_bp.get("/ai/sessions")
+@require_api_auth(scopes=["read"])
 def list_ai_sessions():
     """Get AI session history for the current user or all users (admin only)."""
     from ...services.ai_session_service import get_session_summary, get_user_sessions
@@ -440,6 +447,7 @@ def list_ai_sessions():
 
 
 @api_v1_bp.get("/ai/sessions/<int:db_session_id>/validate")
+@require_api_auth(scopes=["read"])
 def validate_ai_session(db_session_id: int):
     """Validate if a session's tmux target still exists and mark inactive if not."""
     user_id = _current_user_id()
@@ -489,6 +497,7 @@ def validate_ai_session(db_session_id: int):
 
 
 @api_v1_bp.post("/ai/sessions/<int:db_session_id>/resume")
+@require_api_auth(scopes=["write"])
 def resume_ai_session(db_session_id: int):
     """Resume a previous AI session in its related tmux window."""
     from ...services.ai_session_service import build_resume_command
@@ -550,6 +559,7 @@ def resume_ai_session(db_session_id: int):
 
 
 @api_v1_bp.post("/ai/sessions/<int:db_session_id>/attach")
+@require_api_auth(scopes=["write"])
 def track_session_attach(db_session_id: int):
     """Track when a user attaches to an existing session (CLI usage).
 

@@ -2393,15 +2393,17 @@ def create_assisted_issue():
                 identity_user=current_user.model,
             )
 
-            # Launch AI session in a dedicated tmux session for AI-assisted issues
-            # This keeps it separate from regular development sessions
+            # Launch AI session in a dedicated tmux window for AI-assisted issues
+            # Create a unique window name to avoid reusing existing sessions
             from ..ai_sessions import create_session
+            # Use issue-specific window name to prevent reusing existing windows
+            issue_window_name = f"issue{issue.id}-{ai_tool}"
             session = create_session(
                 project=project,
                 user_id=current_user.id,
                 tool=ai_tool,  # Use the AI tool selected by the user
                 issue_id=issue.id,
-                tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
+                tmux_target=issue_window_name,  # Unique window name per issue
             )
 
             # Inform user about context sources

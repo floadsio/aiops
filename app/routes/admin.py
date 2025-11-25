@@ -2274,7 +2274,7 @@ def create_assisted_issue():
         # Handle form submission - create draft issue and launch AI session
         project_id = form.project_id.data
         description = form.description.data
-        # ai_tool = form.ai_tool.data  # Unused: Always use Claude for AI-assisted issues
+        ai_tool = form.ai_tool.data  # User's choice of AI tool
         issue_type = form.issue_type.data if form.issue_type.data else None
         create_branch_flag = form.create_branch.data
         pin_issue_flag = form.pin_issue.data
@@ -2300,10 +2300,9 @@ def create_assisted_issue():
 
         try:
             # Let the AI structure the issue before creation
-            # NOTE: Always use Claude for AI-assisted issue generation (simpler, no per-user auth)
             try:
                 issue_data = generate_issue_from_description(
-                    description, "claude", issue_type, user_id=current_user.id
+                    description, ai_tool, issue_type, user_id=current_user.id
                 )
             except AIIssueGenerationError as exc:
                 flash(f"AI generation failed: {exc}", "error")
@@ -2396,12 +2395,11 @@ def create_assisted_issue():
 
             # Launch AI session in a dedicated tmux session for AI-assisted issues
             # This keeps it separate from regular development sessions
-            # NOTE: Always use Claude for AI-assisted work sessions (simpler, no per-user auth)
             from ..ai_sessions import create_session
             session = create_session(
                 project=project,
                 user_id=current_user.id,
-                tool="claude",
+                tool=ai_tool,  # Use the AI tool selected by the user
                 issue_id=issue.id,
                 tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
             )

@@ -96,8 +96,13 @@
         {{ form.project_id(required=True) }}
       </div>
 
-      <!-- AI Tool hardcoded to Claude (hidden from user) -->
-      <input type="hidden" name="ai_tool" value="claude">
+      <div class="form-section">
+        <label for="{{ form.ai_tool.id }}">
+          <h3>AI Tool</h3>
+        </label>
+        <p>Select which AI tool to use for the session</p>
+        {{ form.ai_tool(required=True) }}
+      </div>
 
       <div class="form-grid">
         <div class="form-section">

@@ -32,7 +32,7 @@ from ..services.issues.utils import normalize_issue_status
 from ..services.activity_logger import log_api_activity, log_git_operation, log_session_operation
 from ..services.activity_service import ActivityType, ResourceType
 
-api_bp = Blueprint("api", __name__, url_prefix="/api/v1")
+api_bp = Blueprint("api", __name__, url_prefix="/api")
 
 
 def _slugify(value: str) -> str:

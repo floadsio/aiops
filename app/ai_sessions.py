@@ -553,7 +553,9 @@ def create_session(
     issue_id: int | None = None,
     permission_mode: str | None = None,
 ) -> AISession:
+    current_app.logger.info(f"create_session called with tool={tool}, command={command}")
     command_str = _resolve_command(tool, command, permission_mode=permission_mode)
+    current_app.logger.info(f"Resolved command: {command_str}")
     uses_gemini = _uses_gemini(command_str, tool)
     if uses_gemini:
         ensure_user_config(user_id)

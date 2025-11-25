@@ -47,7 +47,6 @@ from ..services.ansible_runner import (
     get_semaphore_templates,
     run_ansible_playbook,
 )
-from ..services.ai_status_service import AIStatusError, get_claude_status
 from ..services.git_service import (
     commit_project_files,
     get_project_commit_history,

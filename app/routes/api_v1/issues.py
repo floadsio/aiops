@@ -993,7 +993,6 @@ def create_assisted_issue():
     project_id = data.get("project_id")
     integration_id = data.get("integration_id")
     description = data.get("description", "").strip()
-    ai_tool = data.get("ai_tool", "claude")
 
     if not project_id:
         return jsonify({"error": "project_id is required"}), 400
@@ -1019,13 +1018,10 @@ def create_assisted_issue():
         return jsonify({"error": f"Integration {integration_id} not found for project"}), 404
 
     try:
-        # Step 1: Generate issue content using AI
-        # NOTE: Always use Claude for AI-assisted issue generation (simpler, no per-user auth)
+        # Step 1: Generate issue content using AI (Ollama)
         try:
-            # Get user_id for AI tool authentication
-            creator_user_id = g.current_user.id if hasattr(g, "current_user") else None
             issue_data = generate_issue_from_description(
-                description, "claude", issue_type, user_id=creator_user_id
+                description, issue_type
             )
         except AIIssueGenerationError as e:
             return jsonify({

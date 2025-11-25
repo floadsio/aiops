@@ -13,7 +13,6 @@ import subprocess
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
 
 from cryptography.fernet import Fernet
 from flask import current_app

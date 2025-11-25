@@ -312,6 +312,71 @@ aiops agents global clear                      # Clear and revert to repo AGENTS
   - Code standards (formatting, commit message style)
   - Tool requirements (which CLI commands to use vs. which to avoid)
 
+## AI-Assisted Issue Creation with Ollama
+
+aiops uses self-hosted Ollama for generating issue descriptions and structure automatically.
+
+### Setup Ollama Locally
+
+1. **Install Ollama**: https://ollama.ai/download
+2. **Pull the recommended model**:
+   ```bash
+   ollama pull qwen2.5:7b
+   ```
+3. **Start the Ollama service**:
+   ```bash
+   ollama serve
+   ```
+4. **Verify it's running**:
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+
+### Configuration
+
+Ollama configuration uses sensible defaults but can be customized via environment variables:
+
+```bash
+# .env file
+OLLAMA_API_URL=http://localhost:11434          # Default: http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b                         # Default: qwen2.5:7b (code-focused model)
+OLLAMA_TIMEOUT=60.0                             # Default: 60.0 seconds
+```
+
+### AI-Assisted Issue Creation Workflow
+
+1. **Create issue** via web UI or API: "Add dark mode support"
+2. **Ollama generates structure**: Title, description with sections, labels, branch prefix
+3. **Create branch** and start work session with your preferred AI tool
+4. **Your AI tool** (Claude/Codex/Gemini) helps with implementation
+
+Key points:
+- Ollama is used **ONLY** for generating issue structure (description, acceptance criteria, etc.)
+- Your chosen AI tool is used for actual development work
+- No per-user authentication required - Ollama is local and shared
+
+### Troubleshooting
+
+**"Ollama is not available"**
+- Check if Ollama is running: `curl http://localhost:11434/api/tags`
+- Check configuration in Admin → System Status
+- If using custom URL, verify `OLLAMA_API_URL` in `.env`
+
+**"Model not found"**
+- Pull the model: `ollama pull qwen2.5:7b`
+- Or use a model you have: `ollama list`
+- Update `OLLAMA_MODEL` in `.env` if using different model
+
+**Generation timeout**
+- Ollama is slow on limited hardware
+- Increase `OLLAMA_TIMEOUT` in `.env` (e.g., 120.0 for slower machines)
+- Consider using a smaller model (mistral vs qwen2.5)
+
+**Health check in System Status shows "unavailable"**
+- Check Admin → System Status for detailed error
+- Verify Ollama service is running: `ollama serve`
+- Check network connectivity if using remote Ollama instance
+
 ## Current Issue Context
 <!-- issue-context:start -->
 

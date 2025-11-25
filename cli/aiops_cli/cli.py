@@ -526,16 +526,16 @@ def issues_create_assisted(
                 sys.exit(1)
 
         # Show what we're doing
-        console.print(f"\n[cyan]Creating issue with AI assistance...[/cyan]")
+        console.print("\n[cyan]Creating issue with AI assistance...[/cyan]")
         console.print(f"  Tool: {tool}")
         console.print(f"  Project ID: {project_id}")
         console.print(f"  Integration ID: {integration}")
         if issue_type:
             console.print(f"  Type: {issue_type}")
         if create_branch:
-            console.print(f"  Create branch: Yes")
+            console.print("  Create branch: Yes")
         if start_session:
-            console.print(f"  Start session: Yes")
+            console.print("  Start session: Yes")
 
         # Create AI-assisted issue
         payload = {
@@ -573,17 +573,17 @@ def issues_create_assisted(
             if result.get("branch_error"):
                 console.print(f"\n[yellow]⚠ Branch creation failed:[/yellow] {result['branch_error']}")
             if result.get("session_url"):
-                console.print(f"\n[green]✓ Session created[/green]")
+                console.print("\n[green]✓ Session created[/green]")
                 console.print(f"Session URL: {result['session_url']}")
             if result.get("session_error"):
                 console.print(f"\n[yellow]⚠ Session creation failed:[/yellow] {result['session_error']}")
 
-            console.print(f"\n[dim]Next steps:[/dim]")
+            console.print("\n[dim]Next steps:[/dim]")
             console.print(f"  1. Review the issue at {result['issue_url']}")
             if result.get("branch_name"):
                 console.print(f"  2. Checkout branch: git checkout {result['branch_name']}")
             if result.get("session_url"):
-                console.print(f"  3. Start working in the AI session")
+                console.print("  3. Start working in the AI session")
             else:
                 console.print(f"  2. Start working: aiops issues work {result['issue_id']}")
 
@@ -2450,7 +2450,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                                     shutil.rmtree(match)
                                 else:
                                     match.unlink()
-                            except Exception as e:
+                            except Exception:
                                 # Ignore cleanup errors, they're not critical
                                 pass
                     else:
@@ -2462,7 +2462,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                                     shutil.rmtree(match)
                                 else:
                                     match.unlink()
-                            except Exception as e:
+                            except Exception:
                                 # Ignore cleanup errors, they're not critical
                                 pass
 
@@ -2928,7 +2928,7 @@ def system_switch_branch(ctx: click.Context, branch: str, restart: bool, yes: bo
         })
 
         if result.get("success"):
-            console.print(f"[green]✓ Branch switched successfully![/green]")
+            console.print("[green]✓ Branch switched successfully![/green]")
             console.print(f"Current branch: {result.get('current_branch')}")
 
             if result.get("git_output"):
@@ -2941,7 +2941,7 @@ def system_switch_branch(ctx: click.Context, branch: str, restart: bool, yes: bo
             elif restart:
                 console.print("\n[yellow]⚠ Service restart initiated but status unknown[/yellow]")
         else:
-            error_console.print(f"[red]✗ Failed to switch branch[/red]")
+            error_console.print("[red]✗ Failed to switch branch[/red]")
             error_console.print(f"Error: {result.get('error', 'Unknown error')}")
             sys.exit(1)
 

@@ -1,4 +1,3 @@
-import base64
 import json
 import shlex
 from types import SimpleNamespace

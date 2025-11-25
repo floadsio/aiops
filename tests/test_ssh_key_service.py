@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from unittest.mock import Mock, patch
 
@@ -254,7 +253,7 @@ class TestSSHKeyContext:
         encrypted_key = encrypt_private_key(TEST_PRIVATE_KEY)
 
         with pytest.raises(SSHKeyServiceError):
-            with ssh_key_context(encrypted_key) as auth_sock:
+            with ssh_key_context(encrypted_key):
                 pass  # Exception raised in _add_key_to_agent
 
         # Verify cleanup still happened

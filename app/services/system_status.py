@@ -161,7 +161,7 @@ def check_git() -> dict[str, Any]:
 
 
 def check_ai_tools() -> dict[str, Any]:
-    """Check availability of AI tools (Claude, Codex, Gemini).
+    """Check availability of AI tools (Claude, Codex, Gemini) and Ollama.
 
     Returns:
         Status dict with 'healthy', 'message', and 'details'
@@ -191,6 +191,29 @@ def check_ai_tools() -> dict[str, Any]:
             tools_status[tool_name] = {"available": True, "path": found_path}
         else:
             tools_status[tool_name] = {"available": False, "path": None}
+
+    # Special handling for Ollama (Python API, not CLI binary)
+    try:
+        from app.services.ollama_service import check_ollama_health
+        is_healthy, error_msg = check_ollama_health()
+        if is_healthy:
+            api_url = current_app.config.get("OLLAMA_API_URL", "http://localhost:11434")
+            model = current_app.config.get("OLLAMA_MODEL", "qwen2.5:7b")
+            tools_status["ollama"] = {
+                "available": True,
+                "api_url": api_url,
+                "model": model,
+            }
+        else:
+            tools_status["ollama"] = {
+                "available": False,
+                "error": error_msg,
+            }
+    except Exception as exc:
+        tools_status["ollama"] = {
+            "available": False,
+            "error": f"Error checking Ollama: {exc}",
+        }
 
     available_count = sum(1 for t in tools_status.values() if t["available"])
     total_count = len(tools_status)
@@ -595,7 +618,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
         return {"healthy": False, "message": f"SSH connectivity check error: {exc}"}
 
 
-def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = None) -> tuple[bool, str | None, dict | None]:
+def _test_ssh_connectivity(project: Any, hostname: str, port: int | None = None) -> tuple[bool, str | None, dict | None]:
     """Test SSH connectivity to a Git host using project's SSH key.
 
     Args:

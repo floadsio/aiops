@@ -2343,7 +2343,7 @@ def create_assisted_issue():
             # Let the AI structure the issue before creation
             try:
                 issue_data = generate_issue_from_description(
-                    description, ai_tool, issue_type, user_id=current_user.id
+                    description, issue_type
                 )
             except AIIssueGenerationError as exc:
                 flash(f"AI generation failed: {exc}", "error")
@@ -4358,7 +4358,6 @@ def cleanup_activities():
     from ..services.activity_cleanup import (
         ActivityCleanupError,
         cleanup_old_activities,
-        get_cleanup_stats,
     )
 
     # Get parameters from form
@@ -4369,9 +4368,6 @@ def cleanup_activities():
     try:
         days = int(days_to_keep)
         max_recs = int(max_records) if max_records else None
-
-        # Get stats before cleanup
-        stats_before = get_cleanup_stats()
 
         # Perform cleanup
         result = cleanup_old_activities(
@@ -4673,7 +4669,7 @@ def save_ollama_config():
         config["default_model"] = default_model
         config["timeout"] = timeout
         save_config(config)
-        flash(f"Saved Ollama configuration.", "success")
+        flash("Saved Ollama configuration.", "success")
     except Exception as exc:
         current_app.logger.exception("Failed to save Ollama configuration")
         flash(f"Failed to save configuration: {exc}", "danger")

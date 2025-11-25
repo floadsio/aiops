@@ -94,23 +94,31 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
     Raises:
         OllamaServiceError: If JSON cannot be extracted or parsed.
     """
+    logger.debug(f"Extracting JSON from response: type={type(response_text).__name__}, length={len(response_text)}")
+
     # Try to extract JSON from markdown code blocks first
     json_match = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", response_text)
     if json_match:
         json_str = json_match.group(1)
+        logger.debug("Found JSON in markdown code block")
     else:
-        # Try to find raw JSON object
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
+        # Try to find raw JSON object - use non-greedy matching
+        json_match = re.search(r"\{[\s\S]*?\}", response_text)
         if json_match:
             json_str = json_match.group(0)
+            logger.debug(f"Found raw JSON, length={len(json_str)}")
         else:
             raise OllamaServiceError(
                 f"No JSON found in response. First 200 chars: {response_text[:200]}"
             )
 
+    logger.debug(f"JSON string to parse: length={len(json_str)}, first_50={repr(json_str[:50])}, last_50={repr(json_str[-50:])}")
+
     try:
         return json.loads(json_str)
     except json.JSONDecodeError as exc:
+        logger.error(f"JSON parsing failed: {exc}")
+        logger.error(f"JSON string: {json_str}")
         raise OllamaServiceError(
             f"Failed to parse JSON from response: {exc}. "
             f"Text was: {json_str[:200]}"

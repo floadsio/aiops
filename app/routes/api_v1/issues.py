@@ -1020,11 +1020,12 @@ def create_assisted_issue():
 
     try:
         # Step 1: Generate issue content using AI
+        # NOTE: Always use Claude for AI-assisted issue generation (simpler, no per-user auth)
         try:
             # Get user_id for AI tool authentication
             creator_user_id = g.current_user.id if hasattr(g, "current_user") else None
             issue_data = generate_issue_from_description(
-                description, ai_tool, issue_type, user_id=creator_user_id
+                description, "claude", issue_type, user_id=creator_user_id
             )
         except AIIssueGenerationError as e:
             return jsonify({

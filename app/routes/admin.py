@@ -2300,9 +2300,10 @@ def create_assisted_issue():
 
         try:
             # Let the AI structure the issue before creation
+            # NOTE: Always use Claude for AI-assisted issue generation (simpler, no per-user auth)
             try:
                 issue_data = generate_issue_from_description(
-                    description, ai_tool, issue_type, user_id=current_user.id
+                    description, "claude", issue_type, user_id=current_user.id
                 )
             except AIIssueGenerationError as exc:
                 flash(f"AI generation failed: {exc}", "error")

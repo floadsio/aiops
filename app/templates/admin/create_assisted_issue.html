@@ -89,21 +89,15 @@
         {{ form.description(class="description-textarea", placeholder="Example: I want to add user authentication with OAuth2 support. Users should be able to login with Google and GitHub. Need to store user sessions securely.") }}
       </div>
 
-      <div class="form-grid">
-        <div class="form-section">
-          <label for="{{ form.project_id.id }}">
-            <h3>Project</h3>
-          </label>
-          {{ form.project_id(required=True) }}
-        </div>
-
-        <div class="form-section">
-          <label for="{{ form.ai_tool.id }}">
-            <h3>AI Tool</h3>
-          </label>
-          {{ form.ai_tool(required=True) }}
-        </div>
+      <div class="form-section">
+        <label for="{{ form.project_id.id }}">
+          <h3>Project</h3>
+        </label>
+        {{ form.project_id(required=True) }}
       </div>
+
+      <!-- AI Tool hardcoded to Claude (hidden from user) -->
+      <input type="hidden" name="ai_tool" value="claude">
 
       <div class="form-grid">
         <div class="form-section">

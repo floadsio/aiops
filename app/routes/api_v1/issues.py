@@ -144,10 +144,6 @@ def list_issues():
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", type=int, default=0)
 
-    import sys
-    print(f"[DEBUG] All request.args: {dict(request.args)}", file=sys.stderr, flush=True)
-    print(f"[DEBUG] assignee filter requested: {assignee!r}", file=sys.stderr, flush=True)
-
     # Build query
     query = ExternalIssue.query.options(
         selectinload(ExternalIssue.project_integration)
@@ -174,7 +170,6 @@ def list_issues():
     issues = query.all()
     payload: list[dict[str, Any]] = []
 
-    filtered_count = 0
     for issue in issues:
         issue_payload = _issue_to_dict(issue)
 
@@ -185,12 +180,7 @@ def list_issues():
             continue
         if assignee:
             issue_assignee = issue_payload.get("assignee") or ""
-            matches = assignee.lower() in issue_assignee.lower()
-            if filtered_count < 3:
-                import sys
-                print(f"[DEBUG] Checking issue {issue.id}: assignee={issue_assignee!r}, search={assignee!r}, matches={matches}", file=sys.stderr, flush=True)
-                filtered_count += 1
-            if not matches:
+            if assignee.lower() not in issue_assignee.lower():
                 continue
         if labels_filter:
             issue_labels = set(issue_payload.get("labels", []))
@@ -206,16 +196,13 @@ def list_issues():
     if isinstance(limit, int) and limit > 0:
         payload = payload[:limit]
 
-    response = jsonify({
+    return jsonify({
         "issues": payload,
         "count": len(payload),
         "total": total,
         "offset": offset,
         "limit": limit,
-        "_debug_assignee_filter": assignee,
-        "_debug_filtered_count": filtered_count,
     })
-    return response
 
 
 @api_v1_bp.get("/issues/pinned")

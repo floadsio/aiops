@@ -2221,6 +2221,98 @@ def sessions_kill(
         sys.exit(1)
 
 
+@sessions.command(name="upload")
+@click.argument("session_id")
+@click.argument("file_path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--name", help="Custom filename in workspace (defaults to original)")
+@click.option("--project", help="Filter by project ID or name")
+@click.pass_context
+def sessions_upload(
+    ctx: click.Context,
+    session_id: str,
+    file_path: str,
+    name: Optional[str],
+    project: Optional[str],
+) -> None:
+    """Upload file to session workspace.
+
+    The file will be placed in .uploads/ directory in the session's workspace,
+    making it accessible to the AI for analysis.
+
+    Examples:
+        aiops sessions upload abc123 screenshot.png
+        aiops sessions upload abc123 error.log --name debug.log
+        aiops sessions upload abc123 diagram.pdf --project aiops
+    """
+    client = get_client(ctx)
+
+    try:
+        # Find the session to get project_id
+        all_users = client.is_admin()
+        project_id = resolve_project_id(client, project) if project else None
+
+        all_sessions = client.list_all_sessions(
+            project_id=project_id,
+            all_users=all_users,
+            active_only=True,
+            limit=200,
+        )
+
+        if not all_sessions:
+            error_console.print("[red]Error:[/red] No active sessions found")
+            sys.exit(1)
+
+        # Find matching session
+        identifier = session_id.strip()
+        if identifier.endswith("..."):
+            identifier = identifier[:-3]
+
+        target_session = None
+        for session in all_sessions:
+            sid = str(session.get("session_id", ""))
+            if identifier and (sid == identifier or sid.startswith(identifier)):
+                target_session = session
+                break
+
+        if not target_session:
+            error_console.print(
+                f"[red]Error:[/red] Session '{session_id}' not found"
+            )
+            sys.exit(1)
+
+        # Get session details
+        session_project_id = target_session.get("project_id")
+        full_session_id = target_session.get("session_id")
+        tool = target_session.get("tool", "unknown")
+
+        if not session_project_id or not full_session_id:
+            error_console.print("[red]Error:[/red] Session missing required information")
+            sys.exit(1)
+
+        # Upload file
+        console.print(f"[cyan]Uploading {file_path}...[/cyan]")
+        result = client.upload_session_file(
+            session_project_id, full_session_id, file_path, custom_name=name
+        )
+
+        # Display success
+        console.print(f"\n[green]✓ File uploaded successfully![/green]")
+        console.print(f"  Workspace path: {result['workspace_path']}")
+        console.print(f"  Relative path: {result['relative_path']}")
+        console.print(f"  Size: {result['size'] / 1024:.1f} KB")
+        console.print(f"\n[dim]The AI can now access this file in the session.[/dim]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+    except FileNotFoundError:
+        error_console.print(f"[red]Error:[/red] File not found: {file_path}")
+        sys.exit(1)
+    except Exception as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # TENANTS COMMANDS
 # ============================================================================

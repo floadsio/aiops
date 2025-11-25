@@ -144,8 +144,8 @@ def list_issues():
     limit = request.args.get("limit", type=int)
     offset = request.args.get("offset", type=int, default=0)
 
-    import logging
-    logging.warning(f"[DEBUG] assignee filter requested: {assignee!r}")
+    import sys
+    print(f"[DEBUG] assignee filter requested: {assignee!r}", file=sys.stderr, flush=True)
 
     # Build query
     query = ExternalIssue.query.options(

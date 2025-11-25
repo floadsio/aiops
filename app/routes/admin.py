@@ -2402,12 +2402,24 @@ def create_assisted_issue():
             sources_msg = " + ".join(sources) if sources else "project defaults"
             flash(f"AI session started for issue #{issue.external_id}", "success")
             flash(f"AGENTS.override.md populated from: {sources_msg}", "info")
-            return redirect(url_for(
-                'projects.project_ai_console',
-                project_id=project.id,
-                attach=session.tmux_target,
-                tool=ai_tool  # Pass the tool so UI knows what's running
-            ))
+
+            # Pass CLI commands to success page
+            cli_commands = {
+                "work_on_issue": f"aiops issues work {issue.id}",
+                "get_details": f"aiops issues get {issue.id} --output json",
+                "add_comment": f"aiops issues comment {issue.id} \"Your update\"",
+                "close_issue": f"aiops issues close {issue.id}",
+            }
+
+            return render_template(
+                "admin/assisted_issue_success.html",
+                issue=issue,
+                project=project,
+                ai_tool=ai_tool,
+                session_target=session.tmux_target,
+                cli_commands=cli_commands,
+                sources_msg=sources_msg,
+            )
 
         except Exception as e:
             flash(f"Failed to create assisted issue: {e}", "error")

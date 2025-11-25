@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+{% block title %}Issue Created Successfully | aiops Control Panel{% endblock %}
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .success-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .success-card {
+      padding: 2rem;
+      border-radius: 1.25rem;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+      margin-bottom: 1.5rem;
+    }
+    [data-theme="dark"] .success-card {
+      background: rgba(15, 23, 42, 0.7);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    .success-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .success-icon {
+      font-size: 2rem;
+    }
+    .success-title {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .success-title {
+      color: #e2e8f0;
+    }
+    .issue-details {
+      margin-bottom: 2rem;
+    }
+    .issue-details p {
+      margin: 0.5rem 0;
+      color: #475569;
+    }
+    [data-theme="dark"] .issue-details p {
+      color: #94a3b8;
+    }
+    .issue-details strong {
+      color: #0f172a;
+    }
+    [data-theme="dark"] .issue-details strong {
+      color: #e2e8f0;
+    }
+    .cli-section {
+      margin-top: 2rem;
+    }
+    .cli-section h3 {
+      margin: 0 0 1rem;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .cli-section h3 {
+      color: #e2e8f0;
+    }
+    .cli-section p {
+      margin: 0 0 1rem;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .cli-section p {
+      color: #94a3b8;
+    }
+    .cli-commands {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .cli-command {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 0.5rem;
+      padding: 1rem;
+    }
+    [data-theme="dark"] .cli-command {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    .cli-command-label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    [data-theme="dark"] .cli-command-label {
+      color: #94a3b8;
+    }
+    .cli-command-code {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .cli-command-code code {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.9);
+      color: #10b981;
+      padding: 0.75rem 1rem;
+      border-radius: 0.375rem;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 0.9rem;
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    [data-theme="dark"] .cli-command-code code {
+      background: rgba(0, 0, 0, 0.3);
+      color: #34d399;
+    }
+    .copy-button {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.85rem;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      white-space: nowrap;
+    }
+    .copy-button:hover {
+      background: #2563eb;
+    }
+    .copy-button.copied {
+      background: #10b981;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .action-buttons .primary {
+      flex: 1;
+      min-width: 200px;
+    }
+  </style>
+{% endblock %}
+{% block content %}
+<div class="success-container">
+  <div class="success-card">
+    <div class="success-header">
+      <span class="success-icon">✓</span>
+      <h1 class="success-title">Issue Created Successfully!</h1>
+    </div>
+
+    <div class="issue-details">
+      <p><strong>Issue:</strong> <a href="{{ issue.url }}" target="_blank">#{{ issue.external_id }}</a> - {{ issue.title }}</p>
+      <p><strong>Project:</strong> {{ project.tenant.name }} / {{ project.name }}</p>
+      <p><strong>AI Tool:</strong> {{ ai_tool }}</p>
+      <p><strong>Context:</strong> AGENTS.override.md populated from {{ sources_msg }}</p>
+    </div>
+
+    <div class="cli-section">
+      <h3>Work on This Issue from the Command Line</h3>
+      <p>Use these <code>aiops</code> CLI commands to work on the issue directly from your terminal:</p>
+
+      <div class="cli-commands">
+        <div class="cli-command">
+          <span class="cli-command-label">Start AI Session (Primary Workflow)</span>
+          <div class="cli-command-code">
+            <code>{{ cli_commands.work_on_issue }}</code>
+            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.work_on_issue }}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="cli-command">
+          <span class="cli-command-label">View Issue Details</span>
+          <div class="cli-command-code">
+            <code>{{ cli_commands.get_details }}</code>
+            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.get_details }}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="cli-command">
+          <span class="cli-command-label">Add Comment / Update Status</span>
+          <div class="cli-command-code">
+            <code>{{ cli_commands.add_comment }}</code>
+            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.add_comment }}')">Copy</button>
+          </div>
+        </div>
+
+        <div class="cli-command">
+          <span class="cli-command-label">Close Issue (When Complete)</span>
+          <div class="cli-command-code">
+            <code>{{ cli_commands.close_issue }}</code>
+            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.close_issue }}')">Copy</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-buttons">
+      <a href="{{ url_for('projects.project_ai_console', project_id=project.id, attach=session_target, tool=ai_tool) }}" class="primary" role="button">
+        Open AI Console →
+      </a>
+      <a href="{{ url_for('admin.manage_issues') }}" role="button" class="secondary outline">
+        View All Issues
+      </a>
+      <a href="{{ url_for('admin.create_assisted_issue') }}" role="button" class="secondary outline">
+        Create Another Issue
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+function copyToClipboard(button, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    const originalText = button.textContent;
+    button.textContent = 'Copied!';
+    button.classList.add('copied');
+
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.classList.remove('copied');
+    }, 2000);
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    button.textContent = 'Failed';
+    setTimeout(() => {
+      button.textContent = 'Copy';
+    }, 2000);
+  });
+}
+</script>
+{% endblock %}

@@ -1076,6 +1076,12 @@ def create_assisted_issue():
             "description": issue_data.get("description"),
             "labels": issue.labels,
             "status": issue.status,
+            "cli_commands": {
+                "work_on_issue": f"aiops issues work {issue.id}",
+                "get_details": f"aiops issues get {issue.id} --output json",
+                "add_comment": f"aiops issues comment {issue.id} \"Your update\"",
+                "close_issue": f"aiops issues close {issue.id}",
+            },
         }
 
         # Step 3: Create branch if requested

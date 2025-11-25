@@ -483,7 +483,14 @@
     } catch (error) {
       console.error('Reformulation error:', error);
       loadingOverlay.classList.remove('active');
-      showError(`Failed to reformulate issue: ${error.message}`);
+      // Extract the actual error message from nested error messages
+      let errorMsg = error.message;
+      if (errorMsg.startsWith('Failed to reformulate issue: Failed to reformulate issue:')) {
+        errorMsg = errorMsg.replace('Failed to reformulate issue: Failed to reformulate issue: ', '');
+      } else if (errorMsg.startsWith('Failed to reformulate issue: ')) {
+        errorMsg = errorMsg.substring('Failed to reformulate issue: '.length);
+      }
+      showError(`⚠️ ${errorMsg}`);
     } finally {
       if (loadingOverlay.classList.contains('active')) {
         loadingOverlay.classList.remove('active');

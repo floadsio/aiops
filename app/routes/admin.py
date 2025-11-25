@@ -2274,7 +2274,7 @@ def create_assisted_issue():
         # Handle form submission - create draft issue and launch AI session
         project_id = form.project_id.data
         description = form.description.data
-        ai_tool = form.ai_tool.data
+        # ai_tool = form.ai_tool.data  # Unused: Always use Claude for AI-assisted issues
         issue_type = form.issue_type.data if form.issue_type.data else None
         create_branch_flag = form.create_branch.data
         pin_issue_flag = form.pin_issue.data
@@ -2351,6 +2351,8 @@ def create_assisted_issue():
             flash(f"Issue created: #{issue.external_id}", "success")
 
             # Create branch if requested
+            # NOTE: Don't pass user to git operations during backend/automated workflows
+            # The branch is created in the managed checkout (owned by syseng), not user workspace
             if create_branch_flag:
                 try:
                     branch_name = generate_branch_name(
@@ -2360,7 +2362,7 @@ def create_assisted_issue():
                         project=project,
                         branch=branch_name,
                         base=project.default_branch,
-                        user=current_user.model,
+                        user=None,  # Use managed checkout, not user workspace
                     )
                     flash(f"Branch {branch_name} created.", "success")
                 except Exception as exc:

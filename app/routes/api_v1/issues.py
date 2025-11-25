@@ -995,7 +995,7 @@ def create_assisted_issue():
     project_id = data.get("project_id")
     integration_id = data.get("integration_id")
     description = data.get("description", "").strip()
-    ai_tool = data.get("ai_tool", "claude")
+    ai_tool = data.get("ai_tool", current_app.config.get("DEFAULT_AI_TOOL", "claude"))
 
     if not project_id:
         return jsonify({"error": "project_id is required"}), 400

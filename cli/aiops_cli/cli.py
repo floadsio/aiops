@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import click
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from rich.table import Table
 
@@ -535,7 +536,6 @@ def issues_create_assisted(
             console.print(f"  Type: {issue_type}")
 
         # Step 1: Generate preview
-        console.print("\n[cyan]Generating issue with AI...[/cyan]")
         preview_payload = {
             "project_id": project_id,
             "integration_id": integration,
@@ -545,7 +545,15 @@ def issues_create_assisted(
         if issue_type:
             preview_payload["issue_type"] = issue_type
 
-        preview_result = client.post("/api/v1/issues/preview-assisted", preview_payload)
+        # Show spinner while generating preview
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[cyan]Generating issue with AI...[/cyan]"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("", total=None)
+            preview_result = client.post("/api/v1/issues/preview-assisted", preview_payload)
+            progress.stop()
 
         # Display preview for user review
         console.print("\n[bold]AI-Generated Issue Preview:[/bold]\n")
@@ -568,14 +576,21 @@ def issues_create_assisted(
             return
 
         # Step 2: Confirm and create the issue
-        console.print("\n[cyan]Creating issue...[/cyan]")
         create_payload = {
             "preview_token": preview_result["preview_token"],
             "create_branch": create_branch,
             "start_session": start_session,
         }
 
-        result = client.post("/api/v1/issues/create-assisted", create_payload)
+        # Show spinner while creating issue
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[cyan]Creating issue...[/cyan]"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("", total=None)
+            result = client.post("/api/v1/issues/create-assisted", create_payload)
+            progress.stop()
 
         console.print("[green]✓ Issue created successfully![/green]\n")
 

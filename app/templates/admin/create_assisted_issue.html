@@ -399,15 +399,23 @@
       console.log('Response status:', response.status);
 
       if (!response.ok) {
-        let errorData = {};
+        let errorMsg = 'Failed to reformulate issue';
         try {
-          errorData = await response.json();
+          // Clone response so we can read it
+          const clonedResponse = response.clone();
+          const errorData = await clonedResponse.json();
+          errorMsg = errorData.details || errorData.error || errorMsg;
         } catch (parseErr) {
-          const text = await response.text();
-          console.error('Response body:', text);
-          throw new Error('Failed to reformulate issue (non-JSON response)');
+          console.error('Could not parse error response:', parseErr);
+          // Try to get text
+          try {
+            const text = await response.text();
+            console.error('Response body:', text);
+          } catch (textErr) {
+            console.error('Could not read response text:', textErr);
+          }
         }
-        throw new Error(errorData.details || errorData.error || 'Failed to reformulate issue');
+        throw new Error(errorMsg);
       }
 
       const data = await response.json();

@@ -981,18 +981,23 @@ def reformulate_issue_description():
     audit_api_request("POST", "/api/v1/issues/reformulate")
 
     data = request.get_json() or {}
+    current_app.logger.info(f"Reformulate request received with data: {list(data.keys())}")
 
     # Validate required fields
     description = data.get("description", "").strip()
     if not description:
+        current_app.logger.warning("Reformulate request missing description")
         return jsonify({"error": "description is required"}), 400
 
     # Optional fields
     issue_type = data.get("issue_type")
+    current_app.logger.info(f"Reformulate request: description_len={len(description)}, issue_type={issue_type}")
 
     try:
         # Use Ollama to reformulate the description
+        current_app.logger.info("Calling generate_issue_from_description...")
         issue_data = generate_issue_from_description(description, issue_type)
+        current_app.logger.info("Generate successful, returning data")
 
         return jsonify({
             "success": True,
@@ -1003,6 +1008,7 @@ def reformulate_issue_description():
         }), 200
 
     except AIIssueGenerationError as e:
+        current_app.logger.error(f"AIIssueGenerationError: {str(e)}", exc_info=True)
         return jsonify({
             "success": False,
             "error": "AI reformulation failed",

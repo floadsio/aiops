@@ -145,6 +145,7 @@ def list_issues():
     offset = request.args.get("offset", type=int, default=0)
 
     import sys
+    print(f"[DEBUG] All request.args: {dict(request.args)}", file=sys.stderr, flush=True)
     print(f"[DEBUG] assignee filter requested: {assignee!r}", file=sys.stderr, flush=True)
 
     # Build query

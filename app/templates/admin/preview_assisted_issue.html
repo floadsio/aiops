@@ -336,6 +336,7 @@
     {% endif %}
 
     <form id="confirm-form" method="post" action="{{ url_for('admin.confirm_assisted_issue') }}">
+      {{ csrf_token() }}
       <input type="hidden" name="preview_token" value="{{ preview_token }}">
 
       <div class="form-section">

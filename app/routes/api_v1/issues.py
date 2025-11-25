@@ -1018,15 +1018,10 @@ def create_assisted_issue():
     if not integration or integration.project_id != project_id:
         return jsonify({"error": f"Integration {integration_id} not found for project"}), 404
 
-    # Get current user ID for AI tool authentication
-    current_user_id = g.current_user.id if hasattr(g, "current_user") else None
-
     try:
         # Step 1: Generate issue content using AI
         try:
-            issue_data = generate_issue_from_description(
-                description, ai_tool, issue_type, user_id=current_user_id
-            )
+            issue_data = generate_issue_from_description(description, ai_tool, issue_type)
         except AIIssueGenerationError as e:
             return jsonify({
                 "error": "AI generation failed",
@@ -1036,7 +1031,7 @@ def create_assisted_issue():
         # Step 2: Create the issue and persist it locally
         try:
             # Pass creator_user_id to ensure issue is created with correct user's credentials
-            creator_user_id = current_user_id
+            creator_user_id = g.current_user.id if hasattr(g, "current_user") else None
             issue_payload = create_issue_for_project_integration(
                 project_integration=integration,
                 summary=issue_data["title"],

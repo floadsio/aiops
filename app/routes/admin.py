@@ -2303,7 +2303,7 @@ def create_assisted_issue():
             # Let the AI structure the issue before creation
             try:
                 issue_data = generate_issue_from_description(
-                    description, ai_tool, issue_type, user_id=current_user.id
+                    description, ai_tool, issue_type
                 )
             except AIIssueGenerationError as exc:
                 flash(f"AI generation failed: {exc}", "error")

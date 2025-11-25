@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 
 import click
 from rich.console import Console
+from rich.prompt import Prompt
 from rich.table import Table
 
 from .client import APIClient, APIError
@@ -532,25 +533,49 @@ def issues_create_assisted(
         console.print(f"  Integration ID: {integration}")
         if issue_type:
             console.print(f"  Type: {issue_type}")
-        if create_branch:
-            console.print(f"  Create branch: Yes")
-        if start_session:
-            console.print(f"  Start session: Yes")
 
-        # Create AI-assisted issue
-        payload = {
+        # Step 1: Generate preview
+        console.print("\n[cyan]Generating issue with AI...[/cyan]")
+        preview_payload = {
             "project_id": project_id,
             "integration_id": integration,
             "description": description,
             "ai_tool": tool,
+        }
+        if issue_type:
+            preview_payload["issue_type"] = issue_type
+
+        preview_result = client.post("/api/v1/issues/preview-assisted", preview_payload)
+
+        # Display preview for user review
+        console.print("\n[bold]AI-Generated Issue Preview:[/bold]\n")
+        console.print(f"[bold]Title:[/bold] {preview_result['title']}\n")
+        console.print("[bold]Description:[/bold]")
+        console.print(preview_result['description'])
+        if preview_result.get('labels'):
+            console.print(f"\n[bold]Labels:[/bold] {', '.join(preview_result['labels'])}")
+
+        # Ask for confirmation
+        console.print("\n")
+        confirm = Prompt.ask(
+            "[yellow]Create this issue?[/yellow]",
+            choices=["y", "n"],
+            default="y"
+        )
+
+        if confirm.lower() != "y":
+            console.print("[yellow]Issue creation cancelled.[/yellow]")
+            return
+
+        # Step 2: Confirm and create the issue
+        console.print("\n[cyan]Creating issue...[/cyan]")
+        create_payload = {
+            "preview_token": preview_result["preview_token"],
             "create_branch": create_branch,
             "start_session": start_session,
         }
-        if issue_type:
-            payload["issue_type"] = issue_type
 
-        console.print("\n[cyan]Generating issue with AI...[/cyan]")
-        result = client.post("/api/v1/issues/create-assisted", payload)
+        result = client.post("/api/v1/issues/create-assisted", create_payload)
 
         console.print("[green]✓ Issue created successfully![/green]\n")
 

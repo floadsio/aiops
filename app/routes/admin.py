@@ -2240,20 +2240,15 @@ def manage_tenants():
 @admin_bp.route("/issues/create-assisted", methods=["GET", "POST"])
 @admin_required
 def create_assisted_issue():
-    """Create an issue with AI assistance."""
+    """Create an issue with AI assistance (Step 1: Generate preview)."""
     import json
-    from flask import flash, jsonify
+    import uuid
+    from flask import session as flask_session
     from ..forms.admin import AIAssistedIssueForm
     from ..models import ProjectIntegration
     from ..services.ai_issue_generator import (
         AIIssueGenerationError,
-        generate_branch_name,
         generate_issue_from_description,
-    )
-    from ..services.git_service import checkout_or_create_branch
-    from ..services.issues import (
-        create_issue_for_project_integration,
-        serialize_issue_comments,
     )
 
     form = AIAssistedIssueForm()
@@ -2272,16 +2267,11 @@ def create_assisted_issue():
             project_integrations[project.id] = integration.id
 
     if form.validate_on_submit():
-        # Handle form submission - create draft issue and launch AI session
+        # Handle form submission - generate preview
         project_id = form.project_id.data
         description = form.description.data
         ai_tool = form.ai_tool.data
         issue_type = form.issue_type.data if form.issue_type.data else None
-        create_branch_flag = form.create_branch.data
-        pin_issue_flag = form.pin_issue.data
-
-        # Debug logging
-        current_app.logger.warning(f"DEBUG: AI-assisted issue form submitted: ai_tool={ai_tool}, project_id={project_id}")
 
         # Get integration and project
         integration = ProjectIntegration.query.filter_by(project_id=project_id).first()
@@ -2303,7 +2293,7 @@ def create_assisted_issue():
             )
 
         try:
-            # Let the AI structure the issue before creation
+            # Step 1: Generate issue preview
             try:
                 issue_data = generate_issue_from_description(
                     description, ai_tool, issue_type, user_id=current_user.id
@@ -2316,120 +2306,188 @@ def create_assisted_issue():
                     project_integrations_json=json.dumps(project_integrations),
                 )
 
-            branch_prefix = issue_data.get("branch_prefix", "feature")
-            labels = issue_data.get("labels", []) or []
-
-            # Create issue in external tracker (returns IssuePayload)
-            # Assign the issue to the current user who triggered the AI-assisted creation
-            issue_payload = create_issue_for_project_integration(
-                project_integration=integration,
-                summary=issue_data["title"],
-                description=issue_data["description"],
-                labels=labels,
-                issue_type=issue_type or None,
-                assignee_user_id=current_user.id,
-            )
-
-            # Create ExternalIssue record directly in database from the payload
-            # Don't use sync_project_integration as it may fail if other integrations are down
-            from ..models import ExternalIssue
-            from datetime import datetime, timezone
-
-            issue = ExternalIssue(
-                project_integration_id=integration.id,
-                external_id=issue_payload.external_id,
-                title=issue_payload.title,
-                status=issue_payload.status,
-                assignee=issue_payload.assignee,
-                url=issue_payload.url,
-                labels=issue_payload.labels or [],
-                external_updated_at=issue_payload.external_updated_at,
-                last_seen_at=datetime.now(timezone.utc),
-                raw_payload=issue_payload.raw,
-                comments=serialize_issue_comments(issue_payload.comments or []),
-            )
-            db.session.add(issue)
-            db.session.commit()
-
-            flash(f"Issue created: #{issue.external_id}", "success")
-
-            # Create branch if requested
-            if create_branch_flag:
-                try:
-                    branch_name = generate_branch_name(
-                        issue.external_id, issue.title, branch_prefix
-                    )
-                    checkout_or_create_branch(
-                        project=project,
-                        branch=branch_name,
-                        base=project.default_branch,
-                        user=current_user.model,
-                    )
-                    flash(f"Branch {branch_name} created.", "success")
-                except Exception as exc:
-                    flash(f"Failed to create branch: {exc}", "warning")
-
-            # Pin issue if requested
-            if pin_issue_flag:
-                from ..models import PinnedIssue
-                pinned = PinnedIssue(user_id=current_user.id, issue_id=issue.id)
-                db.session.add(pinned)
-                db.session.commit()
-
-            # Write tracked AGENTS.override.md with structured issue context
-            from ..services.agent_context import write_tracked_issue_context
-
-            context_path, sources = write_tracked_issue_context(
-                project=project,
-                primary_issue=issue,
-                all_issues=[issue],
-                identity_user=current_user.model,
-            )
-
-            # Launch AI session in a dedicated tmux session for AI-assisted issues
-            # This keeps it separate from regular development sessions
-            from ..ai_sessions import create_session
-            current_app.logger.warning(f"DEBUG: Creating AI session with tool={ai_tool} for issue #{issue.external_id}")
-            session = create_session(
-                project=project,
-                user_id=current_user.id,
-                tool=ai_tool,
-                issue_id=issue.id,
-                tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
-            )
-
-            # Inform user about context sources
-            sources_msg = " + ".join(sources) if sources else "project defaults"
-            flash(f"AI session started for issue #{issue.external_id}", "success")
-            flash(f"AGENTS.override.md populated from: {sources_msg}", "info")
-
-            # Pass CLI commands to success page
-            cli_commands = {
-                "work_on_issue": f"aiops issues work {issue.id}",
-                "get_details": f"aiops issues get {issue.id} --output json",
-                "add_comment": f"aiops issues comment {issue.id} \"Your update\"",
-                "close_issue": f"aiops issues close {issue.id}",
+            # Step 2: Store preview in session and show preview page
+            preview_token = str(uuid.uuid4())
+            flask_session[f"issue_preview_{preview_token}"] = {
+                "project_id": project_id,
+                "integration_id": integration.id,
+                "issue_data": issue_data,
+                "ai_tool": ai_tool,
+                "issue_type": issue_type,
+                "description": description,
             }
+            flask_session.permanent = True
 
             return render_template(
-                "admin/assisted_issue_success.html",
-                issue=issue,
-                project=project,
-                ai_tool=ai_tool,
-                session_target=session.tmux_target,
-                cli_commands=cli_commands,
-                sources_msg=sources_msg,
+                "admin/preview_assisted_issue.html",
+                issue_data=issue_data,
+                preview_token=preview_token,
             )
 
         except Exception as e:
-            flash(f"Failed to create assisted issue: {e}", "error")
-            current_app.logger.exception("Error creating AI-assisted issue")
+            flash(f"Failed to generate issue preview: {e}", "error")
+            current_app.logger.exception("Error generating AI-assisted issue preview")
 
     return render_template(
         "admin/create_assisted_issue.html",
         form=form,
         project_integrations_json=json.dumps(project_integrations),
     )
+
+
+@admin_bp.route("/issues/confirm-assisted", methods=["POST"])
+@admin_required
+def confirm_assisted_issue():
+    """Create an issue with AI assistance (Step 2: Confirm and create)."""
+    from flask import session as flask_session
+    from ..models import ProjectIntegration, ExternalIssue, PinnedIssue
+    from ..services.ai_issue_generator import generate_branch_name
+    from ..services.git_service import checkout_or_create_branch
+    from ..services.issues import (
+        create_issue_for_project_integration,
+        serialize_issue_comments,
+    )
+    from datetime import datetime, timezone
+
+    # Get preview token from form
+    preview_token = request.form.get("preview_token")
+    if not preview_token:
+        flash("Preview token missing", "error")
+        return redirect(url_for("admin.create_assisted_issue"))
+
+    # Retrieve preview from session
+    preview_key = f"issue_preview_{preview_token}"
+    if preview_key not in flask_session:
+        flash("Preview expired or invalid. Please try again.", "error")
+        return redirect(url_for("admin.create_assisted_issue"))
+
+    preview_data = flask_session.pop(preview_key)
+    flask_session.permanent = True
+
+    project_id = preview_data["project_id"]
+    integration_id = preview_data["integration_id"]
+    issue_data = preview_data["issue_data"]
+    ai_tool = preview_data["ai_tool"]
+    issue_type = preview_data["issue_type"]
+
+    # Optional fields from form
+    create_branch_flag = request.form.get("create_branch") == "y"
+    pin_issue_flag = request.form.get("pin_issue") == "y"
+
+    # Get integration and project
+    integration = ProjectIntegration.query.get(integration_id)
+    if not integration or integration.project_id != project_id:
+        flash("Integration not found", "error")
+        return redirect(url_for("admin.create_assisted_issue"))
+
+    project = db.session.get(Project, project_id)
+    if not project:
+        flash("Project not found", "error")
+        return redirect(url_for("admin.create_assisted_issue"))
+
+    try:
+        # Create issue in external tracker
+        branch_prefix = issue_data.get("branch_prefix", "feature")
+        labels = issue_data.get("labels", []) or []
+
+        issue_payload = create_issue_for_project_integration(
+            project_integration=integration,
+            summary=issue_data["title"],
+            description=issue_data["description"],
+            labels=labels,
+            issue_type=issue_type or None,
+            assignee_user_id=current_user.id,
+        )
+
+        # Create ExternalIssue record in database
+        issue = ExternalIssue(
+            project_integration_id=integration.id,
+            external_id=issue_payload.external_id,
+            title=issue_payload.title,
+            status=issue_payload.status,
+            assignee=issue_payload.assignee,
+            url=issue_payload.url,
+            labels=issue_payload.labels or [],
+            external_updated_at=issue_payload.external_updated_at,
+            last_seen_at=datetime.now(timezone.utc),
+            raw_payload=issue_payload.raw,
+            comments=serialize_issue_comments(issue_payload.comments or []),
+        )
+        db.session.add(issue)
+        db.session.commit()
+
+        flash(f"Issue created: #{issue.external_id}", "success")
+
+        # Create branch if requested
+        if create_branch_flag:
+            try:
+                branch_name = generate_branch_name(
+                    issue.external_id, issue.title, branch_prefix
+                )
+                checkout_or_create_branch(
+                    project=project,
+                    branch=branch_name,
+                    base=project.default_branch,
+                    user=current_user.model,
+                )
+                flash(f"Branch {branch_name} created.", "success")
+            except Exception as exc:
+                flash(f"Failed to create branch: {exc}", "warning")
+
+        # Pin issue if requested
+        if pin_issue_flag:
+            pinned = PinnedIssue(user_id=current_user.id, issue_id=issue.id)
+            db.session.add(pinned)
+            db.session.commit()
+
+        # Write tracked AGENTS.override.md with structured issue context
+        from ..services.agent_context import write_tracked_issue_context
+
+        context_path, sources = write_tracked_issue_context(
+            project=project,
+            primary_issue=issue,
+            all_issues=[issue],
+            identity_user=current_user.model,
+        )
+
+        # Launch AI session in a dedicated tmux session for AI-assisted issues
+        from ..ai_sessions import create_session
+        current_app.logger.warning(f"DEBUG: Creating AI session with tool={ai_tool} for issue #{issue.external_id}")
+        session = create_session(
+            project=project,
+            user_id=current_user.id,
+            tool=ai_tool,
+            issue_id=issue.id,
+            tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
+        )
+
+        # Inform user about context sources
+        sources_msg = " + ".join(sources) if sources else "project defaults"
+        flash(f"AI session started for issue #{issue.external_id}", "success")
+        flash(f"AGENTS.override.md populated from: {sources_msg}", "info")
+
+        # Pass CLI commands to success page
+        cli_commands = {
+            "work_on_issue": f"aiops issues work {issue.id}",
+            "get_details": f"aiops issues get {issue.id} --output json",
+            "add_comment": f"aiops issues comment {issue.id} \"Your update\"",
+            "close_issue": f"aiops issues close {issue.id}",
+        }
+
+        return render_template(
+            "admin/assisted_issue_success.html",
+            issue=issue,
+            project=project,
+            ai_tool=ai_tool,
+            session_target=session.tmux_target,
+            cli_commands=cli_commands,
+            sources_msg=sources_msg,
+        )
+
+    except Exception as e:
+        flash(f"Failed to create assisted issue: {e}", "error")
+        current_app.logger.exception("Error creating AI-assisted issue")
+        return redirect(url_for("admin.create_assisted_issue"))
 
 
 @admin_bp.route("/issues", methods=["GET", "POST"])

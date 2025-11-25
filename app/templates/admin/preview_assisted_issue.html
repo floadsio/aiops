@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Review AI-Generated Issue | aiops Control Panel{% endblock %}
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .preview-container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .preview-card {
+      padding: 2rem;
+      border-radius: 1.25rem;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
+      margin-bottom: 1.5rem;
+    }
+    [data-theme="dark"] .preview-card {
+      background: rgba(15, 23, 42, 0.7);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    .preview-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    .preview-header h1 {
+      margin: 0 0 0.5rem;
+      font-size: 1.5rem;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .preview-header h1 {
+      color: #e2e8f0;
+    }
+    .preview-header p {
+      margin: 0;
+      color: #64748b;
+    }
+    [data-theme="dark"] .preview-header p {
+      color: #94a3b8;
+    }
+    .preview-section {
+      margin-bottom: 2rem;
+    }
+    .preview-section h3 {
+      margin: 0 0 1rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .preview-section h3 {
+      color: #e2e8f0;
+    }
+    .preview-title {
+      background: rgba(59, 130, 246, 0.1);
+      border-left: 4px solid #3b82f6;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 2rem;
+    }
+    [data-theme="dark"] .preview-title {
+      background: rgba(59, 130, 246, 0.05);
+    }
+    .preview-title-text {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #0f172a;
+      word-break: break-word;
+    }
+    [data-theme="dark"] .preview-title-text {
+      color: #e2e8f0;
+    }
+    .preview-description {
+      background: rgba(15, 23, 42, 0.02);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      line-height: 1.6;
+      color: #0f172a;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .preview-description {
+      background: rgba(255, 255, 255, 0.02);
+      color: #e2e8f0;
+    }
+    .label-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+    .label-badge {
+      background: #3b82f6;
+      color: white;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .action-buttons .primary {
+      flex: 1;
+      min-width: 200px;
+    }
+    .action-buttons .secondary {
+      flex: 0 1 auto;
+    }
+    .form-section {
+      background: rgba(15, 23, 42, 0.02);
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-top: 1.5rem;
+    }
+    [data-theme="dark"] .form-section {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .form-section h3 {
+      margin: 0 0 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 2rem;
+    }
+    .loading.active {
+      display: block;
+    }
+    .spinner {
+      border: 4px solid rgba(148, 163, 184, 0.2);
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+{% endblock %}
+{% block content %}
+<div class="preview-container">
+  <div class="preview-card">
+    <div class="preview-header">
+      <h1>Review AI-Generated Issue</h1>
+      <p>Please review the content below before creating the issue. Make any adjustments if needed, or proceed with creation.</p>
+    </div>
+
+    <div class="preview-section">
+      <div class="preview-title">
+        <p class="preview-title-text">{{ issue_data.title }}</p>
+      </div>
+    </div>
+
+    <div class="preview-section">
+      <h3>Description</h3>
+      <div class="preview-description">{{ issue_data.description }}</div>
+    </div>
+
+    {% if issue_data.labels %}
+    <div class="preview-section">
+      <h3>Labels</h3>
+      <div class="label-list">
+        {% for label in issue_data.labels %}
+        <span class="label-badge">{{ label }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <form id="confirm-form" method="post" action="{{ url_for('admin.confirm_assisted_issue') }}">
+      <input type="hidden" name="preview_token" value="{{ preview_token }}">
+
+      <div class="form-section">
+        <h3>Options</h3>
+        <div class="checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" name="create_branch" value="y">
+            <span>Create feature/fix branch after creating the issue</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="pin_issue" value="y">
+            <span>Pin issue to dashboard</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="action-buttons">
+        <button type="submit" class="primary">
+          <span class="submit-text">Create Issue</span>
+          <span class="spinner loading"></span>
+        </button>
+        <a href="{{ url_for('admin.create_assisted_issue') }}" role="button" class="secondary outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('confirm-form').addEventListener('submit', function(e) {
+  const submitBtn = this.querySelector('.primary');
+  const spinner = submitBtn.querySelector('.spinner');
+  const text = submitBtn.querySelector('.submit-text');
+
+  spinner.classList.add('active');
+  text.style.opacity = '0.5';
+  submitBtn.disabled = true;
+});
+</script>
+{% endblock %}

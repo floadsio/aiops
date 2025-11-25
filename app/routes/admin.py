@@ -2405,7 +2405,8 @@ def create_assisted_issue():
             return redirect(url_for(
                 'projects.project_ai_console',
                 project_id=project.id,
-                attach=session.tmux_target
+                attach=session.tmux_target,
+                tool=ai_tool  # Pass the tool so UI knows what's running
             ))
 
         except Exception as e:

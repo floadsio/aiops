@@ -137,9 +137,10 @@
   const projectId = {{ project.id }};
   const requestedTmuxTarget = {{ requested_tmux_target|tojson }};
 
-  // Extract issue_id from URL parameters if present
+  // Extract issue_id and tool from URL parameters if present
   const urlParams = new URLSearchParams(window.location.search);
   const issueId = urlParams.get('issue_id') ? parseInt(urlParams.get('issue_id'), 10) : null;
+  const requestedTool = urlParams.get('tool') || null;
   const terminalPanel = document.getElementById('terminal');
   const term = new Terminal({ cols: 100, rows: 30, scrollback: 2000, convertEol: false });
   const fitAddon = window.FitAddon && typeof window.FitAddon.FitAddon === 'function'
@@ -670,7 +671,7 @@
   function startSession(options = {}) {
     const { tmuxTargetOverride } = options;
     const attachOnly = Boolean(tmuxTargetOverride);
-    const tool = (aiToolSelect && aiToolSelect.value) || storedContextTool || '';
+    const tool = (aiToolSelect && aiToolSelect.value) || requestedTool || storedContextTool || '';
     const command = commandInput.value.trim();
     const selectedTmuxTarget = attachOnly
       ? tmuxTargetOverride
@@ -716,8 +717,8 @@
 
     if (selectedTmuxTarget && attachOnly) {
       payload.tmux_target = selectedTmuxTarget;
-      payload.tool = null;
-      payload.command = null;
+      // Don't null out tool/command - preserve them for the backend session
+      // The backend needs to know what tool is running in the tmux session
       if (aiToolSelect) {
         aiToolSelect.value = '';
       }

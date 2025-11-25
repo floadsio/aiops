@@ -152,6 +152,13 @@
         <h3>What do you want to work on?</h3>
         <p>Describe your feature idea or bug fix in plain language. The AI will help structure it into a proper issue.</p>
         {{ form.description(class="description-textarea", placeholder="Example: I want to add user authentication with OAuth2 support. Users should be able to login with Google and GitHub. Need to store user sessions securely.") }}
+        {% if form.description.errors %}
+          <small style="color: red;">
+            {% for error in form.description.errors %}
+              {{ error }}<br>
+            {% endfor %}
+          </small>
+        {% endif %}
       </div>
 
       <div class="form-grid">
@@ -160,6 +167,13 @@
             <h3>Project</h3>
           </label>
           {{ form.project_id(required=True) }}
+          {% if form.project_id.errors %}
+            <small style="color: red;">
+              {% for error in form.project_id.errors %}
+                {{ error }}<br>
+              {% endfor %}
+            </small>
+          {% endif %}
         </div>
 
         <div class="form-section">
@@ -167,6 +181,13 @@
             <h3>AI Tool</h3>
           </label>
           {{ form.ai_tool(required=True) }}
+          {% if form.ai_tool.errors %}
+            <small style="color: red;">
+              {% for error in form.ai_tool.errors %}
+                {{ error }}<br>
+              {% endfor %}
+            </small>
+          {% endif %}
         </div>
       </div>
 

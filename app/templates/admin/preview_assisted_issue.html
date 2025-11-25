@@ -168,6 +168,16 @@
       background: rgba(22, 101, 52, 0.2);
       color: #86efac;
     }
+    .generation-time {
+      text-align: center;
+      padding: 1rem 0 0;
+      font-size: 0.85rem;
+      color: #94a3b8;
+      border-top: 1px solid rgba(148, 163, 184, 0.1);
+    }
+    [data-theme="dark"] .generation-time {
+      color: #64748b;
+    }
     .action-buttons {
       display: flex;
       gap: 1rem;
@@ -360,6 +370,12 @@
         </button>
         <a href="{{ url_for('admin.create_assisted_issue') }}" role="button" class="secondary outline">Cancel</a>
       </div>
+
+      {% if generation_time %}
+      <div class="generation-time">
+        <span>⏱ Generated in {{ "%.2f"|format(generation_time) }}s</span>
+      </div>
+      {% endif %}
     </form>
   </div>
 </div>

@@ -1009,6 +1009,8 @@ def preview_assisted_issue():
 
     try:
         # Generate issue content using AI
+        import time
+        generation_start = time.time()
         try:
             issue_data = generate_issue_from_description(description, ai_tool, issue_type)
         except AIIssueGenerationError as e:
@@ -1016,6 +1018,7 @@ def preview_assisted_issue():
                 "error": "AI generation failed",
                 "details": str(e),
             }), 500
+        generation_time = time.time() - generation_start
 
         # Store preview in session for later confirmation
         from flask import session as flask_session
@@ -1042,6 +1045,7 @@ def preview_assisted_issue():
             "tenant_name": project.tenant.name if project.tenant else None,
             "platform": integration.provider.lower(),
             "ai_tool": ai_tool,
+            "generation_time": generation_time,
         }), 200
 
     except Exception as e:

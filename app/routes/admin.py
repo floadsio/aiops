@@ -2294,6 +2294,8 @@ def create_assisted_issue():
 
         try:
             # Step 1: Generate issue preview
+            import time
+            generation_start = time.time()
             try:
                 issue_data = generate_issue_from_description(
                     description, ai_tool, issue_type, user_id=current_user.id
@@ -2305,6 +2307,7 @@ def create_assisted_issue():
                     form=form,
                     project_integrations_json=json.dumps(project_integrations),
                 )
+            generation_time = time.time() - generation_start
 
             # Step 2: Store preview in session and show preview page
             preview_token = str(uuid.uuid4())
@@ -2326,6 +2329,7 @@ def create_assisted_issue():
                 integration=integration.integration,
                 current_user=current_user,
                 ai_tool=ai_tool,
+                generation_time=generation_time,
             )
 
         except Exception as e:

@@ -567,6 +567,19 @@ def issues_create_assisted(
         console.print(f"  Platform: [cyan]{preview_result['platform'].upper()}[/cyan]")
         console.print(f"  AI Tool: {preview_result['ai_tool']}")
 
+        # Display generation time
+        if preview_result.get('generation_time'):
+            gen_time = preview_result['generation_time']
+            if gen_time < 1:
+                time_display = f"{gen_time*1000:.0f}ms"
+            elif gen_time < 60:
+                time_display = f"{gen_time:.1f}s"
+            else:
+                mins = int(gen_time // 60)
+                secs = gen_time % 60
+                time_display = f"{mins}m {secs:.1f}s"
+            console.print(f"  Generated in: [green]{time_display}[/green]")
+
         console.print("\n[bold]Content:[/bold]")
         console.print(f"[bold]Title:[/bold] {preview_result['title']}\n")
         console.print("[bold]Description:[/bold]")

@@ -16,7 +16,7 @@ from .extensions import csrf, db, limiter, login_manager, migrate
 from .forms.admin import QuickBranchSwitchForm
 from .git_info import detect_repo_branch
 from .routes.admin import admin_bp
-from .routes.api import api_bp
+# from .routes.api import api_bp  # Deprecated: routes migrated to api_v1
 from .routes.api_v1 import api_v1_bp
 from .routes.auth import auth_bp
 from .routes.projects import projects_bp
@@ -115,7 +115,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(projects_bp, url_prefix="/projects")
-    app.register_blueprint(api_bp)
+    # app.register_blueprint(api_bp)  # Deprecated: routes migrated to api_v1
     app.register_blueprint(api_v1_bp)
 
     # Exempt API v1 from CSRF since it uses token authentication

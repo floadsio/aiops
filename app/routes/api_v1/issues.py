@@ -1133,3 +1133,113 @@ def create_assisted_issue():
             "error": "Unexpected error occurred",
             "details": str(e),
         }), 500
+
+
+@api_v1_bp.post("/issues/<int:issue_id>/remap")
+def remap_issue(issue_id: int):
+    """Remap an issue to a different aiops project.
+
+    This updates the internal aiops mapping only - the external issue tracker
+    (GitHub/GitLab/Jira) remains unchanged.
+    """
+    from flask_login import current_user
+    from sqlalchemy.exc import IntegrityError
+
+    from ...services.activity_service import log_activity, ResourceType
+
+    # Check admin status
+    is_admin = False
+    if hasattr(g, "api_user") and g.api_user:
+        is_admin = getattr(g.api_user, "is_admin", False)
+    elif current_user and current_user.is_authenticated:
+        is_admin = getattr(current_user, "is_admin", False)
+
+    if not is_admin:
+        return jsonify({"error": "Admin access required to remap issues."}), 403
+
+    # Get the issue
+    issue = ExternalIssue.query.get_or_404(issue_id)
+
+    # Get target project ID from request
+    data = request.get_json(silent=True) or {}
+    target_project_id = data.get("project_id")
+
+    if not isinstance(target_project_id, int):
+        return jsonify({"error": "project_id must be provided as an integer."}), 400
+
+    # Get target project
+    target_project = Project.query.get(target_project_id)
+    if not target_project:
+        return jsonify({"error": "Target project not found."}), 404
+
+    # Get current integration and project
+    old_project_integration = issue.project_integration
+    old_project = old_project_integration.project if old_project_integration else None
+    old_integration = old_project_integration.integration if old_project_integration else None
+
+    # Check if the issue is already in the target project
+    if old_project and old_project.id == target_project_id:
+        return jsonify({"error": "Issue is already in the target project."}), 400
+
+    # Find or create a ProjectIntegration for the target project with the same integration
+    if not old_integration:
+        return jsonify({"error": "Issue has no integration associated."}), 400
+
+    target_project_integration = ProjectIntegration.query.filter_by(
+        project_id=target_project_id,
+        integration_id=old_integration.id
+    ).first()
+
+    if not target_project_integration:
+        # Create a new ProjectIntegration
+        # Use target project's repo URL or name as external identifier
+        external_id = target_project.repo_url or target_project.name
+        target_project_integration = ProjectIntegration(
+            project_id=target_project_id,
+            integration_id=old_integration.id,
+            external_identifier=external_id
+        )
+        db.session.add(target_project_integration)
+        db.session.flush()  # Get the ID without committing
+
+    # Update the issue's project_integration_id
+    old_project_integration_id = issue.project_integration_id
+    issue.project_integration_id = target_project_integration.id
+
+    try:
+        db.session.commit()
+    except IntegrityError as exc:
+        db.session.rollback()
+        return jsonify({"error": f"Failed to remap issue: {exc}"}), 400
+
+    # Log the remapping activity
+    api_user_id = g.api_user.id if hasattr(g, "api_user") and g.api_user else None
+    user_agent = request.headers.get("User-Agent", "").lower()
+    source = "cli" if any(x in user_agent for x in ["python", "requests", "curl", "httpx"]) else "web"
+
+    log_activity(
+        action_type="issue.remap",
+        user_id=api_user_id,
+        resource_type=ResourceType.PROJECT,
+        resource_id=target_project.id,
+        resource_name=target_project.name,
+        status="success",
+        description=f"Remapped issue #{issue.external_id} from {old_project.name if old_project else 'unknown'} to {target_project.name}",
+        extra_data={
+            "issue_id": issue.id,
+            "external_id": issue.external_id,
+            "old_project_id": old_project.id if old_project else None,
+            "old_project_name": old_project.name if old_project else None,
+            "new_project_id": target_project.id,
+            "new_project_name": target_project.name,
+            "old_project_integration_id": old_project_integration_id,
+            "new_project_integration_id": target_project_integration.id,
+        },
+        source=source,
+    )
+
+    return jsonify({
+        "success": True,
+        "issue": _issue_to_dict(issue),
+        "message": f"Issue #{issue.external_id} remapped to project {target_project.name}"
+    }), 200

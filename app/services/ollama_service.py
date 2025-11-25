@@ -171,6 +171,8 @@ Rules:
 4. branch_prefix should be "feature" for new features, "fix" for bug fixes
 5. Respond with ONLY the JSON object, no other text or markdown"""
 
+    import time
+
     try:
         logger.info(
             "Calling Ollama for issue generation",
@@ -181,11 +183,13 @@ Rules:
             },
         )
 
+        start_time = time.time()
         response = client.generate(
             model=config.model,
             prompt=prompt,
             stream=False,
         )
+        duration_seconds = time.time() - start_time
 
         # Extract generated text from response
         # The ollama client returns a GenerateResponse object, not a dict
@@ -240,6 +244,9 @@ Rules:
             issue_data["labels"] = [
                 label.strip() for label in issue_data["labels"].split(",")
             ]
+
+        # Add duration to response
+        issue_data["generation_duration_seconds"] = round(duration_seconds, 2)
 
         return issue_data
 

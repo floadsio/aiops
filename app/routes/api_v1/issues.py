@@ -977,6 +977,7 @@ def reformulate_issue_description():
             "description": str(issue_data.get("description", "")),
             "labels": list(issue_data.get("labels", [])),
             "branch_prefix": str(issue_data.get("branch_prefix", "feature")),
+            "generation_duration_seconds": issue_data.get("generation_duration_seconds", 0),
         }), 200
 
     except AIIssueGenerationError as e:

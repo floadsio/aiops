@@ -395,6 +395,13 @@
               <div class="value" id="summaryTool">—</div>
             </div>
           </div>
+          <div class="summary-item">
+            <div class="summary-icon">⏱️</div>
+            <div class="summary-content">
+              <div class="label">Generated In</div>
+              <div class="value" id="summaryDuration">—</div>
+            </div>
+          </div>
         </div>
 
         <div class="approval-field">
@@ -472,6 +479,19 @@
   cancelBtn.addEventListener('click', handleCancel);
   approvalForm.addEventListener('submit', handleApprove);
 
+  // Format duration in human-readable format
+  function formatDuration(seconds) {
+    if (seconds < 1) {
+      return `${Math.round(seconds * 1000)}ms`;
+    } else if (seconds < 60) {
+      return `${seconds.toFixed(1)}s`;
+    } else {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = Math.round(seconds % 60);
+      return `${minutes}m ${remainingSeconds}s`;
+    }
+  }
+
   // Populate summary section with project and form data
   async function populateSummary() {
     try {
@@ -485,6 +505,10 @@
       const userElement = document.querySelector('[data-current-user]');
       const userName = userElement ? userElement.getAttribute('data-current-user') : 'Unknown';
       document.getElementById('summaryOwner').textContent = userName;
+
+      // Set Duration
+      const duration = window.generationDuration || 0;
+      document.getElementById('summaryDuration').textContent = duration > 0 ? formatDuration(duration) : '—';
 
       // Get project details
       if (projectId) {
@@ -609,7 +633,8 @@
         title: data.title?.substring(0, 50),
         description_length: data.description?.length,
         labels: data.labels,
-        branch_prefix: data.branch_prefix
+        branch_prefix: data.branch_prefix,
+        duration: data.generation_duration_seconds
       });
 
       // Validate response data
@@ -628,7 +653,8 @@
         `<span class="label-badge">${label}</span>`
       ).join('');
 
-      // Store reformulated data
+      // Store reformulated data (including duration for display)
+      window.generationDuration = data.generation_duration_seconds || 0;
       document.getElementById('reformulatedData').value = JSON.stringify({
         title: data.title,
         description: data.description,

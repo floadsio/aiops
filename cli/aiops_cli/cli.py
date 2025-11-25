@@ -12,6 +12,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt
 from rich.table import Table
 
+from . import __version__
 from .client import APIClient, APIError
 from .config import Config
 from .output import format_output
@@ -176,10 +177,18 @@ def attach_to_tmux_session(
         sys.exit(1)
 
 
-@click.group()
+@click.group(invoke_without_command=True)
+@click.option("--version", is_flag=True, help="Show version information")
 @click.pass_context
-def cli(ctx: click.Context) -> None:
+def cli(ctx: click.Context, version: bool) -> None:
     """AIops CLI - Command-line interface for AIops REST API."""
+    if version:
+        console.print(f"aiops version {__version__}")
+        sys.exit(0)
+
+    if ctx.invoked_subcommand is None:
+        console.print(ctx.get_help())
+
     ctx.ensure_object(dict)
     ctx.obj["config"] = Config()
     ctx.obj["console"] = console

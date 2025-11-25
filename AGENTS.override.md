@@ -323,41 +323,53 @@ tail -f /home/syseng/aiops/logs/aiops.log
 
 NOTE: Generated issue context. Update before publishing if needed.
 
-# 116 - Add Ollama availability check to System Status > AI Tools
+# 117 - CLI version display is hardcoded instead of reading from VERSION file
 
-        _Updated: 2025-11-25 23:17:04Z_
+        _Updated: 2025-11-25 23:35:22Z_
 
         ## Issue Snapshot
         - Provider: github
         - Status: open
         - Assignee: Ivo Marino
-        - Labels: ai-tools, enhancement, system-status
-        - Source: https://github.com/floadsio/aiops/issues/116
-        - Last Synced: 2025-11-25 23:17 UTC
+        - Labels: bug, cli
+        - Source: https://github.com/floadsio/aiops/issues/117
+        - Last Synced: 2025-11-25 23:35 UTC
 
         ## Issue Description
         ## Overview
-The System Status page includes an AI Tools section that monitors the availability of essential AI components. Ollama is a critical dependency required for AI-Assisted Issue Creation functionality, but there is currently no health check for it in the system status dashboard.
+
+The `aiops` CLI always displays version `0.3.0` regardless of the actual version in the `VERSION` file. This happens because the version is hardcoded in the CLI package rather than dynamically reading from the central `VERSION` file.
+
+## Current Behavior
+
+```
+aiops update
+Current version: 0.3.0
+...
+Version: 0.3.0
+```
+
+The version remains `0.3.0` even after updates, despite the project being at version `0.6.2` according to `AGENTS.md`.
 
 ## Requirements
-- Add an Ollama availability check to the System Status > AI Tools section
-- Display Ollama connection status (available/unavailable)
-- Show Ollama version information when available
-- Follow the existing pattern used for other AI tool checks in the system status page
+
+- CLI version should be read from the root `VERSION` file or synced during build/install
+- Version displayed by `aiops --version` and `aiops update` should match the actual project version
+- Development installations should also reflect the correct version
 
 ## Acceptance Criteria
-- [ ] Ollama status appears in the AI Tools section of System Status
-- [ ] Check correctly identifies when Ollama is running and accessible
-- [ ] Check correctly identifies when Ollama is unavailable or not responding
-- [ ] Ollama version is displayed when the service is available
-- [ ] Error messages are user-friendly when Ollama is not available
-- [ ] Check does not cause page load delays (reasonable timeout)
+
+- [ ] `aiops --version` displays the version from the root `VERSION` file
+- [ ] `aiops update` shows correct before/after versions
+- [ ] Version is consistent between CLI and Flask app (`flask version`)
+- [ ] Works correctly for both development (`pip install -e`) and production installations
 
 ## Technical Notes
-- Ollama typically runs on `http://localhost:11434`
-- The `/api/version` endpoint can be used to check availability and get version info
-- Consider using the existing health check patterns in `app/services/` or `app/routes/admin.py`
-- Reference the existing AI tool checks for consistent UI presentation
+
+- Root `VERSION` file is the source of truth (read by `app/version.py`)
+- CLI package likely has version hardcoded in `cli/setup.py` or `cli/pyproject.toml`
+- Consider using `importlib.metadata` or reading VERSION file at runtime
+- Alternative: Generate version during `uv pip install -e cli/` from VERSION file
 
         ## Project Context
         - Project: aiops

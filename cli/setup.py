@@ -1,13 +1,21 @@
 """Setup configuration for aiops-cli."""
 
+from pathlib import Path
 from setuptools import find_packages, setup
 
 with open("README.md", encoding="utf-8") as f:
     long_description = f.read()
 
+# Read version from project root VERSION file
+version_file = Path(__file__).resolve().parent.parent / "VERSION"
+try:
+    version = version_file.read_text(encoding="utf-8").strip()
+except Exception:
+    version = "0.0.0-dev"
+
 setup(
     name="aiops-cli",
-    version="0.5.2",
+    version=version,
     description="Command-line interface for AIops REST API - manage issues, git operations, and AI workflows",
     long_description=long_description,
     long_description_content_type="text/markdown",

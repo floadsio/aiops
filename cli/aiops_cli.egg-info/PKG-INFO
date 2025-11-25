@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiops-cli
-Version: 0.5.1
+Version: 0.6.2
 Summary: Command-line interface for AIops REST API - manage issues, git operations, and AI workflows
 Home-page: https://github.com/floadsio/aiops
 Author: Floads.io

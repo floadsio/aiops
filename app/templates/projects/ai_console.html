@@ -672,7 +672,10 @@
   function startSession(options = {}) {
     const { tmuxTargetOverride } = options;
     const attachOnly = Boolean(tmuxTargetOverride);
-    const tool = (aiToolSelect && aiToolSelect.value) || requestedTool || storedContextTool || '';
+    // When attaching to existing session, prioritize requestedTool from URL over dropdown
+    const tool = attachOnly
+      ? (requestedTool || (aiToolSelect && aiToolSelect.value) || storedContextTool || '')
+      : ((aiToolSelect && aiToolSelect.value) || requestedTool || storedContextTool || '');
     console.log('DEBUG: startSession - attachOnly:', attachOnly, 'tool:', tool, 'aiToolSelect:', aiToolSelect?.value, 'requestedTool:', requestedTool, 'storedContextTool:', storedContextTool);
     const command = commandInput.value.trim();
     const selectedTmuxTarget = attachOnly

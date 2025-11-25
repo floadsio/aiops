@@ -141,6 +141,7 @@
   const urlParams = new URLSearchParams(window.location.search);
   const issueId = urlParams.get('issue_id') ? parseInt(urlParams.get('issue_id'), 10) : null;
   const requestedTool = urlParams.get('tool') || null;
+  console.log('DEBUG: URL params - tool:', requestedTool, 'attach:', urlParams.get('attach'));
   const terminalPanel = document.getElementById('terminal');
   const term = new Terminal({ cols: 100, rows: 30, scrollback: 2000, convertEol: false });
   const fitAddon = window.FitAddon && typeof window.FitAddon.FitAddon === 'function'
@@ -672,6 +673,7 @@
     const { tmuxTargetOverride } = options;
     const attachOnly = Boolean(tmuxTargetOverride);
     const tool = (aiToolSelect && aiToolSelect.value) || requestedTool || storedContextTool || '';
+    console.log('DEBUG: startSession - attachOnly:', attachOnly, 'tool:', tool, 'aiToolSelect:', aiToolSelect?.value, 'requestedTool:', requestedTool, 'storedContextTool:', storedContextTool);
     const command = commandInput.value.trim();
     const selectedTmuxTarget = attachOnly
       ? tmuxTargetOverride

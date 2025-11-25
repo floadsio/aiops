@@ -2281,7 +2281,7 @@ def create_assisted_issue():
         pin_issue_flag = form.pin_issue.data
 
         # Debug logging
-        current_app.logger.info(f"AI-assisted issue form submitted: ai_tool={ai_tool}, project_id={project_id}")
+        current_app.logger.warning(f"DEBUG: AI-assisted issue form submitted: ai_tool={ai_tool}, project_id={project_id}")
 
         # Get integration and project
         integration = ProjectIntegration.query.filter_by(project_id=project_id).first()
@@ -2389,7 +2389,7 @@ def create_assisted_issue():
             # Launch AI session in a dedicated tmux session for AI-assisted issues
             # This keeps it separate from regular development sessions
             from ..ai_sessions import create_session
-            current_app.logger.info(f"Creating AI session with tool={ai_tool} for issue #{issue.external_id}")
+            current_app.logger.warning(f"DEBUG: Creating AI session with tool={ai_tool} for issue #{issue.external_id}")
             session = create_session(
                 project=project,
                 user_id=current_user.id,

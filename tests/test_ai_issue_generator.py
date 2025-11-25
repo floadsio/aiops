@@ -34,8 +34,9 @@ def test_codex_exec_used_for_issue_generation(monkeypatch, tmp_path, codex_comma
     """Ensure we call codex with the exec subcommand (no legacy query)."""
     calls: dict = {}
 
-    def fake_run(cmd, capture_output, text, timeout, check):
+    def fake_run(cmd, capture_output, text, timeout, check, env=None):
         calls["cmd"] = cmd
+        calls["env"] = env
         return subprocess.CompletedProcess(
             cmd,
             0,

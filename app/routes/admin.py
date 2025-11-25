@@ -16,7 +16,6 @@ from flask import (
     Blueprint,
     current_app,
     flash,
-    g,
     jsonify,
     redirect,
     render_template,
@@ -2242,7 +2241,7 @@ def manage_tenants():
 def create_assisted_issue():
     """Create an issue with AI assistance."""
     import json
-    from flask import flash, jsonify
+    from flask import flash
     from ..forms.admin import AIAssistedIssueForm
     from ..models import ProjectIntegration
     from ..services.ai_issue_generator import (
@@ -2303,7 +2302,7 @@ def create_assisted_issue():
             # Let the AI structure the issue before creation
             try:
                 issue_data = generate_issue_from_description(
-                    description, ai_tool, issue_type
+                    description, ai_tool, issue_type, user_id=current_user.id
                 )
             except AIIssueGenerationError as exc:
                 flash(f"AI generation failed: {exc}", "error")
@@ -4185,7 +4184,6 @@ def view_activity():
 @admin_required
 def export_activity():
     """Export activity log to CSV or JSON."""
-    from ..models import Activity
     from ..services.activity_service import get_recent_activities
     import csv
     import io
@@ -4374,7 +4372,6 @@ def activity_stats():
 @admin_required
 def activity_list_api():
     """List activities via API (for CLI)."""
-    from ..models import Activity
     from ..services.activity_service import get_recent_activities
 
     # Get filter parameters (same as view_activity)

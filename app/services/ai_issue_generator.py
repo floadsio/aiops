@@ -23,6 +23,7 @@ def generate_issue_from_description(
     description: str,
     ai_tool: str = "claude",
     issue_type: str | None = None,
+    user_id: int | None = None,
 ) -> dict[str, Any]:
     """Generate a structured issue from a natural language description.
 
@@ -30,6 +31,7 @@ def generate_issue_from_description(
         description: Natural language description of what the user wants to work on
         ai_tool: AI tool to use for generation (claude, codex, gemini)
         issue_type: Optional hint about issue type (feature, bug, etc.)
+        user_id: User ID for per-user AI tool authentication (required for codex/gemini)
 
     Returns:
         Dictionary with:
@@ -46,6 +48,25 @@ def generate_issue_from_description(
         raise AIIssueGenerationError(f"Unsupported AI tool: {ai_tool}")
 
     command = tool_commands[ai_tool]
+
+    # Set up environment for subprocess
+    env = None
+    if ai_tool == "codex" and user_id:
+        # Codex requires per-user authentication setup
+        from app.services.codex_config_service import CodexConfigError, ensure_codex_auth
+
+        try:
+            cli_auth_path = ensure_codex_auth(user_id)
+            env = {
+                "CODEX_CONFIG_DIR": str(cli_auth_path.parent),
+                "CODEX_AUTH_FILE": str(cli_auth_path),
+                # Inherit other environment variables
+                **subprocess.os.environ.copy(),
+            }
+        except CodexConfigError as exc:
+            raise AIIssueGenerationError(
+                f"Codex authentication not configured for this user: {exc}"
+            )
 
     # Construct prompt for AI to generate issue
     type_hint = f"This is a {issue_type}. " if issue_type else ""
@@ -86,6 +107,7 @@ Rules:
                 text=True,
                 timeout=30,
                 check=False,
+                env=env,
             )
         elif ai_tool == "codex":
             # For Codex, force the non-interactive exec subcommand (CLI expects it)
@@ -99,6 +121,7 @@ Rules:
                 text=True,
                 timeout=30,
                 check=False,
+                env=env,
             )
         elif ai_tool == "gemini":
             # For Gemini
@@ -108,6 +131,7 @@ Rules:
                 text=True,
                 timeout=30,
                 check=False,
+                env=env,
             )
         else:
             raise AIIssueGenerationError(f"Unsupported AI tool: {ai_tool}")

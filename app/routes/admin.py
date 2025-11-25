@@ -2285,11 +2285,7 @@ def create_assisted_issue():
     from flask import flash
     from ..forms.admin import AIAssistedIssueForm
     from ..models import ProjectIntegration
-    from ..services.ai_issue_generator import (
-        AIIssueGenerationError,
-        generate_branch_name,
-        generate_issue_from_description,
-    )
+    from ..services.ai_issue_generator import generate_branch_name
     from ..services.git_service import checkout_or_create_branch
     from ..services.issues import (
         create_issue_for_project_integration,
@@ -2314,11 +2310,25 @@ def create_assisted_issue():
     if form.validate_on_submit():
         # Handle form submission - create draft issue and launch AI session
         project_id = form.project_id.data
-        description = form.description.data
         ai_tool = form.ai_tool.data  # User's choice of AI tool
-        issue_type = form.issue_type.data if form.issue_type.data else None
         create_branch_flag = form.create_branch.data
         pin_issue_flag = form.pin_issue.data
+
+        # Check if this is coming from the approval step (pre-reformulated data)
+        title = request.form.get("title")
+        description = request.form.get("description")
+        branch_prefix = request.form.get("branch_prefix", "feature")
+
+        # If not from approval step, this shouldn't happen (JS should prevent it)
+        if not title or not description:
+            flash("Invalid form submission: missing reformulated data", "error")
+            return render_template(
+                "admin/create_assisted_issue.html",
+                form=form,
+                project_integrations_json=json.dumps(project_integrations),
+            )
+
+        issue_type = form.issue_type.data if form.issue_type.data else None
 
         # Get integration and project
         integration = ProjectIntegration.query.filter_by(project_id=project_id).first()
@@ -2340,20 +2350,14 @@ def create_assisted_issue():
             )
 
         try:
-            # Let the AI structure the issue before creation
-            try:
-                issue_data = generate_issue_from_description(
-                    description, issue_type
-                )
-            except AIIssueGenerationError as exc:
-                flash(f"AI generation failed: {exc}", "error")
-                return render_template(
-                    "admin/create_assisted_issue.html",
-                    form=form,
-                    project_integrations_json=json.dumps(project_integrations),
-                )
+            # Use pre-reformulated data from approval step
+            issue_data = {
+                "title": title,
+                "description": description,
+                "branch_prefix": branch_prefix,
+                "labels": []  # Labels will be extracted from the issue creation
+            }
 
-            branch_prefix = issue_data.get("branch_prefix", "feature")
             labels = issue_data.get("labels", []) or []
 
             # Create issue in external tracker (returns IssuePayload)

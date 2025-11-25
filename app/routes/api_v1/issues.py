@@ -948,6 +948,75 @@ def sync_issues():
     })
 
 
+@api_v1_bp.route("/issues/reformulate", methods=["POST"])
+@require_api_auth(scopes=["read"])
+def reformulate_issue_description():
+    """Reformulate a natural language description into a structured issue using AI (Ollama).
+
+    This endpoint uses Ollama to generate issue structure (title, description, labels)
+    from a natural language description. It returns the generated content WITHOUT
+    creating an issue, allowing the user to review and approve before creation.
+
+    Request body:
+        description (str): Natural language description of what to work on
+        issue_type (str, optional): Issue type hint (feature, bug, etc.)
+
+    Returns:
+        JSON response with:
+            - success (bool): Whether reformulation succeeded
+            - title (str): Generated issue title
+            - description (str): Generated issue description with sections
+            - labels (list): Generated labels
+            - branch_prefix (str): Suggested branch prefix (feature or fix)
+
+    Error response:
+        - error (str): Error message
+        - details (str): Additional error details
+    """
+    from ...services.ai_issue_generator import (
+        AIIssueGenerationError,
+        generate_issue_from_description,
+    )
+
+    audit_api_request("POST", "/api/v1/issues/reformulate")
+
+    data = request.get_json() or {}
+
+    # Validate required fields
+    description = data.get("description", "").strip()
+    if not description:
+        return jsonify({"error": "description is required"}), 400
+
+    # Optional fields
+    issue_type = data.get("issue_type")
+
+    try:
+        # Use Ollama to reformulate the description
+        issue_data = generate_issue_from_description(description, issue_type)
+
+        return jsonify({
+            "success": True,
+            "title": issue_data.get("title"),
+            "description": issue_data.get("description"),
+            "labels": issue_data.get("labels", []),
+            "branch_prefix": issue_data.get("branch_prefix", "feature"),
+        }), 200
+
+    except AIIssueGenerationError as e:
+        return jsonify({
+            "success": False,
+            "error": "AI reformulation failed",
+            "details": str(e),
+        }), 500
+    except Exception as e:
+        current_app.logger.exception("Unexpected error in reformulate_issue_description")
+        return jsonify({
+            "success": False,
+            "error": "Unexpected error occurred",
+            "details": str(e),
+        }), 500
+
+
 @api_v1_bp.route("/issues/create-assisted", methods=["POST"])
 @require_api_auth(scopes=["write"])
 def create_assisted_issue():

@@ -70,6 +70,150 @@
       gap: 1rem;
       margin-top: 2rem;
     }
+
+    /* Loading overlay */
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .loading-overlay.active {
+      display: flex;
+    }
+    .loading-container {
+      background: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      max-width: 400px;
+      text-align: center;
+    }
+    [data-theme="dark"] .loading-container {
+      background: #1e293b;
+    }
+    .loading-container h3 {
+      margin: 0 0 0.5rem;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .loading-container h3 {
+      color: #e2e8f0;
+    }
+    .loading-container p {
+      margin: 0 0 1.5rem;
+      color: #64748b;
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .loading-container p {
+      color: #94a3b8;
+    }
+
+    /* Approval section (hidden by default) */
+    #approval-section {
+      display: none;
+    }
+    #approval-section.active {
+      display: block;
+    }
+    #input-section.hidden {
+      display: none;
+    }
+
+    /* Approval content */
+    .approval-field {
+      margin-bottom: 1.5rem;
+    }
+    .approval-field label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    [data-theme="dark"] .approval-field label {
+      color: #e2e8f0;
+    }
+    .approval-field textarea,
+    .approval-field input {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.5rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      color: #0f172a;
+      background: white;
+    }
+    [data-theme="dark"] .approval-field textarea,
+    [data-theme="dark"] .approval-field input {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+    .approval-field textarea {
+      min-height: 150px;
+      resize: vertical;
+    }
+    .approval-field input {
+      min-height: 45px;
+    }
+
+    /* Labels display */
+    .labels-display {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .label-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: #e0e7ff;
+      color: #3730a3;
+      border-radius: 0.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+    [data-theme="dark"] .label-badge {
+      background: #312e81;
+      color: #c7d2fe;
+    }
+
+    /* Info box */
+    .info-box {
+      padding: 1rem;
+      background: #f0f9ff;
+      border-left: 4px solid #0284c7;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    [data-theme="dark"] .info-box {
+      background: #082f49;
+      border-left-color: #0ea5e9;
+    }
+    .info-box p {
+      margin: 0;
+      color: #0369a1;
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .info-box p {
+      color: #0ea5e9;
+    }
+
+    /* Approval actions */
+    .approval-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    @media (max-width: 640px) {
+      .approval-actions {
+        flex-direction: column;
+      }
+    }
   </style>
 {% endblock %}
 {% block content %}
@@ -79,62 +223,280 @@
     Describe what you want to work on in natural language, and AI will help create a properly formatted issue.
   </p>
 
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-container">
+      <h3>AI is working...</h3>
+      <p>Reformulating your description into a proper issue.</p>
+      <article aria-busy="true"></article>
+    </div>
+  </div>
+
   <div class="create-assisted-card">
-    <form id="create-assisted-form" method="post">
-      {{ form.hidden_tag() }}
+    <!-- Input Section (Step 1) -->
+    <div id="input-section">
+      <form id="create-assisted-form" method="post">
+        {{ form.hidden_tag() }}
 
-      <div class="form-section">
-        <h3>What do you want to work on?</h3>
-        <p>Describe your feature idea or bug fix in plain language. The AI will help structure it into a proper issue.</p>
-        {{ form.description(class="description-textarea", placeholder="Example: I want to add user authentication with OAuth2 support. Users should be able to login with Google and GitHub. Need to store user sessions securely.") }}
-      </div>
-
-      <div class="form-section">
-        <label for="{{ form.project_id.id }}">
-          <h3>Project</h3>
-        </label>
-        {{ form.project_id(required=True) }}
-      </div>
-
-      <div class="form-section">
-        <label for="{{ form.ai_tool.id }}">
-          <h3>AI Tool</h3>
-        </label>
-        <p>Select which AI tool to use for the session</p>
-        {{ form.ai_tool(required=True) }}
-      </div>
-
-      <div class="form-grid">
         <div class="form-section">
-          <label for="{{ form.issue_type.id }}">
-            <h3>Issue Type (Optional)</h3>
-          </label>
-          {{ form.issue_type() }}
+          <h3>What do you want to work on?</h3>
+          <p>Describe your feature idea or bug fix in plain language. The AI will help structure it into a proper issue.</p>
+          {{ form.description(class="description-textarea", placeholder="Example: I want to add user authentication with OAuth2 support. Users should be able to login with Google and GitHub. Need to store user sessions securely.") }}
         </div>
 
         <div class="form-section">
-          <h3>Options</h3>
-          <div class="checkbox-group">
-            <label class="checkbox-label">
-              {{ form.create_branch() }}
-              <span>Create feature/fix branch after structuring the issue</span>
+          <label for="{{ form.project_id.id }}">
+            <h3>Project</h3>
+          </label>
+          {{ form.project_id(required=True) }}
+        </div>
+
+        <div class="form-section">
+          <label for="{{ form.ai_tool.id }}">
+            <h3>AI Tool</h3>
+          </label>
+          <p>Select which AI tool to use for the session</p>
+          {{ form.ai_tool(required=True) }}
+        </div>
+
+        <div class="form-grid">
+          <div class="form-section">
+            <label for="{{ form.issue_type.id }}">
+              <h3>Issue Type (Optional)</h3>
             </label>
-            <label class="checkbox-label">
-              {{ form.pin_issue() }}
-              <span>Pin issue to dashboard</span>
-            </label>
+            {{ form.issue_type() }}
+          </div>
+
+          <div class="form-section">
+            <h3>Options</h3>
+            <div class="checkbox-group">
+              <label class="checkbox-label">
+                {{ form.create_branch() }}
+                <span>Create feature/fix branch after creating the issue</span>
+              </label>
+              <label class="checkbox-label">
+                {{ form.pin_issue() }}
+                <span>Pin issue to dashboard</span>
+              </label>
+            </div>
           </div>
         </div>
+
+        <div class="form-actions">
+          <button type="button" class="primary" id="reformulateBtn">
+            <span>Reformulate with AI</span>
+          </button>
+          <a href="{{ url_for('admin.manage_issues') }}" role="button" class="secondary outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+
+    <!-- Approval Section (Step 2) -->
+    <div id="approval-section">
+      <div class="info-box">
+        <p>✓ AI has reformulated your description. Review and approve before creating the issue.</p>
       </div>
 
-      <div class="form-actions">
-        <button type="submit" class="primary">
-          <span class="submit-text">Create Issue & Start AI Session</span>
-        </button>
-        <a href="{{ url_for('admin.manage_issues') }}" role="button" class="secondary outline">Cancel</a>
-      </div>
-    </form>
+      <form id="approval-form" method="post">
+        {{ form.hidden_tag() }}
+        <input type="hidden" id="reformulatedData" name="reformulated_data" value="">
 
+        <div class="approval-field">
+          <label for="approvalTitle">Issue Title</label>
+          <input type="text" id="approvalTitle" name="title" required>
+        </div>
+
+        <div class="approval-field">
+          <label for="approvalDescription">Issue Description</label>
+          <textarea id="approvalDescription" name="description" required></textarea>
+        </div>
+
+        <div class="approval-field">
+          <label>Generated Labels</label>
+          <div class="labels-display" id="approvalLabels"></div>
+        </div>
+
+        <div class="approval-field">
+          <label>Branch Prefix</label>
+          <input type="text" id="approvalBranchPrefix" readonly>
+        </div>
+
+        <div class="approval-actions">
+          <button type="submit" class="primary" id="approveBtn">
+            <span>Approve & Create Issue</span>
+          </button>
+          <button type="button" class="secondary outline" id="editBtn">
+            <span>Edit & Re-run AI</span>
+          </button>
+          <button type="button" class="secondary outline" id="cancelBtn">
+            <span>Cancel</span>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
+
+<script>
+  // Configuration
+  const API_BASE = '/api/v1';
+
+  // DOM Elements
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const inputSection = document.getElementById('input-section');
+  const approvalSection = document.getElementById('approval-section');
+  const createForm = document.getElementById('create-assisted-form');
+  const approvalForm = document.getElementById('approval-form');
+  const reformulateBtn = document.getElementById('reformulateBtn');
+  const approveBtn = document.getElementById('approveBtn');
+  const editBtn = document.getElementById('editBtn');
+  const cancelBtn = document.getElementById('cancelBtn');
+  const descriptionField = createForm.description;
+  const projectField = createForm.project_id;
+  const issueTypeField = createForm.issue_type;
+
+  // Form submission handlers
+  reformulateBtn.addEventListener('click', handleReformulate);
+  editBtn.addEventListener('click', handleEditAndRerun);
+  cancelBtn.addEventListener('click', handleCancel);
+  approvalForm.addEventListener('submit', handleApprove);
+
+  async function handleReformulate(e) {
+    e.preventDefault();
+
+    // Validate input
+    const description = descriptionField.value.trim();
+    if (!description) {
+      alert('Please describe what you want to work on');
+      descriptionField.focus();
+      return;
+    }
+
+    // Show loading
+    loadingOverlay.classList.add('active');
+
+    try {
+      const issueType = issueTypeField.value || null;
+
+      // Call reformulation endpoint
+      const response = await fetch(`${API_BASE}/issues/reformulate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+          description: description,
+          issue_type: issueType
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to reformulate issue');
+      }
+
+      const data = await response.json();
+
+      // Populate approval section
+      document.getElementById('approvalTitle').value = data.title;
+      document.getElementById('approvalDescription').value = data.description;
+      document.getElementById('approvalBranchPrefix').value = data.branch_prefix;
+
+      // Display labels
+      const labelsContainer = document.getElementById('approvalLabels');
+      labelsContainer.innerHTML = data.labels.map(label =>
+        `<span class="label-badge">${label}</span>`
+      ).join('');
+
+      // Store reformulated data
+      document.getElementById('reformulatedData').value = JSON.stringify({
+        title: data.title,
+        description: data.description,
+        labels: data.labels,
+        branch_prefix: data.branch_prefix
+      });
+
+      // Show approval section
+      inputSection.classList.add('hidden');
+      approvalSection.classList.add('active');
+
+    } catch (error) {
+      console.error('Reformulation error:', error);
+      alert(`Error: ${error.message}\n\nMake sure Ollama is running and accessible.`);
+    } finally {
+      loadingOverlay.classList.remove('active');
+    }
+  }
+
+  function handleEditAndRerun(e) {
+    e.preventDefault();
+
+    // Get updated description from approval form
+    const updatedDescription = document.getElementById('approvalDescription').value;
+    descriptionField.value = updatedDescription;
+
+    // Return to input section and re-run
+    approvalSection.classList.remove('active');
+    inputSection.classList.remove('hidden');
+
+    // Auto-focus and reformulate
+    setTimeout(() => {
+      handleReformulate(new Event('click'));
+    }, 100);
+  }
+
+  function handleCancel(e) {
+    e.preventDefault();
+
+    // Return to input section
+    approvalSection.classList.remove('active');
+    inputSection.classList.remove('hidden');
+  }
+
+  async function handleApprove(e) {
+    e.preventDefault();
+
+    // Show loading
+    loadingOverlay.classList.add('active');
+
+    try {
+      // Get approved data
+      const title = document.getElementById('approvalTitle').value;
+      const description = document.getElementById('approvalDescription').value;
+      const branchPrefix = document.getElementById('approvalBranchPrefix').value;
+
+      // Create hidden form data for final submission
+      const formData = new FormData(createForm);
+      formData.append('title', title);
+      formData.append('description', description);
+      formData.append('branch_prefix', branchPrefix);
+
+      // Submit to create-assisted endpoint
+      const response = await fetch(createForm.action || '', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json ? await response.json() : {};
+        throw new Error(errorData.error || 'Failed to create issue');
+      }
+
+      // Success - redirect or show message
+      const result = await response.json();
+      if (result.issue_url) {
+        window.location.href = result.issue_url;
+      } else {
+        window.location.href = `${API_BASE.replace('/api/v1', '')}/admin/issues`;
+      }
+
+    } catch (error) {
+      console.error('Approval error:', error);
+      alert(`Error creating issue: ${error.message}`);
+    } finally {
+      loadingOverlay.classList.remove('active');
+    }
+  }
+</script>
 {% endblock %}

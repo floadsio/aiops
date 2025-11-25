@@ -51,11 +51,6 @@ aiops issues modify-comment <internal-id> <comment-id> "Updated comment text"
 
 # Assign issue
 aiops issues assign <internal-id> --user <username/account-id>
-
-# Jira comment formatting
-# - Jira ignores Markdown fences; use plain text lists and {code} blocks for commands/snippets.
-# - Mentions must use accountId: [~accountid:<id>].
-# - For code/commands/queries wrap with {code}...{code}; avoid ``` fences.
 ```
 
 ### Publishing Comments to Issues
@@ -328,22 +323,70 @@ tail -f /home/syseng/aiops/logs/aiops.log
 
 NOTE: Generated issue context. Update before publishing if needed.
 
-# 76 - Draft: When michaelturko lets AI create an issue or PR, the creator...
+# 102 - Fix Codex authentication in AI-assisted issue creation
 
-        _Updated: 2025-11-23 17:24:40Z_
+        _Updated: 2025-11-25 17:28:41Z_
 
         ## Issue Snapshot
         - Provider: github
-        - Status: open
+        - Status: closed
         - Assignee: ivomarino
-        - Labels: draft
-        - Source: https://github.com/floadsio/aiops/issues/76
-        - Last Synced: 2025-11-22 06:36 UTC
+        - Labels: bug
+        - Source: https://github.com/floadsio/aiops/issues/102
+        - Last Synced: 2025-11-25 11:28 UTC
 
         ## Issue Description
-        When michaelturko lets AI create an issue or PR, the creator is always displayed as ivomarino. This will be also the case with other users. It must be ensured that the creator and commentor of issues and PRs is always the one working in the current session. This must be also reflected in the AGENTS.override.md.
+        ## Overview
 
-        ## Project Context
+AI-assisted issue creation fails with Codex authentication error when generating issue structure.
+
+## Problem
+
+When creating an AI-assisted issue with Codex as the AI tool, the generation fails with:
+
+```
+ERROR: Your access token could not be refreshed because your refresh token was already used. Please log out and sign in again.
+```
+
+## Root Cause
+
+The `generate_issue_from_description()` function in `app/services/ai_issue_generator.py` runs `codex exec` as a subprocess without:
+
+1. Setting up proper Codex authentication environment (`CODEX_CONFIG_DIR`, `CODEX_AUTH_FILE`)
+2. Ensuring user's Codex credentials are available
+3. Passing user context to the subprocess
+
+Unlike `create_session()` in `app/ai_sessions.py` which properly calls `ensure_codex_auth(user_id)` and sets environment variables, the AI issue generator runs Codex without authentication context.
+
+## Requirements
+
+- Modify `generate_issue_from_description()` to accept `user_id` parameter
+- Set up Codex authentication using `ensure_codex_auth(user_id)` before running subprocess
+- Pass `CODEX_CONFIG_DIR` and `CODEX_AUTH_FILE` environment variables to subprocess
+- Handle `CodexConfigError` appropriately if credentials are not configured
+- Update caller in `app/routes/admin.py` to pass `current_user.id`
+
+## Acceptance Criteria
+
+- [ ] AI-assisted issue creation with Codex tool successfully generates issue structure
+- [ ] Codex authentication error no longer occurs
+- [ ] Proper error message shown if user hasn't configured Codex credentials
+- [ ] Similar pattern used in `create_session()` is applied to issue generation
+- [ ] Changes tested with Codex, Claude, and Gemini tools
+
+## Technical Notes
+
+Reference `app/ai_sessions.py:575-597` for the pattern of setting up Codex authentication.
+
+        
+
+## Issue Comments (1)
+
+            **michaelturko** on 2025-11-25T11:11:55+00:00 ([link](https://github.com/floadsio/aiops/issues/102#issuecomment-3575091489))
+
+_Created via aiops by @michaelturko_
+
+## Project Context
         - Project: aiops
         - Repository: git@github.com:floadsio/aiops.git
         - Local Path: instance/repos/aiops
@@ -402,13 +445,30 @@ NOTE: Generated issue context. Update before publishing if needed.
 - [github] 66: Add statistics and status page for issue resolution metrics; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-21 09:10 UTC; url=https://github.com/floadsio/aiops/issues/66
 - [github] 68: Add feature to remap issues between aiops projects; status=closed; assignee=Ivo Marino; updated=2025-11-21 09:22 UTC; url=https://github.com/floadsio/aiops/issues/68
 - [github] 69: Fix 'aiops update' failure with stale generated files; status=closed; assignee=Ivo Marino; labels=bug, cli; updated=2025-11-21 09:33 UTC; url=https://github.com/floadsio/aiops/issues/69
-- [github] 70: Display tenant name alongside project name to avoid confusion; status=open; assignee=Ivo Marino; updated=2025-11-21 09:47 UTC; url=https://github.com/floadsio/aiops/issues/70
-- [github] 71: Allow integrations to map to multiple projects; status=open; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-21 13:36 UTC; url=https://github.com/floadsio/aiops/issues/71
-- [github] 73: Enable file/image transfer from local machine to AI session workspace; status=open; assignee=Michael Turko; labels=draft; updated=2025-11-22 06:32 UTC; url=https://github.com/floadsio/aiops/issues/73
+- [github] 70: Display tenant name alongside project name to avoid confusion; status=closed; assignee=Ivo Marino; updated=2025-11-23 20:00 UTC; url=https://github.com/floadsio/aiops/issues/70
+- [github] 71: Allow integrations to map to multiple projects; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-23 20:00 UTC; url=https://github.com/floadsio/aiops/issues/71
+- [github] 73: Enable file/image transfer from local machine to AI session workspace; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-25 15:09 UTC; url=https://github.com/floadsio/aiops/issues/73
+- [github] 76: Fix AI-created issues/PRs showing wrong creator (always ivomarino); status=closed; assignee=Ivo Marino; labels=bug, draft; updated=2025-11-24 14:27 UTC; url=https://github.com/floadsio/aiops/issues/76
 - [github] 77: Draft: The AI assisted Issue functionality seems to be broken; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-22 08:19 UTC; url=https://github.com/floadsio/aiops/issues/77
-- [github] 78: Draft: In the aiops cli it should be possible to filter issues also...; status=open; assignee=Michael Turko; labels=draft; updated=2025-11-22 07:57 UTC; url=https://github.com/floadsio/aiops/issues/78
-- [github] 79: Draft: In the aiops cli it should be possible to filter issues also...; status=open; assignee=Michael Turko; labels=draft; updated=2025-11-22 08:00 UTC; url=https://github.com/floadsio/aiops/issues/79
-- [github] 81: Draft: In the aiops cli it should be possible to filter issues also...; status=open; assignee=Michael Turko; labels=draft; updated=2025-11-22 08:21 UTC; url=https://github.com/floadsio/aiops/issues/81
+- [github] 78: Draft: In the aiops cli it should be possible to filter issues also...; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-23 17:45 UTC; url=https://github.com/floadsio/aiops/issues/78
+- [github] 79: Draft: In the aiops cli it should be possible to filter issues also...; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-23 17:45 UTC; url=https://github.com/floadsio/aiops/issues/79
+- [github] 81: Add assignee filtering to issues list command; status=closed; assignee=Michael Turko; labels=enhancement, feature, draft, cli; updated=2025-11-25 04:35 UTC; url=https://github.com/floadsio/aiops/issues/81
+- [github] 84: Test issue for attribution; status=closed; assignee=Michael Turko; labels=test; updated=2025-11-24 14:27 UTC; url=https://github.com/floadsio/aiops/issues/84
+- [github] 85: Add creator attribution comments to Jira issues; status=closed; assignee=Michael Turko; labels=enhancement, feature; updated=2025-11-24 14:35 UTC; url=https://github.com/floadsio/aiops/issues/85
+- [github] 87: Support per-integration Jira account IDs for attribution; status=closed; assignee=Michael Turko; labels=enhancement, feature; updated=2025-11-24 15:41 UTC; url=https://github.com/floadsio/aiops/issues/87
+- [github] 89: Codex AI-assisted issue creation fails with unexpected argument; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-25 09:14 UTC; url=https://github.com/floadsio/aiops/issues/89
+- [github] 91: Migrate legacy API routes to v1 API (broken after issue #81 fix); status=closed; assignee=Michael Turko; updated=2025-11-25 05:28 UTC; url=https://github.com/floadsio/aiops/issues/91
+- [github] 92: Email notifications show wrong sender name (shared PAT owner instead of actual user); status=open; assignee=Michael Turko; updated=2025-11-25 05:39 UTC; url=https://github.com/floadsio/aiops/issues/92
+- [github] 93: Add session close/kill button to UI; status=open; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:38 UTC; url=https://github.com/floadsio/aiops/issues/93
+- [github] 94: Add like button to issues for expressing support; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/94
+- [github] 95: Add rocket reaction button to issues for expressing great ideas; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/95
+- [github] 96: Add heart button to issues for quick reactions; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/96
+- [github] 97: Add thumbs down reaction button to issues; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/97
+- [github] 98: Test issue 1 AI Assist; status=closed; assignee=Michael Turko; labels=enhancement, test; updated=2025-11-25 10:05 UTC; url=https://github.com/floadsio/aiops/issues/98
+- [github] 99: Test issue 2 AI Assist; status=closed; assignee=Michael Turko; labels=enhancement, test; updated=2025-11-25 10:05 UTC; url=https://github.com/floadsio/aiops/issues/99
+- [github] 100: Test issue 3 AI Assist; status=closed; assignee=Michael Turko; labels=enhancement, test; updated=2025-11-25 10:09 UTC; url=https://github.com/floadsio/aiops/issues/100
+- [github] 101: Fix: Workspace initialization race condition causing false failures; status=open; labels=bug, enhancement; updated=2025-11-25 10:39 UTC; url=https://github.com/floadsio/aiops/issues/101
+- [github] 106: Add end-to-end functional health checks for core aiops features; status=closed; assignee=Ivo Marino; labels=cli, feature, health-monitoring, testing, web-ui; updated=2025-11-25 15:51 UTC; url=https://github.com/floadsio/aiops/issues/106
 
         ## Workflow Reminders
         1. Confirm the acceptance criteria with the external issue tracker.

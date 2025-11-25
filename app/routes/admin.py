@@ -2267,7 +2267,18 @@ def create_assisted_issue():
     form = AIAssistedIssueForm()
     form.project_id.choices = project_choices
 
-    if request.method == "POST" and form.validate():
+    # Debug: Check if form validates and log any errors
+    form_is_valid = False
+    if request.method == "POST":
+        form_is_valid = form.validate()
+        if not form_is_valid:
+            error_msg = f"Form validation failed: {form.errors}"
+            current_app.logger.debug(error_msg)
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"{field}: {error}", "error")
+
+    if request.method == "POST" and form_is_valid:
         # Handle form submission - generate preview
         project_id = form.project_id.data
         description = form.description.data

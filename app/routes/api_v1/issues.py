@@ -173,6 +173,7 @@ def list_issues():
     issues = query.all()
     payload: list[dict[str, Any]] = []
 
+    filtered_count = 0
     for issue in issues:
         issue_payload = _issue_to_dict(issue)
 
@@ -183,7 +184,12 @@ def list_issues():
             continue
         if assignee:
             issue_assignee = issue_payload.get("assignee") or ""
-            if assignee.lower() not in issue_assignee.lower():
+            matches = assignee.lower() in issue_assignee.lower()
+            if filtered_count < 3:
+                import sys
+                print(f"[DEBUG] Checking issue {issue.id}: assignee={issue_assignee!r}, search={assignee!r}, matches={matches}", file=sys.stderr, flush=True)
+                filtered_count += 1
+            if not matches:
                 continue
         if labels_filter:
             issue_labels = set(issue_payload.get("labels", []))

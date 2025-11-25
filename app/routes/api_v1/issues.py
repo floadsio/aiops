@@ -951,79 +951,46 @@ def sync_issues():
 @api_v1_bp.route("/issues/reformulate", methods=["POST"])
 @require_api_auth(scopes=["read"])
 def reformulate_issue_description():
-    """Reformulate a natural language description into a structured issue using AI (Ollama).
-
-    This endpoint uses Ollama to generate issue structure (title, description, labels)
-    from a natural language description. It returns the generated content WITHOUT
-    creating an issue, allowing the user to review and approve before creation.
-
-    Request body:
-        description (str): Natural language description of what to work on
-        issue_type (str, optional): Issue type hint (feature, bug, etc.)
-
-    Returns:
-        JSON response with:
-            - success (bool): Whether reformulation succeeded
-            - title (str): Generated issue title
-            - description (str): Generated issue description with sections
-            - labels (list): Generated labels
-            - branch_prefix (str): Suggested branch prefix (feature or fix)
-
-    Error response:
-        - error (str): Error message
-        - details (str): Additional error details
-    """
-    from ...services.ai_issue_generator import (
-        AIIssueGenerationError,
-        generate_issue_from_description,
-    )
-
-    audit_api_request("POST", "/api/v1/issues/reformulate")
-
+    """Reformulate a natural language description into a structured issue using AI (Ollama)."""
     try:
-        data = request.get_json() or {}
-        current_app.logger.info(f"Reformulate request received with data: {list(data.keys())}")
+        from ...services.ai_issue_generator import (
+            AIIssueGenerationError,
+            generate_issue_from_description,
+        )
 
-        # Validate required fields
+        audit_api_request("POST", "/api/v1/issues/reformulate")
+
+        data = request.get_json() or {}
         description = data.get("description", "").strip()
+
         if not description:
-            current_app.logger.warning("Reformulate request missing description")
             return jsonify({"error": "description is required"}), 400
 
-        # Optional fields
         issue_type = data.get("issue_type")
-        current_app.logger.info(f"Reformulate request: description_len={len(description)}, issue_type={issue_type}")
 
-        # Use Ollama to reformulate the description
-        current_app.logger.info("Calling generate_issue_from_description...")
+        # Call Ollama
         issue_data = generate_issue_from_description(description, issue_type)
-        current_app.logger.info("Generate successful, returning data")
 
+        # Build response - ensure all values are JSON-serializable
         return jsonify({
             "success": True,
-            "title": issue_data.get("title"),
-            "description": issue_data.get("description"),
-            "labels": issue_data.get("labels", []),
-            "branch_prefix": issue_data.get("branch_prefix", "feature"),
+            "title": str(issue_data.get("title", "")),
+            "description": str(issue_data.get("description", "")),
+            "labels": list(issue_data.get("labels", [])),
+            "branch_prefix": str(issue_data.get("branch_prefix", "feature")),
         }), 200
 
     except AIIssueGenerationError as e:
-        current_app.logger.error(f"AIIssueGenerationError: {str(e)}", exc_info=True)
-        error_details = str(e)
-        current_app.logger.error(f"Full error details: {error_details}")
+        current_app.logger.error(f"AIIssueGenerationError: {e}")
         return jsonify({
-            "success": False,
             "error": "AI reformulation failed",
-            "details": error_details,
+            "details": str(e),
         }), 500
     except Exception as e:
-        current_app.logger.exception("Unexpected error in reformulate_issue_description")
-        error_details = f"{type(e).__name__}: {str(e)}"
-        current_app.logger.error(f"Full exception details: {error_details}")
+        current_app.logger.exception("Error in reformulate_issue_description")
         return jsonify({
-            "success": False,
-            "error": "Unexpected error occurred",
-            "details": error_details,
+            "error": "Unexpected error",
+            "details": str(e),
         }), 500
 
 

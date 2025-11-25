@@ -34,8 +34,9 @@ def test_codex_exec_used_for_issue_generation(monkeypatch, tmp_path, codex_comma
     """Ensure we call codex with the exec subcommand (no legacy query)."""
     calls: dict = {}
 
-    def fake_run(cmd, capture_output, text, timeout, check):
+    def fake_run(cmd, capture_output, text, timeout, check, env=None):
         calls["cmd"] = cmd
+        calls["env"] = env
         return subprocess.CompletedProcess(
             cmd,
             0,
@@ -43,7 +44,12 @@ def test_codex_exec_used_for_issue_generation(monkeypatch, tmp_path, codex_comma
             stderr="",
         )
 
+    def fake_ensure_codex_auth(user_id):
+        # Mock authentication, return a fake path
+        return Path("/fake/auth.json")
+
     monkeypatch.setattr("app.services.ai_issue_generator.subprocess.run", fake_run)
+    monkeypatch.setattr("app.services.codex_config_service.ensure_codex_auth", fake_ensure_codex_auth)
 
     app = _build_app(tmp_path, codex_command)
     with app.app_context():
@@ -51,10 +57,17 @@ def test_codex_exec_used_for_issue_generation(monkeypatch, tmp_path, codex_comma
             "broken markdown rendering",
             ai_tool="codex",
             issue_type="bug",
+            user_id=1,
         )
 
     cmd = calls["cmd"]
+    env = calls["env"]
     assert cmd.count("exec") == expected_exec_count
     assert "query" not in cmd
     assert cmd[-1].startswith("You are helping a developer")
     assert issue_data["branch_prefix"] == "fix"
+    # Verify authentication environment was set
+    assert env is not None
+    assert "CODEX_CONFIG_DIR" in env
+    assert "CODEX_AUTH_FILE" in env
+    assert env["CODEX_AUTH_FILE"] == "/fake/auth.json"

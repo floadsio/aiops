@@ -348,8 +348,8 @@ def test_ai_assisted_issue_uses_structured_content(
     calls: dict[str, Any] = {}
     structured_body = "Structured body with sections"
 
-    def fake_generate(description, ai_tool, issue_type):
-        calls["generate"] = (description, ai_tool, issue_type)
+    def fake_generate(description, ai_tool, issue_type, user_id=None):
+        calls["generate"] = (description, ai_tool, issue_type, user_id)
         return {
             "title": "Structured Issue Title",
             "description": structured_body,
@@ -438,7 +438,7 @@ def test_ai_assisted_issue_uses_structured_content(
     )
 
     assert response.status_code == 302
-    assert calls["generate"] == ("build structured issue", "claude", "feature")
+    assert calls["generate"] == ("build structured issue", "claude", "feature", user_id)
     assert calls["create_issue"]["summary"] == "Structured Issue Title"
     assert calls["create_issue"]["description"] == structured_body
     assert calls["create_issue"]["labels"] == ["ai-generated", "feature"]

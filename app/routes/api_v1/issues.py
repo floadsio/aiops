@@ -950,6 +950,7 @@ def sync_issues():
 
 @api_v1_bp.route("/issues/reformulate", methods=["POST"])
 @require_api_auth(scopes=["read"])
+@audit_api_request
 def reformulate_issue_description():
     """Reformulate a natural language description into a structured issue using AI (Ollama)."""
     try:
@@ -957,8 +958,6 @@ def reformulate_issue_description():
             AIIssueGenerationError,
             generate_issue_from_description,
         )
-
-        audit_api_request("POST", "/api/v1/issues/reformulate")
 
         data = request.get_json() or {}
         description = data.get("description", "").strip()

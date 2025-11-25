@@ -595,7 +595,7 @@ def check_ssh_connectivity() -> dict[str, Any]:
         return {"healthy": False, "message": f"SSH connectivity check error: {exc}"}
 
 
-def _test_ssh_connectivity(project: Any, hostname: str, port: Optional[int] = None) -> tuple[bool, str | None, dict | None]:
+def _test_ssh_connectivity(project: Any, hostname: str, port: int | None = None) -> tuple[bool, str | None, dict | None]:
     """Test SSH connectivity to a Git host using project's SSH key.
 
     Args:
@@ -756,6 +756,88 @@ def check_sessions() -> dict[str, Any]:
         return {"healthy": False, "message": f"Session check error: {exc}"}
 
 
+def check_ollama() -> dict[str, Any]:
+    """Check Ollama service availability and connectivity.
+
+    Tests connection to Ollama at http://localhost:11434 and retrieves
+    version and model information if available.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    import json
+
+    try:
+        # Test Ollama version endpoint
+        result = subprocess.run(
+            ["curl", "-s", "http://localhost:11434/api/version"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        if result.returncode == 0 and result.stdout:
+            try:
+                version_data = json.loads(result.stdout)
+                version = version_data.get("version", "unknown")
+            except json.JSONDecodeError:
+                version = "unknown"
+
+            # Try to get model list
+            models_count = 0
+            try:
+                models_result = subprocess.run(
+                    ["curl", "-s", "http://localhost:11434/api/tags"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if models_result.returncode == 0 and models_result.stdout:
+                    models_data = json.loads(models_result.stdout)
+                    models_count = len(models_data.get("models", []))
+            except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):  # noqa: BLE001
+                pass
+
+            message = f"Ollama running (v{version})"
+            if models_count > 0:
+                message += f" with {models_count} model(s)"
+
+            return {
+                "healthy": True,
+                "message": message,
+                "details": {
+                    "version": version,
+                    "models": models_count,
+                    "endpoint": "http://localhost:11434",
+                }
+            }
+
+        return {
+            "healthy": False,
+            "message": "Ollama service not responding",
+            "details": {"endpoint": "http://localhost:11434"}
+        }
+
+    except subprocess.TimeoutExpired:
+        return {
+            "healthy": False,
+            "message": "Ollama connection timeout",
+            "details": {"endpoint": "http://localhost:11434"}
+        }
+    except FileNotFoundError:
+        return {
+            "healthy": False,
+            "message": "curl not available (cannot check Ollama)",
+            "details": {"endpoint": "http://localhost:11434"}
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "healthy": False,
+            "message": f"Ollama check error: {exc}",
+            "details": {"endpoint": "http://localhost:11434"}
+        }
+
+
 def get_system_status() -> dict[str, Any]:
     """Get comprehensive system status for all components.
 
@@ -772,6 +854,7 @@ def get_system_status() -> dict[str, Any]:
         "cli_git_tools": check_cli_git_tools(),
         "ssh_connectivity": check_ssh_connectivity(),
         "sessions": check_sessions(),
+        "ollama": check_ollama(),
     }
 
     # Calculate overall health

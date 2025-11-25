@@ -219,7 +219,7 @@ function updateStatusDisplay(data) {
   const componentsGrid = document.getElementById('components-grid');
   componentsGrid.innerHTML = '';
 
-  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'database', 'tmux', 'git', 'ai_tools', 'workspaces', 'integrations', 'sessions'];
+  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'database', 'tmux', 'git', 'ai_tools', 'ollama', 'workspaces', 'integrations', 'sessions'];
 
   componentOrder.forEach(key => {
     if (data.components[key]) {
@@ -357,6 +357,31 @@ function createDetailsHTML(componentName, details) {
         </div>
       `;
     });
+  } else if (componentName === 'ollama') {
+    if (details.version) {
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Version</span>
+          <span class="detail-value">${details.version}</span>
+        </div>
+      `;
+    }
+    if (details.models !== undefined) {
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Models Available</span>
+          <span class="detail-value">${details.models}</span>
+        </div>
+      `;
+    }
+    if (details.endpoint) {
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Endpoint</span>
+          <span class="detail-value">${details.endpoint}</span>
+        </div>
+      `;
+    }
   } else {
     Object.entries(details).forEach(([key, value]) => {
       if (typeof value !== 'object') {

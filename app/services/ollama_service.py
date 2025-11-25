@@ -189,6 +189,7 @@ Rules:
 
         # Extract generated text from response
         # The ollama client returns a GenerateResponse object, not a dict
+        generated_text = ""
         if hasattr(response, 'response'):
             # GenerateResponse object has a 'response' attribute
             generated_text = response.response
@@ -196,6 +197,10 @@ Rules:
             generated_text = response.get("response", "")
         else:
             generated_text = str(response)
+
+        # Ensure it's a string
+        if not isinstance(generated_text, str):
+            generated_text = str(generated_text)
 
         if not generated_text or generated_text.strip() == "":
             raise OllamaServiceError("Ollama returned empty response")

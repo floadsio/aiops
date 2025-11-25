@@ -205,13 +205,16 @@ def list_issues():
     if isinstance(limit, int) and limit > 0:
         payload = payload[:limit]
 
-    return jsonify({
+    response = jsonify({
         "issues": payload,
         "count": len(payload),
         "total": total,
         "offset": offset,
         "limit": limit,
+        "_debug_assignee_filter": assignee,
+        "_debug_filtered_count": filtered_count,
     })
+    return response
 
 
 @api_v1_bp.get("/issues/pinned")

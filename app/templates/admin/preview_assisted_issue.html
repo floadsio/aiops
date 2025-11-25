@@ -191,99 +191,9 @@
     .action-buttons .secondary {
       flex: 0 1 auto;
     }
-    .form-section {
-      background: rgba(15, 23, 42, 0.02);
-      padding: 1.5rem;
-      border-radius: 0.5rem;
-      margin-top: 1.5rem;
-    }
-    [data-theme="dark"] .form-section {
-      background: rgba(255, 255, 255, 0.02);
-    }
-    .form-section h3 {
-      margin: 0 0 1rem;
-      font-size: 1rem;
-      font-weight: 600;
-    }
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.95rem;
-    }
-    .loading-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-    .loading-overlay.active {
-      display: flex;
-    }
-    .loading-content {
-      background: rgba(255, 255, 255, 0.95);
-      padding: 3rem;
-      border-radius: 1.25rem;
-      text-align: center;
-      box-shadow: 0 16px 45px rgba(15, 23, 42, 0.08);
-    }
-    [data-theme="dark"] .loading-content {
-      background: rgba(15, 23, 42, 0.9);
-    }
-    .loading-content h2 {
-      margin: 0 0 1.5rem;
-      font-size: 1.5rem;
-      color: #0f172a;
-    }
-    [data-theme="dark"] .loading-content h2 {
-      color: #e2e8f0;
-    }
-    .loading-spinner {
-      border: 4px solid rgba(148, 163, 184, 0.2);
-      border-top: 4px solid #3b82f6;
-      border-radius: 50%;
-      width: 60px;
-      height: 60px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1.5rem;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .loading-message {
-      color: #64748b;
-      font-size: 1rem;
-      line-height: 1.5;
-    }
-    [data-theme="dark"] .loading-message {
-      color: #94a3b8;
-    }
   </style>
 {% endblock %}
 {% block content %}
-<div class="loading-overlay" id="loading-overlay">
-  <div class="loading-content">
-    <h2>Creating Issue</h2>
-    <div class="loading-spinner"></div>
-    <div class="loading-message">
-      <p>Finalizing your issue...</p>
-      <p style="font-size: 0.9rem; margin-top: 1rem; opacity: 0.7;">This may take a few seconds</p>
-    </div>
-  </div>
-</div>
-
 <div class="preview-container">
   <div class="preview-card">
     <div class="preview-header">
@@ -365,18 +275,4 @@
     </form>
   </div>
 </div>
-
-<script>
-document.getElementById('confirm-form').addEventListener('submit', function(e) {
-  const overlay = document.getElementById('loading-overlay');
-  const submitBtn = this.querySelector('.primary');
-
-  // Show loading overlay
-  overlay.classList.add('active');
-
-  // Disable form inputs (but not hidden inputs like CSRF token)
-  const inputs = this.querySelectorAll('input[type="button"], input[type="submit"], button');
-  inputs.forEach(input => input.disabled = true);
-});
-</script>
 {% endblock %}

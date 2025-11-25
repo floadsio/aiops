@@ -2264,27 +2264,12 @@ def create_assisted_issue():
         if integration:
             project_integrations[project.id] = integration.id
 
-    # Create form and populate choices BEFORE validation
-    # For POST requests, Flask-WTF needs the form to be created with request data
+    # Create form - Flask-WTF will auto-populate from request on POST
     form = AIAssistedIssueForm()
     form.project_id.choices = project_choices
 
-    # Debug: Check if form validates and log any errors
-    form_is_valid = False
-    if request.method == "POST":
-        # Manually populate form data from request on POST
-        # (validate_on_submit() does this automatically, but we're using validate())
-        form.process(formdata=request.form)
-        form.project_id.choices = project_choices  # Re-set choices after processing
-        form_is_valid = form.validate()
-        if not form_is_valid:
-            error_msg = f"Form validation failed: {form.errors}"
-            current_app.logger.debug(error_msg)
-            for field, errors in form.errors.items():
-                for error in errors:
-                    flash(f"{field}: {error}", "error")
-
-    if request.method == "POST" and form_is_valid:
+    # Check if form is submitted and valid
+    if form.validate_on_submit():
         # Handle form submission - generate preview
         project_id = form.project_id.data
         description = form.description.data

@@ -178,8 +178,10 @@ def list_issues():
             continue
         if provider_filter and issue_payload.get("provider_key") != provider_filter:
             continue
-        if assignee and issue_payload.get("assignee") != assignee:
-            continue
+        if assignee:
+            issue_assignee = issue_payload.get("assignee") or ""
+            if assignee.lower() not in issue_assignee.lower():
+                continue
         if labels_filter:
             issue_labels = set(issue_payload.get("labels", []))
             if not any(label in issue_labels for label in labels_filter):

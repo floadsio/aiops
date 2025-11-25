@@ -2251,11 +2251,9 @@ def create_assisted_issue():
         generate_issue_from_description,
     )
 
-    form = AIAssistedIssueForm()
-
     # Populate project choices and build integration map
     projects = Project.query.order_by(Project.name).all()
-    form.project_id.choices = [(p.id, f"{p.tenant.name} / {p.name}") for p in projects]
+    project_choices = [(p.id, f"{p.tenant.name} / {p.name}") for p in projects]
 
     # Build a map of project_id to first integration_id for JavaScript
     project_integrations = {}
@@ -2265,6 +2263,9 @@ def create_assisted_issue():
         ).first()
         if integration:
             project_integrations[project.id] = integration.id
+
+    form = AIAssistedIssueForm()
+    form.project_id.choices = project_choices
 
     if form.validate_on_submit():
         # Handle form submission - generate preview

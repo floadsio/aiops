@@ -378,6 +378,11 @@
     try {
       const issueType = issueTypeField.value || null;
 
+      // Debug logging
+      console.log('Reformulation request:');
+      console.log('  description length:', description.length);
+      console.log('  issue_type:', issueType);
+
       // Call reformulation endpoint
       const response = await fetch(`${API_BASE}/issues/reformulate`, {
         method: 'POST',
@@ -391,21 +396,41 @@
         })
       });
 
+      console.log('Response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || 'Failed to reformulate issue');
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (parseErr) {
+          const text = await response.text();
+          console.error('Response body:', text);
+          throw new Error('Failed to reformulate issue (non-JSON response)');
+        }
+        throw new Error(errorData.details || errorData.error || 'Failed to reformulate issue');
       }
 
       const data = await response.json();
+      console.log('Reformulation response:', {
+        title: data.title?.substring(0, 50),
+        description_length: data.description?.length,
+        labels: data.labels,
+        branch_prefix: data.branch_prefix
+      });
+
+      // Validate response data
+      if (!data.title || !data.description) {
+        throw new Error('Invalid response: missing title or description');
+      }
 
       // Populate approval section
       document.getElementById('approvalTitle').value = data.title;
       document.getElementById('approvalDescription').value = data.description;
-      document.getElementById('approvalBranchPrefix').value = data.branch_prefix;
+      document.getElementById('approvalBranchPrefix').value = data.branch_prefix || 'feature';
 
       // Display labels
       const labelsContainer = document.getElementById('approvalLabels');
-      labelsContainer.innerHTML = data.labels.map(label =>
+      labelsContainer.innerHTML = (data.labels || []).map(label =>
         `<span class="label-badge">${label}</span>`
       ).join('');
 
@@ -413,8 +438,8 @@
       document.getElementById('reformulatedData').value = JSON.stringify({
         title: data.title,
         description: data.description,
-        labels: data.labels,
-        branch_prefix: data.branch_prefix
+        labels: data.labels || [],
+        branch_prefix: data.branch_prefix || 'feature'
       });
 
       // Show approval section
@@ -423,9 +448,12 @@
 
     } catch (error) {
       console.error('Reformulation error:', error);
-      alert(`Error: ${error.message}\n\nMake sure Ollama is running and accessible.`);
-    } finally {
       loadingOverlay.classList.remove('active');
+      alert(`Error: ${error.message}\n\nMake sure Ollama is running and accessible. Check browser console for details.`);
+    } finally {
+      if (loadingOverlay.classList.contains('active')) {
+        loadingOverlay.classList.remove('active');
+      }
     }
   }
 
@@ -466,11 +494,19 @@
       const description = document.getElementById('approvalDescription').value;
       const branchPrefix = document.getElementById('approvalBranchPrefix').value;
 
-      // Create hidden form data for final submission
+      // Get all form data from the CREATE form, including hidden fields
       const formData = new FormData(createForm);
-      formData.append('title', title);
-      formData.append('description', description);
-      formData.append('branch_prefix', branchPrefix);
+
+      // Add approved content - these will override the form fields
+      formData.set('title', title);
+      formData.set('description', description);
+      formData.set('branch_prefix', branchPrefix);
+
+      // Debug: Log what we're sending
+      console.log('Form data being submitted:');
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}: ${typeof value === 'string' ? value.substring(0, 50) : value}`);
+      }
 
       // Submit to create-assisted endpoint
       const response = await fetch(createForm.action || '', {
@@ -479,23 +515,32 @@
       });
 
       if (!response.ok) {
-        const errorData = await response.json ? await response.json() : {};
-        throw new Error(errorData.error || 'Failed to create issue');
+        let errorData = {};
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          console.error('Could not parse error response:', parseError);
+        }
+
+        const errorMsg = errorData.error || errorData.message || 'Failed to create issue';
+        throw new Error(errorMsg);
       }
 
       // Success - redirect or show message
       const result = await response.json();
       if (result.issue_url) {
         window.location.href = result.issue_url;
+      } else if (result.success) {
+        // Redirect to issues list
+        window.location.href = '/admin/issues';
       } else {
-        window.location.href = `${API_BASE.replace('/api/v1', '')}/admin/issues`;
+        throw new Error(result.error || 'Issue creation failed');
       }
 
     } catch (error) {
       console.error('Approval error:', error);
-      alert(`Error creating issue: ${error.message}`);
-    } finally {
       loadingOverlay.classList.remove('active');
+      alert(`Error creating issue: ${error.message}\n\nCheck the browser console for details.`);
     }
   }
 </script>

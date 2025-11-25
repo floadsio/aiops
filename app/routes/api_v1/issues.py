@@ -1107,6 +1107,7 @@ def create_assisted_issue():
                 response_data["branch_error"] = f"Failed to create branch: {e}"
 
         # Step 4: Start AI session if requested
+        # NOTE: Always use Claude for AI-assisted work sessions (simpler, no per-user auth)
         if start_session:
             try:
                 from ...services.ai_session_service import save_session
@@ -1116,7 +1117,7 @@ def create_assisted_issue():
                     user_id=g.current_user.id if hasattr(g, "current_user") else None,
                     project_id=project_id,
                     issue_id=issue.id,
-                    tool=ai_tool,
+                    tool="claude",
                     session_id=f"assisted-{issue.id}",
                     tmux_target=None,
                     description=f"AI-assisted work on issue #{issue.external_id}",

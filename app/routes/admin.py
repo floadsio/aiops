@@ -2385,11 +2385,12 @@ def create_assisted_issue():
 
             # Launch AI session in a dedicated tmux session for AI-assisted issues
             # This keeps it separate from regular development sessions
+            # NOTE: Always use Claude for AI-assisted work sessions (simpler, no per-user auth)
             from ..ai_sessions import create_session
             session = create_session(
                 project=project,
                 user_id=current_user.id,
-                tool=ai_tool,
+                tool="claude",
                 issue_id=issue.id,
                 tmux_session_name="ai-assist",  # Use dedicated session for AI-assisted issues
             )

@@ -1107,11 +1107,6 @@ def create_assisted_issue():
     ai_tool = preview_data["ai_tool"]
     issue_type = preview_data["issue_type"]
 
-    # Optional fields
-    create_branch = data.get("create_branch", False)
-    start_session = data.get("start_session", False)
-    assignee_user_id = data.get("assignee_user_id")
-
     # Validate project exists
     project = db.session.get(Project, project_id)
     if not project:
@@ -1176,53 +1171,6 @@ def create_assisted_issue():
                 "close_issue": f"aiops issues close {issue.id}",
             },
         }
-
-        # Step 2: Create branch if requested
-        branch_name = None
-        if create_branch:
-            try:
-                branch_prefix = issue_data.get("branch_prefix", "feature")
-                branch_name = generate_branch_name(
-                    issue.external_id, issue.title, branch_prefix
-                )
-
-                # Get user for git operations
-                user = g.current_user if hasattr(g, "current_user") else None
-                if user and user.linux_username:
-                    checkout_or_create_branch(
-                        project=project,
-                        branch=branch_name,
-                        base=project.default_branch,
-                        user=user,
-                    )
-                    response_data["branch_name"] = branch_name
-                else:
-                    response_data["branch_warning"] = "Branch creation skipped: user not configured"
-            except Exception as e:
-                # Branch creation failed, but issue was created successfully
-                response_data["branch_error"] = f"Failed to create branch: {e}"
-
-        # Step 3: Start AI session if requested
-        if start_session:
-            try:
-                from ...services.ai_session_service import save_session
-
-                # Create session record
-                session = save_session(
-                    user_id=g.current_user.id if hasattr(g, "current_user") else None,
-                    project_id=project_id,
-                    issue_id=issue.id,
-                    tool=ai_tool,
-                    session_id=f"assisted-{issue.id}",
-                    tmux_target=None,
-                    description=f"AI-assisted work on issue #{issue.external_id}",
-                )
-
-                response_data["session_id"] = session.id
-                response_data["session_url"] = f"/projects/{project_id}/ai?issue_id={issue.id}"
-            except Exception as e:
-                # Session creation failed, but issue was created successfully
-                response_data["session_error"] = f"Failed to start session: {e}"
 
         return jsonify(response_data), 201
 

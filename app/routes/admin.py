@@ -2378,10 +2378,6 @@ def confirm_assisted_issue():
     ai_tool = preview_data["ai_tool"]
     issue_type = preview_data["issue_type"]
 
-    # Optional fields from form
-    create_branch_flag = request.form.get("create_branch") == "y"
-    pin_issue_flag = request.form.get("pin_issue") == "y"
-
     # Get integration and project
     integration = ProjectIntegration.query.get(integration_id)
     if not integration or integration.project_id != project_id:
@@ -2425,28 +2421,6 @@ def confirm_assisted_issue():
         db.session.commit()
 
         flash(f"Issue created: #{issue.external_id}", "success")
-
-        # Create branch if requested
-        if create_branch_flag:
-            try:
-                branch_name = generate_branch_name(
-                    issue.external_id, issue.title, branch_prefix
-                )
-                checkout_or_create_branch(
-                    project=project,
-                    branch=branch_name,
-                    base=project.default_branch,
-                    user=current_user.model,
-                )
-                flash(f"Branch {branch_name} created.", "success")
-            except Exception as exc:
-                flash(f"Failed to create branch: {exc}", "warning")
-
-        # Pin issue if requested
-        if pin_issue_flag:
-            pinned = PinnedIssue(user_id=current_user.id, issue_id=issue.id)
-            db.session.add(pinned)
-            db.session.commit()
 
         # Write tracked AGENTS.override.md with structured issue context
         from ..services.agent_context import write_tracked_issue_context

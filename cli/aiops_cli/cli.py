@@ -450,8 +450,6 @@ def issues_create(
 @click.option("--description", help="Natural language description of what to work on")
 @click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), default="claude", help="AI tool to use")
 @click.option("--type", "issue_type", type=click.Choice(["feature", "bug"]), help="Issue type hint")
-@click.option("--create-branch", is_flag=True, help="Create feature/fix branch")
-@click.option("--start-session", is_flag=True, help="Start AI session for the issue")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
 def issues_create_assisted(
@@ -461,14 +459,13 @@ def issues_create_assisted(
     description: Optional[str],
     tool: str,
     issue_type: Optional[str],
-    create_branch: bool,
-    start_session: bool,
     output: Optional[str],
 ) -> None:
     """Create issue with AI assistance from natural language description.
 
     This command uses AI to generate a well-formatted issue from your description.
-    It can optionally create a feature branch and start an AI session.
+    The branch creation and other setup will be handled by the AI tool when you
+    work on the issue.
 
     Examples:
 
@@ -479,11 +476,6 @@ def issues_create_assisted(
         aiops issues create-assisted --project myproject \\
             --description "Add user authentication with OAuth2" \\
             --tool claude --type feature
-
-        # Create branch and start session
-        aiops issues create-assisted --project myproject \\
-            --description "Fix login validation bug" \\
-            --type bug --create-branch --start-session
     """
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
@@ -602,8 +594,6 @@ def issues_create_assisted(
         # Step 2: Confirm and create the issue
         create_payload = {
             "preview_token": preview_result["preview_token"],
-            "create_branch": create_branch,
-            "start_session": start_session,
         }
 
         # Show spinner while creating issue

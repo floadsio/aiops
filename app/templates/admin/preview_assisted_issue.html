@@ -349,20 +349,6 @@
       {{ csrf_token() }}
       <input type="hidden" name="preview_token" value="{{ preview_token }}">
 
-      <div class="form-section">
-        <h3>Options</h3>
-        <div class="checkbox-group">
-          <label class="checkbox-label">
-            <input type="checkbox" name="create_branch" value="y">
-            <span>Create feature/fix branch after creating the issue</span>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" name="pin_issue" value="y">
-            <span>Pin issue to dashboard</span>
-          </label>
-        </div>
-      </div>
-
       <div class="action-buttons">
         <button type="submit" class="primary">
           <span class="submit-text">Create Issue</span>

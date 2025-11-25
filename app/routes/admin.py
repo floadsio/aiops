@@ -2239,7 +2239,6 @@ def manage_tenants():
 
 @admin_bp.route("/issues/create-assisted", methods=["GET", "POST"])
 @admin_required
-@csrf.exempt
 def create_assisted_issue():
     """Create an issue with AI assistance (Step 1: Generate preview)."""
     import json
@@ -2268,7 +2267,7 @@ def create_assisted_issue():
     form = AIAssistedIssueForm()
     form.project_id.choices = project_choices
 
-    if form.validate_on_submit():
+    if request.method == "POST" and form.validate():
         # Handle form submission - generate preview
         project_id = form.project_id.data
         description = form.description.data

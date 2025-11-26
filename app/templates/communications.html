@@ -54,53 +54,183 @@
       border-color: rgba(148, 163, 184, 0.35);
     }
 
-    .thread-header {
-      padding: 1rem 1.5rem;
-      background: rgba(148, 163, 184, 0.05);
-      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    .tree-root {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 1rem;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tree-node {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tree-node-header {
+      padding: 1rem 1.5rem;
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
       cursor: pointer;
       user-select: none;
       transition: background-color 0.2s ease;
     }
-    [data-theme="dark"] .thread-header {
-      background: rgba(148, 163, 184, 0.08);
-      border-bottom-color: rgba(148, 163, 184, 0.35);
-    }
 
-    .thread-header:hover {
+    .tree-node-header:hover {
       background: rgba(148, 163, 184, 0.08);
     }
-    [data-theme="dark"] .thread-header:hover {
-      background: rgba(148, 163, 184, 0.12);
+    [data-theme="dark"] .tree-node-header:hover {
+      background: rgba(148, 163, 184, 0.1);
     }
 
-    .thread-toggle {
+    .tree-node-toggle {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 1.5rem;
-      height: 1.5rem;
-      font-size: 0.9rem;
+      width: 1.25rem;
+      height: 1.25rem;
+      font-size: 0.8rem;
       transition: transform 0.2s ease;
       flex-shrink: 0;
+      font-weight: bold;
+      color: #64748b;
+    }
+    [data-theme="dark"] .tree-node-toggle {
+      color: rgba(148, 163, 184, 0.75);
     }
 
-    .thread-toggle.collapsed {
+    .tree-node-toggle.collapsed {
       transform: rotate(-90deg);
     }
 
-    .thread-content {
+    .tree-node-summary {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .tree-node-title {
+      font-weight: 600;
+      font-size: 1rem;
+      word-break: break-word;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .tree-node-title {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .tree-node-meta {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-left: auto;
+    }
+    [data-theme="dark"] .tree-node-meta {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-node-children {
+      display: flex;
+      flex-direction: column;
       max-height: 10000px;
       overflow: hidden;
       transition: max-height 0.4s ease, opacity 0.3s ease;
       opacity: 1;
+      margin-left: 2rem;
+      border-left: 2px solid rgba(148, 163, 184, 0.2);
+      padding-left: 0;
+    }
+    [data-theme="dark"] .tree-node-children {
+      border-left-color: rgba(148, 163, 184, 0.3);
     }
 
-    .thread-content.collapsed {
+    .tree-node-children.collapsed {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .tree-child-node {
+      display: flex;
+      flex-direction: column;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .tree-child-node {
+      border-bottom-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .tree-child-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+      padding: 0.25rem;
+      margin: -0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .tree-child-header:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+    [data-theme="dark"] .tree-child-header:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    .tree-child-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1rem;
+      height: 1rem;
+      font-size: 0.7rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+      color: #64748b;
+    }
+    [data-theme="dark"] .tree-child-toggle {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-child-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .tree-child-author {
+      font-weight: 700;
+      color: var(--pico-color-slate-900);
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .tree-child-author {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .tree-child-timestamp {
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+    [data-theme="dark"] .tree-child-timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-child-content {
+      max-height: 10000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+      opacity: 1;
+      margin-left: 1.75rem;
+    }
+
+    .tree-child-content.collapsed {
       max-height: 0;
       opacity: 0;
       overflow: hidden;
@@ -880,101 +1010,107 @@ function getStatusClass(status) {
   return normalized;
 }
 
-// Toggle thread expand/collapse
-function toggleThread(event) {
+// Toggle tree node expand/collapse
+function toggleTreeNode(event) {
   event.preventDefault();
   const header = event.currentTarget;
-  const thread = header.closest('.communication-thread');
-  const content = thread.querySelector('.thread-content');
-  const toggle = header.querySelector('.thread-toggle');
+  const node = header.closest('.tree-node');
+  const children = node.querySelector('.tree-node-children');
+  const toggle = header.querySelector('.tree-node-toggle');
+
+  children.classList.toggle('collapsed');
+  toggle.classList.toggle('collapsed');
+}
+
+// Toggle individual comment expand/collapse
+function toggleCommentNode(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const header = event.currentTarget;
+  const content = header.nextElementSibling;
+  const toggle = header.querySelector('.tree-child-toggle');
 
   content.classList.toggle('collapsed');
   toggle.classList.toggle('collapsed');
 }
 
-// Render a single thread (email/discussion thread style)
+// Render a single thread as a tree view
 function renderThread(thread) {
   const commentsHtml = thread.comments.map((comment, index) => `
-    <li class="comment-item">
-      <div class="comment-header">
-        <span class="comment-author">
+    <div class="tree-child-node">
+      <div class="tree-child-header" onclick="toggleCommentNode(event)">
+        <span class="tree-child-toggle collapsed">▼</span>
+        <span class="tree-child-author">
           ${escapeHtml(comment.author.display_name || comment.author.remote_name)}
+          ${comment.author.local_user_name ? `<span style="font-weight: normal; color: #64748b;">(${escapeHtml(comment.author.remote_name)})</span>` : ''}
         </span>
-        ${comment.author.local_user_name ? `
-          <span class="comment-author-remote">
-            (@${escapeHtml(comment.author.remote_name)})
-          </span>
-        ` : ''}
-        <span class="comment-timestamp">${formatTimestamp(comment.created_at)}</span>
+        <span class="tree-child-timestamp">${formatTimestamp(comment.created_at)}</span>
       </div>
-      <div class="comment-body">${comment.body_html || escapeHtml(comment.body)}</div>
-      <div class="comment-actions">
-        <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--md-primary);">
-          View on ${thread.provider_name} ↗
-        </a>
+      <div class="tree-child-content collapsed">
+        <div class="comment-body" style="margin-bottom: 0.75rem;">
+          ${comment.body_html || escapeHtml(comment.body)}
+        </div>
+        <div class="comment-actions">
+          <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--md-primary);">
+            View on ${thread.provider_name} ↗
+          </a>
+        </div>
       </div>
-    </li>
+    </div>
   `).join('');
 
   return `
     <article class="communication-thread">
-      <!-- Thread header - clickable to expand/collapse -->
-      <div class="thread-header" onclick="toggleThread(event)">
-        <div class="thread-header-main">
-          <span class="thread-toggle collapsed">▼</span>
-          <div style="flex: 1; min-width: 0;">
-            <h2 class="thread-title">
-              ${escapeHtml(thread.issue_title)}
-            </h2>
-            <div class="thread-meta">
-              <span class="provider-badge ${thread.provider}">
-                ${getProviderIcon(thread.provider)} ${thread.provider_name}
-              </span>
-              <span class="status-badge ${getStatusClass(thread.issue_status)}">
-                ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
-              </span>
-              <span>📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
-              ${thread.issue_assignee ? `<span>👤 Assigned to ${escapeHtml(thread.issue_assignee)}</span>` : ''}
-              <span class="thread-reply-count">💬 ${thread.comment_count}</span>
-              <span style="margin-left: auto; font-size: 0.8rem;">Issue #${escapeHtml(thread.issue_external_id)}</span>
+      <div class="tree-root">
+        <div class="tree-node">
+          <!-- Issue node header (clickable to expand) -->
+          <div class="tree-node-header" onclick="toggleTreeNode(event)">
+            <span class="tree-node-toggle collapsed">▼</span>
+            <div class="tree-node-summary">
+              <h2 class="tree-node-title">
+                ${escapeHtml(thread.issue_title)}
+              </h2>
+              <div class="tree-node-meta">
+                <span class="provider-badge ${thread.provider}">
+                  ${getProviderIcon(thread.provider)} ${thread.provider_name}
+                </span>
+                <span class="status-badge ${getStatusClass(thread.issue_status)}">
+                  ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
+                </span>
+                <span style="font-size: 0.75rem;">📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
+                ${thread.issue_assignee ? `<span style="font-size: 0.75rem;">👤 ${escapeHtml(thread.issue_assignee)}</span>` : ''}
+                <span style="font-weight: 600; color: var(--md-primary); font-size: 0.8rem;">💬 ${thread.comment_count}</span>
+              </div>
             </div>
+            <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="event.stopPropagation()">
+              Open
+            </a>
           </div>
-        </div>
-        <div onclick="event.stopPropagation()">
-          <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button">
-            Open Issue
-          </a>
-        </div>
-      </div>
 
-      <!-- Collapsible thread content -->
-      <div class="thread-content collapsed">
-        <!-- Issue as first message -->
-        <div class="issue-post">
-          <div class="issue-post__body">
-            ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
-          </div>
-          <div style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
-            Created ${formatTimestamp(thread.created_at)}
-          </div>
-        </div>
+          <!-- Collapsible tree children (issue description + comments) -->
+          <div class="tree-node-children collapsed">
+            <!-- Issue description -->
+            <div class="issue-post">
+              <div class="issue-post__body">
+                ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
+              </div>
+              <div style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
+                Created ${formatTimestamp(thread.created_at)}
+              </div>
+            </div>
 
-        <!-- Comments as follow-up messages -->
-        ${thread.comment_count > 0 ? `
-          <div class="comments-section">
-            <ul class="comments-list">
-              ${commentsHtml}
-            </ul>
-          </div>
-        ` : ``}
+            <!-- Comments as child nodes -->
+            ${thread.comment_count > 0 ? commentsHtml : ''}
 
-        <!-- Reply form at bottom -->
-        <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25);">
-          <textarea placeholder="Add your reply to this thread..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
-          <div class="reply-form-actions">
-            <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
-              Post Reply
-            </button>
+            <!-- Reply form at bottom -->
+            <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25); margin: 1rem 0 0 0;">
+              <textarea placeholder="Add your reply..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
+              <div class="reply-form-actions">
+                <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
+                  Post Reply
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

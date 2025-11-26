@@ -87,9 +87,11 @@
         integrationMessage.style.display = 'none';
 
         try {
-          const response = await fetch(`/api/v1/projects/${projectId}/integrations`);
+          const response = await fetch(`/api/v1/projects/${projectId}/integrations`, {
+            credentials: 'include'
+          });
           if (!response.ok) {
-            throw new Error('Failed to load integrations');
+            throw new Error(`Failed to load integrations (${response.status})`);
           }
 
           const data = await response.json();

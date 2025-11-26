@@ -1594,15 +1594,15 @@ async function loadThreads(reset = true) {
       threads = threads.filter(t => t.provider === providerFilter);
     }
 
-    // Client-side status filter
+    // Client-side status filter (using normalized status_key)
     const statusFilter = document.getElementById('statusFilter').value;
     if (statusFilter) {
       threads = threads.filter(t => {
-        const status = (t.issue_status || '').toLowerCase();
+        const statusKey = (t.issue_status_key || '').toLowerCase();
         if (statusFilter === 'open') {
-          return status === 'open' || status === 'in progress' || status === 'in_progress';
+          return statusKey === 'open';
         } else if (statusFilter === 'closed') {
-          return status === 'closed' || status === 'resolved';
+          return statusKey === 'closed';
         }
         return true;
       });

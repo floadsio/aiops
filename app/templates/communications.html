@@ -1588,16 +1588,18 @@ async function loadThreads(reset = true) {
 
     let threads = data.threads;
 
-    // Deduplicate threads by external_id to avoid showing same issue multiple times
-    const seenIssues = new Set();
-    threads = threads.filter(t => {
+    // Deduplicate threads by external_id, keeping the one with the most comments
+    const issueMap = new Map();
+    threads.forEach(t => {
       const issueKey = `${t.issue_external_id}-${t.provider}`;
-      if (seenIssues.has(issueKey)) {
-        return false;
+      const existing = issueMap.get(issueKey);
+
+      // Keep the thread with more comments
+      if (!existing || t.comment_count > existing.comment_count) {
+        issueMap.set(issueKey, t);
       }
-      seenIssues.add(issueKey);
-      return true;
     });
+    threads = Array.from(issueMap.values());
 
     // Client-side provider filter
     const providerFilter = document.getElementById('providerFilter').value;

@@ -93,8 +93,30 @@ def _get_issue_body(issue: ExternalIssue) -> tuple[str, str]:
     body = ""
 
     if issue.raw_payload and isinstance(issue.raw_payload, dict):
-        # GitHub, GitLab use "body", Jira uses "description"
-        body = issue.raw_payload.get("body") or issue.raw_payload.get("description") or ""
+        # GitHub, GitLab use "body" at top level
+        body = issue.raw_payload.get("body")
+
+        # GitLab/general description field
+        if not body:
+            body = issue.raw_payload.get("description")
+
+        # Jira stores it nested under fields.description
+        if not body and "fields" in issue.raw_payload:
+            fields = issue.raw_payload.get("fields", {})
+            if isinstance(fields, dict):
+                body = fields.get("description")
+
+        # Alternative field names
+        if not body:
+            body = issue.raw_payload.get("body_text")
+        if not body:
+            body = issue.raw_payload.get("summary")
+
+        # Convert to string if not already (some APIs return None/null)
+        if body and body != "null":
+            body = str(body).strip() if body else ""
+        else:
+            body = ""
 
     if not body:
         return "", ""

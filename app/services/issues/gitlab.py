@@ -113,6 +113,15 @@ def fetch_issues(
         external_id = getattr(issue, "iid", None)
         if not external_id:
             continue
+
+        # Ensure raw payload includes description
+        raw_payload = issue.attributes if hasattr(issue, "attributes") else {}
+        if isinstance(raw_payload, dict) and "description" not in raw_payload:
+            # Explicitly include description if not in attributes
+            description = getattr(issue, "description", None)
+            if description:
+                raw_payload = {**raw_payload, "description": description}
+
         payloads.append(
             IssuePayload(
                 external_id=str(external_id),
@@ -122,7 +131,7 @@ def fetch_issues(
                 url=getattr(issue, "web_url", None),
                 labels=[str(label) for label in getattr(issue, "labels", [])],
                 external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
-                raw=issue.attributes if hasattr(issue, "attributes") else {},
+                raw=raw_payload,
                 comments=_collect_issue_comments(issue),
             )
         )

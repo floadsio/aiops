@@ -1036,17 +1036,18 @@ function toggleCommentNode(event) {
 
 // Render a single thread as a tree view
 function renderThread(thread) {
+  // For Reddit-like view, render comments expanded by default
   const commentsHtml = thread.comments.map((comment, index) => `
     <div class="tree-child-node">
       <div class="tree-child-header" onclick="toggleCommentNode(event)">
-        <span class="tree-child-toggle collapsed">▼</span>
+        <span class="tree-child-toggle">▼</span>
         <span class="tree-child-author">
           ${escapeHtml(comment.author.display_name || comment.author.remote_name)}
           ${comment.author.local_user_name ? `<span style="font-weight: normal; color: #64748b;">(${escapeHtml(comment.author.remote_name)})</span>` : ''}
         </span>
         <span class="tree-child-timestamp">${formatTimestamp(comment.created_at)}</span>
       </div>
-      <div class="tree-child-content collapsed">
+      <div class="tree-child-content">
         <div class="comment-body" style="margin-bottom: 0.75rem;">
           ${comment.body_html || escapeHtml(comment.body)}
         </div>
@@ -1065,7 +1066,7 @@ function renderThread(thread) {
         <div class="tree-node">
           <!-- Issue node header (clickable to expand) -->
           <div class="tree-node-header" onclick="toggleTreeNode(event)">
-            <span class="tree-node-toggle collapsed">▼</span>
+            <span class="tree-node-toggle">▼</span>
             <div class="tree-node-summary">
               <h2 class="tree-node-title">
                 ${escapeHtml(thread.issue_title)}
@@ -1087,8 +1088,8 @@ function renderThread(thread) {
             </a>
           </div>
 
-          <!-- Collapsible tree children (issue description + comments) -->
-          <div class="tree-node-children collapsed">
+          <!-- Collapsible tree children (issue description + comments) - NOT collapsed by default for Reddit-like view -->
+          <div class="tree-node-children">
             <!-- Issue description -->
             <div class="issue-post">
               <div class="issue-post__body">
@@ -1099,8 +1100,15 @@ function renderThread(thread) {
               </div>
             </div>
 
-            <!-- Comments as child nodes -->
-            ${thread.comment_count > 0 ? commentsHtml : ''}
+            <!-- Comments section header -->
+            ${thread.comment_count > 0 ? `<div style="padding: 0 1.5rem 0.75rem 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25); font-weight: 600; color: #64748b; font-size: 0.9rem;">
+              ${thread.comment_count} ${thread.comment_count === 1 ? 'reply' : 'replies'}
+            </div>` : ''}
+
+            <!-- Comments as child nodes - expanded by default for Reddit-like view -->
+            <div style="display: flex; flex-direction: column;">
+              ${thread.comment_count > 0 ? commentsHtml : ''}
+            </div>
 
             <!-- Reply form at bottom -->
             <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25); margin: 1rem 0 0 0;">

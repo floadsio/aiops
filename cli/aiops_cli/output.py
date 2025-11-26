@@ -101,18 +101,30 @@ def _format_table(
                 col_name = col.replace("_", " ").title()
 
                 # Determine column configuration based on name
-                if col in ("id", "external_id", "project_id", "tenant_id", "user_id", "integration_id"):
-                    # Numeric IDs - narrow, no wrap
-                    table.add_column(col_name, style="cyan", no_wrap=True, width=8)
-                elif col in ("status", "provider", "tool", "pinned", "tenant_name", "project_name"):
-                    # Status/enum fields and names - moderate width, no wrap
-                    table.add_column(col_name, style="cyan", no_wrap=True, width=12)
+                if col in ("id", "external_id"):
+                    # Short numeric IDs - minimal width
+                    table.add_column(col_name, style="cyan", no_wrap=True, min_width=6)
+                elif col in ("project_id", "tenant_id", "user_id", "integration_id"):
+                    # Other numeric IDs - narrow, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, min_width=8)
+                elif col in ("status", "provider", "tool", "pinned"):
+                    # Status/enum fields - moderate width, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, min_width=8)
+                elif col in ("tenant_name", "project_name"):
+                    # Entity names - moderate width, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, min_width=10)
                 elif col in ("started_at",):
                     # Timestamps - moderate width, no wrap
-                    table.add_column(col_name, style="cyan", no_wrap=True, width=20)
+                    table.add_column(col_name, style="cyan", no_wrap=True, min_width=20)
+                elif col == "title":
+                    # Title field - expand to fill available space with wrapping
+                    table.add_column(col_name, style="cyan", min_width=30)
+                elif col == "assignee":
+                    # Assignee field - moderate width, no wrap
+                    table.add_column(col_name, style="cyan", no_wrap=True, min_width=15)
                 else:
-                    # Text fields (title, description, etc.) - wrap to fit terminal
-                    table.add_column(col_name, style="cyan", overflow="fold")
+                    # Text fields (description, etc.) - wrap to fit terminal
+                    table.add_column(col_name, style="cyan")
 
             # Add rows
             for idx, item in enumerate(data):

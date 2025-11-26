@@ -394,7 +394,8 @@ def issues_list(
             limit=limit,
         )
         # Show only the most relevant columns for list view
-        columns = ["id", "external_id", "title", "status", "provider", "tenant_name", "project_name", "assignee"]
+        # Title first to ensure it renders with priority
+        columns = ["id", "external_id", "title", "status", "assignee"]
         format_output(issues_data, output_format, console, title="Issues", columns=columns)
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")

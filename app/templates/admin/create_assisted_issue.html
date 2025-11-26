@@ -64,24 +64,13 @@
     }
   </style>
   <script>
-    console.log('Script loaded and executing');
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOMContentLoaded fired');
       const projectSelect = document.getElementById('{{ form.project_id.id }}');
       const integrationSelect = document.getElementById('{{ form.integration_id.id }}');
       const integrationMessage = document.getElementById('integration-message');
       const submitBtn = document.getElementById('submit-btn');
 
-      console.log('Form elements found:', {
-        projectSelect: !!projectSelect,
-        integrationSelect: !!integrationSelect,
-        integrationMessage: !!integrationMessage,
-        submitBtn: !!submitBtn
-      });
-
       async function loadIntegrations(projectId) {
-        console.log('loadIntegrations called with projectId:', projectId);
-
         if (!projectId) {
           integrationSelect.innerHTML = '<option value="">Select a project first</option>';
           integrationSelect.disabled = true;
@@ -95,18 +84,14 @@
         integrationMessage.style.display = 'none';
 
         try {
-          console.log('Fetching:', `/api/v1/projects/${projectId}/integrations`);
           const response = await fetch(`/api/v1/projects/${projectId}/integrations`, {
             credentials: 'include'
           });
-          console.log('Response status:', response.status);
-
           if (!response.ok) {
             throw new Error(`Failed to load integrations (${response.status})`);
           }
 
           const data = await response.json();
-          console.log('Integrations data:', data);
           const integrations = data.integrations || [];
 
           if (integrations.length === 0) {
@@ -145,9 +130,7 @@
       }
 
       // Load integrations when project changes
-      console.log('Attaching change listener to projectSelect');
       projectSelect.addEventListener('change', function() {
-        console.log('Project select changed to:', this.value);
         loadIntegrations(this.value);
       });
 

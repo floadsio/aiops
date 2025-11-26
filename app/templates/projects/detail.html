@@ -68,6 +68,128 @@
     [data-theme="dark"] .git-history-list small {
       color: rgba(226, 232, 240, 0.7);
     }
+    /* Issue comments styling */
+    .issue-comment-thread {
+      margin: 1.5rem 0;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 0.5rem;
+      padding: 0.5rem 0;
+    }
+    [data-theme="dark"] .issue-comment-thread {
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+    .issue-comment-thread summary {
+      cursor: pointer;
+      padding: 0.5rem 1rem;
+      font-weight: 600;
+      user-select: none;
+    }
+    .issue-comment-thread summary:hover {
+      background: rgba(15, 23, 42, 0.05);
+    }
+    [data-theme="dark"] .issue-comment-thread summary:hover {
+      background: rgba(15, 23, 42, 0.15);
+    }
+    .issue-comments {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .issue-comments li {
+      padding: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    [data-theme="dark"] .issue-comments li {
+      border-top-color: rgba(148, 163, 184, 0.35);
+    }
+    .issue-comments li:first-child {
+      border-top: none;
+    }
+    .issue-comment__header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+    }
+    .issue-comment__author {
+      font-weight: 600;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .issue-comment__author {
+      color: rgba(226, 232, 240, 0.95);
+    }
+    .issue-comment__timestamp {
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+    [data-theme="dark"] .issue-comment__timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+    .issue-comment__body {
+      line-height: 1.6;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    [data-theme="dark"] .issue-comment__body {
+      color: rgba(226, 232, 240, 0.85);
+    }
+    .issue-comment__body p {
+      margin: 0.5rem 0;
+    }
+    .issue-comment__body p:first-child {
+      margin-top: 0;
+    }
+    .issue-comment__body p:last-child {
+      margin-bottom: 0;
+    }
+    .issue-comment__body pre {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+    }
+    [data-theme="dark"] .issue-comment__body pre {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+    .issue-comment__body code {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+    [data-theme="dark"] .issue-comment__body code {
+      background: rgba(148, 163, 184, 0.2);
+    }
+    .issue-comment__body blockquote {
+      border-left: 3px solid rgba(148, 163, 184, 0.5);
+      padding-left: 1rem;
+      margin-left: 0;
+      color: #64748b;
+      font-style: italic;
+    }
+    [data-theme="dark"] .issue-comment__body blockquote {
+      border-left-color: rgba(148, 163, 184, 0.6);
+      color: rgba(148, 163, 184, 0.8);
+    }
+    .jira-mention {
+      background: rgba(59, 130, 246, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.3rem;
+      font-weight: 500;
+      color: var(--pico-color-blue-600);
+    }
+    [data-theme="dark"] .jira-mention {
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--pico-color-blue-300);
+    }
   </style>
 {% endblock %}
 {% block content %}
@@ -386,21 +508,23 @@
                     <ul class="issue-comments">
                       {% for comment in issue.comments %}
                         <li>
-                          <small>
-                            {% if comment.author %}
-                              {{ comment.author }}
-                            {% else %}
-                              <span class="text-muted">Unknown author</span>
-                            {% endif %}
+                          <div class="issue-comment__header">
+                            <span class="issue-comment__author">
+                              {% if comment.author %}
+                                {{ comment.author }}
+                              {% else %}
+                                <span class="text-muted">Unknown author</span>
+                              {% endif %}
+                            </span>
                             {% if comment.created_display %}
-                              • {{ comment.created_display }}
+                              <span class="issue-comment__timestamp">{{ comment.created_display }}</span>
                             {% endif %}
                             {% if comment.url %}
-                              • <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>
+                              <a href="{{ comment.url }}" target="_blank" rel="noopener" style="font-size: 0.85rem;">View</a>
                             {% endif %}
-                          </small>
+                          </div>
                           <div class="issue-comment__body">
-                            {{ comment.body|e|replace('\n', '<br />')|safe }}
+                            {{ comment.body|render_issue_content }}
                           </div>
                         </li>
                       {% endfor %}

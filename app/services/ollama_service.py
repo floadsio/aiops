@@ -115,10 +115,11 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         # If standard parsing fails, try multiple fixes for Ollama output issues
 
-        # Step 1: Remove literal \n escape sequences that appear after structural characters
-        # Ollama sometimes outputs {\n "key": or ,\n "key": instead of proper JSON
+        # Step 1: Remove actual newlines that appear after structural characters
+        # Ollama sometimes outputs {\n "key": or ,\n "key": (with actual newline chars) instead of proper JSON
         # Use simple string replacement to avoid breaking escaped sequences in string content
-        fixed_json = json_str.replace(r'{\n ', '{ ').replace(r',\n ', ', ')
+        # NOTE: Do NOT use r'' raw string prefix - we need to match actual newline characters, not literal \n
+        fixed_json = json_str.replace('{\n ', '{ ').replace(',\n ', ', ')
 
         try:
             return json.loads(fixed_json)

@@ -203,16 +203,13 @@ def get_communications():
             ).selectinload(Project.tenant),
         )
 
-        # Apply filters
-        if tenant_id:
-            query = query.join(ProjectIntegration).join(Project).filter(
-                Project.tenant_id == tenant_id
-            )
-
-        if project_id:
-            query = query.join(ProjectIntegration).filter(
-                ProjectIntegration.project_id == project_id
-            )
+        # Apply filters - handle joins to avoid duplicates
+        if tenant_id or project_id:
+            query = query.join(ProjectIntegration)
+            if tenant_id:
+                query = query.join(Project).filter(Project.tenant_id == tenant_id)
+            if project_id:
+                query = query.filter(ProjectIntegration.project_id == project_id)
 
         # Only include issues with comments
         query = query.filter(func.json_array_length(ExternalIssue.comments) > 0)
@@ -313,16 +310,13 @@ def get_communication_threads():
             ).selectinload(Project.tenant),
         )
 
-        # Apply filters
-        if tenant_id:
-            query = query.join(ProjectIntegration).join(Project).filter(
-                Project.tenant_id == tenant_id
-            )
-
-        if project_id:
-            query = query.join(ProjectIntegration).filter(
-                ProjectIntegration.project_id == project_id
-            )
+        # Apply filters - handle joins to avoid duplicates
+        if tenant_id or project_id:
+            query = query.join(ProjectIntegration)
+            if tenant_id:
+                query = query.join(Project).filter(Project.tenant_id == tenant_id)
+            if project_id:
+                query = query.filter(ProjectIntegration.project_id == project_id)
 
         # Only include issues with comments
         query = query.filter(func.json_array_length(ExternalIssue.comments) > 0)

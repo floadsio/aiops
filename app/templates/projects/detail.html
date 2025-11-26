@@ -329,7 +329,28 @@
     .issue-comment {
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
+      gap: 0.75rem;
+      background: rgba(241, 245, 249, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 0.5rem;
+      padding: 1rem;
+      margin-bottom: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .issue-comment:hover {
+      background: rgba(241, 245, 249, 0.8);
+      border-color: rgba(148, 163, 184, 0.5);
+    }
+
+    [data-theme="dark"] .issue-comment {
+      background: rgba(30, 41, 59, 0.5);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    [data-theme="dark"] .issue-comment:hover {
+      background: rgba(30, 41, 59, 0.7);
+      border-color: rgba(148, 163, 184, 0.5);
     }
 
     .issue-comment__header {
@@ -338,22 +359,25 @@
       gap: 0.75rem;
       flex-wrap: wrap;
       font-size: 0.9rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      padding-bottom: 0.75rem;
     }
 
     .issue-comment__author {
       font-weight: 600;
-      color: var(--pico-color-slate-900);
+      color: var(--pico-color-blue-600);
       display: inline-block;
     }
 
     [data-theme="dark"] .issue-comment__author {
-      color: rgba(226, 232, 240, 0.95);
+      color: var(--pico-color-blue-300);
     }
 
     .issue-comment__timestamp {
       color: #64748b;
       font-size: 0.85rem;
       display: inline-block;
+      margin-left: auto;
     }
 
     [data-theme="dark"] .issue-comment__timestamp {
@@ -368,6 +392,7 @@
       align-items: center;
       opacity: 0.7;
       transition: opacity 0.2s;
+      margin-left: 0.5rem;
     }
 
     .issue-comment__link:hover {
@@ -379,11 +404,61 @@
       color: var(--pico-color-slate-800);
       word-wrap: break-word;
       overflow-wrap: break-word;
-      margin-left: 0.5rem;
     }
 
     [data-theme="dark"] .issue-comment__body {
       color: rgba(226, 232, 240, 0.85);
+    }
+
+    .issue-comment__reply-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: var(--pico-color-blue-600);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    [data-theme="dark"] .issue-comment__reply-toggle {
+      color: var(--pico-color-blue-300);
+    }
+
+    .issue-comment__reply-form {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: rgba(59, 130, 246, 0.08);
+      border-left: 3px solid rgba(59, 130, 246, 0.5);
+      border-radius: 0.3rem;
+      display: none;
+    }
+
+    .issue-comment__reply-form.active {
+      display: block;
+    }
+
+    [data-theme="dark"] .issue-comment__reply-form {
+      background: rgba(59, 130, 246, 0.12);
+      border-left-color: rgba(59, 130, 246, 0.6);
+    }
+
+    .issue-comment__reply-form label {
+      margin-bottom: 0.5rem;
+      display: block;
+      font-size: 0.85rem;
+    }
+
+    .issue-comment__reply-form textarea {
+      margin-bottom: 0.5rem;
+      font-family: monospace;
+      font-size: 0.9rem;
+      width: 100%;
+    }
+
+    .issue-comment__reply-form button {
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
     }
 
     .issue-comment__body p {
@@ -806,31 +881,53 @@
                                 <small class="issue-comment__timestamp">{{ comment.created_display }}</small>
                               {% endif %}
                               {% if comment.url %}
-                                <a href="{{ comment.url }}" target="_blank" rel="noopener" class="issue-comment__link">↗</a>
+                                <a href="{{ comment.url }}" target="_blank" rel="noopener" class="issue-comment__link" title="View in {{ group.provider_display }}">↗</a>
                               {% endif %}
                             </div>
                             <div class="issue-comment__body">
                               {{ comment.body|render_issue_content }}
                             </div>
+                            <!-- Reply to this comment -->
+                            <div class="issue-comment__reply-toggle" onclick="toggleReplyForm(this)">
+                              💬 Reply to {{ comment.author or 'comment' }}
+                            </div>
+                            <form method="post" class="issue-comment__reply-form" action="{{ url_for('projects.comment_issue', project_id=project.id, issue_id=issue.id) }}">
+                              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                              <label for="reply-to-{{ comment.id or loop.index }}">
+                                <small>Reply to {{ comment.author or 'this comment' }}:</small>
+                              </label>
+                              <textarea
+                                id="reply-to-{{ comment.id or loop.index }}"
+                                name="comment"
+                                placeholder="Type your reply... (markdown supported)"
+                                rows="2"
+                              ></textarea>
+                              <div style="display: flex; gap: 0.5rem;">
+                                <button type="submit" class="secondary">Post Reply</button>
+                                <button type="button" class="secondary outline" onclick="toggleReplyForm(this.closest('.issue-comment').querySelector('.issue-comment__reply-toggle'))" style="padding: 0.35rem 0.7rem;">Cancel</button>
+                              </div>
+                            </form>
                           </div>
                         {% endfor %}
                       </div>
 
-                      <!-- Reply Form -->
-                      <form method="post" class="issue-comment__reply" action="{{ url_for('projects.comment_issue', project_id=project.id, issue_id=issue.id) }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                        <label for="reply-{{ issue.id }}">
-                          <small>Add your reply:</small>
-                        </label>
-                        <textarea
-                          id="reply-{{ issue.id }}"
-                          name="comment"
-                          placeholder="Type your reply here... (markdown supported)"
-                          rows="3"
-                          style="font-family: monospace; font-size: 0.9rem;"
-                        ></textarea>
-                        <button type="submit" class="secondary">Post Reply</button>
-                      </form>
+                      <!-- General Reply at Bottom -->
+                      <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(148, 163, 184, 0.25);">
+                        <form method="post" class="issue-comment__reply" action="{{ url_for('projects.comment_issue', project_id=project.id, issue_id=issue.id) }}">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                          <label for="reply-general-{{ issue.id }}">
+                            <small><strong>Add a general comment:</strong></small>
+                          </label>
+                          <textarea
+                            id="reply-general-{{ issue.id }}"
+                            name="comment"
+                            placeholder="Type your comment here... (markdown supported)"
+                            rows="3"
+                            style="font-family: monospace; font-size: 0.9rem;"
+                          ></textarea>
+                          <button type="submit" class="secondary">Post Comment</button>
+                        </form>
+                      </div>
                     </details>
                   {% else %}
                     <!-- Reply Form for Issues Without Comments -->
@@ -983,6 +1080,22 @@
 
 {% block extra_body %}
 <script>
+  // Toggle reply form visibility
+  function toggleReplyForm(toggle) {
+    const issueComment = toggle.closest('.issue-comment');
+    const replyForm = issueComment.querySelector('.issue-comment__reply-form');
+    if (!replyForm) return;
+
+    replyForm.classList.toggle('active');
+    if (replyForm.classList.contains('active')) {
+      toggle.textContent = toggle.textContent.replace('💬 Reply to', '✕ Close reply to');
+      const textarea = replyForm.querySelector('textarea');
+      if (textarea) textarea.focus();
+    } else {
+      toggle.textContent = toggle.textContent.replace('✕ Close reply to', '💬 Reply to');
+    }
+  }
+
   (function () {
     const codexButtons = document.querySelectorAll('.start-codex-session');
     const populateButtons = document.querySelectorAll('.populate-agents-md');

@@ -1732,25 +1732,33 @@ async function loadFilters() {
 function updateProjectsForTenant() {
   const tenantId = document.getElementById('tenantFilter').value;
   const projectSelect = document.getElementById('projectFilter');
-  const selectedValue = projectSelect.value;
 
-  // Show/hide projects based on tenant selection
-  Array.from(projectSelect.options).forEach((option, index) => {
-    if (index === 0) {
-      // Always show "All Projects" option
-      option.style.display = '';
-    } else if (!tenantId) {
-      // If no tenant selected, show all projects
-      option.style.display = '';
-    } else {
-      // Show only projects from selected tenant
+  // If tenant is selected, only show projects from that tenant
+  if (tenantId) {
+    // Hide all projects that don't belong to selected tenant
+    Array.from(projectSelect.options).forEach((option) => {
       const projectTenantId = option.dataset.tenantId;
-      option.style.display = projectTenantId === tenantId ? '' : 'none';
-    }
-  });
+      if (option.value === '') {
+        // Always show "All Projects" option
+        option.style.display = '';
+      } else if (projectTenantId === tenantId) {
+        // Show this project (belongs to selected tenant)
+        option.style.display = '';
+      } else {
+        // Hide this project (belongs to different tenant)
+        option.style.display = 'none';
+      }
+    });
+  } else {
+    // No tenant selected - show all projects
+    Array.from(projectSelect.options).forEach((option) => {
+      option.style.display = '';
+    });
+  }
 
   // Reset project selection if current selection is hidden
-  if (projectSelect.value && projectSelect.options[projectSelect.selectedIndex].style.display === 'none') {
+  const currentOption = projectSelect.options[projectSelect.selectedIndex];
+  if (currentOption && currentOption.style.display === 'none') {
     projectSelect.value = '';
   }
 }

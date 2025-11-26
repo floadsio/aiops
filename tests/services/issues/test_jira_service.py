@@ -28,6 +28,21 @@ def _install_fake_jira(monkeypatch, jira_class):
 def test_fetch_issues_uses_jira_client(monkeypatch):
     captured: Dict[str, Any] = {}
 
+    class FakeComment:
+        def __init__(self, comment_id: str, author_name: str, body: str, created: str):
+            self.id = comment_id
+            self.author = SimpleNamespace(displayName=author_name)
+            self.body = body
+            self.created = created
+            self.updated = created
+            self.raw = {
+                "id": comment_id,
+                "author": {"displayName": author_name},
+                "body": body,
+                "created": created,
+                "updated": created,
+            }
+
     class FakeJIRA:
         def __init__(self, server: str, basic_auth: tuple[str, str], timeout: float):
             captured["server"] = server
@@ -66,6 +81,10 @@ def test_fetch_issues_uses_jira_client(monkeypatch):
                     }
                 ]
             }
+
+        def comments(self, issue_key: str) -> List[Any]:
+            captured["comments_fetched_for"] = issue_key
+            return []
 
         def close(self):
             captured["closed"] = True
@@ -108,6 +127,9 @@ def test_fetch_issues_with_since(monkeypatch):
         def search_issues(self, jql_str: str, **kwargs: Any) -> Dict[str, Any]:
             captured["jql"] = jql_str
             return {"issues": []}
+
+        def comments(self, issue_key: str) -> List[Any]:
+            return []
 
         def close(self):
             pass
@@ -192,6 +214,9 @@ def test_create_issue_uses_jira_client(monkeypatch):
                 },
             )
 
+        def comments(self, issue_key: str) -> List[Any]:
+            return []
+
         def close(self):
             captured["closed"] = True
 
@@ -270,6 +295,9 @@ def test_close_issue_uses_transition(monkeypatch):
                 }
             )
 
+        def comments(self, issue_key: str) -> List[Any]:
+            return []
+
         def close(self):
             captured["closed"] = True
 
@@ -299,6 +327,9 @@ def test_close_issue_requires_transition(monkeypatch):
 
         def transitions(self, issue_key: str) -> List[Dict[str, Any]]:
             return [{"id": "10", "name": "Review"}]
+
+        def comments(self, issue_key: str) -> List[Any]:
+            return []
 
         def close(self):
             pass
@@ -349,6 +380,9 @@ def test_create_issue_fetches_when_raw_missing(monkeypatch):
                 },
             )
 
+        def comments(self, issue_key: str) -> List[Any]:
+            return []
+
         def close(self):
             pass
 
@@ -380,6 +414,9 @@ def test_create_issue_requires_summary(monkeypatch):
         def __init__(self, *args, **kwargs):
             pass
 
+        def comments(self, issue_key: str) -> List[Any]:
+            return []
+
         def close(self):
             pass
 
@@ -399,3 +436,263 @@ def test_create_issue_requires_summary(monkeypatch):
         jira_service.create_issue(
             integration, project_integration, IssueCreateRequest(summary="")
         )
+
+
+def test_fetch_issues_includes_comments(monkeypatch):
+    """Test that comments are fetched and included in issue payload."""
+    captured: Dict[str, Any] = {}
+
+    class FakeComment:
+        def __init__(self, comment_id: str, author_name: str, body: str, created: str):
+            self.id = comment_id
+            self.author = SimpleNamespace(displayName=author_name)
+            self.body = body
+            self.created = created
+            self.updated = created
+            self.raw = {
+                "id": comment_id,
+                "author": {"displayName": author_name},
+                "body": body,
+                "created": created,
+                "updated": created,
+            }
+
+    class FakeJIRA:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def search_issues(self, jql_str: str, **kwargs: Any) -> Dict[str, Any]:
+            return {
+                "issues": [
+                    {
+                        "key": "DEVOPS-5",
+                        "fields": {
+                            "summary": "Fix bug",
+                            "status": {"name": "Open"},
+                            "assignee": None,
+                            "updated": "2024-10-01T12:34:00.000+0000",
+                            "labels": [],
+                        },
+                    }
+                ]
+            }
+
+        def comments(self, issue_key: str) -> List[Any]:
+            captured["comments_requested_for"] = issue_key
+            return [
+                FakeComment("10001", "Alice", "First comment", "2024-10-01T10:00:00.000+0000"),
+                FakeComment("10002", "Bob", "Second comment", "2024-10-01T11:00:00.000+0000"),
+            ]
+
+        def close(self):
+            pass
+
+    _install_fake_jira(monkeypatch, FakeJIRA)
+
+    integration = SimpleNamespace(
+        base_url="https://example.atlassian.net",
+        api_token="token-123",
+        settings={"username": "user@example.com"},
+    )
+    project_integration = SimpleNamespace(
+        config={},
+        external_identifier="DEVOPS",
+    )
+
+    results = jira_service.fetch_issues(integration, project_integration)
+
+    assert len(results) == 1
+    issue = results[0]
+    assert issue.external_id == "DEVOPS-5"
+    assert captured["comments_requested_for"] == "DEVOPS-5"
+    assert len(issue.comments) == 2
+    # Comments are reversed by _extract_comment_payloads
+    assert issue.comments[0].author == "Bob"
+    assert issue.comments[0].body == "Second comment"
+    assert issue.comments[1].author == "Alice"
+    assert issue.comments[1].body == "First comment"
+
+
+def test_fetch_issues_handles_comment_fetch_failure_gracefully(monkeypatch):
+    """Test that issue sync continues if comment fetch fails."""
+    captured: Dict[str, Any] = {}
+
+    class FakeJIRA:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def search_issues(self, jql_str: str, **kwargs: Any) -> Dict[str, Any]:
+            return {
+                "issues": [
+                    {
+                        "key": "DEVOPS-6",
+                        "fields": {
+                            "summary": "Test issue",
+                            "status": {"name": "Open"},
+                            "assignee": None,
+                            "updated": "2024-10-01T12:34:00.000+0000",
+                            "labels": [],
+                        },
+                    }
+                ]
+            }
+
+        def comments(self, issue_key: str) -> List[Any]:
+            captured["comments_attempted"] = True
+            raise Exception("Failed to fetch comments")
+
+        def close(self):
+            pass
+
+    _install_fake_jira(monkeypatch, FakeJIRA)
+
+    integration = SimpleNamespace(
+        base_url="https://example.atlassian.net",
+        api_token="token-123",
+        settings={"username": "user@example.com"},
+    )
+    project_integration = SimpleNamespace(
+        config={},
+        external_identifier="DEVOPS",
+    )
+
+    results = jira_service.fetch_issues(integration, project_integration)
+
+    assert captured.get("comments_attempted") is True
+    assert len(results) == 1
+    assert results[0].external_id == "DEVOPS-6"
+    assert results[0].comments == []  # No comments due to error, but issue still synced
+
+
+def test_fetch_issues_limits_comments_per_issue(monkeypatch):
+    """Test that only MAX_COMMENTS_PER_ISSUE comments are included."""
+    class FakeComment:
+        def __init__(self, comment_id: str):
+            self.id = comment_id
+            self.author = SimpleNamespace(displayName="User")
+            self.body = f"Comment {comment_id}"
+            self.created = "2024-10-01T10:00:00.000+0000"
+            self.updated = "2024-10-01T10:00:00.000+0000"
+            self.raw = {
+                "id": comment_id,
+                "author": {"displayName": "User"},
+                "body": f"Comment {comment_id}",
+                "created": "2024-10-01T10:00:00.000+0000",
+                "updated": "2024-10-01T10:00:00.000+0000",
+            }
+
+    class FakeJIRA:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def search_issues(self, jql_str: str, **kwargs: Any) -> Dict[str, Any]:
+            return {
+                "issues": [
+                    {
+                        "key": "DEVOPS-7",
+                        "fields": {
+                            "summary": "Many comments",
+                            "status": {"name": "Open"},
+                            "assignee": None,
+                            "updated": "2024-10-01T12:34:00.000+0000",
+                            "labels": [],
+                        },
+                    }
+                ]
+            }
+
+        def comments(self, issue_key: str) -> List[Any]:
+            # Return more comments than MAX_COMMENTS_PER_ISSUE
+            return [FakeComment(str(i)) for i in range(30)]
+
+        def close(self):
+            pass
+
+    _install_fake_jira(monkeypatch, FakeJIRA)
+
+    integration = SimpleNamespace(
+        base_url="https://example.atlassian.net",
+        api_token="token-123",
+        settings={"username": "user@example.com"},
+    )
+    project_integration = SimpleNamespace(
+        config={},
+        external_identifier="DEVOPS",
+    )
+
+    results = jira_service.fetch_issues(integration, project_integration)
+
+    assert len(results) == 1
+    # Should be limited to MAX_COMMENTS_PER_ISSUE
+    assert len(results[0].comments) == jira_service.MAX_COMMENTS_PER_ISSUE
+
+
+def test_create_issue_fetches_comments(monkeypatch):
+    """Test that comments are fetched when creating a new issue."""
+    captured: Dict[str, Any] = {}
+
+    class FakeComment:
+        def __init__(self, comment_id: str, body: str):
+            self.id = comment_id
+            self.author = SimpleNamespace(displayName="System")
+            self.body = body
+            self.created = "2024-10-15T12:00:00.000+0000"
+            self.updated = "2024-10-15T12:00:00.000+0000"
+            self.raw = {
+                "id": comment_id,
+                "author": {"displayName": "System"},
+                "body": body,
+                "created": "2024-10-15T12:00:00.000+0000",
+                "updated": "2024-10-15T12:00:00.000+0000",
+            }
+
+    class FakeIssue:
+        def __init__(self, key: str, raw: Dict[str, Any]):
+            self.key = key
+            self.raw = raw
+
+    class FakeJIRA:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def create_issue(self, fields: Dict[str, Any]) -> FakeIssue:
+            return FakeIssue(
+                "DEVOPS-8",
+                {
+                    "key": "DEVOPS-8",
+                    "fields": {
+                        "summary": "New issue",
+                        "status": {"name": "To Do"},
+                        "assignee": None,
+                        "updated": "2024-10-15T12:00:00.000+0000",
+                        "labels": [],
+                    },
+                },
+            )
+
+        def comments(self, issue_key: str) -> List[Any]:
+            captured["comments_for_created_issue"] = issue_key
+            return [FakeComment("10001", "Attribution comment")]
+
+        def close(self):
+            pass
+
+    _install_fake_jira(monkeypatch, FakeJIRA)
+
+    integration = SimpleNamespace(
+        base_url="https://example.atlassian.net",
+        api_token="token-123",
+        settings={"username": "user@example.com"},
+    )
+    project_integration = SimpleNamespace(
+        config={},
+        external_identifier="DEVOPS",
+    )
+
+    request = IssueCreateRequest(summary="New issue")
+    payload = jira_service.create_issue(integration, project_integration, request)
+
+    assert payload.external_id == "DEVOPS-8"
+    assert captured["comments_for_created_issue"] == "DEVOPS-8"
+    assert len(payload.comments) == 1
+    assert payload.comments[0].body == "Attribution comment"

@@ -128,6 +128,33 @@ def fetch_issues(
     if not isinstance(issues, list):
         raise IssueSyncError("Unexpected Jira response payload.")
 
+    # Fetch comments separately for each issue (search_issues doesn't include them)
+    # This is a known limitation of the Jira Python library and REST API
+    client = JIRA(
+        server=base_url,  # type: ignore[arg-type]
+        basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
+        timeout=timeout,
+    )
+    try:
+        for issue in issues:
+            issue_key = issue.get("key")
+            if not issue_key:
+                continue
+            try:
+                comments_list = client.comments(issue_key)
+                # Populate the comment field structure that _extract_comment_payloads expects
+                issue.setdefault("fields", {})["comment"] = {
+                    "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
+                }
+            except Exception:  # noqa: BLE001
+                # Continue without comments if fetch fails (graceful degradation)
+                pass
+    finally:
+        try:
+            client.close()
+        except Exception:  # pragma: no cover - best effort cleanup
+            pass
+
     payloads: List[IssuePayload] = []
     for issue in issues:
         key = issue.get("key")
@@ -241,6 +268,17 @@ def create_issue(
             issue_data = getattr(fetched_issue, "raw", None)
         if not isinstance(issue_data, dict):
             raise IssueSyncError("Jira did not return expected issue payload.")
+
+        # Fetch comments separately for the created issue
+        try:
+            comments_list = client.comments(created_issue.key)
+            issue_data.setdefault("fields", {})["comment"] = {
+                "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
+            }
+        except Exception:  # noqa: BLE001
+            # Continue without comments if fetch fails (graceful degradation)
+            pass
+
         return _issue_to_payload(base_url, issue_data)
     except JIRAError as exc:
         message = getattr(exc, "text", None) or str(exc)
@@ -492,6 +530,16 @@ def close_issue(
             raise IssueSyncError(
                 "Jira did not return expected issue payload after closing."
             )
+
+        # Fetch comments separately
+        try:
+            comments_list = client.comments(issue_key)
+            issue_data.setdefault("fields", {})["comment"] = {
+                "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
+            }
+        except Exception:  # noqa: BLE001
+            pass
+
         return _issue_to_payload(base_url, issue_data)
     except JIRAError as exc:
         message = getattr(exc, "text", None) or str(exc)
@@ -580,6 +628,16 @@ def update_issue(
         issue_data = getattr(issue, "raw", None)
         if not isinstance(issue_data, dict):
             raise IssueSyncError("Jira did not return expected issue payload.")
+
+        # Fetch comments separately
+        try:
+            comments_list = client.comments(issue_key)
+            issue_data.setdefault("fields", {})["comment"] = {
+                "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
+            }
+        except Exception:  # noqa: BLE001
+            pass
+
         return _issue_to_payload(base_url, issue_data)
 
     except JIRAError as exc:
@@ -676,6 +734,16 @@ def reopen_issue(
         issue_data = getattr(issue, "raw", None)
         if not isinstance(issue_data, dict):
             raise IssueSyncError("Jira did not return expected issue payload.")
+
+        # Fetch comments separately
+        try:
+            comments_list = client.comments(issue_key)
+            issue_data.setdefault("fields", {})["comment"] = {
+                "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
+            }
+        except Exception:  # noqa: BLE001
+            pass
+
         return _issue_to_payload(base_url, issue_data)
 
     except JIRAError as exc:
@@ -751,6 +819,16 @@ def assign_issue(
         issue_data = getattr(issue, "raw", None)
         if not isinstance(issue_data, dict):
             raise IssueSyncError("Jira did not return expected issue payload.")
+
+        # Fetch comments separately
+        try:
+            comments_list = client.comments(issue_key)
+            issue_data.setdefault("fields", {})["comment"] = {
+                "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
+            }
+        except Exception:  # noqa: BLE001
+            pass
+
         return _issue_to_payload(base_url, issue_data)
 
     except JIRAError as exc:

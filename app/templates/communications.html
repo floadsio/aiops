@@ -1588,6 +1588,17 @@ async function loadThreads(reset = true) {
 
     let threads = data.threads;
 
+    // Deduplicate threads by external_id to avoid showing same issue multiple times
+    const seenIssues = new Set();
+    threads = threads.filter(t => {
+      const issueKey = `${t.issue_external_id}-${t.provider}`;
+      if (seenIssues.has(issueKey)) {
+        return false;
+      }
+      seenIssues.add(issueKey);
+      return true;
+    });
+
     // Client-side provider filter
     const providerFilter = document.getElementById('providerFilter').value;
     if (providerFilter) {

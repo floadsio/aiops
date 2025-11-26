@@ -800,6 +800,33 @@
       font-style: italic;
     }
 
+    .comment-reply-form {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.05);
+      border-radius: 0.3rem;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .comment-reply-form {
+      background: rgba(15, 23, 42, 0.15);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+
+    .comment-reply-form textarea {
+      width: 100%;
+      min-height: 70px;
+      margin: 0 0 0.5rem 0;
+      font-size: 0.95rem;
+      font-family: inherit;
+      padding: 0.5rem;
+    }
+
+    .comment-reply-form button {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
     .jira-mention {
       background: rgba(25, 118, 210, 0.1);
       padding: 0.15rem 0.35rem;
@@ -1101,11 +1128,17 @@
       .comment-actions {
         gap: 0.25rem;
         margin-top: 0.5rem;
+        flex-wrap: wrap;
       }
 
       .comment-actions button {
         padding: 0.3rem 0.6rem;
         font-size: 0.75rem;
+      }
+
+      .comment-actions a,
+      .comment-actions button {
+        white-space: nowrap;
       }
 
       /* Reply form */
@@ -1125,6 +1158,23 @@
         width: 100%;
         padding: 0.6rem 1rem;
         font-size: 0.95rem;
+      }
+
+      /* Comment reply forms */
+      .comment-reply-form {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+      }
+
+      .comment-reply-form textarea {
+        min-height: 70px;
+        font-size: 1rem; /* Prevents zoom on iOS */
+        margin: 0 0 0.5rem 0;
+      }
+
+      .comment-reply-form button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
       }
 
       /* Badges */
@@ -1238,6 +1288,22 @@
       .reply-form-actions button {
         padding: 0.5rem 0.8rem;
         font-size: 0.85rem;
+      }
+
+      /* Comment reply forms on small phones */
+      .comment-reply-form {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+      }
+
+      .comment-reply-form textarea {
+        min-height: 70px;
+        font-size: 1rem;
+      }
+
+      .comment-reply-form button {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.75rem;
       }
 
       .empty-state {
@@ -1390,6 +1456,21 @@ function renderThread(thread) {
           <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--md-primary);">
             View on ${thread.provider_name} ↗
           </a>
+          <button onclick="toggleCommentReplyForm(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;">
+            Reply
+          </button>
+        </div>
+        <!-- Reply form for this comment -->
+        <div class="comment-reply-form collapsed" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(15, 23, 42, 0.05); border-radius: 0.3rem; display: none;" data-theme-dark-bg="rgba(15, 23, 42, 0.15)">
+          <textarea placeholder="Reply to ${escapeHtml(comment.author.display_name || comment.author.remote_name)}..." style="width: 100%; min-height: 70px; margin: 0 0 0.5rem 0; font-size: 0.95rem; font-family: inherit; padding: 0.5rem;" class="comment-reply-textarea"></textarea>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button onclick="submitCommentReply(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+              Post Reply
+            </button>
+            <button onclick="toggleCommentReplyForm(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: transparent; color: #64748b; border: 1px solid rgba(148, 163, 184, 0.3);">
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1597,6 +1678,87 @@ async function loadFilters() {
 
   } catch (error) {
     console.error('Error loading filters:', error);
+  }
+}
+
+// Toggle comment reply form (Reddit-style per-comment replies)
+function toggleCommentReplyForm(event, issueId, authorName) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const replyForm = event.currentTarget.closest('.tree-child-content').querySelector('.comment-reply-form');
+  if (!replyForm) return;
+
+  replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+
+  // Focus the textarea when opened
+  if (replyForm.style.display === 'block') {
+    const textarea = replyForm.querySelector('.comment-reply-textarea');
+    if (textarea) {
+      setTimeout(() => textarea.focus(), 100);
+    }
+  }
+}
+
+// Submit reply to a comment
+async function submitCommentReply(event, issueId, authorName) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const replyForm = event.currentTarget.closest('.comment-reply-form');
+  const textarea = replyForm.querySelector('.comment-reply-textarea');
+  const replyText = textarea.value.trim();
+
+  if (!replyText) {
+    alert('Please enter a reply');
+    return;
+  }
+
+  try {
+    // Add mention to the reply text
+    const replyWithMention = `@${authorName}\n\n${replyText}`;
+
+    // Get the project ID from the data attribute or form
+    const projectId = document.querySelector('[data-project-id]')?.getAttribute('data-project-id');
+
+    if (!projectId) {
+      // Fallback: get it from the thread
+      const thread = event.currentTarget.closest('article');
+      console.error('Project ID not found');
+      alert('Error: Could not find project context');
+      return;
+    }
+
+    // Submit via the web endpoint (preserves user identity)
+    const response = await fetch(`/${projectId}/issues/${issueId}/comment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'comment': replyWithMention
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    // Clear textarea and hide form
+    textarea.value = '';
+    replyForm.style.display = 'none';
+
+    // Show success message
+    alert('Reply posted successfully!');
+
+    // Reload threads after a short delay for sync
+    setTimeout(() => {
+      loadThreads(true);
+    }, 1500);
+
+  } catch (error) {
+    console.error('Error posting reply:', error);
+    alert(`Error posting reply: ${error.message}`);
   }
 }
 

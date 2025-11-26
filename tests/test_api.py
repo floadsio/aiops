@@ -508,3 +508,54 @@ def test_issue_work_respects_tool_parameter(test_app):
     # (the tool name is included in the target name)
     assert claude_target != codex_target, f"Claude and Codex should get different targets: {claude_target} vs {codex_target}"
     assert codex_target != default_target, f"Codex and default should get different targets: {codex_target} vs {default_target}"
+
+
+def test_issue_work_reattach_without_tool_returns_most_recent(test_app):
+    """Test that reattaching without --tool returns the most recent session with correct tool info."""
+    client = test_app.test_client()
+    login(client)
+
+    project = _create_seed_project(test_app, project_name="reattach-test-project")
+    test_app.config["ENABLE_PERSISTENT_SESSIONS"] = False
+
+    # Create a Claude session for issue 200
+    response1 = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={
+            "issue_id": 200,
+            "tool": "claude",
+        },
+    )
+    assert response1.status_code == 201, f"Claude session creation failed: {response1.get_json()}"
+    result1 = response1.get_json()
+    claude_session_id = result1["session_id"]
+    claude_tool = result1.get("tool")
+    assert claude_tool == "claude", f"Expected tool=claude, got {claude_tool}"
+
+    # Reattach without specifying --tool
+    # This should return the most recent session (the Claude one)
+    response2 = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={
+            "issue_id": 200,
+            # Note: no tool parameter - this is the critical test case
+        },
+    )
+    assert response2.status_code == 201, f"Reattach failed: {response2.get_json()}"
+    result2 = response2.get_json()
+    reattached_session_id = result2["session_id"]
+    reattached_tool = result2.get("tool")
+
+    # Verify we got back the same session
+    assert reattached_session_id == claude_session_id, (
+        f"Should reattach to existing Claude session, "
+        f"got {reattached_session_id} instead of {claude_session_id}"
+    )
+
+    # Verify the tool information is returned
+    assert reattached_tool == "claude", (
+        f"Reattached session should be using claude tool, got {reattached_tool}"
+    )
+
+    # Verify it's marked as existing
+    assert result2.get("existing") is True, "Should be marked as existing session"

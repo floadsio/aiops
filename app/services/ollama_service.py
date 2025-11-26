@@ -180,8 +180,19 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
                     try:
                         return json.loads(fixed_json)
                     except json.JSONDecodeError as exc:
+                        # Include detailed debug info in error message
+                        debug_msg = (
+                            f"\nDEBUG INFO:\n"
+                            f"  Original length: {len(json_str)}\n"
+                            f"  Original first 100 (repr): {repr(json_str[:100])}\n"
+                            f"  Char after brace: {repr(json_str[1]) if len(json_str) > 1 else 'N/A'} (code: {ord(json_str[1]) if len(json_str) > 1 else 'N/A'})\n"
+                            f"  Has newline after brace: {'{\n' in json_str or '{\r' in json_str}\n"
+                            f"  Step 1 result (first 50): {repr(json_str.replace(chr(10), ' ').replace(chr(13), ' ')[:50])}\n"
+                            f"  Error position: {exc.pos}\n"
+                            f"  Error at char: {repr(json_str[exc.pos] if exc.pos < len(json_str) else 'EOF')}"
+                        )
                         logger.error(
-                            f"Failed to parse JSON after all fixes: {exc}",
+                            f"Failed to parse JSON after all fixes: {exc}{debug_msg}",
                             extra={
                                 "original_length": len(json_str),
                                 "original_start": json_str[:100],

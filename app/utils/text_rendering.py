@@ -73,9 +73,12 @@ _MARKDOWN_PATTERNS = [
     re.compile(r"__[^_]+__"),  # Bold (alternative)
     re.compile(r"\*[^*]+\*"),  # Italic
     re.compile(r"_[^_]+_"),  # Italic (alternative)
+    re.compile(r"~~[^~]+~~"),  # Strikethrough (GitLab/GitHub)
     re.compile(r"^\s*>\s+", re.MULTILINE),  # Blockquotes
     re.compile(r"^\s*[-*_]{3,}\s*$", re.MULTILINE),  # Horizontal rules
     re.compile(r"- \[[x ]\]", re.IGNORECASE),  # Checkboxes
+    re.compile(r"<([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})>"),  # Email as markdown
+    re.compile(r"!\[[^\]]*\]\([^\)]+\)"),  # Images
 ]
 
 # Create a Mistune instance for rendering Markdown

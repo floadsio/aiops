@@ -2554,14 +2554,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
     from importlib.metadata import PackageNotFoundError, version
     from pathlib import Path
 
-    try:
-        current_version = version("aiops-cli")
-    except PackageNotFoundError:
-        current_version = "unknown"
-
-    console.print(f"[blue]Current version:[/blue] {current_version}")
-
-    # Check if this is a development/editable installation
+    # Check if this is a development/editable installation first
     is_dev_install = False
     cli_path = None
     try:
@@ -2575,6 +2568,28 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
             console.print(f"[dim]Development installation detected at: {cli_path}[/dim]")
     except (ImportError, AttributeError):
         pass
+
+    # Get current version - for dev installs, read from VERSION file
+    current_version = "unknown"
+    if is_dev_install and cli_path:
+        # Read version from VERSION file for dev installs (more reliable than metadata)
+        version_file = cli_path.parent / "VERSION"
+        try:
+            current_version = version_file.read_text(encoding="utf-8").strip()
+        except Exception:
+            # Fallback to metadata
+            try:
+                current_version = version("aiops-cli")
+            except PackageNotFoundError:
+                pass
+    else:
+        # For production installs, use metadata version
+        try:
+            current_version = version("aiops-cli")
+        except PackageNotFoundError:
+            pass
+
+    console.print(f"[blue]Current version:[/blue] {current_version}")
 
     if check_only:
         if is_dev_install:
@@ -2689,11 +2704,27 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                 result = subprocess.run(reinstall_cmd, capture_output=True, text=True, check=False)
                 if result.returncode == 0:
                     console.print("[green]✓[/green] aiops CLI reinstalled successfully!")
+                    # Read version directly from VERSION file to get the updated version
+                    # (metadata.version() may be cached and return old version)
+                    version_file = repo_path / "VERSION"
                     try:
-                        new_version = version("aiops-cli")
-                        console.print(f"[green]Version: {new_version}[/green]")
-                    except PackageNotFoundError:
-                        pass
+                        new_version = version_file.read_text(encoding="utf-8").strip()
+                        if new_version:
+                            console.print(f"[green]Version: {new_version}[/green]")
+                        else:
+                            # Fallback to metadata if file is empty
+                            try:
+                                new_version = version("aiops-cli")
+                                console.print(f"[green]Version: {new_version}[/green]")
+                            except PackageNotFoundError:
+                                pass
+                    except Exception:
+                        # Fallback to metadata version
+                        try:
+                            new_version = version("aiops-cli")
+                            console.print(f"[green]Version: {new_version}[/green]")
+                        except PackageNotFoundError:
+                            pass
                 else:
                     error_console.print(f"[red]Reinstall failed:[/red] {result.stderr}")
                     sys.exit(1)

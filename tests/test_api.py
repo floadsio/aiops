@@ -559,3 +559,96 @@ def test_issue_work_reattach_without_tool_returns_most_recent(test_app):
 
     # Verify it's marked as existing
     assert result2.get("existing") is True, "Should be marked as existing session"
+
+
+def test_get_project_integrations_endpoint(test_app, monkeypatch):
+    """Test the GET /api/v1/projects/<id>/integrations endpoint for integration selector."""
+    from app.models import ProjectIntegration, TenantIntegration
+
+    client = test_app.test_client()
+    login(client)
+
+    # Create a project using the existing helper
+    project_ns = _create_seed_project(test_app, project_name="integration-selector-test")
+    project_id = project_ns.id
+
+    # Get the actual project object to access tenant_id
+    with test_app.app_context():
+        project = Project.query.get(project_id)
+        tenant_id = project.tenant_id
+
+    # Test 1: Get integrations for project with no integrations
+    resp = client.get(f"/api/v1/projects/{project_id}/integrations")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data["integrations"] == []
+
+    # Test 2: Create a tenant integration and link it to the project
+    with test_app.app_context():
+        tenant_int = TenantIntegration(
+            tenant_id=tenant_id,
+            provider="github",
+            name="my-org/my-repo",
+            api_token="test-token",
+        )
+        db.session.add(tenant_int)
+        db.session.flush()
+
+        # Link the integration to the project
+        proj_int = ProjectIntegration(
+            project_id=project_id,
+            integration_id=tenant_int.id,
+            external_identifier="repo1",
+        )
+        db.session.add(proj_int)
+        db.session.commit()
+
+        proj_int_id = proj_int.id
+
+    # Test 3: Get integrations for project with one integration
+    resp = client.get(f"/api/v1/projects/{project_id}/integrations")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["integrations"]) == 1
+    integration = data["integrations"][0]
+    assert integration["provider"] == "github"
+    assert integration["name"] == "my-org/my-repo"
+    assert integration["display_name"] == "GITHUB - my-org/my-repo"
+    assert integration["project_integration_id"] == proj_int_id
+
+    # Test 4: Create another integration and verify both are returned
+    with test_app.app_context():
+        tenant_int2 = TenantIntegration(
+            tenant_id=tenant_id,
+            provider="gitlab",
+            name="my-group/my-project",
+            api_token="test-token-2",
+        )
+        db.session.add(tenant_int2)
+        db.session.flush()
+
+        proj_int2 = ProjectIntegration(
+            project_id=project_id,
+            integration_id=tenant_int2.id,
+            external_identifier="repo2",
+        )
+        db.session.add(proj_int2)
+        db.session.commit()
+
+    resp = client.get(f"/api/v1/projects/{project_id}/integrations")
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert len(data["integrations"]) == 2
+
+    # Verify both integrations are in the response
+    providers = [int["provider"] for int in data["integrations"]]
+    assert "github" in providers
+    assert "gitlab" in providers
+
+    display_names = [int["display_name"] for int in data["integrations"]]
+    assert "GITHUB - my-org/my-repo" in display_names
+    assert "GITLAB - my-group/my-project" in display_names
+
+    # Test 5: Test access control - non-existent project returns 404
+    resp = client.get("/api/v1/projects/99999/integrations")
+    assert resp.status_code == 404

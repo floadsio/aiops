@@ -109,6 +109,16 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
                 f"No JSON found in response. First 200 chars: {response_text[:200]}"
             )
 
+    # Log initial state for debugging
+    logger.info(
+        "Attempting to parse JSON from Ollama response",
+        extra={
+            "json_length": len(json_str),
+            "first_50_chars": repr(json_str[:50]),
+            "has_newline_after_brace": '{\n' in json_str or '{\r' in json_str,
+        }
+    )
+
     try:
         # First, try standard JSON parsing
         return json.loads(json_str)

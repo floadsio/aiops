@@ -67,11 +67,20 @@
 {% block extra_scripts %}
   {{ super() }}
   <script>
+    console.log('Script loaded and executing');
     document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOMContentLoaded fired');
       const projectSelect = document.getElementById('{{ form.project_id.id }}');
       const integrationSelect = document.getElementById('{{ form.integration_id.id }}');
       const integrationMessage = document.getElementById('integration-message');
       const submitBtn = document.getElementById('submit-btn');
+
+      console.log('Form elements found:', {
+        projectSelect: !!projectSelect,
+        integrationSelect: !!integrationSelect,
+        integrationMessage: !!integrationMessage,
+        submitBtn: !!submitBtn
+      });
 
       async function loadIntegrations(projectId) {
         console.log('loadIntegrations called with projectId:', projectId);
@@ -139,7 +148,9 @@
       }
 
       // Load integrations when project changes
+      console.log('Attaching change listener to projectSelect');
       projectSelect.addEventListener('change', function() {
+        console.log('Project select changed to:', this.value);
         loadIntegrations(this.value);
       });
 

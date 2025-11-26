@@ -80,6 +80,31 @@ def _map_comment_author(
     return author_info
 
 
+def _get_issue_body(issue: ExternalIssue) -> tuple[str, str]:
+    """Extract issue body/description from raw payload.
+
+    Args:
+        issue: The external issue
+
+    Returns:
+        Tuple of (raw_body, rendered_html)
+    """
+    # Try to extract body from raw_payload
+    body = ""
+
+    if issue.raw_payload and isinstance(issue.raw_payload, dict):
+        # GitHub, GitLab use "body", Jira uses "description"
+        body = issue.raw_payload.get("body") or issue.raw_payload.get("description") or ""
+
+    if not body:
+        return "", ""
+
+    # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, HTML, etc.)
+    rendered_body = render_issue_rich_text(body)
+
+    return body, str(rendered_body)
+
+
 def _comment_to_dict(
     comment: dict[str, Any],
     issue: ExternalIssue,
@@ -300,10 +325,14 @@ def get_communication_threads():
             status_key, status_label = normalize_issue_status(issue.status)
 
             comments = issue.comments or []
+            issue_body, issue_body_html = _get_issue_body(issue)
+
             threads.append({
                 "issue_id": issue.id,
                 "issue_external_id": issue.external_id,
                 "issue_title": issue.title,
+                "issue_body": issue_body,
+                "issue_body_html": issue_body_html,
                 "issue_status": issue.status,
                 "issue_status_key": status_key,
                 "issue_status_label": status_label,

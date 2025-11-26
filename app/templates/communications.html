@@ -218,7 +218,7 @@
       color: var(--pico-color-slate-800);
       word-wrap: break-word;
       margin: 1rem 0;
-      padding: 0.75rem;
+      padding: 1rem;
       background: rgba(15, 23, 42, 0.02);
       border-radius: 0.5rem;
       border-left: 3px solid var(--md-primary);
@@ -226,6 +226,126 @@
     [data-theme="dark"] .issue-post__body {
       color: rgba(226, 232, 240, 0.85);
       background: rgba(15, 23, 42, 0.25);
+    }
+
+    .issue-post__body p {
+      margin: 0.5rem 0;
+    }
+
+    .issue-post__body p:first-child {
+      margin-top: 0;
+    }
+
+    .issue-post__body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .issue-post__body a {
+      color: var(--md-primary);
+      text-decoration: underline;
+    }
+    [data-theme="dark"] .issue-post__body a {
+      color: #42a5f5;
+    }
+
+    .issue-post__body code {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    [data-theme="dark"] .issue-post__body code {
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .issue-post__body pre {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.75rem 0;
+    }
+    [data-theme="dark"] .issue-post__body pre {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .issue-post__body pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .issue-post__body blockquote {
+      border-left: 3px solid var(--md-primary);
+      padding-left: 1rem;
+      margin-left: 0;
+      color: #64748b;
+      font-style: italic;
+    }
+    [data-theme="dark"] .issue-post__body blockquote {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-post__body ul,
+    .issue-post__body ol {
+      margin: 0.75rem 0;
+      padding-left: 2rem;
+    }
+
+    .issue-post__body li {
+      margin: 0.25rem 0;
+    }
+
+    .issue-post__body h1,
+    .issue-post__body h2,
+    .issue-post__body h3,
+    .issue-post__body h4,
+    .issue-post__body h5,
+    .issue-post__body h6 {
+      margin: 1rem 0 0.5rem 0;
+      font-weight: 600;
+    }
+
+    .issue-post__body h1 {
+      font-size: 1.3rem;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.25);
+      padding-bottom: 0.5rem;
+    }
+
+    .issue-post__body h2 {
+      font-size: 1.15rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      padding-bottom: 0.25rem;
+    }
+
+    .issue-post__body h3 {
+      font-size: 1.05rem;
+    }
+
+    .issue-post__body hr {
+      margin: 1rem 0;
+      border: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .issue-post__body del {
+      color: #64748b;
+      text-decoration: line-through;
+    }
+    [data-theme="dark"] .issue-post__body del {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-post__body strong {
+      font-weight: 700;
+    }
+
+    .issue-post__body em {
+      font-style: italic;
     }
 
     .issue-post__footer {
@@ -806,8 +926,11 @@ function renderThread(thread) {
         </div>
 
         <div class="issue-post__body">
-          Issue #${escapeHtml(thread.issue_external_id)} in <strong>${escapeHtml(thread.project_name)}</strong><br>
-          <small style="color: #64748b;">Created ${formatTimestamp(thread.created_at)}</small>
+          ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
+        </div>
+
+        <div style="padding: 0.75rem; background: rgba(148, 163, 184, 0.08); border-radius: 0.4rem; font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
+          Issue #${escapeHtml(thread.issue_external_id)} in <strong>${escapeHtml(thread.project_name)}</strong> • Created ${formatTimestamp(thread.created_at)}
         </div>
       </div>
 

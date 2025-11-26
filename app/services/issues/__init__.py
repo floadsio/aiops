@@ -471,8 +471,34 @@ def create_issue_for_project_integration(
                     "Issue will be created without assignee."
                 )
 
+    # Resolve creator from user identity mapping if provided
+    creator_username: Optional[str] = None
+    creator_account_id: Optional[str] = None
+    if creator_user_id is not None:
+        if provider_key == "github":
+            creator_username = resolve_github_username(creator_user_id)
+            if not creator_username:
+                current_app.logger.warning(
+                    f"User {creator_user_id} has no GitHub username mapped. "
+                    "Issue will be created without attribution."
+                )
+        elif provider_key == "gitlab":
+            creator_username = resolve_gitlab_username(creator_user_id)
+            if not creator_username:
+                current_app.logger.warning(
+                    f"User {creator_user_id} has no GitLab username mapped. "
+                    "Issue will be created without attribution."
+                )
+        elif provider_key == "jira":
+            creator_account_id = resolve_jira_account_id(creator_user_id)
+            if not creator_account_id:
+                current_app.logger.warning(
+                    f"User {creator_user_id} has no Jira account ID mapped. "
+                    "Issue will be created without attribution."
+                )
+
     try:
-        # Call the provider's create_issue function with appropriate assignee parameter
+        # Call the provider's create_issue function with appropriate assignee and creator parameters
         # Use effective_integration to ensure correct user credentials are used
         if provider_key == "jira":
             return creator(  # type: ignore[call-arg]
@@ -480,10 +506,13 @@ def create_issue_for_project_integration(
                 project_integration,
                 request,
                 assignee_account_id=assignee_account_id,
+                creator_user_id=creator_user_id,
+                creator_username=creator_account_id,
             )
         else:  # GitHub or GitLab
             return creator(  # type: ignore[call-arg]
-                effective_integration, project_integration, request, assignee=assignee_username
+                effective_integration, project_integration, request, assignee=assignee_username,
+                creator_user_id=creator_user_id, creator_username=creator_username
             )
     except IssueSyncError:
         raise

@@ -2404,6 +2404,7 @@ def confirm_assisted_issue():
             labels=labels,
             issue_type=issue_type or None,
             assignee_user_id=current_user.id,
+            creator_user_id=current_user.id,
         )
 
         # Create ExternalIssue record in database
@@ -2569,6 +2570,7 @@ def manage_issues():
                     priority=priority_value,
                     custom_fields=(custom_payload or None),
                     assignee_user_id=assignee_value,
+                    creator_user_id=current_user.id,
                 )
                 sync_project_integration(link)
                 db.session.commit()

@@ -109,44 +109,59 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
                 f"No JSON found in response. First 200 chars: {response_text[:200]}"
             )
 
-    # Log initial state for debugging
-    logger.info(
-        "Attempting to parse JSON from Ollama response",
-        extra={
-            "json_length": len(json_str),
-            "first_50_chars": repr(json_str[:50]),
-            "has_newline_after_brace": '{\n' in json_str or '{\r' in json_str,
-        }
-    )
+    # Log initial state for debugging - use stderr to ensure it shows
+    import sys
+    debug_info = {
+        "json_length": len(json_str),
+        "first_100_chars_repr": repr(json_str[:100]),
+        "first_100_chars": json_str[:100],
+        "has_newline_after_brace": '{\n' in json_str or '{\r' in json_str,
+        "char_code_after_brace": ord(json_str[1]) if len(json_str) > 1 else None,
+    }
+    print(f"DEBUG: Attempting to parse JSON: {debug_info}", file=sys.stderr)
+    logger.info("Attempting to parse JSON from Ollama response", extra=debug_info)
 
     try:
         # First, try standard JSON parsing
         return json.loads(json_str)
     except json.JSONDecodeError as initial_error:
         # If standard parsing fails, try multiple fixes for Ollama output issues
+        print(f"DEBUG: Initial parse failed: {initial_error}", file=sys.stderr)
         logger.debug(f"Initial JSON parse failed: {initial_error}, trying fixes...", extra={"json_length": len(json_str)})
 
         # Step 1: Remove actual newlines and various whitespace patterns after structural characters
         # Ollama outputs {\n "key": , {\n\t "key": , {  \n  "key": with various spacing combinations
         # Use regex to handle all whitespace variations
         fixed_json = re.sub(r'([\{\[,:])\s*\n\s*', r'\1 ', json_str)
+        print(f"DEBUG: Step 1 result (first 50): {repr(fixed_json[:50])}", file=sys.stderr)
 
         try:
-            return json.loads(fixed_json)
-        except json.JSONDecodeError:
+            result = json.loads(fixed_json)
+            print("DEBUG: Step 1 SUCCESS", file=sys.stderr)
+            return result
+        except json.JSONDecodeError as e1:
+            print(f"DEBUG: Step 1 failed: {e1}", file=sys.stderr)
             # Step 2: Also remove newlines before closing brackets
             fixed_json = re.sub(r'\s*\n\s*([\}\]])', r'\1', fixed_json)
+            print(f"DEBUG: Step 2 result (first 50): {repr(fixed_json[:50])}", file=sys.stderr)
 
             try:
-                return json.loads(fixed_json)
-            except json.JSONDecodeError:
+                result = json.loads(fixed_json)
+                print("DEBUG: Step 2 SUCCESS", file=sys.stderr)
+                return result
+            except json.JSONDecodeError as e2:
+                print(f"DEBUG: Step 2 failed: {e2}", file=sys.stderr)
                 # Step 3: Remove ALL whitespace sequences (multiple spaces/tabs/newlines) and replace with single space
                 # This handles cases where there are multiple newlines or mixed whitespace
                 fixed_json = re.sub(r'\s+', ' ', fixed_json)
+                print(f"DEBUG: Step 3 result (first 50): {repr(fixed_json[:50])}", file=sys.stderr)
 
                 try:
-                    return json.loads(fixed_json)
-                except json.JSONDecodeError:
+                    result = json.loads(fixed_json)
+                    print("DEBUG: Step 3 SUCCESS", file=sys.stderr)
+                    return result
+                except json.JSONDecodeError as e3:
+                    print(f"DEBUG: Step 3 failed: {e3}", file=sys.stderr)
                     # Step 4: If still failing, fix unescaped actual newlines in string values
                     # The Ollama model may output literal newlines in JSON string fields
 

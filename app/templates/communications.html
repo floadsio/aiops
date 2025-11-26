@@ -1,0 +1,760 @@
+{% extends "base.html" %}
+{% block title %}Communications{% endblock %}
+
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .communications-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .communications-filters {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .communications-filters select,
+    .communications-filters input {
+      margin: 0;
+    }
+    .filter-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(148, 163, 184, 0.15);
+      border-radius: 999px;
+      font-size: 0.85rem;
+    }
+    [data-theme="dark"] .filter-badge {
+      background: rgba(148, 163, 184, 0.25);
+    }
+    .clear-filters {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+
+    .thread-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .communication-thread {
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.02);
+    }
+    [data-theme="dark"] .communication-thread {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+
+    .thread-header {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    [data-theme="dark"] .thread-header {
+      border-bottom-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .thread-header-main {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .thread-title {
+      font-weight: 600;
+      font-size: 1.05rem;
+      margin: 0 0 0.5rem 0;
+      word-break: break-word;
+    }
+
+    .thread-meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .thread-meta {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .provider-badge {
+      background: rgba(148, 163, 184, 0.25);
+    }
+
+    .provider-badge.github {
+      background: rgba(36, 41, 46, 0.3);
+      color: #333;
+    }
+    [data-theme="dark"] .provider-badge.github {
+      background: rgba(36, 41, 46, 0.5);
+      color: #f0f6fc;
+    }
+
+    .provider-badge.gitlab {
+      background: rgba(252, 109, 38, 0.2);
+      color: #d94c2a;
+    }
+    [data-theme="dark"] .provider-badge.gitlab {
+      background: rgba(252, 109, 38, 0.25);
+      color: #fc6d26;
+    }
+
+    .provider-badge.jira {
+      background: rgba(0, 82, 204, 0.15);
+      color: #0052cc;
+    }
+    [data-theme="dark"] .provider-badge.jira {
+      background: rgba(0, 82, 204, 0.25);
+      color: #0052cc;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: rgba(34, 197, 94, 0.15);
+      color: #166534;
+    }
+    [data-theme="dark"] .status-badge {
+      background: rgba(34, 197, 94, 0.25);
+      color: #86efac;
+    }
+
+    .status-badge.closed,
+    .status-badge.resolved {
+      background: rgba(107, 114, 128, 0.15);
+      color: #374151;
+    }
+    [data-theme="dark"] .status-badge.closed,
+    [data-theme="dark"] .status-badge.resolved {
+      background: rgba(107, 114, 128, 0.25);
+      color: #d1d5db;
+    }
+
+    .comment-count {
+      font-weight: 600;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .comment-count {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .comments-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .comment-item {
+      padding: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+    [data-theme="dark"] .comment-item {
+      border-top-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .comment-item:first-child {
+      border-top: none;
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .comment-author {
+      font-weight: 600;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .comment-author {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .comment-author-remote {
+      font-size: 0.85rem;
+      color: #64748b;
+      font-weight: normal;
+    }
+    [data-theme="dark"] .comment-author-remote {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-timestamp {
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+    [data-theme="dark"] .comment-timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-body {
+      line-height: 1.6;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    [data-theme="dark"] .comment-body {
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .comment-body p {
+      margin: 0.5rem 0;
+    }
+
+    .comment-body p:first-child {
+      margin-top: 0;
+    }
+
+    .comment-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .comment-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .comment-actions button {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .reply-form {
+      display: none;
+      padding: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.02);
+      margin-top: 0.75rem;
+    }
+    [data-theme="dark"] .reply-form {
+      background: rgba(15, 23, 42, 0.15);
+      border-top-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .reply-form.open {
+      display: block;
+    }
+
+    .reply-form textarea {
+      width: 100%;
+      min-height: 100px;
+      margin: 0 0 0.75rem 0;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .reply-form-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .reply-form-actions button {
+      padding: 0.5rem 1rem;
+      margin: 0;
+    }
+
+    .thread-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .thread-actions a,
+    .thread-actions button {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .empty-state {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination button,
+    .pagination a {
+      padding: 0.5rem 0.75rem;
+      margin: 0;
+    }
+
+    .load-more {
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .loading {
+      color: rgba(148, 163, 184, 0.75);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<main class="container">
+  <div class="communications-header">
+    <div>
+      <h1>Communications</h1>
+      <p>Central hub for all issue comments and discussions</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="communications-filters">
+    <select id="tenantFilter" aria-label="Filter by tenant">
+      <option value="">All Tenants</option>
+      <option value="">-- Loading tenants --</option>
+    </select>
+
+    <select id="projectFilter" aria-label="Filter by project">
+      <option value="">All Projects</option>
+      <option value="">-- Loading projects --</option>
+    </select>
+
+    <select id="providerFilter" aria-label="Filter by provider">
+      <option value="">All Providers</option>
+      <option value="github">GitHub</option>
+      <option value="gitlab">GitLab</option>
+      <option value="jira">Jira</option>
+    </select>
+
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="Search comments..."
+      aria-label="Search"
+    >
+
+    <button id="clearFilters" class="clear-filters" style="display: none;">
+      Clear Filters
+    </button>
+  </div>
+
+  <!-- Thread List -->
+  <div id="threadContainer" class="thread-container">
+    <div class="empty-state">
+      <p>Loading communications...</p>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination"></div>
+</main>
+
+<script>
+// Configuration
+const API_BASE = '/api/v1/communications';
+let currentOffset = 0;
+const LIMIT = 20;
+let totalCount = 0;
+let allTenants = [];
+let allProjects = [];
+
+// Get provider icon
+function getProviderIcon(provider) {
+  const icons = {
+    github: '🐙',
+    gitlab: '🦊',
+    jira: '📋',
+  };
+  return icons[provider.toLowerCase()] || '🔗';
+}
+
+// Format timestamp
+function formatTimestamp(isoString) {
+  if (!isoString) return 'Unknown';
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffSeconds = Math.floor((now - date) / 1000);
+
+  if (diffSeconds < 60) return 'just now';
+  if (diffSeconds < 3600) return Math.floor(diffSeconds / 60) + 'm ago';
+  if (diffSeconds < 86400) return Math.floor(diffSeconds / 3600) + 'h ago';
+  if (diffSeconds < 604800) return Math.floor(diffSeconds / 86400) + 'd ago';
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+  });
+}
+
+// Get status badge class
+function getStatusClass(status) {
+  if (!status) return '';
+  const normalized = status.toLowerCase();
+  if (normalized === 'open' || normalized === 'in progress') return 'open';
+  if (normalized === 'closed' || normalized === 'resolved') return 'closed';
+  return normalized;
+}
+
+// Render a single thread
+function renderThread(thread) {
+  const commentsHtml = thread.comments.map((comment, index) => `
+    <li class="comment-item">
+      <div class="comment-header">
+        <span class="comment-author">
+          ${escapeHtml(comment.author.display_name || comment.author.remote_name)}
+        </span>
+        ${comment.author.local_user_name ? `
+          <span class="comment-author-remote">
+            (@${escapeHtml(comment.author.remote_name)})
+          </span>
+        ` : ''}
+        <span class="comment-timestamp">${formatTimestamp(comment.created_at)}</span>
+      </div>
+      <div class="comment-body">${escapeHtml(comment.body)}</div>
+      <div class="comment-actions">
+        <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer">
+          View on ${thread.provider_name}
+        </a>
+        <button onclick="toggleReplyForm(event, ${thread.issue_id})" class="outline">
+          Reply
+        </button>
+      </div>
+      <div class="reply-form" data-issue-id="${thread.issue_id}">
+        <textarea placeholder="Write your reply..." class="reply-textarea"></textarea>
+        <div class="reply-form-actions">
+          <button onclick="submitReply(event, ${thread.issue_id})" type="button">
+            Post Reply
+          </button>
+          <button onclick="toggleReplyForm(event, ${thread.issue_id})" type="button" class="outline">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </li>
+  `).join('');
+
+  return `
+    <article class="communication-thread">
+      <div class="thread-header">
+        <div class="thread-header-main">
+          <h3 class="thread-title">
+            <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer">
+              ${escapeHtml(thread.issue_title)}
+            </a>
+          </h3>
+          <div class="thread-meta">
+            <span class="provider-badge ${thread.provider}">
+              ${getProviderIcon(thread.provider)} ${thread.provider_name}
+            </span>
+            <span class="status-badge ${getStatusClass(thread.issue_status)}">
+              ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
+            </span>
+            <span title="${thread.project_name}">${escapeHtml(thread.project_name || 'Unknown Project')}</span>
+            ${thread.issue_assignee ? `
+              <span>Assigned to ${escapeHtml(thread.issue_assignee)}</span>
+            ` : ''}
+          </div>
+        </div>
+        <div class="thread-actions">
+          <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button">
+            Open Issue
+          </a>
+        </div>
+      </div>
+      <ul class="comments-list">
+        ${commentsHtml}
+      </ul>
+      <div style="padding: 1rem; font-size: 0.9rem; color: #64748b; border-top: 1px solid rgba(148, 163, 184, 0.25);">
+        <span class="comment-count">${thread.comment_count}</span> comment${thread.comment_count !== 1 ? 's' : ''}
+      </div>
+    </article>
+  `;
+}
+
+// Escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Load threads
+async function loadThreads(reset = true) {
+  try {
+    if (reset) {
+      currentOffset = 0;
+    }
+
+    const params = new URLSearchParams({
+      limit: LIMIT,
+      offset: currentOffset,
+      tenant_id: document.getElementById('tenantFilter').value || '',
+      project_id: document.getElementById('projectFilter').value || '',
+    });
+
+    if (document.getElementById('providerFilter').value) {
+      // Client-side filtering for provider since API doesn't support it
+    }
+
+    const response = await fetch(
+      `${API_BASE}/threads?${params.toString()}`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    totalCount = data.pagination.total;
+
+    let threads = data.threads;
+
+    // Client-side provider filter
+    const providerFilter = document.getElementById('providerFilter').value;
+    if (providerFilter) {
+      threads = threads.filter(t => t.provider === providerFilter);
+    }
+
+    // Client-side search filter
+    const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+    if (searchQuery) {
+      threads = threads.filter(t =>
+        t.issue_title.toLowerCase().includes(searchQuery) ||
+        t.comments.some(c => c.body.toLowerCase().includes(searchQuery))
+      );
+    }
+
+    const container = document.getElementById('threadContainer');
+
+    if (reset) {
+      container.innerHTML = threads.length > 0
+        ? threads.map(renderThread).join('')
+        : '<div class="empty-state"><p>No communications found</p></div>';
+    } else {
+      container.innerHTML += threads.map(renderThread).join('');
+    }
+
+    // Update pagination
+    updatePagination(data.pagination);
+
+  } catch (error) {
+    console.error('Error loading threads:', error);
+    document.getElementById('threadContainer').innerHTML = `
+      <div class="empty-state">
+        <p>Error loading communications: ${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Update pagination
+function updatePagination(pagination) {
+  const container = document.getElementById('pagination');
+  const hasMore = pagination.offset + pagination.count < pagination.total;
+
+  container.innerHTML = '';
+
+  if (hasMore) {
+    const button = document.createElement('button');
+    button.textContent = 'Load More';
+    button.className = 'load-more';
+    button.onclick = () => {
+      currentOffset += LIMIT;
+      loadThreads(false);
+    };
+    container.appendChild(button);
+  }
+}
+
+// Load tenants and projects
+async function loadFilters() {
+  try {
+    // Load tenants
+    const tenantsResponse = await fetch(
+      '/api/v1/tenants',
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (tenantsResponse.ok) {
+      const tenantsData = await tenantsResponse.json();
+      allTenants = tenantsData.tenants || [];
+
+      const tenantSelect = document.getElementById('tenantFilter');
+      allTenants.forEach(tenant => {
+        const option = document.createElement('option');
+        option.value = tenant.id;
+        option.textContent = tenant.name;
+        tenantSelect.appendChild(option);
+      });
+
+      // Remove loading placeholder
+      const placeholders = tenantSelect.querySelectorAll('option:nth-child(2)');
+      placeholders.forEach(p => p.remove());
+    }
+
+    // Load projects
+    const projectsResponse = await fetch(
+      '/api/v1/projects',
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (projectsResponse.ok) {
+      const projectsData = projectsResponse.json();
+      // API might return projects, populate based on tenant selection
+    }
+
+  } catch (error) {
+    console.error('Error loading filters:', error);
+  }
+}
+
+// Event listeners
+document.getElementById('tenantFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('projectFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('providerFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('searchInput').addEventListener('input', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('clearFilters').addEventListener('click', () => {
+  document.getElementById('tenantFilter').value = '';
+  document.getElementById('projectFilter').value = '';
+  document.getElementById('providerFilter').value = '';
+  document.getElementById('searchInput').value = '';
+  loadThreads(true);
+  updateClearButton();
+});
+
+function updateClearButton() {
+  const hasFilters =
+    document.getElementById('tenantFilter').value ||
+    document.getElementById('projectFilter').value ||
+    document.getElementById('providerFilter').value ||
+    document.getElementById('searchInput').value;
+
+  document.getElementById('clearFilters').style.display = hasFilters ? 'block' : 'none';
+}
+
+// Toggle reply form visibility
+function toggleReplyForm(event, issueId) {
+  event.preventDefault();
+  const button = event.target;
+  const replyForm = button.closest('.comment-item').querySelector('.reply-form');
+
+  if (replyForm) {
+    replyForm.classList.toggle('open');
+    if (replyForm.classList.contains('open')) {
+      replyForm.querySelector('.reply-textarea').focus();
+    }
+  }
+}
+
+// Submit a reply to a comment
+async function submitReply(event, issueId) {
+  event.preventDefault();
+
+  const textarea = event.target.closest('.reply-form').querySelector('.reply-textarea');
+  const body = textarea.value.trim();
+
+  if (!body) {
+    alert('Please enter a comment');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      `/api/v1/issues/${issueId}/comments`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify({ body }),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || `HTTP ${response.status}`);
+    }
+
+    // Close the form and reload
+    const replyForm = event.target.closest('.reply-form');
+    replyForm.classList.remove('open');
+    textarea.value = '';
+
+    // Reload communications
+    await loadThreads(true);
+
+  } catch (error) {
+    console.error('Error submitting reply:', error);
+    alert(`Failed to submit reply: ${error.message}`);
+  }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadFilters();
+  loadThreads();
+});
+</script>
+{% endblock %}

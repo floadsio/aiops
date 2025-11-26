@@ -149,6 +149,13 @@ def ai_status_overview():
     )
 
 
+@projects_bp.route("/communications", methods=["GET"])
+@login_required
+def communications():
+    """Display central communication hub for all issue comments."""
+    return render_template("communications.html")
+
+
 def _issue_sort_key(issue: ExternalIssue):
     reference = issue.external_updated_at or issue.updated_at or issue.created_at
     if reference is None:

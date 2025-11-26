@@ -229,7 +229,7 @@ def _set_winsize(fd: int, rows: int, cols: int) -> None:
 def _resolve_command(tool: str | None, command: str | None, permission_mode: str | None = None) -> str:
     tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
     fallback_shell = current_app.config.get("DEFAULT_AI_SHELL", "/bin/bash")
-    default_tool = current_app.config.get("DEFAULT_AI_TOOL", "codex")
+    default_tool = current_app.config.get("DEFAULT_AI_TOOL", "claude")
 
     if command:
         return command

@@ -161,8 +161,11 @@ def start_project_ai_session(project_id: int):
     permission_mode = data.get("permission_mode")  # Optional: override permission mode (e.g., "yolo")
     resolved_command = None
 
+    current_app.logger.warning(f"DEBUG [API]: Received session request - tool={tool}, command={command}, issue_id={issue_id}")
+
     try:
         resolved_command = _resolve_command(tool, command, permission_mode=permission_mode)
+        current_app.logger.warning(f"DEBUG [API]: Resolved command - tool={tool}, resolved_command={resolved_command}")
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 

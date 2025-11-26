@@ -458,3 +458,53 @@ def test_project_ai_session_without_issue_gets_unique_tmux_target(test_app, monk
     assert first_target
     assert second_target
     assert first_target != second_target
+
+
+def test_issue_work_respects_tool_parameter(test_app):
+    """Test that aiops issues work respects the --tool parameter.
+
+    This test verifies that the tool parameter flows correctly through the API,
+    creating different tmux targets for different tools and using the default when not specified.
+    """
+    client = test_app.test_client()
+    login(client)
+
+    project = _create_seed_project(test_app, project_name="issue-work-project")
+    test_app.config["ENABLE_PERSISTENT_SESSIONS"] = False
+
+    # Test 1: Start session with tool=claude
+    claude_resp = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"issue_id": 100, "tool": "claude"},
+    )
+
+    # Test 2: Start session with tool=codex
+    codex_resp = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"issue_id": 100, "tool": "codex"},
+    )
+
+    # Test 3: Start session without tool (should use default)
+    default_resp = client.post(
+        f"/api/v1/projects/{project.id}/ai/sessions",
+        json={"issue_id": 100},
+    )
+
+    # All should succeed
+    assert claude_resp.status_code == 201, f"Claude session creation failed: {claude_resp.get_json()}"
+    assert codex_resp.status_code == 201, f"Codex session creation failed: {codex_resp.get_json()}"
+    assert default_resp.status_code == 201, f"Default session creation failed: {default_resp.get_json()}"
+
+    # Verify tmux targets are different (tool parameter affects target name)
+    claude_target = claude_resp.get_json().get("tmux_target")
+    codex_target = codex_resp.get_json().get("tmux_target")
+    default_target = default_resp.get_json().get("tmux_target")
+
+    assert claude_target, "Claude session should have tmux_target"
+    assert codex_target, "Codex session should have tmux_target"
+    assert default_target, "Default session should have tmux_target"
+
+    # Different tools should create different targets
+    # (the tool name is included in the target name)
+    assert claude_target != codex_target, f"Claude and Codex should get different targets: {claude_target} vs {codex_target}"
+    assert codex_target != default_target, f"Codex and default should get different targets: {codex_target} vs {default_target}"

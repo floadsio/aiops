@@ -398,6 +398,9 @@ class APIClient:
         if prompt:
             payload["prompt"] = prompt
 
+        import sys
+        print(f"DEBUG [CLI]: Starting AI session for issue {issue_id}, tool={tool}, payload={payload}", file=sys.stderr)
+
         url = f"{self.base_url}/api/v1/projects/{project_id}/ai/sessions"
         try:
             response = self.session.post(url, json=payload)

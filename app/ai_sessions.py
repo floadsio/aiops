@@ -144,6 +144,7 @@ class AISession:
         tmux_target: str | None = None,
         issue_id: int | None = None,
     ):
+        import time
         self.id = session_id
         self.project_id = project_id
         self.user_id = user_id
@@ -156,6 +157,7 @@ class AISession:
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
         self.is_persistent = False
+        self.created_at = time.time()
 
     def close(self) -> None:
         if self.stop_event.is_set():
@@ -192,6 +194,7 @@ class PersistentAISession:
         pipe_file: str,
         issue_id: int | None = None,
     ):
+        import time
         self.id = session_id
         self.project_id = project_id
         self.user_id = user_id
@@ -205,6 +208,7 @@ class PersistentAISession:
         self.is_persistent = True
         # Track file position for reading output
         self._file_position = 0
+        self.created_at = time.time()
 
     def close(self) -> None:
         """Stop streaming output but leave tmux session running."""
@@ -414,11 +418,16 @@ def find_session_for_issue(
         issue_id: The issue ID to search for
         user_id: The user ID who owns the session
         project_id: The project ID (for additional filtering)
+        expected_tool: If specified, only return sessions with this tool
+        expected_command: If specified, only return sessions with this command
 
     Returns:
-        AISession if found and still active, None otherwise
+        AISession if found and still active, None otherwise.
+        If expected_tool is None, returns the most recently created matching session.
     """
     with _sessions_lock:
+        matching_sessions = []
+
         for session in _sessions.values():
             if (
                 session.issue_id == issue_id
@@ -432,19 +441,24 @@ def find_session_for_issue(
                     session.stop_event.set()
                     continue
 
-                matches_tool = True
+                # If expected_tool is specified, filter by tool
                 if expected_tool is not None:
-                    if getattr(session, "tool", None) is None:
-                        matches_tool = False
-                    else:
-                        matches_tool = session.tool == expected_tool
+                    if getattr(session, "tool", None) != expected_tool:
+                        continue
 
-                matches_command = True
-                if expected_command is not None and session.command is not None:
-                    matches_command = session.command == expected_command
+                # If expected_command is specified, filter by command
+                if expected_command is not None and session.command != expected_command:
+                    continue
 
-                if matches_tool and matches_command:
-                    return session
+                matching_sessions.append(session)
+
+        # If no expected_tool, return the most recently created session
+        # Otherwise return any matching session (they all have the same tool)
+        if matching_sessions:
+            # Sort by creation time (most recent first) and return the newest
+            matching_sessions.sort(key=lambda s: getattr(s, 'created_at', 0), reverse=True)
+            return matching_sessions[0]
+
     return None
 
 

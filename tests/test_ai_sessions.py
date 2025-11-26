@@ -881,3 +881,73 @@ def test_find_session_for_issue_respects_tool_for_persistent(monkeypatch):
         )
         is None
     )
+
+    # When no tool is specified, should return the most recent session
+    found = find_session_for_issue(
+        issue_id=77,
+        user_id=10,
+        project_id=1,
+        expected_tool=None,
+    )
+    assert found is session
+
+
+def test_find_session_for_issue_returns_most_recent_when_no_tool_specified(monkeypatch):
+    """Test that reattaching without --tool returns the most recently created session."""
+    import time
+    from app.ai_sessions import (
+        PersistentAISession,
+        _register_session,
+        find_session_for_issue,
+    )
+
+    # Clear session registry
+    monkeypatch.setattr("app.ai_sessions._sessions", {})
+    monkeypatch.setattr("app.ai_sessions.session_exists", lambda _: True)
+
+    # Create two Claude sessions at different times
+    session1 = PersistentAISession(
+        "s-1",
+        project_id=1,
+        user_id=10,
+        tool="claude",
+        command="claude --permission-mode acceptEdits",
+        tmux_target="aiops:win1",
+        pipe_file="/tmp/fake-pipe1",
+        issue_id=77,
+    )
+    _register_session(session1)
+
+    # Sleep briefly to ensure different creation times
+    time.sleep(0.01)
+
+    session2 = PersistentAISession(
+        "s-2",
+        project_id=1,
+        user_id=10,
+        tool="claude",
+        command="claude --permission-mode acceptEdits",
+        tmux_target="aiops:win2",
+        pipe_file="/tmp/fake-pipe2",
+        issue_id=77,
+    )
+    _register_session(session2)
+
+    # When no tool is specified, should return the most recent session (session2)
+    found = find_session_for_issue(
+        issue_id=77,
+        user_id=10,
+        project_id=1,
+        expected_tool=None,
+    )
+    assert found is session2
+
+    # When tool is specified, should return the matching session
+    found = find_session_for_issue(
+        issue_id=77,
+        user_id=10,
+        project_id=1,
+        expected_tool="claude",
+    )
+    # Should return the most recent claude session (session2)
+    assert found is session2

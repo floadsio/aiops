@@ -710,6 +710,10 @@ tail -f /home/syseng/aiops/logs/aiops.log
 
 ---
 
+---
+
+---
+
 ## Current Issue Context
 <!-- issue-context:start -->
 
@@ -717,7 +721,7 @@ NOTE: Generated issue context. Update before publishing if needed.
 
 # 123 - Add integration selector to AI-Assisted Issue creation form
 
-        _Updated: 2025-11-26 08:07:05Z_
+        _Updated: 2025-11-26 08:13:54Z_
 
         ## Issue Snapshot
         - Provider: github

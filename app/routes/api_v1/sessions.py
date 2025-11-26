@@ -318,6 +318,7 @@ def start_project_ai_session(project_id: int):
         "existing": not was_created,  # Indicate if this is an existing session
         "context_populated": was_created and len(context_sources) > 0,  # Whether AGENTS.override.md was populated
         "context_sources": context_sources if was_created else [],  # List of sources that were merged
+        "tool": getattr(session, "tool", None),  # Include tool info (useful when reattaching without --tool)
     }
 
     # Log session activity

@@ -1310,14 +1310,17 @@ def issues_work(
         context_populated = result.get("context_populated", False)  # Whether AGENTS.override.md was populated
         context_sources = result.get("context_sources", [])  # Sources that were merged
         warning = result.get("warning")  # Optional warning from claim-issue
+        session_tool = result.get("tool")  # AI tool being used in this session
 
         console.print(f"[green]✓[/green] Issue {issue_id} claimed successfully!")
         if warning:
             console.print(f"[yellow]⚠[/yellow] {warning}")
         if is_existing:
-            console.print(f"[green]✓[/green] Reusing existing AI session (session ID: {session_id})")
+            tool_info = f" ({session_tool})" if session_tool else ""
+            console.print(f"[green]✓[/green] Reusing existing AI session{tool_info} (session ID: {session_id})")
         else:
-            console.print(f"[green]✓[/green] AI session started (session ID: {session_id})")
+            tool_info = f" ({session_tool})" if session_tool else ""
+            console.print(f"[green]✓[/green] AI session started{tool_info} (session ID: {session_id})")
         if workspace_path:
             console.print(f"[blue]Workspace:[/blue] {workspace_path}")
         if context_populated and context_sources:

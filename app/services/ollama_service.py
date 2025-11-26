@@ -83,7 +83,8 @@ def _get_ollama_client() -> Any:
 def _extract_json_from_response(response_text: str) -> dict[str, Any]:
     """Extract and parse JSON from response text.
 
-    Handles cases where JSON is wrapped in markdown code blocks or has extra text.
+    Handles cases where JSON is wrapped in markdown code blocks or has extra text,
+    and fixes unescaped newlines in string fields.
 
     Args:
         response_text: Raw response from Ollama model.
@@ -109,12 +110,31 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
             )
 
     try:
+        # First, try standard JSON parsing
         return json.loads(json_str)
-    except json.JSONDecodeError as exc:
-        raise OllamaServiceError(
-            f"Failed to parse JSON from response: {exc}. "
-            f"Text was: {json_str[:200]}"
-        ) from exc
+    except json.JSONDecodeError:
+        # If standard parsing fails, try to fix unescaped newlines
+        # The Ollama model may output literal newlines in string values
+
+        # Find all quoted strings and fix newlines within them
+        def fix_string(match):
+            s = match.group(0)
+            # Replace literal newlines and carriage returns with escaped versions
+            s = s.replace('\r\n', '\\n')  # Windows line endings
+            s = s.replace('\n', '\\n')    # Unix line endings
+            s = s.replace('\r', '\\n')    # Mac line endings
+            return s
+
+        # Fix the JSON string by escaping newlines in quoted strings
+        fixed_json = re.sub(r'"(?:[^"\\]|\\.)*"', fix_string, json_str)
+
+        try:
+            return json.loads(fixed_json)
+        except json.JSONDecodeError as exc:
+            raise OllamaServiceError(
+                f"Failed to parse JSON from response: {exc}. "
+                f"Text was: {json_str[:200]}"
+            ) from exc
 
 
 def generate_issue_with_ollama(

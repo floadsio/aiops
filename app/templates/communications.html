@@ -1378,6 +1378,7 @@ const LIMIT = 20;
 let totalCount = 0;
 let allTenants = [];
 let allProjects = [];
+let availableProviders = new Set();
 
 // Get provider icon
 function getProviderIcon(provider) {
@@ -1601,6 +1602,17 @@ async function loadThreads(reset = true) {
     });
     threads = Array.from(issueMap.values());
 
+    // Extract available providers from current threads
+    availableProviders.clear();
+    threads.forEach(t => {
+      if (t.provider) {
+        availableProviders.add(t.provider.toLowerCase());
+      }
+    });
+
+    // Update provider dropdown based on available providers
+    updateProvidersDropdown();
+
     // Client-side provider filter
     const providerFilter = document.getElementById('providerFilter').value;
     if (providerFilter) {
@@ -1669,6 +1681,45 @@ function updatePagination(pagination) {
       loadThreads(false);
     };
     container.appendChild(button);
+  }
+}
+
+// Update provider dropdown based on available providers
+function updateProvidersDropdown() {
+  const providerSelect = document.getElementById('providerFilter');
+  const currentValue = providerSelect.value;
+
+  // Provider label mapping
+  const providerLabels = {
+    'github': 'GitHub',
+    'gitlab': 'GitLab',
+    'jira': 'Jira'
+  };
+
+  // Rebuild dropdown with only available providers
+  providerSelect.innerHTML = '<option value="">All Providers</option>';
+
+  if (availableProviders.size === 0) {
+    // No providers available - disable dropdown
+    providerSelect.disabled = true;
+  } else {
+    providerSelect.disabled = false;
+
+    // Add available providers to dropdown
+    const sortedProviders = Array.from(availableProviders).sort();
+    sortedProviders.forEach(provider => {
+      const option = document.createElement('option');
+      option.value = provider;
+      option.textContent = providerLabels[provider] || provider.charAt(0).toUpperCase() + provider.slice(1);
+      providerSelect.appendChild(option);
+    });
+  }
+
+  // Reset provider selection if current value is no longer available
+  if (currentValue && !availableProviders.has(currentValue)) {
+    providerSelect.value = '';
+  } else if (currentValue) {
+    providerSelect.value = currentValue;
   }
 }
 
@@ -1851,12 +1902,17 @@ async function submitCommentReply(event, issueId, authorName) {
 
 // Event listeners
 document.getElementById('tenantFilter').addEventListener('change', () => {
+  // Reset provider and project filters when tenant changes
+  document.getElementById('projectFilter').value = '';
+  document.getElementById('providerFilter').value = '';
   updateProjectsForTenant();
   loadThreads(true);
   updateClearButton();
 });
 
 document.getElementById('projectFilter').addEventListener('change', () => {
+  // Reset provider filter when project changes
+  document.getElementById('providerFilter').value = '';
   loadThreads(true);
   updateClearButton();
 });

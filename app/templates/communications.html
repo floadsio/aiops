@@ -44,18 +44,19 @@
     }
 
     .communication-thread {
-      border: 1px solid rgba(148, 163, 184, 0.35);
+      border: 1px solid rgba(148, 163, 184, 0.25);
       border-radius: 0.75rem;
       overflow: hidden;
-      background: rgba(15, 23, 42, 0.02);
+      background: rgba(15, 23, 42, 0.01);
     }
     [data-theme="dark"] .communication-thread {
-      background: rgba(15, 23, 42, 0.35);
-      border-color: rgba(148, 163, 184, 0.45);
+      background: rgba(15, 23, 42, 0.2);
+      border-color: rgba(148, 163, 184, 0.35);
     }
 
     .thread-header {
-      padding: 1rem;
+      padding: 1rem 1.5rem;
+      background: rgba(148, 163, 184, 0.05);
       border-bottom: 1px solid rgba(148, 163, 184, 0.25);
       display: flex;
       justify-content: space-between;
@@ -63,6 +64,7 @@
       gap: 1rem;
     }
     [data-theme="dark"] .thread-header {
+      background: rgba(148, 163, 184, 0.08);
       border-bottom-color: rgba(148, 163, 184, 0.35);
     }
 
@@ -72,17 +74,21 @@
     }
 
     .thread-title {
-      font-weight: 600;
-      font-size: 1.05rem;
-      margin: 0 0 0.5rem 0;
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin: 0 0 0.25rem 0;
       word-break: break-word;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .thread-title {
+      color: rgba(226, 232, 240, 0.95);
     }
 
     .thread-meta {
       display: flex;
       gap: 1rem;
       flex-wrap: wrap;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: #64748b;
     }
     [data-theme="dark"] .thread-meta {
@@ -173,12 +179,12 @@
 
     .issue-post {
       padding: 1.5rem;
-      border-bottom: 2px solid rgba(148, 163, 184, 0.35);
-      background: rgba(148, 163, 184, 0.05);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      background: transparent;
     }
     [data-theme="dark"] .issue-post {
-      background: rgba(148, 163, 184, 0.08);
-      border-bottom-color: rgba(148, 163, 184, 0.45);
+      background: transparent;
+      border-bottom-color: rgba(148, 163, 184, 0.35);
     }
 
     .issue-post__header {
@@ -186,14 +192,14 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
-      margin-bottom: 1rem;
+      margin-bottom: 0.75rem;
       flex-wrap: wrap;
     }
 
     .issue-post__title {
-      font-size: 1.3rem;
-      font-weight: 700;
-      margin: 0 0 0.5rem 0;
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
       word-break: break-word;
       color: var(--pico-color-slate-900);
     }
@@ -203,9 +209,9 @@
 
     .issue-post__meta {
       display: flex;
-      gap: 1rem;
+      gap: 0.75rem;
       flex-wrap: wrap;
-      font-size: 0.9rem;
+      font-size: 0.8rem;
       color: #64748b;
       margin-bottom: 1rem;
     }
@@ -217,15 +223,15 @@
       line-height: 1.6;
       color: var(--pico-color-slate-800);
       word-wrap: break-word;
-      margin: 1rem 0;
-      padding: 1rem;
-      background: rgba(15, 23, 42, 0.02);
-      border-radius: 0.5rem;
-      border-left: 3px solid var(--md-primary);
+      margin: 1rem 0 0 0;
+      padding: 0;
+      background: transparent;
+      border-radius: 0;
+      border-left: none;
     }
     [data-theme="dark"] .issue-post__body {
       color: rgba(226, 232, 240, 0.85);
-      background: rgba(15, 23, 42, 0.25);
+      background: transparent;
     }
 
     .issue-post__body p {
@@ -362,101 +368,82 @@
     }
 
     .comments-section {
-      padding: 1rem 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     .comments-section__title {
-      padding: 0.75rem 1rem;
-      font-weight: 600;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0;
+      font-weight: 0;
+      border-bottom: none;
       margin-bottom: 0;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      user-select: none;
-      transition: background-color 0.2s ease;
-    }
-
-    .comments-section__title:hover {
-      background: rgba(148, 163, 184, 0.1);
-    }
-    [data-theme="dark"] .comments-section__title:hover {
-      background: rgba(148, 163, 184, 0.15);
+      display: none;
     }
 
     .comments-toggle {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 1.5rem;
-      height: 1.5rem;
-      font-size: 1rem;
-      transition: transform 0.2s ease;
-    }
-
-    .comments-toggle.collapsed {
-      transform: rotate(-90deg);
+      display: none;
     }
 
     .comments-list {
-      max-height: 10000px;
-      overflow: hidden;
-      transition: max-height 0.4s ease, opacity 0.3s ease;
+      max-height: 100%;
+      overflow: visible;
+      transition: none;
       opacity: 1;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
     }
 
     .comments-list.collapsed {
-      max-height: 0;
-      opacity: 0;
-      overflow: hidden;
-      transition: max-height 0.4s ease, opacity 0.3s ease;
+      max-height: 100%;
+      opacity: 1;
+      overflow: visible;
+      transition: none;
     }
 
     .comment-item {
-      padding: 1rem;
-      border-top: 1px solid rgba(148, 163, 184, 0.2);
-      margin-left: 2rem;
+      padding: 1.5rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      border-bottom: none;
+      margin-left: 0;
       position: relative;
+      background: transparent;
     }
     [data-theme="dark"] .comment-item {
-      border-top-color: rgba(148, 163, 184, 0.3);
+      border-top-color: rgba(148, 163, 184, 0.35);
     }
 
     .comment-item::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--md-accent);
-      border-radius: 2px;
+      display: none;
     }
 
     .comment-item:first-of-type {
-      border-top: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
     }
 
     .comment-header {
       display: flex;
-      align-items: center;
-      gap: 0.5rem;
+      align-items: baseline;
+      gap: 0.75rem;
       margin-bottom: 0.75rem;
       font-size: 0.9rem;
       flex-wrap: wrap;
     }
 
     .comment-author {
-      font-weight: 600;
+      font-weight: 700;
       color: var(--pico-color-slate-900);
+      font-size: 0.95rem;
     }
     [data-theme="dark"] .comment-author {
       color: rgba(226, 232, 240, 0.95);
     }
 
     .comment-author-remote {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: #64748b;
       font-weight: normal;
     }
@@ -466,7 +453,8 @@
 
     .comment-timestamp {
       color: #64748b;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
+      margin-left: auto;
     }
     [data-theme="dark"] .comment-timestamp {
       color: rgba(148, 163, 184, 0.75);
@@ -834,18 +822,12 @@ function getStatusClass(status) {
   return normalized;
 }
 
-// Toggle comments visibility
+// Placeholder - collapse functionality removed for thread-style view
 function toggleComments(event) {
-  event.preventDefault();
-  const title = event.currentTarget;
-  const commentsList = title.nextElementSibling;
-  const toggle = title.querySelector('.comments-toggle');
-
-  commentsList.classList.toggle('collapsed');
-  toggle.classList.toggle('collapsed');
+  // No-op - comments always visible in thread view
 }
 
-// Render a single thread (Reddit/Forum style)
+// Render a single thread (email/discussion thread style)
 function renderThread(thread) {
   const commentsHtml = thread.comments.map((comment, index) => `
     <li class="comment-item">
@@ -862,99 +844,70 @@ function renderThread(thread) {
       </div>
       <div class="comment-body">${comment.body_html || escapeHtml(comment.body)}</div>
       <div class="comment-actions">
-        <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer">
-          View on ${thread.provider_name}
+        <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--md-primary);">
+          View on ${thread.provider_name} ↗
         </a>
-        <button onclick="toggleReplyForm(event, ${thread.issue_id}, ${index})" class="outline">
-          Reply
-        </button>
-      </div>
-      <div class="reply-form" data-issue-id="${thread.issue_id}" data-comment-index="${index}">
-        <textarea placeholder="Write your reply..." class="reply-textarea"></textarea>
-        <div class="reply-form-actions">
-          <button onclick="submitReply(event, ${thread.issue_id})" type="button">
-            Post Reply
-          </button>
-          <button onclick="toggleReplyForm(event, ${thread.issue_id}, ${index})" type="button" class="outline">
-            Cancel
-          </button>
-        </div>
       </div>
     </li>
   `).join('');
 
-  const replyFormHtml = `
-    <div class="reply-form open" style="padding: 1rem; margin-left: 2rem; border-top: 1px solid rgba(148, 163, 184, 0.2);">
-      <h4 style="margin: 0 0 0.75rem 0; font-size: 0.95rem;">Add a reply to this thread</h4>
-      <textarea placeholder="Share your thoughts..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
-      <div class="reply-form-actions">
-        <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
-          Post Reply
-        </button>
-      </div>
-    </div>
-  `;
-
   return `
     <article class="communication-thread">
-      <!-- Issue as main post -->
-      <div class="issue-post">
-        <div class="issue-post__header">
-          <div>
-            <h2 class="issue-post__title">
-              <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer">
-                ${escapeHtml(thread.issue_title)}
-              </a>
-            </h2>
-          </div>
-          <div>
-            <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button">
-              Open Issue
+      <!-- Thread header with title -->
+      <div class="thread-header">
+        <div class="thread-header-main">
+          <h2 class="thread-title">
+            <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer">
+              ${escapeHtml(thread.issue_title)}
             </a>
+          </h2>
+          <div class="thread-meta">
+            <span class="provider-badge ${thread.provider}">
+              ${getProviderIcon(thread.provider)} ${thread.provider_name}
+            </span>
+            <span class="status-badge ${getStatusClass(thread.issue_status)}">
+              ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
+            </span>
+            <span>📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
+            ${thread.issue_assignee ? `<span>👤 Assigned to ${escapeHtml(thread.issue_assignee)}</span>` : ''}
+            <span style="margin-left: auto; font-size: 0.8rem;">Issue #${escapeHtml(thread.issue_external_id)}</span>
           </div>
         </div>
-
-        <div class="issue-post__meta">
-          <span class="provider-badge ${thread.provider}">
-            ${getProviderIcon(thread.provider)} ${thread.provider_name}
-          </span>
-          <span class="status-badge ${getStatusClass(thread.issue_status)}">
-            ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
-          </span>
-          <span>📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
-          ${thread.issue_assignee ? `
-            <span>👤 Assigned to ${escapeHtml(thread.issue_assignee)}</span>
-          ` : ''}
+        <div>
+          <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button">
+            Open Issue
+          </a>
         </div>
+      </div>
 
+      <!-- Issue as first message -->
+      <div class="issue-post">
         <div class="issue-post__body">
           ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
         </div>
-
-        <div style="padding: 0.75rem; background: rgba(148, 163, 184, 0.08); border-radius: 0.4rem; font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
-          Issue #${escapeHtml(thread.issue_external_id)} in <strong>${escapeHtml(thread.project_name)}</strong> • Created ${formatTimestamp(thread.created_at)}
+        <div style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
+          Created ${formatTimestamp(thread.created_at)}
         </div>
       </div>
 
-      <!-- Comments section -->
+      <!-- Comments as follow-up messages -->
       ${thread.comment_count > 0 ? `
         <div class="comments-section">
-          <div class="comments-section__title" onclick="toggleComments(event)">
-            <span class="comments-toggle collapsed">▼</span>
-            💬 ${thread.comment_count} reply${thread.comment_count !== 1 ? 'ies' : ''}
-          </div>
-          <ul class="comments-list collapsed">
+          <ul class="comments-list">
             ${commentsHtml}
           </ul>
         </div>
-      ` : `
-        <div style="padding: 1rem 1rem 1rem 2rem; color: #64748b; font-style: italic;">
-          No replies yet. Be the first to comment!
-        </div>
-      `}
+      ` : ``}
 
-      <!-- Reply form -->
-      ${replyFormHtml}
+      <!-- Reply form at bottom -->
+      <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25);">
+        <textarea placeholder="Add your reply to this thread..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
+        <div class="reply-form-actions">
+          <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
+            Post Reply
+          </button>
+        </div>
+      </div>
     </article>
   `;
 }

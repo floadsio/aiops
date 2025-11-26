@@ -62,21 +62,62 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
     }
     [data-theme="dark"] .thread-header {
       background: rgba(148, 163, 184, 0.08);
       border-bottom-color: rgba(148, 163, 184, 0.35);
     }
 
+    .thread-header:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+    [data-theme="dark"] .thread-header:hover {
+      background: rgba(148, 163, 184, 0.12);
+    }
+
+    .thread-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 0.9rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .thread-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .thread-content {
+      max-height: 10000px;
+      overflow: hidden;
+      transition: max-height 0.4s ease, opacity 0.3s ease;
+      opacity: 1;
+    }
+
+    .thread-content.collapsed {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
     .thread-header-main {
       flex: 1;
       min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
 
     .thread-title {
       font-weight: 700;
       font-size: 1.15rem;
-      margin: 0 0 0.25rem 0;
+      margin: 0;
       word-break: break-word;
       color: var(--pico-color-slate-900);
     }
@@ -84,15 +125,32 @@
       color: rgba(226, 232, 240, 0.95);
     }
 
-    .thread-meta {
+    .thread-summary {
       display: flex;
+      align-items: center;
       gap: 1rem;
       flex-wrap: wrap;
-      font-size: 0.85rem;
+      flex: 1;
+    }
+
+    .thread-meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
       color: #64748b;
     }
     [data-theme="dark"] .thread-meta {
       color: rgba(148, 163, 184, 0.75);
+    }
+
+    .thread-reply-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.85rem;
+      color: var(--md-primary);
+      font-weight: 500;
     }
 
     .provider-badge {
@@ -822,9 +880,16 @@ function getStatusClass(status) {
   return normalized;
 }
 
-// Placeholder - collapse functionality removed for thread-style view
-function toggleComments(event) {
-  // No-op - comments always visible in thread view
+// Toggle thread expand/collapse
+function toggleThread(event) {
+  event.preventDefault();
+  const header = event.currentTarget;
+  const thread = header.closest('.communication-thread');
+  const content = thread.querySelector('.thread-content');
+  const toggle = header.querySelector('.thread-toggle');
+
+  content.classList.toggle('collapsed');
+  toggle.classList.toggle('collapsed');
 }
 
 // Render a single thread (email/discussion thread style)
@@ -853,59 +918,64 @@ function renderThread(thread) {
 
   return `
     <article class="communication-thread">
-      <!-- Thread header with title -->
-      <div class="thread-header">
+      <!-- Thread header - clickable to expand/collapse -->
+      <div class="thread-header" onclick="toggleThread(event)">
         <div class="thread-header-main">
-          <h2 class="thread-title">
-            <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer">
+          <span class="thread-toggle collapsed">▼</span>
+          <div style="flex: 1; min-width: 0;">
+            <h2 class="thread-title">
               ${escapeHtml(thread.issue_title)}
-            </a>
-          </h2>
-          <div class="thread-meta">
-            <span class="provider-badge ${thread.provider}">
-              ${getProviderIcon(thread.provider)} ${thread.provider_name}
-            </span>
-            <span class="status-badge ${getStatusClass(thread.issue_status)}">
-              ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
-            </span>
-            <span>📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
-            ${thread.issue_assignee ? `<span>👤 Assigned to ${escapeHtml(thread.issue_assignee)}</span>` : ''}
-            <span style="margin-left: auto; font-size: 0.8rem;">Issue #${escapeHtml(thread.issue_external_id)}</span>
+            </h2>
+            <div class="thread-meta">
+              <span class="provider-badge ${thread.provider}">
+                ${getProviderIcon(thread.provider)} ${thread.provider_name}
+              </span>
+              <span class="status-badge ${getStatusClass(thread.issue_status)}">
+                ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
+              </span>
+              <span>📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
+              ${thread.issue_assignee ? `<span>👤 Assigned to ${escapeHtml(thread.issue_assignee)}</span>` : ''}
+              <span class="thread-reply-count">💬 ${thread.comment_count}</span>
+              <span style="margin-left: auto; font-size: 0.8rem;">Issue #${escapeHtml(thread.issue_external_id)}</span>
+            </div>
           </div>
         </div>
-        <div>
+        <div onclick="event.stopPropagation()">
           <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button">
             Open Issue
           </a>
         </div>
       </div>
 
-      <!-- Issue as first message -->
-      <div class="issue-post">
-        <div class="issue-post__body">
-          ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
+      <!-- Collapsible thread content -->
+      <div class="thread-content collapsed">
+        <!-- Issue as first message -->
+        <div class="issue-post">
+          <div class="issue-post__body">
+            ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
+          </div>
+          <div style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
+            Created ${formatTimestamp(thread.created_at)}
+          </div>
         </div>
-        <div style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
-          Created ${formatTimestamp(thread.created_at)}
-        </div>
-      </div>
 
-      <!-- Comments as follow-up messages -->
-      ${thread.comment_count > 0 ? `
-        <div class="comments-section">
-          <ul class="comments-list">
-            ${commentsHtml}
-          </ul>
-        </div>
-      ` : ``}
+        <!-- Comments as follow-up messages -->
+        ${thread.comment_count > 0 ? `
+          <div class="comments-section">
+            <ul class="comments-list">
+              ${commentsHtml}
+            </ul>
+          </div>
+        ` : ``}
 
-      <!-- Reply form at bottom -->
-      <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25);">
-        <textarea placeholder="Add your reply to this thread..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
-        <div class="reply-form-actions">
-          <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
-            Post Reply
-          </button>
+        <!-- Reply form at bottom -->
+        <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25);">
+          <textarea placeholder="Add your reply to this thread..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
+          <div class="reply-form-actions">
+            <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
+              Post Reply
+            </button>
+          </div>
         </div>
       </div>
     </article>

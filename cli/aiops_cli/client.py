@@ -377,6 +377,7 @@ class APIClient:
         issue_id: int,
         tool: Optional[str] = None,
         prompt: Optional[str] = None,
+        yolo: bool = False,
     ) -> dict[str, Any]:
         """Start an AI session for working on an issue.
 
@@ -397,6 +398,8 @@ class APIClient:
             payload["tool"] = tool
         if prompt:
             payload["prompt"] = prompt
+        if yolo:
+            payload["permission_mode"] = "yolo"
 
         import sys
         print(f"DEBUG [CLI]: Starting AI session for issue {issue_id}, tool={tool}, payload={payload}", file=sys.stderr)

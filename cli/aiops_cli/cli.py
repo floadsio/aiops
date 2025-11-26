@@ -1278,6 +1278,7 @@ def issues_start(
 @click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), help="AI tool to use")
 @click.option("--prompt", help="Initial prompt to send to the AI")
 @click.option("--attach", is_flag=True, help="Attach to tmux session after starting")
+@click.option("--yolo", is_flag=True, help="Skip all permissions for Claude (dangerous)")
 @click.pass_context
 def issues_work(
     ctx: click.Context,
@@ -1285,6 +1286,7 @@ def issues_work(
     tool: Optional[str],
     prompt: Optional[str],
     attach: bool,
+    yolo: bool,
 ) -> None:
     """Start an AI session to work on an issue.
 
@@ -1296,12 +1298,13 @@ def issues_work(
     Example:
         aiops issues work 123 --tool claude --attach
         aiops issues work 456 --tool codex --prompt "Fix the authentication bug"
+        aiops issues work 789 --tool claude --yolo
     """
     client = get_client(ctx)
 
     try:
         # Start AI session on the issue
-        result = client.start_ai_session_on_issue(issue_id, tool=tool, prompt=prompt)
+        result = client.start_ai_session_on_issue(issue_id, tool=tool, prompt=prompt, yolo=yolo)
 
         session_id = result.get("session_id")
         workspace_path = result.get("workspace_path")

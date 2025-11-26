@@ -1,0 +1,1929 @@
+{% extends "base.html" %}
+{% block title %}Communications{% endblock %}
+
+{% block extra_head %}
+  {{ super() }}
+  <style>
+    .communications-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .communications-filters {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .communications-filters select,
+    .communications-filters input {
+      margin: 0;
+    }
+    .filter-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(148, 163, 184, 0.15);
+      border-radius: 999px;
+      font-size: 0.85rem;
+    }
+    [data-theme="dark"] .filter-badge {
+      background: rgba(148, 163, 184, 0.25);
+    }
+    .clear-filters {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+
+    .thread-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .communication-thread {
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.01);
+    }
+    [data-theme="dark"] .communication-thread {
+      background: rgba(15, 23, 42, 0.2);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .tree-root {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .tree-node {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tree-node-header {
+      padding: 1rem 1.5rem;
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+    }
+
+    .tree-node-header:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+    [data-theme="dark"] .tree-node-header:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    .tree-node-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.25rem;
+      height: 1.25rem;
+      font-size: 0.8rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+      font-weight: bold;
+      color: #64748b;
+    }
+    [data-theme="dark"] .tree-node-toggle {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-node-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .tree-node-summary {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .tree-node-title {
+      font-weight: 600;
+      font-size: 1rem;
+      word-break: break-word;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .tree-node-title {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .tree-node-meta {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-left: auto;
+    }
+    [data-theme="dark"] .tree-node-meta {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-node-children {
+      display: flex;
+      flex-direction: column;
+      max-height: 10000px;
+      overflow: hidden;
+      transition: max-height 0.4s ease, opacity 0.3s ease;
+      opacity: 1;
+      margin-left: 2rem;
+      border-left: 2px solid rgba(148, 163, 184, 0.2);
+      padding-left: 0;
+    }
+    [data-theme="dark"] .tree-node-children {
+      border-left-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .tree-node-children.collapsed {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .tree-child-node {
+      display: flex;
+      flex-direction: column;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .tree-child-node {
+      border-bottom-color: rgba(148, 163, 184, 0.2);
+    }
+
+    .tree-child-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.2s ease;
+      padding: 0.25rem;
+      margin: -0.25rem;
+      border-radius: 0.25rem;
+    }
+
+    .tree-child-header:hover {
+      background: rgba(148, 163, 184, 0.08);
+    }
+    [data-theme="dark"] .tree-child-header:hover {
+      background: rgba(148, 163, 184, 0.1);
+    }
+
+    .tree-child-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1rem;
+      height: 1rem;
+      font-size: 0.7rem;
+      transition: transform 0.2s ease;
+      flex-shrink: 0;
+      color: #64748b;
+    }
+    [data-theme="dark"] .tree-child-toggle {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-child-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .tree-child-author {
+      font-weight: 700;
+      color: var(--pico-color-slate-900);
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .tree-child-author {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .tree-child-timestamp {
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+    [data-theme="dark"] .tree-child-timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .tree-child-content {
+      max-height: 10000px;
+      overflow: hidden;
+      transition: max-height 0.3s ease, opacity 0.2s ease;
+      opacity: 1;
+      margin-left: 1.75rem;
+    }
+
+    .tree-child-content.collapsed {
+      max-height: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+
+    .thread-header-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .thread-title {
+      font-weight: 700;
+      font-size: 1.15rem;
+      margin: 0;
+      word-break: break-word;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .thread-title {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .thread-summary {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+
+    .thread-meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .thread-meta {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .thread-reply-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.85rem;
+      color: var(--md-primary);
+      font-weight: 500;
+    }
+
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .provider-badge {
+      background: rgba(148, 163, 184, 0.25);
+    }
+
+    .provider-badge.github {
+      background: rgba(36, 41, 46, 0.3);
+      color: #333;
+    }
+    [data-theme="dark"] .provider-badge.github {
+      background: rgba(36, 41, 46, 0.5);
+      color: #f0f6fc;
+    }
+
+    .provider-badge.gitlab {
+      background: rgba(252, 109, 38, 0.2);
+      color: #d94c2a;
+    }
+    [data-theme="dark"] .provider-badge.gitlab {
+      background: rgba(252, 109, 38, 0.25);
+      color: #fc6d26;
+    }
+
+    .provider-badge.jira {
+      background: rgba(0, 82, 204, 0.15);
+      color: #0052cc;
+    }
+    [data-theme="dark"] .provider-badge.jira {
+      background: rgba(0, 82, 204, 0.25);
+      color: #0052cc;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: rgba(34, 197, 94, 0.15);
+      color: #166534;
+    }
+    [data-theme="dark"] .status-badge {
+      background: rgba(34, 197, 94, 0.25);
+      color: #86efac;
+    }
+
+    .status-badge.closed,
+    .status-badge.resolved {
+      background: rgba(107, 114, 128, 0.15);
+      color: #374151;
+    }
+    [data-theme="dark"] .status-badge.closed,
+    [data-theme="dark"] .status-badge.resolved {
+      background: rgba(107, 114, 128, 0.25);
+      color: #d1d5db;
+    }
+
+    .comment-count {
+      font-weight: 600;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .comment-count {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .comments-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .issue-post {
+      padding: 1.5rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      background: transparent;
+    }
+    [data-theme="dark"] .issue-post {
+      background: transparent;
+      border-bottom-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .issue-post__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .issue-post__title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0;
+      word-break: break-word;
+      color: var(--pico-color-slate-900);
+    }
+    [data-theme="dark"] .issue-post__title {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .issue-post__meta {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin-bottom: 1rem;
+    }
+    [data-theme="dark"] .issue-post__meta {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-post__body {
+      line-height: 1.6;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+      margin: 1rem 0 0 0;
+      padding: 0;
+      background: transparent;
+      border-radius: 0;
+      border-left: none;
+    }
+    [data-theme="dark"] .issue-post__body {
+      color: rgba(226, 232, 240, 0.85);
+      background: transparent;
+    }
+
+    .issue-post__body p {
+      margin: 0.5rem 0;
+    }
+
+    .issue-post__body p:first-child {
+      margin-top: 0;
+    }
+
+    .issue-post__body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .issue-post__body a {
+      color: var(--md-primary);
+      text-decoration: underline;
+    }
+    [data-theme="dark"] .issue-post__body a {
+      color: #42a5f5;
+    }
+
+    .issue-post__body code {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    [data-theme="dark"] .issue-post__body code {
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .issue-post__body pre {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.75rem 0;
+    }
+    [data-theme="dark"] .issue-post__body pre {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .issue-post__body pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .issue-post__body blockquote {
+      border-left: 3px solid var(--md-primary);
+      padding-left: 1rem;
+      margin-left: 0;
+      color: #64748b;
+      font-style: italic;
+    }
+    [data-theme="dark"] .issue-post__body blockquote {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-post__body ul,
+    .issue-post__body ol {
+      margin: 0.75rem 0;
+      padding-left: 2rem;
+    }
+
+    .issue-post__body li {
+      margin: 0.25rem 0;
+    }
+
+    .issue-post__body h1,
+    .issue-post__body h2,
+    .issue-post__body h3,
+    .issue-post__body h4,
+    .issue-post__body h5,
+    .issue-post__body h6 {
+      margin: 1rem 0 0.5rem 0;
+      font-weight: 600;
+    }
+
+    .issue-post__body h1 {
+      font-size: 1.3rem;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.25);
+      padding-bottom: 0.5rem;
+    }
+
+    .issue-post__body h2 {
+      font-size: 1.15rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      padding-bottom: 0.25rem;
+    }
+
+    .issue-post__body h3 {
+      font-size: 1.05rem;
+    }
+
+    .issue-post__body hr {
+      margin: 1rem 0;
+      border: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .issue-post__body del {
+      color: #64748b;
+      text-decoration: line-through;
+    }
+    [data-theme="dark"] .issue-post__body del {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-post__body strong {
+      font-weight: 700;
+    }
+
+    .issue-post__body em {
+      font-style: italic;
+    }
+
+    .issue-post__footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .issue-post__footer {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comments-section {
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .comments-section__title {
+      padding: 0;
+      font-weight: 0;
+      border-bottom: none;
+      margin-bottom: 0;
+      display: none;
+    }
+
+    .comments-toggle {
+      display: none;
+    }
+
+    .comments-list {
+      max-height: 100%;
+      overflow: visible;
+      transition: none;
+      opacity: 1;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .comments-list.collapsed {
+      max-height: 100%;
+      opacity: 1;
+      overflow: visible;
+      transition: none;
+    }
+
+    .comment-item {
+      padding: 1.5rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      border-bottom: none;
+      margin-left: 0;
+      position: relative;
+      background: transparent;
+    }
+    [data-theme="dark"] .comment-item {
+      border-top-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .comment-item::before {
+      display: none;
+    }
+
+    .comment-item:first-of-type {
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .comment-header {
+      display: flex;
+      align-items: baseline;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+      font-size: 0.9rem;
+      flex-wrap: wrap;
+    }
+
+    .comment-author {
+      font-weight: 700;
+      color: var(--pico-color-slate-900);
+      font-size: 0.95rem;
+    }
+    [data-theme="dark"] .comment-author {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .comment-author-remote {
+      font-size: 0.8rem;
+      color: #64748b;
+      font-weight: normal;
+    }
+    [data-theme="dark"] .comment-author-remote {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-timestamp {
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-left: auto;
+    }
+    [data-theme="dark"] .comment-timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-body {
+      line-height: 1.6;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+    [data-theme="dark"] .comment-body {
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .comment-body p {
+      margin: 0.5rem 0;
+    }
+
+    .comment-body p:first-child {
+      margin-top: 0;
+    }
+
+    .comment-body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .comment-body a {
+      color: var(--md-primary);
+      text-decoration: underline;
+    }
+    [data-theme="dark"] .comment-body a {
+      color: #42a5f5;
+    }
+
+    .comment-body code {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    [data-theme="dark"] .comment-body code {
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .comment-body pre {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.75rem 0;
+    }
+    [data-theme="dark"] .comment-body pre {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .comment-body pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+
+    .comment-body blockquote {
+      border-left: 3px solid var(--md-primary);
+      padding-left: 1rem;
+      margin-left: 0;
+      color: #64748b;
+      font-style: italic;
+    }
+    [data-theme="dark"] .comment-body blockquote {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-body ul,
+    .comment-body ol {
+      margin: 0.75rem 0;
+      padding-left: 2rem;
+    }
+
+    .comment-body li {
+      margin: 0.25rem 0;
+    }
+
+    .comment-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .comment-body th,
+    .comment-body td {
+      padding: 0.5rem;
+      text-align: left;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .comment-body th {
+      background: rgba(148, 163, 184, 0.1);
+      font-weight: 600;
+    }
+    [data-theme="dark"] .comment-body th {
+      background: rgba(148, 163, 184, 0.15);
+    }
+
+    .comment-body h1,
+    .comment-body h2,
+    .comment-body h3,
+    .comment-body h4,
+    .comment-body h5,
+    .comment-body h6 {
+      margin: 1rem 0 0.5rem 0;
+      font-weight: 600;
+    }
+
+    .comment-body h1 {
+      font-size: 1.5rem;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.25);
+      padding-bottom: 0.5rem;
+    }
+
+    .comment-body h2 {
+      font-size: 1.3rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      padding-bottom: 0.25rem;
+    }
+
+    .comment-body h3 {
+      font-size: 1.1rem;
+    }
+
+    .comment-body hr {
+      margin: 1rem 0;
+      border: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .comment-body del {
+      color: #64748b;
+      text-decoration: line-through;
+    }
+    [data-theme="dark"] .comment-body del {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .comment-body strong {
+      font-weight: 700;
+    }
+
+    .comment-body em {
+      font-style: italic;
+    }
+
+    .comment-reply-form {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: rgba(15, 23, 42, 0.05);
+      border-radius: 0.3rem;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .comment-reply-form {
+      background: rgba(15, 23, 42, 0.15);
+      border-color: rgba(148, 163, 184, 0.25);
+    }
+
+    .comment-reply-form textarea {
+      width: 100%;
+      min-height: 70px;
+      margin: 0 0 0.5rem 0;
+      font-size: 0.95rem;
+      font-family: inherit;
+      padding: 0.5rem;
+    }
+
+    .comment-reply-form button {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .jira-mention {
+      background: rgba(25, 118, 210, 0.1);
+      padding: 0.15rem 0.35rem;
+      border-radius: 0.2rem;
+      color: var(--md-primary);
+      font-weight: 500;
+    }
+    [data-theme="dark"] .jira-mention {
+      background: rgba(66, 165, 245, 0.15);
+      color: #42a5f5;
+    }
+
+    .comment-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    .comment-actions button {
+      padding: 0.35rem 0.7rem;
+      font-size: 0.85rem;
+      margin: 0;
+    }
+
+    .reply-form {
+      display: none;
+      padding: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(15, 23, 42, 0.02);
+      margin-top: 0.75rem;
+    }
+    [data-theme="dark"] .reply-form {
+      background: rgba(15, 23, 42, 0.15);
+      border-top-color: rgba(148, 163, 184, 0.3);
+    }
+
+    .reply-form.open {
+      display: block;
+    }
+
+    .reply-form textarea {
+      width: 100%;
+      min-height: 100px;
+      margin: 0 0 0.75rem 0;
+      font-family: inherit;
+      font-size: 0.95rem;
+    }
+
+    .reply-form-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .reply-form-actions button {
+      padding: 0.5rem 1rem;
+      margin: 0;
+    }
+
+    .thread-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .thread-actions a,
+    .thread-actions button {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .empty-state {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .pagination {
+      display: flex;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .pagination button,
+    .pagination a {
+      padding: 0.5rem 0.75rem;
+      margin: 0;
+    }
+
+    .load-more {
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 2rem;
+      color: #64748b;
+    }
+    [data-theme="dark"] .loading {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    /* ============================================
+       MOBILE RESPONSIVE STYLES
+       ============================================ */
+
+    @media (max-width: 768px) {
+      /* Header and filters */
+      .communications-header {
+        margin-bottom: 1.5rem;
+      }
+
+      .communications-header h1 {
+        font-size: 1.5rem;
+      }
+
+      .communications-filters {
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+
+      .communications-filters select,
+      .communications-filters input {
+        width: 100%;
+        font-size: 1rem; /* Prevents zoom on iOS */
+      }
+
+      .clear-filters {
+        width: 100%;
+      }
+
+      /* Thread layout */
+      .thread-container {
+        gap: 1rem;
+      }
+
+      .communication-thread {
+        border-radius: 0.5rem;
+      }
+
+      /* Thread header */
+      .tree-node-header {
+        padding: 0.75rem 1rem;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .tree-node-toggle {
+        width: 1.5rem;
+        height: 1.5rem;
+        font-size: 1rem;
+        min-width: 1.5rem;
+        touch-action: manipulation; /* Better touch responsiveness */
+      }
+
+      .tree-node-summary {
+        gap: 0.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+      }
+
+      .tree-node-title {
+        font-size: 0.95rem;
+        width: 100%;
+      }
+
+      .tree-node-meta {
+        width: 100%;
+        font-size: 0.7rem;
+        margin-left: 0;
+        gap: 0.25rem;
+      }
+
+      .tree-node-header a[role="button"] {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.75rem;
+      }
+
+      /* Indentation */
+      .tree-node-children {
+        margin-left: 1rem;
+        padding-left: 0;
+      }
+
+      /* Comment nodes */
+      .tree-child-node {
+        padding: 0.75rem 1rem;
+      }
+
+      .tree-child-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .tree-child-toggle {
+        width: 1.25rem;
+        height: 1.25rem;
+        font-size: 0.8rem;
+        min-width: 1.25rem;
+        touch-action: manipulation;
+      }
+
+      .tree-child-author {
+        font-size: 0.85rem;
+      }
+
+      .tree-child-timestamp {
+        margin-left: 0;
+        font-size: 0.75rem;
+      }
+
+      .tree-child-content {
+        margin-left: 0.75rem;
+      }
+
+      /* Issue post */
+      .issue-post {
+        padding: 1rem;
+      }
+
+      .issue-post__header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .issue-post__title {
+        font-size: 0.95rem;
+      }
+
+      .issue-post__meta {
+        flex-direction: column;
+        width: 100%;
+        gap: 0.25rem;
+        font-size: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .issue-post__body {
+        font-size: 0.95rem;
+      }
+
+      .issue-post__body code {
+        font-size: 0.8em;
+      }
+
+      .issue-post__body pre {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+      }
+
+      /* Comments */
+      .comment-item {
+        padding: 0.75rem 1rem;
+      }
+
+      .comment-header {
+        flex-direction: column;
+        align-items: flex-start;
+        font-size: 0.8rem;
+        gap: 0.25rem;
+      }
+
+      .comment-author {
+        font-size: 0.85rem;
+      }
+
+      .comment-timestamp {
+        margin-left: 0;
+        font-size: 0.75rem;
+      }
+
+      .comment-body {
+        font-size: 0.9rem;
+      }
+
+      .comment-body code {
+        font-size: 0.8em;
+      }
+
+      .comment-body pre {
+        font-size: 0.75rem;
+        padding: 0.5rem;
+        margin: 0.5rem 0;
+      }
+
+      .comment-actions {
+        gap: 0.25rem;
+        margin-top: 0.5rem;
+        flex-wrap: wrap;
+      }
+
+      .comment-actions button {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+      }
+
+      .comment-actions a,
+      .comment-actions button {
+        white-space: nowrap;
+      }
+
+      /* Reply form */
+      .reply-form {
+        padding: 1rem;
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+        margin-top: 0.5rem;
+      }
+
+      .reply-form textarea {
+        min-height: 80px;
+        font-size: 1rem; /* Prevents zoom on iOS */
+        margin: 0 0 0.5rem 0;
+      }
+
+      .reply-form-actions button {
+        width: 100%;
+        padding: 0.6rem 1rem;
+        font-size: 0.95rem;
+      }
+
+      /* Comment reply forms */
+      .comment-reply-form {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+      }
+
+      .comment-reply-form textarea {
+        min-height: 70px;
+        font-size: 1rem; /* Prevents zoom on iOS */
+        margin: 0 0 0.5rem 0;
+      }
+
+      .comment-reply-form button {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+      }
+
+      /* Badges */
+      .provider-badge {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
+      }
+
+      .status-badge {
+        padding: 0.2rem 0.5rem;
+        font-size: 0.7rem;
+      }
+
+      /* Pagination */
+      .pagination {
+        margin-top: 1rem;
+      }
+
+      .load-more {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+      }
+
+      .empty-state {
+        padding: 2rem 1rem;
+      }
+    }
+
+    /* Small phones and extra small devices */
+    @media (max-width: 480px) {
+      .communications-header {
+        margin-bottom: 1rem;
+      }
+
+      .communications-header h1 {
+        font-size: 1.25rem;
+      }
+
+      .communications-header p {
+        font-size: 0.85rem;
+      }
+
+      .communications-filters {
+        gap: 0.35rem;
+      }
+
+      .thread-container {
+        gap: 0.75rem;
+      }
+
+      .tree-node-header {
+        padding: 0.5rem 0.75rem;
+      }
+
+      .tree-node-toggle {
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      .tree-node-title {
+        font-size: 0.85rem;
+      }
+
+      .tree-node-meta {
+        font-size: 0.65rem;
+      }
+
+      .tree-node-children {
+        margin-left: 0.75rem;
+      }
+
+      .tree-child-node {
+        padding: 0.5rem 0.75rem;
+      }
+
+      .tree-child-author {
+        font-size: 0.8rem;
+      }
+
+      .tree-child-timestamp {
+        font-size: 0.7rem;
+      }
+
+      .issue-post {
+        padding: 0.75rem;
+      }
+
+      .issue-post__body {
+        font-size: 0.9rem;
+      }
+
+      .comment-body {
+        font-size: 0.85rem;
+      }
+
+      .comment-body pre {
+        font-size: 0.7rem;
+        padding: 0.4rem;
+      }
+
+      .reply-form {
+        padding: 0.75rem;
+      }
+
+      .reply-form textarea {
+        min-height: 70px;
+        font-size: 1rem;
+      }
+
+      .reply-form-actions button {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.85rem;
+      }
+
+      /* Comment reply forms on small phones */
+      .comment-reply-form {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+      }
+
+      .comment-reply-form textarea {
+        min-height: 70px;
+        font-size: 1rem;
+      }
+
+      .comment-reply-form button {
+        padding: 0.35rem 0.6rem;
+        font-size: 0.75rem;
+      }
+
+      .empty-state {
+        padding: 1.5rem 0.75rem;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<main class="container">
+  <div class="communications-header">
+    <div>
+      <h1>Communications</h1>
+      <p>Central hub for all issue comments and discussions</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="communications-filters">
+    <select id="tenantFilter" aria-label="Filter by tenant">
+      <option value="">All Tenants</option>
+      <option value="">-- Loading tenants --</option>
+    </select>
+
+    <select id="projectFilter" aria-label="Filter by project">
+      <option value="">All Projects</option>
+      <option value="">-- Loading projects --</option>
+    </select>
+
+    <select id="providerFilter" aria-label="Filter by provider">
+      <option value="">All Providers</option>
+      <option value="github">GitHub</option>
+      <option value="gitlab">GitLab</option>
+      <option value="jira">Jira</option>
+    </select>
+
+    <input
+      type="text"
+      id="searchInput"
+      placeholder="Search comments..."
+      aria-label="Search"
+    >
+
+    <button id="clearFilters" class="clear-filters" style="display: none;">
+      Clear Filters
+    </button>
+  </div>
+
+  <!-- Thread List -->
+  <div id="threadContainer" class="thread-container">
+    <div class="empty-state">
+      <p>Loading communications...</p>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination"></div>
+</main>
+
+<script>
+// Configuration
+const API_BASE = '/api/v1/communications';
+let currentOffset = 0;
+const LIMIT = 20;
+let totalCount = 0;
+let allTenants = [];
+let allProjects = [];
+
+// Get provider icon
+function getProviderIcon(provider) {
+  const icons = {
+    github: '🐙',
+    gitlab: '🦊',
+    jira: '📋',
+  };
+  return icons[provider.toLowerCase()] || '🔗';
+}
+
+// Format timestamp
+function formatTimestamp(isoString) {
+  if (!isoString) return 'Unknown';
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffSeconds = Math.floor((now - date) / 1000);
+
+  if (diffSeconds < 60) return 'just now';
+  if (diffSeconds < 3600) return Math.floor(diffSeconds / 60) + 'm ago';
+  if (diffSeconds < 86400) return Math.floor(diffSeconds / 3600) + 'h ago';
+  if (diffSeconds < 604800) return Math.floor(diffSeconds / 86400) + 'd ago';
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+  });
+}
+
+// Get status badge class
+function getStatusClass(status) {
+  if (!status) return '';
+  const normalized = status.toLowerCase();
+  if (normalized === 'open' || normalized === 'in progress') return 'open';
+  if (normalized === 'closed' || normalized === 'resolved') return 'closed';
+  return normalized;
+}
+
+// Toggle tree node expand/collapse
+function toggleTreeNode(event) {
+  event.preventDefault();
+  const header = event.currentTarget;
+  const node = header.closest('.tree-node');
+  const children = node.querySelector('.tree-node-children');
+  const toggle = header.querySelector('.tree-node-toggle');
+
+  children.classList.toggle('collapsed');
+  toggle.classList.toggle('collapsed');
+}
+
+// Toggle individual comment expand/collapse
+function toggleCommentNode(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  const header = event.currentTarget;
+  const content = header.nextElementSibling;
+  const toggle = header.querySelector('.tree-child-toggle');
+
+  content.classList.toggle('collapsed');
+  toggle.classList.toggle('collapsed');
+}
+
+// Render a single thread as a tree view
+function renderThread(thread) {
+  // For Reddit-like view, render comments COLLAPSED by default - users click to expand
+  const commentsHtml = thread.comments.map((comment, index) => `
+    <div class="tree-child-node">
+      <div class="tree-child-header" onclick="toggleCommentNode(event)">
+        <span class="tree-child-toggle collapsed">▶</span>
+        <span class="tree-child-author">
+          ${escapeHtml(comment.author.display_name || comment.author.remote_name)}
+          ${comment.author.local_user_name ? `<span style="font-weight: normal; color: #64748b;">(${escapeHtml(comment.author.remote_name)})</span>` : ''}
+        </span>
+        <span class="tree-child-timestamp">${formatTimestamp(comment.created_at)}</span>
+      </div>
+      <div class="tree-child-content collapsed">
+        <div class="comment-body" style="margin-bottom: 0.75rem;">
+          ${comment.body_html || escapeHtml(comment.body)}
+        </div>
+        <div class="comment-actions">
+          <a href="${escapeHtml(comment.url)}" target="_blank" rel="noopener noreferrer" style="font-size: 0.85rem; color: var(--md-primary);">
+            View on ${thread.provider_name} ↗
+          </a>
+          <button onclick="toggleCommentReplyForm(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;">
+            Reply
+          </button>
+        </div>
+        <!-- Reply form for this comment -->
+        <div class="comment-reply-form collapsed" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(15, 23, 42, 0.05); border-radius: 0.3rem; display: none;" data-theme-dark-bg="rgba(15, 23, 42, 0.15)">
+          <textarea placeholder="Reply to ${escapeHtml(comment.author.display_name || comment.author.remote_name)}..." style="width: 100%; min-height: 70px; margin: 0 0 0.5rem 0; font-size: 0.95rem; font-family: inherit; padding: 0.5rem;" class="comment-reply-textarea"></textarea>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <button onclick="submitCommentReply(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">
+              Post Reply
+            </button>
+            <button onclick="toggleCommentReplyForm(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.85rem; background: transparent; color: #64748b; border: 1px solid rgba(148, 163, 184, 0.3);">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <article class="communication-thread">
+      <div class="tree-root">
+        <div class="tree-node">
+          <!-- Issue node header (clickable to expand) -->
+          <div class="tree-node-header" onclick="toggleTreeNode(event)">
+            <span class="tree-node-toggle collapsed">▶</span>
+            <div class="tree-node-summary">
+              <h2 class="tree-node-title">
+                ${escapeHtml(thread.issue_title)}
+              </h2>
+              <div class="tree-node-meta">
+                <span class="provider-badge ${thread.provider}">
+                  ${getProviderIcon(thread.provider)} ${thread.provider_name}
+                </span>
+                <span class="status-badge ${getStatusClass(thread.issue_status)}">
+                  ${escapeHtml(thread.issue_status_label || thread.issue_status || 'Unknown')}
+                </span>
+                <span style="font-size: 0.75rem;">📁 ${escapeHtml(thread.project_name || 'Unknown Project')}</span>
+                ${thread.issue_assignee ? `<span style="font-size: 0.75rem;">👤 ${escapeHtml(thread.issue_assignee)}</span>` : ''}
+                <span style="font-weight: 600; color: var(--md-primary); font-size: 0.8rem;">💬 ${thread.comment_count}</span>
+              </div>
+            </div>
+            <a href="${escapeHtml(thread.issue_url)}" target="_blank" rel="noopener noreferrer" role="button" style="font-size: 0.85rem; padding: 0.4rem 0.8rem;" onclick="event.stopPropagation()">
+              Open
+            </a>
+          </div>
+
+          <!-- Collapsible tree children (issue description + comments) - COLLAPSED by default for Reddit-like view -->
+          <div class="tree-node-children collapsed">
+            <!-- Issue description -->
+            <div class="issue-post">
+              <div class="issue-post__body">
+                ${thread.issue_body_html || '<em style="color: #64748b;">No description provided</em>'}
+              </div>
+              <div style="font-size: 0.85rem; color: #64748b; margin-top: 1rem;">
+                Created ${formatTimestamp(thread.created_at)}
+              </div>
+            </div>
+
+            <!-- Comments section header -->
+            ${thread.comment_count > 0 ? `<div style="padding: 0 1.5rem 0.75rem 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25); font-weight: 600; color: #64748b; font-size: 0.9rem;">
+              ${thread.comment_count} ${thread.comment_count === 1 ? 'reply' : 'replies'}
+            </div>` : ''}
+
+            <!-- Comments as child nodes - expanded by default for Reddit-like view -->
+            <div style="display: flex; flex-direction: column;">
+              ${thread.comment_count > 0 ? commentsHtml : ''}
+            </div>
+
+            <!-- Reply form at bottom -->
+            <div class="reply-form open" style="padding: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.25); margin: 1rem 0 0 0;">
+              <textarea placeholder="Add your reply..." class="thread-reply-textarea" style="width: 100%; min-height: 100px; margin: 0 0 0.75rem 0;"></textarea>
+              <div class="reply-form-actions">
+                <button onclick="submitThreadReply(event, ${thread.issue_id})" type="button">
+                  Post Reply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+// Escape HTML
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Load threads
+async function loadThreads(reset = true) {
+  try {
+    if (reset) {
+      currentOffset = 0;
+    }
+
+    const params = new URLSearchParams({
+      limit: LIMIT,
+      offset: currentOffset,
+      tenant_id: document.getElementById('tenantFilter').value || '',
+      project_id: document.getElementById('projectFilter').value || '',
+    });
+
+    if (document.getElementById('providerFilter').value) {
+      // Client-side filtering for provider since API doesn't support it
+    }
+
+    const response = await fetch(
+      `${API_BASE}/threads?${params.toString()}`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    totalCount = data.pagination.total;
+
+    let threads = data.threads;
+
+    // Client-side provider filter
+    const providerFilter = document.getElementById('providerFilter').value;
+    if (providerFilter) {
+      threads = threads.filter(t => t.provider === providerFilter);
+    }
+
+    // Client-side search filter
+    const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+    if (searchQuery) {
+      threads = threads.filter(t =>
+        t.issue_title.toLowerCase().includes(searchQuery) ||
+        t.comments.some(c => c.body.toLowerCase().includes(searchQuery))
+      );
+    }
+
+    const container = document.getElementById('threadContainer');
+
+    if (reset) {
+      container.innerHTML = threads.length > 0
+        ? threads.map(renderThread).join('')
+        : '<div class="empty-state"><p>No communications found</p></div>';
+    } else {
+      container.innerHTML += threads.map(renderThread).join('');
+    }
+
+    // Update pagination
+    updatePagination(data.pagination);
+
+  } catch (error) {
+    console.error('Error loading threads:', error);
+    document.getElementById('threadContainer').innerHTML = `
+      <div class="empty-state">
+        <p>Error loading communications: ${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Update pagination
+function updatePagination(pagination) {
+  const container = document.getElementById('pagination');
+  const hasMore = pagination.offset + pagination.count < pagination.total;
+
+  container.innerHTML = '';
+
+  if (hasMore) {
+    const button = document.createElement('button');
+    button.textContent = 'Load More';
+    button.className = 'load-more';
+    button.onclick = () => {
+      currentOffset += LIMIT;
+      loadThreads(false);
+    };
+    container.appendChild(button);
+  }
+}
+
+// Load tenants and projects
+async function loadFilters() {
+  try {
+    // Load tenants
+    const tenantsResponse = await fetch(
+      '/api/v1/tenants',
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (tenantsResponse.ok) {
+      const tenantsData = await tenantsResponse.json();
+      allTenants = tenantsData.tenants || [];
+
+      const tenantSelect = document.getElementById('tenantFilter');
+      allTenants.forEach(tenant => {
+        const option = document.createElement('option');
+        option.value = tenant.id;
+        option.textContent = tenant.name;
+        tenantSelect.appendChild(option);
+      });
+
+      // Remove loading placeholder
+      const placeholders = tenantSelect.querySelectorAll('option:nth-child(2)');
+      placeholders.forEach(p => p.remove());
+    }
+
+    // Load projects
+    const projectsResponse = await fetch(
+      '/api/v1/projects',
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (projectsResponse.ok) {
+      const projectsData = projectsResponse.json();
+      // API might return projects, populate based on tenant selection
+    }
+
+  } catch (error) {
+    console.error('Error loading filters:', error);
+  }
+}
+
+// Toggle comment reply form (Reddit-style per-comment replies)
+function toggleCommentReplyForm(event, issueId, authorName) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const replyForm = event.currentTarget.closest('.tree-child-content').querySelector('.comment-reply-form');
+  if (!replyForm) return;
+
+  replyForm.style.display = replyForm.style.display === 'none' ? 'block' : 'none';
+
+  // Focus the textarea when opened
+  if (replyForm.style.display === 'block') {
+    const textarea = replyForm.querySelector('.comment-reply-textarea');
+    if (textarea) {
+      setTimeout(() => textarea.focus(), 100);
+    }
+  }
+}
+
+// Submit reply to a comment
+async function submitCommentReply(event, issueId, authorName) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const replyForm = event.currentTarget.closest('.comment-reply-form');
+  const textarea = replyForm.querySelector('.comment-reply-textarea');
+  const replyText = textarea.value.trim();
+
+  if (!replyText) {
+    alert('Please enter a reply');
+    return;
+  }
+
+  try {
+    // Add mention to the reply text
+    const replyWithMention = `@${authorName}\n\n${replyText}`;
+
+    // Get the project ID from the data attribute or form
+    const projectId = document.querySelector('[data-project-id]')?.getAttribute('data-project-id');
+
+    if (!projectId) {
+      // Fallback: get it from the thread
+      const thread = event.currentTarget.closest('article');
+      console.error('Project ID not found');
+      alert('Error: Could not find project context');
+      return;
+    }
+
+    // Submit via the web endpoint (preserves user identity)
+    const response = await fetch(`/${projectId}/issues/${issueId}/comment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        'comment': replyWithMention
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    // Clear textarea and hide form
+    textarea.value = '';
+    replyForm.style.display = 'none';
+
+    // Show success message
+    alert('Reply posted successfully!');
+
+    // Reload threads after a short delay for sync
+    setTimeout(() => {
+      loadThreads(true);
+    }, 1500);
+
+  } catch (error) {
+    console.error('Error posting reply:', error);
+    alert(`Error posting reply: ${error.message}`);
+  }
+}
+
+// Event listeners
+document.getElementById('tenantFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('projectFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('providerFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('searchInput').addEventListener('input', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
+document.getElementById('clearFilters').addEventListener('click', () => {
+  document.getElementById('tenantFilter').value = '';
+  document.getElementById('projectFilter').value = '';
+  document.getElementById('providerFilter').value = '';
+  document.getElementById('searchInput').value = '';
+  loadThreads(true);
+  updateClearButton();
+});
+
+function updateClearButton() {
+  const hasFilters =
+    document.getElementById('tenantFilter').value ||
+    document.getElementById('projectFilter').value ||
+    document.getElementById('providerFilter').value ||
+    document.getElementById('searchInput').value;
+
+  document.getElementById('clearFilters').style.display = hasFilters ? 'block' : 'none';
+}
+
+// Toggle reply form visibility
+function toggleReplyForm(event, issueId, commentIndex) {
+  event.preventDefault();
+  const button = event.target;
+  const replyForm = button.closest('.comment-item').querySelector('.reply-form');
+
+  if (replyForm) {
+    replyForm.classList.toggle('open');
+    if (replyForm.classList.contains('open')) {
+      replyForm.querySelector('.reply-textarea').focus();
+    }
+  }
+}
+
+// Submit a reply to a comment
+async function submitReply(event, issueId) {
+  event.preventDefault();
+
+  const textarea = event.target.closest('.reply-form').querySelector('.reply-textarea');
+  const body = textarea.value.trim();
+
+  if (!body) {
+    alert('Please enter a comment');
+    return;
+  }
+
+  try {
+    // Get the issue to find project_id
+    const issue = await fetch(`/api/v1/issues/${issueId}`).then(r => r.json());
+    const projectId = issue.issue?.project_id;
+
+    if (!projectId) {
+      throw new Error('Could not determine project ID');
+    }
+
+    // Use web endpoint that preserves user identity
+    const formData = new FormData();
+    formData.append('comment', body);
+
+    const response = await fetch(
+      `/${projectId}/issues/${issueId}/comment`,
+      {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    // Close the form and reload
+    const replyForm = event.target.closest('.reply-form');
+    replyForm.classList.remove('open');
+    textarea.value = '';
+
+    // Reload communications after a short delay to allow sync
+    setTimeout(() => loadThreads(true), 1000);
+
+  } catch (error) {
+    console.error('Error submitting reply:', error);
+    alert(`Failed to submit reply: ${error.message}`);
+  }
+}
+
+// Submit reply to thread (main reply form)
+async function submitThreadReply(event, issueId) {
+  event.preventDefault();
+
+  const textarea = event.target.closest('.reply-form').querySelector('.thread-reply-textarea');
+  const body = textarea.value.trim();
+
+  if (!body) {
+    alert('Please enter a comment');
+    return;
+  }
+
+  try {
+    // Get the issue to find project_id
+    const issue = await fetch(`/api/v1/issues/${issueId}`).then(r => r.json());
+    const projectId = issue.issue?.project_id;
+
+    if (!projectId) {
+      throw new Error('Could not determine project ID');
+    }
+
+    // Use web endpoint that preserves user identity
+    const formData = new FormData();
+    formData.append('comment', body);
+
+    const response = await fetch(
+      `/${projectId}/issues/${issueId}/comment`,
+      {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    // Clear form and reload after a short delay to allow sync
+    textarea.value = '';
+    setTimeout(() => loadThreads(true), 1000);
+
+  } catch (error) {
+    console.error('Error submitting reply:', error);
+    alert(`Failed to submit reply: ${error.message}`);
+  }
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+  loadFilters();
+  loadThreads();
+});
+</script>
+{% endblock %}

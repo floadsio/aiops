@@ -1,3 +1,323 @@
+## Development Workflow - Features & Bug Fixes
+
+**CRITICAL: ALWAYS follow this workflow for new features AND bug fixes**
+
+### 1. Create an Issue First
+- **ALWAYS create an issue** before starting work on:
+  - ✅ New features
+  - ✅ Bug fixes
+  - ✅ Significant refactoring
+  - ✅ Breaking changes
+- Document requirements/bug description, acceptance criteria, and scope
+- Use the issue for discussion and planning
+- Link all commits and PRs to the issue
+- **ALWAYS set appropriate labels** when creating issues:
+  - `bug` for bug fixes
+  - `feature` or `enhancement` for new features
+  - `refactor` for refactoring work
+  - `documentation` for docs updates
+  - Additional context labels as needed (e.g., `high-priority`, `breaking-change`)
+
+```bash
+# Create feature issue (works identically for GitHub, GitLab, Jira)
+aiops issues create --project <project> \
+  --integration <integration-id> \
+  --title "Add user authentication system" \
+  --description "Requirements:
+- JWT-based authentication
+- Login/logout endpoints
+- Password hashing with bcrypt
+- Session management
+
+Acceptance criteria:
+- Users can register and login
+- Passwords are securely hashed
+- Sessions expire after 24h" \
+  --labels "feature,enhancement"
+
+# Update issue (modify title, description, labels)
+aiops issues update <issue-id> --title "Updated title" --description "New description"
+
+# Comment on issue - IMPORTANT: Use internal issue ID, not external GitLab issue number
+# Step 1: Find the internal ID by listing issues
+aiops issues list --project <project> -o json | grep "external_id.*<external-number>"
+# Step 2: Use the internal ID from the "id" field
+aiops issues comment <internal-id> "Working on this issue"
+# Step 3: Or use file for longer comments
+aiops issues comment <internal-id> --file comment.txt
+
+# Edit existing comment
+aiops issues modify-comment <internal-id> <comment-id> "Updated comment text"
+
+# Assign issue
+aiops issues assign <internal-id> --user <username/account-id>
+```
+
+### Publishing Comments to Issues
+
+**CRITICAL: Always use the internal issue ID, not the external GitLab/GitHub issue number**
+
+1. **Find the internal issue ID:**
+   ```bash
+   aiops issues list --project <project> -o json | grep "external_id.*<number>"
+   ```
+   Use the value from the "id" field, not "external_id"
+
+2. **Post comment from command line:**
+   ```bash
+   aiops issues comment <internal-id> "Your comment text"
+   ```
+
+3. **Post comment from file (recommended for longer comments):**
+   ```bash
+   aiops issues comment <internal-id> --file comment.txt
+   ```
+
+4. **Example workflow:**
+   ```bash
+   # Find issue (external ID 29 → internal ID 521)
+   aiops issues list --project flamelet-kbe -o json | grep -A 15 '"external_id":"29"'
+
+   # Post comment using internal ID
+   aiops issues comment 521 --file comment.txt
+   ```
+
+### 2. Complete Issue Management Support
+
+All providers (GitHub, GitLab, Jira) support full CRUD operations:
+
+| Feature          | GitHub | GitLab | Jira |
+|------------------|--------|--------|------|
+| Create Issues    |   ✓    |   ✓    |  ✓   |
+| Update Issues    |   ✓    |   ✓    |  ✓   |
+| Close Issues     |   ✓    |   ✓    |  ✓   |
+| Reopen Issues    |   ✓    |   ✓    |  ✓   |
+| Add Comments     |   ✓    |   ✓    |  ✓   |
+| Edit Comments    |   ✓    |   ✓    |  ✓   |
+| Assign Issues    |   ✓    |   ✓    |  ✓   |
+
+**Key capabilities:**
+- User-level credential overrides (use personal tokens)
+- Project-level credential overrides (project-specific tokens)
+- Automatic @mention resolution for Jira
+- Configurable transitions for Jira (close_transition, reopen_transition)
+
+### 3. Create Feature/Fix Branch
+- **NEVER commit directly to `main`** - main is for stable, tested code only
+- **ALWAYS create a branch** after creating the issue
+- Use descriptive branch names:
+  - `feature/<feature-name>` for new features
+  - `fix/<bug-description>` for bug fixes
+  - `refactor/<component>` for refactoring
+- Only merge to `main` after testing and code review (via PR/MR)
+
+### Complete Workflow
+```bash
+# 1. Create issue (get the issue ID from output)
+aiops issues create --project <project> --integration <id> --title "Fix login validation" --labels "bug"
+
+# 2. Start from main and pull latest
+aiops git checkout <project> main
+aiops git pull <project>
+
+# 3. Create and switch to feature/fix branch
+# For features:
+aiops git branch <project> feature/user-authentication
+# For bugs:
+aiops git branch <project> fix/login-empty-password-500
+
+aiops git checkout <project> fix/login-empty-password-500
+
+# 4. Make changes, commit frequently with issue reference
+aiops git commit <project> "Add password validation (refs #123)" --files "app/routes/auth.py"
+aiops git commit <project> "Add unit tests for validation (refs #123)" --files "tests/test_auth.py"
+
+# 5. Push branch
+aiops git push <project>
+
+# 6. Create PR/MR for review
+aiops git pr-create <project> \
+  --title "Fix login 500 error with empty password (closes #123)" \
+  --description "Fixes 500 error when submitting login with empty password.
+
+Closes #123
+
+Changes:
+- Added password validation in login route
+- Returns 400 with clear error message
+- Added unit tests for edge cases
+
+Testing:
+- Tested manual login with empty password
+- All existing tests pass" \
+  --source fix/login-empty-password-500 \
+  --target main \
+  --assignee reviewer-username
+
+# 7. After PR is approved, merge it
+aiops git pr-merge <project> <pr-number> --delete-branch
+
+# 8. Switch back to main and pull
+aiops git checkout <project> main
+aiops git pull <project>
+
+# 9. Update and close the issue
+aiops issues comment <internal-id> "Fixed and merged in PR #<pr-number>"
+aiops issues close <internal-id>
+```
+
+### When to Create Issue + Branch
+- ✅ New features or capabilities → `feature/` branch with `feature` or `enhancement` label
+- ✅ Bug fixes → `fix/` branch with `bug` label
+- ✅ Significant refactoring → `refactor/` branch with `refactor` label
+- ✅ Breaking changes → `feature/` or `refactor/` branch with `breaking-change` label
+- ✅ Experimental work → `feature/` or `experiment/` branch
+- ✅ Any work that requires testing before deployment
+
+### When Direct Commits to Main Are Acceptable (NO issue needed)
+- ✅ Documentation updates (README, comments)
+- ✅ Typo fixes in code or docs
+- ✅ Version bumps
+- ✅ Minor formatting/style fixes
+- ✅ Urgent hotfixes (but still prefer branch + issue when time allows)
+
+## Pull/Merge Request Creation
+
+**CRITICAL: ALWAYS use `aiops git pr-create` for creating pull requests (GitHub) or merge requests (GitLab)**
+
+### Command Syntax
+```bash
+aiops git pr-create <project> \
+  --title "Feature: Add authentication (closes #123)" \
+  --description "Implements user authentication with JWT tokens.
+
+Closes #123
+
+Changes:
+- Added User model
+- Implemented JWT auth
+- Added login/logout endpoints
+
+Testing:
+- Manual testing completed
+- Unit tests added and passing" \
+  --source feature-auth \
+  --target main \
+  --assignee githubusername \
+  --draft                                      # Optional: create as draft PR
+```
+
+### PR/MR Guidelines
+- **NEVER use `gh pr create`, `glab mr create`, or direct git push with PR creation**
+- **ALWAYS use `aiops git pr-create`** to create PRs/MRs
+- **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
+- The CLI automatically detects provider (GitHub/GitLab) and creates appropriate PR/MR
+- Supports both GitHub pull requests and GitLab merge requests
+- Assignee becomes reviewer for GitHub, assignee for GitLab
+- Use `--draft` flag to create draft PRs (GitHub only)
+- **ALWAYS reference the issue** in PR title and description:
+  - `closes #123` or `fixes #456` for features/bugs
+  - `refs #789` for related work that doesn't close the issue
+
+### GitHub Fine-Grained PAT Requirements
+For full PR/MR functionality, GitHub fine-grained personal access tokens need:
+- **Contents: Read and write** (required for merging PRs)
+- **Issues: Read and write** (for issue synchronization and comments)
+- **Pull requests: Read and write** (for creating and merging PRs)
+- **Metadata: Read** (automatically added)
+
+## Pull/Merge Request Merging
+
+**CRITICAL: ALWAYS use `aiops git pr-merge` for merging pull requests (GitHub) or merge requests (GitLab)**
+
+### Command Syntax
+```bash
+# Basic merge (creates merge commit)
+aiops git pr-merge <project> <pr-number>
+
+# Squash merge (combines all commits into one)
+aiops git pr-merge <project> <pr-number> --method squash
+
+# Rebase merge (rebases commits onto target branch)
+aiops git pr-merge <project> <pr-number> --method rebase
+
+# Delete source branch after merging
+aiops git pr-merge <project> <pr-number> --delete-branch
+
+# Custom merge commit message
+aiops git pr-merge <project> <pr-number> --message "Fix critical bug"
+
+# Combine options
+aiops git pr-merge <project> <pr-number> --method squash --delete-branch
+```
+
+### Merge Guidelines
+- **NEVER use `gh pr merge`, `glab mr merge`, or GitHub/GitLab web UI for merging**
+- **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
+- The CLI automatically detects provider (GitHub/GitLab)
+- Merge methods:
+  - `merge` (default): Creates a merge commit preserving all commits
+  - `squash`: Combines all commits into a single commit
+  - `rebase`: Rebases commits onto target branch
+- Use `--delete-branch` to automatically clean up the source branch after merge
+- Requires integration with "Pull requests: Write" and "Contents: Write" permissions
+
+### Commit Message Best Practices
+- Reference issue in commits: `"Add validation (refs #123)"`
+- Use descriptive commit messages
+- Commit frequently with logical changes
+- Each commit should be a working state when possible
+
+## Production System Management
+
+**IMPORTANT: AI agents CAN restart production when configuration changes require it**
+
+### When Production Restart is Required
+- ✅ Changes to `.env` configuration files
+- ✅ Updates to environment variables (permission modes, API keys, etc.)
+- ✅ System updates via `aiops system update`
+- ✅ Database migrations
+- ✅ After merging configuration changes to production
+
+### Production Restart Commands
+```bash
+# Restart production backend (requires sudo/admin)
+aiops system restart
+
+# Or use the configured restart command directly
+sudo systemctl restart aiops
+
+# Combined update and restart
+aiops system update-and-restart
+```
+
+### Production Safety Guidelines
+- ✅ **DO restart production** when configuration changes require it (e.g., `.env` updates)
+- ✅ **DO use `aiops system restart`** for controlled restarts
+- ✅ **DO verify changes** before restarting when possible
+- ❌ **NEVER modify `/home/syseng/aiops/` directly** - work in personal workspaces and merge via PRs
+- ❌ **NEVER auto-update production code** without testing in workspace first
+- ❌ **NEVER restart production** for experimental changes or untested code
+
+### Example: Configuration Change Workflow
+```bash
+# 1. Update production configuration (e.g., .env file)
+# Edit /home/syseng/aiops/.env
+
+# 2. Verify the change
+cat /home/syseng/aiops/.env | grep CLAUDE_PERMISSION_MODE
+
+# 3. Restart production to apply changes
+aiops system restart
+
+# 4. Monitor logs to ensure successful restart
+tail -f /home/syseng/aiops/logs/aiops.log
+```
+
+**Key Principle:** Configuration changes in production `.env` files are safe to apply immediately with restarts. Code changes should always go through workspace → PR → merge → production deployment workflow.
+
+---
+
 ## CRITICAL: Issue ID Usage for AI Agents
 
 **NEVER use external issue numbers (e.g., GitHub #118, GitLab !29, Jira PROJ-123) with `aiops` CLI commands.**
@@ -386,273 +706,51 @@ tail -f /home/syseng/aiops/logs/aiops.log
 
 ---
 
+---
+
 ## Current Issue Context
 <!-- issue-context:start -->
 
 NOTE: Generated issue context. Update before publishing if needed.
 
-# 118 - Jira issue comments not syncing on refresh
+# 125 - Central Communication Page for Issue Comments
 
-        _Updated: 2025-11-26 15:17:44Z_
+        _Updated: 2025-11-26 18:06:45Z_
 
         ## Issue Snapshot
         - Provider: github
         - Status: open
         - Assignee: ivomarino
-        - Labels: bug, jira, sync
-        - Source: https://github.com/floadsio/aiops/issues/118
-        - Last Synced: 2025-11-26 00:26 UTC
+        - Labels: feature, communication
+        - Source: https://github.com/floadsio/aiops/issues/125
+        - Last Synced: 2025-11-26 17:55 UTC
 
         ## Issue Description
         ## Overview
-When refreshing Jira issues via the sync functionality, the latest comments from Jira are not being pulled down into aiops. This means users don't see recent discussion or updates that have been added directly in Jira.
+Create a central communication page to display all ongoing communications from all tenants on GitHub, GitLab, Jira, etc.
 
 ## Requirements
-- Investigate the Jira issue sync logic to identify why comments are not being fetched or updated
-- Ensure the sync process retrieves all comments, including those added after the initial sync
-- Verify comment sync works for both new issues and previously synced issues
-- Maintain proper ordering of comments (chronological)
+- Display comments in a thread-like view
+- Support HTML or Markdown formatting based on the system
+- Allow direct replies to comments
+- Map remote issue system users to real users with existing database info
 
 ## Acceptance Criteria
-- [ ] Running `aiops issues sync --project <project>` pulls down all Jira comments including the latest ones
-- [ ] Comments added in Jira after initial sync appear in aiops after re-sync
-- [ ] Comment metadata (author, timestamp) is correctly preserved
-- [ ] Existing comments are not duplicated on re-sync
-- [ ] Add tests to verify comment sync behavior
+- [ ] Implement comment threading for all supported systems
+- [ ] Format comments correctly (HTML or Markdown)
+- [ ] Enable direct replies to comments
+- [ ] Integrate user mapping from remote systems to database
 
 ## Technical Notes
-- Check `app/services/` for Jira integration logic (likely `jira_service.py` or similar)
-- Review the sync endpoint in `app/routes/` that handles issue refresh
-- May need to examine Jira API pagination for comments
-- Consider whether this is a fetch issue or a database update issue
+[Optional implementation notes]
 
         
 
-## Issue Comments (2)
+## Issue Comments (1)
 
-            **ivomarino** on 2025-11-26T00:26:46+00:00 ([link](https://github.com/floadsio/aiops/issues/118#issuecomment-3578192552))
+            **ivomarino** on 2025-11-26T17:55:07+00:00 ([link](https://github.com/floadsio/aiops/issues/125#issuecomment-3582561196))
 
-# Fix Jira Comment Syncing (Issue #118)
-
-## Problem Summary
-
-When refreshing Jira issues via `aiops issues sync`, the latest comments from Jira are not being pulled down into aiops. This means users don't see recent discussion or updates added directly in Jira.
-
-## Root Cause
-
-The Jira Python library's `search_issues()` method **does NOT return comments** even when "comment" is included in the `fields` parameter. This is a known limitation:
-
-- The Jira REST API's search endpoint returns lightweight results optimized for performance
-- Comments must be explicitly fetched via separate API calls
-- The current code at `app/services/issues/jira.py:105-113` includes "comment" in fields, but this has no effect
-- The `_extract_comment_payloads()` function expects `fields.comment.comments`, but this data is empty/missing
-
-**Evidence**: GitHub issue pycontribs/jira#914 states: "If you retrieve a list of issues with `JIRA.search_issues()`, no comments are associated with the individual Issues in the list."
-
-## Recommended Solution
-
-**Follow the GitHub/GitLab pattern**: Make separate `client.comments()` API calls after fetching issues.
-
-### Implementation Approach
-
-In `app/services/issues/jira.py`, modify the `fetch_issues()` function to fetch comments separately:
-
-**Location**: After line 127 (after getting the issues list), before line 131 (before the payload loop)
-
-**Code to add**:
-```python
-# Fetch comments separately for each issue (search_issues doesn't include them)
-for issue in issues:
-    issue_key = issue.get("key")
-    if not issue_key:
-        continue
-    try:
-        comments_list = client.comments(issue_key)
-        # Populate the comment field structure that _extract_comment_payloads expects
-        issue.setdefault("fields", {})["comment"] = {
-            "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
-        }
-    except Exception:
-        # Continue without comments if fetch fails (graceful degradation)
-        pass
-```
-
-**Rationale**:
-- Aligns with proven patterns (GitHub line 298, GitLab line 671 both make separate comment calls)
-- Minimal code changes - reuses existing `_extract_comment_payloads()` logic
-- Handles failures gracefully (comment fetch errors don't break sync)
-- No breaking changes to API signatures or data structures
-
-### Alternative Considered
-
-Refetch each issue individually using `client.issue(key)` instead of `search_issues()`. **Rejected** because:
-- Less efficient (100 full issue fetches vs 1 search + 100 comment fetches)
-- Duplicates work (already have issue metadata from search)
-- Not aligned with GitHub/GitLab pattern
-
-## Implementation Steps
-
-### 1. Update Jira Service (2-3 hours)
-
-**File**: `app/services/issues/jira.py`
-
-- Modify `fetch_issues()` function to fetch comments separately
-- Add error handling for comment fetch failures
-- Verify `_extract_comment_payloads()` works with new data structure (should work unchanged)
-
-### 2. Add Unit Tests (2-3 hours)
-
-**File**: `tests/services/issues/test_jira_service.py`
-
-Add comprehensive tests:
-
-1. **Test comments are fetched and included in payload**
-   - Mock `client.comments()` to return test comments
-   - Verify `_extract_comment_payloads()` is called with correct data
-   - Verify returned `IssuePayload` contains comment data
-
-2. **Test multiple comments handling**
-   - Mock 5 comments, verify all are included
-   - Mock 25 comments, verify only 20 are included (MAX_COMMENTS_PER_ISSUE limit)
-
-3. **Test comment fetch failures are handled gracefully**
-   - Mock `client.comments()` to raise exception
-   - Verify issue sync completes without comments
-   - Verify no exception propagates
-
-4. **Test empty/missing comments**
-   - Mock `client.comments()` to return empty list
-   - Verify issue sync completes with empty comments array
-
-**Pattern**: Update `FakeJIRA` class to include a `comments()` method that returns mock comment objects with `.raw` attribute.
-
-### 3. Integration Testing (1-2 hours)
-
-**File**: `tests/services/issues/test_sync.py`
-
-- Verify end-to-end sync with comments
-- Verify comments persist to `ExternalIssue.comments` JSON field
-- Test incremental sync (re-sync should update comments)
-
-### 4. Manual Testing (1 hour)
-
-- Test with real Jira instance
-- Create test issue with 3 comments
-- Run `aiops issues sync --project <project>`
-- Verify comments appear in web UI
-- Add new comment in Jira
-- Re-sync and verify new comment appears
-
-## Critical Files
-
-1. **`app/services/issues/jira.py`** - Main implementation (lines 63-140, fetch_issues function)
-2. **`tests/services/issues/test_jira_service.py`** - Test coverage (add new tests)
-3. **`app/services/issues/github.py`** - Pattern reference (lines 295-324, _collect_issue_comments)
-4. **`app/services/issues/gitlab.py`** - Pattern reference (lines 653-697, _collect_issue_comments)
-
-## Success Criteria
-
-- [ ] Running `aiops issues sync --project <project>` pulls down all Jira comments including latest ones
-- [ ] Comments added in Jira after initial sync appear in aiops after re-sync
-- [ ] Comment metadata (author, timestamp) correctly preserved
-- [ ] Existing comments not duplicated on re-sync (full replacement approach)
-- [ ] Unit test coverage >90% for comment fetching logic
-- [ ] Integration tests verify end-to-end comment sync
-- [ ] All existing tests continue to pass
-- [ ] `make check` (lint + tests) passes
-
-## Performance Considerations
-
-**Trade-off**: N+1 API calls (1 search + N comment fetches per issue)
-
-**Mitigated by**:
-- Already limited to 100 issues per sync (maxResults=100)
-- Matches GitHub/GitLab pattern (acceptable performance)
-- Jira Cloud allows 10,000+ requests/hour (well within limits)
-- Try/except around each fetch prevents cascading failures
-
-**Future optimization** (not required for this issue):
-- Could batch comment fetches in parallel using threading
-- Could add exponential backoff if rate limiting becomes an issue
-
-## Risk Assessment
-
-**Low Risk**:
-- No breaking changes to API or data structures
-- Graceful degradation if comment fetch fails
-- Follows proven patterns from GitHub/GitLab
-- Comprehensive test coverage will catch regressions
-
-**Rollback Plan**:
-- If issues arise, can easily revert the commit
-- No database migrations required
-- No impact on GitHub/GitLab syncing
-
----
-
-**ivomarino** on 2025-11-26T00:25:06+00:00 ([link](https://github.com/floadsio/aiops/issues/118#issuecomment-3578187954))
-
-## Investigation Complete - Root Cause Identified
-
-I've completed a thorough investigation of the Jira comment syncing issue. Here are the findings:
-
-### Root Cause
-
-The Jira Python library's `search_issues()` method **does NOT return comments** even when "comment" is included in the `fields` parameter. This is a **known limitation** of both the library and the underlying Jira REST API.
-
-**Evidence:**
-- GitHub Issue pycontribs/jira#914: "If you retrieve a list of issues with `JIRA.search_issues()`, no comments are associated with the individual Issues in the list."
-- The Jira REST API's search endpoint returns lightweight results optimized for performance - comments must be explicitly fetched via separate API calls
-
-**Current Code Problem:**
-- `app/services/issues/jira.py` lines 105-113: `search_issues()` includes "comment" in fields but this has **no effect**
-- Lines 788-812: `_extract_comment_payloads()` expects `fields.comment.comments` but this data is **empty/missing**
-
-### Why GitHub/GitLab Work
-
-Both providers make **separate API calls** to fetch comments:
-- **GitHub** (line 298): `issue.get_comments()`
-- **GitLab** (line 671): `issue.notes.list()`
-
-### Recommended Solution
-
-**Follow the GitHub/GitLab pattern**: Make separate `client.comments()` API calls after fetching issues.
-
-**Implementation** (in `fetch_issues()` after line 127):
-```python
-# Fetch comments separately for each issue (search_issues doesn't include them)
-for issue in issues:
-    issue_key = issue.get("key")
-    if not issue_key:
-        continue
-    try:
-        comments_list = client.comments(issue_key)
-        issue.setdefault("fields", {})["comment"] = {
-            "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
-        }
-    except Exception:
-        pass  # Continue without comments if fetch fails
-```
-
-**Benefits:**
-- Aligns with proven patterns (GitHub/GitLab already do this)
-- Minimal code changes - reuses existing `_extract_comment_payloads()` logic
-- Handles failures gracefully
-- No breaking changes
-
-### Implementation Plan
-
-1. Update `app/services/issues/jira.py` to fetch comments separately
-2. Add comprehensive unit tests (currently **ZERO tests** for comment syncing)
-3. Integration testing with real Jira instance
-4. Verify all acceptance criteria met
-
-**Performance impact**: N+1 API calls (1 search + N comment fetches), but:
-- Limited to 100 issues per sync (acceptable)
-- Matches GitHub/GitLab pattern
-- Jira Cloud allows 10,000+ requests/hour
-
-Full implementation plan saved. Will complete implementation when ready.
+_Created via aiops by @ivomarino_
 
 ## Project Context
         - Project: aiops
@@ -724,30 +822,12 @@ Full implementation plan saved. Will complete implementation when ready.
 - [github] 111: Integrate self-hosted Ollama for AI-assisted issue generation; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ai; updated=2025-11-25 22:09 UTC; url=https://github.com/floadsio/aiops/issues/111
 - [github] 116: Add Ollama availability check to System Status > AI Tools; status=closed; assignee=Ivo Marino; labels=enhancement, ai-tools, system-status; updated=2025-11-25 23:25 UTC; url=https://github.com/floadsio/aiops/issues/116
 - [github] 117: CLI version display is hardcoded instead of reading from VERSION file; status=closed; assignee=Ivo Marino; labels=bug, cli; updated=2025-11-25 23:40 UTC; url=https://github.com/floadsio/aiops/issues/117
-- [github] 119: Test Ollama integration and local LLM functionality; status=closed; assignee=Michael Turko; labels=ai, testing, integration; updated=2025-11-26 05:37 UTC; url=https://github.com/floadsio/aiops/issues/119
-- [github] 121: Fix issue/PR attribution to use current user instead of hardcoded author; status=closed; assignee=Michael Turko; labels=bug, authentication, user-context; updated=2025-11-26 06:24 UTC; url=https://github.com/floadsio/aiops/issues/121
+- [github] 126: Lighten dark mode theme to match GitHub-inspired palette; status=open; assignee=Ivo Marino; updated=2025-11-26 18:04 UTC; url=https://github.com/floadsio/aiops/issues/126
+- [github] 118: Jira issue comments not syncing on refresh; status=closed; assignee=Ivo Marino; labels=bug, jira, sync; updated=2025-11-26 15:22 UTC; url=https://github.com/floadsio/aiops/issues/118
 - [github] 123: Add integration selector to AI-Assisted Issue creation form; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ui; updated=2025-11-26 10:04 UTC; url=https://github.com/floadsio/aiops/issues/123
 - [github] 124: AI tool selection ignored when starting issue work sessions; status=closed; assignee=Ivo Marino; labels=bug, cli, sessions; updated=2025-11-26 08:09 UTC; url=https://github.com/floadsio/aiops/issues/124
-- [github] 110: Add end-to-end functionality tests for core aiops features; status=closed; assignee=Ivo Marino; labels=feature, cli, testing, web-ui, health; updated=2025-11-25 16:19 UTC; url=https://github.com/floadsio/aiops/issues/110
-- [github] 109: Add end-to-end functionality tests for core aiops features; status=closed; assignee=Ivo Marino; labels=feature, infrastructure, testing; updated=2025-11-25 16:19 UTC; url=https://github.com/floadsio/aiops/issues/109
-- [github] 108: Add end-to-end functionality tests for critical aiops features; status=closed; assignee=Ivo Marino; labels=feature, infrastructure, testing; updated=2025-11-25 16:05 UTC; url=https://github.com/floadsio/aiops/issues/108
-- [github] 107: Add end-to-end functionality tests for critical aiops features; status=closed; assignee=Ivo Marino; labels=feature, infrastructure, testing; updated=2025-11-25 16:01 UTC; url=https://github.com/floadsio/aiops/issues/107
-- [github] 100: Test issue 3 AI Assist; status=closed; assignee=Michael Turko; labels=enhancement, test; updated=2025-11-25 10:09 UTC; url=https://github.com/floadsio/aiops/issues/100
-- [github] 99: Test issue 2 AI Assist; status=closed; assignee=Michael Turko; labels=enhancement, test; updated=2025-11-25 10:05 UTC; url=https://github.com/floadsio/aiops/issues/99
-- [github] 98: Test issue 1 AI Assist; status=closed; assignee=Michael Turko; labels=enhancement, test; updated=2025-11-25 10:05 UTC; url=https://github.com/floadsio/aiops/issues/98
-- [github] 84: Test issue for attribution; status=closed; assignee=Michael Turko; labels=test; updated=2025-11-24 14:27 UTC; url=https://github.com/floadsio/aiops/issues/84
-- [github] 79: Draft: In the aiops cli it should be possible to filter issues also...; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-23 17:45 UTC; url=https://github.com/floadsio/aiops/issues/79
-- [github] 78: Draft: In the aiops cli it should be possible to filter issues also...; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-23 17:45 UTC; url=https://github.com/floadsio/aiops/issues/78
-- [github] 46: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:42 UTC; url=https://github.com/floadsio/aiops/issues/46
-- [github] 45: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:42 UTC; url=https://github.com/floadsio/aiops/issues/45
-- [github] 48: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:37 UTC; url=https://github.com/floadsio/aiops/issues/48
-- [github] 47: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:29 UTC; url=https://github.com/floadsio/aiops/issues/47
-- [github] 44: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:22 UTC; url=https://github.com/floadsio/aiops/issues/44
-- [github] 43: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:22 UTC; url=https://github.com/floadsio/aiops/issues/43
-- [github] 41: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:21 UTC; url=https://github.com/floadsio/aiops/issues/41
-- [github] 40: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:21 UTC; url=https://github.com/floadsio/aiops/issues/40
-- [github] 39: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:21 UTC; url=https://github.com/floadsio/aiops/issues/39
-- [github] 38: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:21 UTC; url=https://github.com/floadsio/aiops/issues/38
+- [github] 121: Fix issue/PR attribution to use current user instead of hardcoded author; status=closed; assignee=Michael Turko; labels=bug, authentication, user-context; updated=2025-11-26 06:24 UTC; url=https://github.com/floadsio/aiops/issues/121
+- [github] 119: Test Ollama integration and local LLM functionality; status=closed; assignee=Michael Turko; labels=ai, testing, integration; updated=2025-11-26 05:37 UTC; url=https://github.com/floadsio/aiops/issues/119
 
         ## Workflow Reminders
         1. Confirm the acceptance criteria with the external issue tracker.

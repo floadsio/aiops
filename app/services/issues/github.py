@@ -268,6 +268,14 @@ def _issue_to_payload(issue: Any) -> IssuePayload:
 
     comments = _collect_issue_comments(issue)
 
+    # Ensure raw payload includes the body
+    raw_payload = getattr(issue, "raw_data", {}) or {}
+    if isinstance(raw_payload, dict) and "body" not in raw_payload:
+        # Explicitly include body if not in raw_data
+        body = getattr(issue, "body", None)
+        if body:
+            raw_payload = {**raw_payload, "body": body}
+
     return IssuePayload(
         external_id=str(number),
         title=issue.title or "",
@@ -276,7 +284,7 @@ def _issue_to_payload(issue: Any) -> IssuePayload:
         url=issue.html_url,
         labels=labels,
         external_updated_at=updated_at,
-        raw=getattr(issue, "raw_data", {}) or {},
+        raw=raw_payload,
         comments=comments,
     )
 

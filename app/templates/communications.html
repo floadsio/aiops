@@ -1040,22 +1040,31 @@ async function submitReply(event, issueId) {
   }
 
   try {
+    // Get the issue to find project_id
+    const issue = await fetch(`/api/v1/issues/${issueId}`).then(r => r.json());
+    const projectId = issue.issue?.project_id;
+
+    if (!projectId) {
+      throw new Error('Could not determine project ID');
+    }
+
+    // Use web endpoint that preserves user identity
+    const formData = new FormData();
+    formData.append('comment', body);
+
     const response = await fetch(
-      `/api/v1/issues/${issueId}/comments`,
+      `/${projectId}/issues/${issueId}/comment`,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
           'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
         },
-        body: JSON.stringify({ body }),
+        body: formData,
       }
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || `HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
 
     // Close the form and reload
@@ -1063,8 +1072,8 @@ async function submitReply(event, issueId) {
     replyForm.classList.remove('open');
     textarea.value = '';
 
-    // Reload communications
-    await loadThreads(true);
+    // Reload communications after a short delay to allow sync
+    setTimeout(() => loadThreads(true), 1000);
 
   } catch (error) {
     console.error('Error submitting reply:', error);
@@ -1085,29 +1094,36 @@ async function submitThreadReply(event, issueId) {
   }
 
   try {
+    // Get the issue to find project_id
+    const issue = await fetch(`/api/v1/issues/${issueId}`).then(r => r.json());
+    const projectId = issue.issue?.project_id;
+
+    if (!projectId) {
+      throw new Error('Could not determine project ID');
+    }
+
+    // Use web endpoint that preserves user identity
+    const formData = new FormData();
+    formData.append('comment', body);
+
     const response = await fetch(
-      `/api/v1/issues/${issueId}/comments`,
+      `/${projectId}/issues/${issueId}/comment`,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
           'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content,
         },
-        body: JSON.stringify({ body }),
+        body: formData,
       }
     );
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || `HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status}`);
     }
 
-    // Clear form and reload
+    // Clear form and reload after a short delay to allow sync
     textarea.value = '';
-
-    // Reload communications
-    await loadThreads(true);
+    setTimeout(() => loadThreads(true), 1000);
 
   } catch (error) {
     console.error('Error submitting reply:', error);

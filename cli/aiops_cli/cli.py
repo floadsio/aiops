@@ -1725,6 +1725,30 @@ def git_pr_merge(
         sys.exit(1)
 
 
+@git.command(name="pr-close")
+@click.argument("project")
+@click.argument("pr_number", type=int)
+@click.pass_context
+def git_pr_close(ctx: click.Context, project: str, pr_number: int) -> None:
+    """Close a pull request (GitHub) or merge request (GitLab)."""
+    client = get_client(ctx)
+
+    try:
+        project_id = resolve_project_id(client, project)
+        result = client.close_pull_request(
+            project_id=project_id,
+            pr_number=pr_number,
+        )
+
+        console.print(f"[green]✓[/green] Pull/Merge request #{pr_number} closed successfully")
+        console.print(f"  Title: {result['title']}")
+        console.print(f"  URL: {result['url']}")
+        console.print(f"  State: {result['state']}")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # WORKFLOW COMMANDS
 # ============================================================================

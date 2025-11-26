@@ -1016,3 +1016,156 @@ def _merge_gitlab_mr(
         "title": mr.title,
         "url": mr.web_url,
     }
+
+
+@api_v1_bp.post("/projects/<int:project_id>/pull-requests/<int:pr_number>/close")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def close_pull_request(project_id: int, pr_number: int):
+    """Close a pull request (GitHub) or merge request (GitLab).
+
+    Args:
+        project_id: Project ID
+        pr_number: PR/MR number
+
+    Returns:
+        200: PR/MR closed successfully
+        400: Invalid request or close failed
+        403: Access denied
+        404: Project or PR/MR not found
+    """
+    project = Project.query.get_or_404(project_id)
+    if not _ensure_project_access(project):
+        return jsonify({"error": "Access denied"}), 403
+
+    # Get project's issue integration to access git provider
+    from ...models import ProjectIntegration
+
+    project_integration = ProjectIntegration.query.filter_by(
+        project_id=project.id
+    ).first()
+
+    if not project_integration or not project_integration.integration:
+        return jsonify({
+            "error": "Project has no issue integration configured"
+        }), 400
+
+    integration = project_integration.integration
+    provider = integration.provider.lower()
+
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
+    try:
+        if provider == "github":
+            result = _close_github_pr(
+                integration,
+                project_integration,
+                pr_number,
+                user_id,
+            )
+        elif provider == "gitlab":
+            result = _close_gitlab_mr(
+                integration,
+                project_integration,
+                pr_number,
+                user_id,
+            )
+        else:
+            return jsonify({
+                "error": f"Provider '{provider}' does not support PR/MR closing"
+            }), 400
+
+        return jsonify(result), 200
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Failed to close PR/MR: %s", exc)
+        return jsonify({"error": f"Failed to close PR/MR: {str(exc)}"}), 400
+
+
+def _close_github_pr(
+    integration,
+    project_integration,
+    pr_number: int,
+    user_id: int | None = None,
+):
+    """Close a GitHub pull request."""
+    import github
+    from ...services.issues.utils import get_effective_integration
+
+    # Get effective integration with user-specific credentials if user_id is provided
+    effective_integration = get_effective_integration(
+        integration, project_integration, user_id
+    )
+
+    token = effective_integration.api_token
+    base_url = effective_integration.base_url
+
+    # Initialize GitHub client
+    if base_url:
+        gh = github.Github(base_url=base_url, login_or_token=token)
+    else:
+        gh = github.Github(login_or_token=token)
+
+    repo_name = project_integration.external_identifier
+    repo = gh.get_repo(repo_name)
+
+    # Get the PR
+    pr = repo.get_pull(pr_number)
+
+    # Close the PR by editing its state
+    pr.edit(state="closed")
+
+    return {
+        "closed": True,
+        "message": f"Pull request #{pr_number} closed successfully",
+        "pr_number": pr_number,
+        "title": pr.title,
+        "url": pr.html_url,
+        "state": "closed",
+    }
+
+
+def _close_gitlab_mr(
+    integration,
+    project_integration,
+    mr_number: int,
+    user_id: int | None = None,
+):
+    """Close a GitLab merge request."""
+    import gitlab
+    from ...services.issues.utils import get_effective_integration
+
+    # Get effective integration with user-specific credentials if user_id is provided
+    effective_integration = get_effective_integration(
+        integration, project_integration, user_id
+    )
+
+    token = effective_integration.api_token
+    base_url = effective_integration.base_url or "https://gitlab.com"
+
+    # Initialize GitLab client
+    gl = gitlab.Gitlab(base_url, private_token=token)
+    gl.auth()
+
+    project_ref = project_integration.external_identifier
+    gl_project = gl.projects.get(project_ref)
+
+    # Get the MR
+    mr = gl_project.mergerequests.get(mr_number)
+
+    # Close the MR by updating its state
+    mr.state_event = "close"
+    mr.save()
+
+    # Refresh to get updated state
+    mr = gl_project.mergerequests.get(mr_number)
+
+    return {
+        "closed": mr.state == "closed",
+        "message": f"Merge request #{mr_number} closed successfully",
+        "pr_number": mr_number,
+        "title": mr.title,
+        "url": mr.web_url,
+        "state": mr.state,
+    }

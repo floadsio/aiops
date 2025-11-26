@@ -652,6 +652,14 @@ class APIClient:
             payload["commit_message"] = commit_message
         return self.post(f"projects/{project_id}/pull-requests/{pr_number}/merge", json=payload)
 
+    def close_pull_request(
+        self,
+        project_id: int,
+        pr_number: int,
+    ) -> dict[str, Any]:
+        """Close a pull request (GitHub) or merge request (GitLab)."""
+        return self.post(f"projects/{project_id}/pull-requests/{pr_number}/close")
+
     # Workflows
     def workflow_claim_issue(self, issue_id: int) -> dict[str, Any]:
         """Claim issue for work."""

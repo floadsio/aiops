@@ -182,10 +182,11 @@ def _looks_like_html(text: str) -> bool:
 
 def _looks_like_markdown(text: str) -> bool:
     """Detect if text contains Markdown syntax."""
-    # Check for multiple markdown patterns to be confident
+    # Check for markdown patterns
     matches = sum(1 for pattern in _MARKDOWN_PATTERNS if pattern.search(text))
-    # If we find at least 2 markdown patterns, treat it as markdown
-    return matches >= 2
+    # If we find any markdown pattern, treat it as markdown
+    # (GitHub, GitLab, and other providers use markdown syntax)
+    return matches >= 1
 
 
 def _convert_jira_mentions(text: str) -> str:

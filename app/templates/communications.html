@@ -1733,36 +1733,39 @@ function updateProjectsForTenant() {
   const tenantId = String(document.getElementById('tenantFilter').value).trim();
   const projectSelect = document.getElementById('projectFilter');
 
-  console.log('Filtering projects for tenant:', tenantId); // Debug
+  console.log('Filtering projects for tenant:', tenantId, 'All projects:', allProjects.length);
 
-  // If tenant is selected, only show projects from that tenant
+  // Rebuild options dynamically (display: none doesn't work on select options)
+  // Keep the "All Projects" option
+  const allProjectsOption = projectSelect.options[0];
+  projectSelect.innerHTML = '<option value="">All Projects</option>';
+
   if (tenantId && tenantId !== '') {
-    // Hide all projects that don't belong to selected tenant
-    Array.from(projectSelect.options).forEach((option) => {
-      const projectTenantId = String(option.dataset.tenantId || '').trim();
-
-      if (option.value === '') {
-        // Always show "All Projects" option
-        option.style.display = '';
-      } else {
-        // Compare IDs (both as strings)
-        const shouldShow = projectTenantId === tenantId;
-        option.style.display = shouldShow ? '' : 'none';
-        console.log(`Project "${option.textContent}" tenant_id="${projectTenantId}" matches="${shouldShow}"`); // Debug
+    // Only add projects from selected tenant
+    allProjects.forEach(project => {
+      if (String(project.tenant_id) === tenantId) {
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = `${project.tenant_name || 'Unknown'} / ${project.name}`;
+        option.dataset.tenantId = String(project.tenant_id);
+        projectSelect.appendChild(option);
+        console.log(`Added project: "${option.textContent}"`);
       }
     });
   } else {
     // No tenant selected - show all projects
-    Array.from(projectSelect.options).forEach((option) => {
-      option.style.display = '';
+    allProjects.forEach(project => {
+      const option = document.createElement('option');
+      option.value = project.id;
+      option.textContent = `${project.tenant_name || 'Unknown'} / ${project.name}`;
+      option.dataset.tenantId = String(project.tenant_id);
+      projectSelect.appendChild(option);
     });
+    console.log('Showing all projects');
   }
 
-  // Reset project selection if current selection is hidden
-  const currentOption = projectSelect.options[projectSelect.selectedIndex];
-  if (currentOption && currentOption.style.display === 'none') {
-    projectSelect.value = '';
-  }
+  // Reset project selection
+  projectSelect.value = '';
 }
 
 // Toggle comment reply form (Reddit-style per-comment replies)

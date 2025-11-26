@@ -17,6 +17,7 @@ from ...models import (
 )
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.issues.utils import normalize_issue_status
+from ...utils.text_rendering import render_issue_rich_text
 from . import api_v1_bp
 
 
@@ -90,10 +91,14 @@ def _comment_to_dict(
         issue: The external issue containing the comment
 
     Returns:
-        Formatted comment dict with author mapping
+        Formatted comment dict with author mapping and rendered HTML
     """
     integration = issue.project_integration.integration
     author = comment.get("author", "Unknown")
+    body = comment.get("body", "")
+
+    # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, HTML, etc.)
+    rendered_body = render_issue_rich_text(body)
 
     return {
         "id": comment.get("id"),
@@ -102,7 +107,8 @@ def _comment_to_dict(
             integration.id,
             integration.provider.lower(),
         ),
-        "body": comment.get("body", ""),
+        "body": body,
+        "body_html": str(rendered_body),  # Pre-rendered HTML for display
         "created_at": comment.get("created_at"),
         "url": comment.get("url"),
     }

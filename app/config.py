@@ -227,6 +227,10 @@ class Config:
         "CLAUDE_LATEST_VERSION_COMMAND",
         "npm view @anthropic-ai/claude-code version",
     )
+    # Ollama configuration for AI-assisted issue generation
+    OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "http://localhost:11434")
+    OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
+    OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "60.0"))
     # Linux user switching for tmux sessions
     USE_LOGIN_SHELL = os.getenv("USE_LOGIN_SHELL", "true").lower() in {
         "1",

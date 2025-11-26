@@ -1705,12 +1705,53 @@ async function loadFilters() {
     );
 
     if (projectsResponse.ok) {
-      const projectsData = projectsResponse.json();
-      // API might return projects, populate based on tenant selection
+      const projectsData = await projectsResponse.json();
+      allProjects = projectsData.projects || [];
+
+      // Populate projects dropdown
+      const projectSelect = document.getElementById('projectFilter');
+      allProjects.forEach(project => {
+        const option = document.createElement('option');
+        option.value = project.id;
+        option.textContent = `${project.tenant_name || 'Unknown'} / ${project.name}`;
+        option.dataset.tenantId = project.tenant_id;
+        projectSelect.appendChild(option);
+      });
+
+      // Remove loading placeholder
+      const placeholders = projectSelect.querySelectorAll('option:nth-child(2)');
+      placeholders.forEach(p => p.remove());
     }
 
   } catch (error) {
     console.error('Error loading filters:', error);
+  }
+}
+
+// Filter projects based on selected tenant
+function updateProjectsForTenant() {
+  const tenantId = document.getElementById('tenantFilter').value;
+  const projectSelect = document.getElementById('projectFilter');
+  const selectedValue = projectSelect.value;
+
+  // Show/hide projects based on tenant selection
+  Array.from(projectSelect.options).forEach((option, index) => {
+    if (index === 0) {
+      // Always show "All Projects" option
+      option.style.display = '';
+    } else if (!tenantId) {
+      // If no tenant selected, show all projects
+      option.style.display = '';
+    } else {
+      // Show only projects from selected tenant
+      const projectTenantId = option.dataset.tenantId;
+      option.style.display = projectTenantId === tenantId ? '' : 'none';
+    }
+  });
+
+  // Reset project selection if current selection is hidden
+  if (projectSelect.value && projectSelect.options[projectSelect.selectedIndex].style.display === 'none') {
+    projectSelect.value = '';
   }
 }
 
@@ -1797,6 +1838,7 @@ async function submitCommentReply(event, issueId, authorName) {
 
 // Event listeners
 document.getElementById('tenantFilter').addEventListener('change', () => {
+  updateProjectsForTenant();
   loadThreads(true);
   updateClearButton();
 });
@@ -1963,6 +2005,9 @@ async function submitThreadReply(event, issueId) {
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadFilters();
+  setTimeout(() => {
+    updateProjectsForTenant(); // Apply initial tenant filtering
+  }, 500);
   loadThreads();
 });
 </script>

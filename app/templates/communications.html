@@ -1341,6 +1341,12 @@
       <option value="jira">Jira</option>
     </select>
 
+    <select id="statusFilter" aria-label="Filter by status">
+      <option value="open">Open Issues</option>
+      <option value="closed">Closed Issues</option>
+      <option value="">All Issues</option>
+    </select>
+
     <input
       type="text"
       id="searchInput"
@@ -1588,6 +1594,20 @@ async function loadThreads(reset = true) {
       threads = threads.filter(t => t.provider === providerFilter);
     }
 
+    // Client-side status filter
+    const statusFilter = document.getElementById('statusFilter').value;
+    if (statusFilter) {
+      threads = threads.filter(t => {
+        const status = (t.issue_status || '').toLowerCase();
+        if (statusFilter === 'open') {
+          return status === 'open' || status === 'in progress' || status === 'in_progress';
+        } else if (statusFilter === 'closed') {
+          return status === 'closed' || status === 'resolved';
+        }
+        return true;
+      });
+    }
+
     // Client-side search filter
     const searchQuery = document.getElementById('searchInput').value.toLowerCase();
     if (searchQuery) {
@@ -1778,6 +1798,11 @@ document.getElementById('providerFilter').addEventListener('change', () => {
   updateClearButton();
 });
 
+document.getElementById('statusFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
 document.getElementById('searchInput').addEventListener('input', () => {
   loadThreads(true);
   updateClearButton();
@@ -1787,6 +1812,7 @@ document.getElementById('clearFilters').addEventListener('click', () => {
   document.getElementById('tenantFilter').value = '';
   document.getElementById('projectFilter').value = '';
   document.getElementById('providerFilter').value = '';
+  document.getElementById('statusFilter').value = 'open'; // Reset to default: open issues only
   document.getElementById('searchInput').value = '';
   loadThreads(true);
   updateClearButton();
@@ -1797,6 +1823,7 @@ function updateClearButton() {
     document.getElementById('tenantFilter').value ||
     document.getElementById('projectFilter').value ||
     document.getElementById('providerFilter').value ||
+    document.getElementById('statusFilter').value !== 'open' || // Only count as filter if not default
     document.getElementById('searchInput').value;
 
   document.getElementById('clearFilters').style.display = hasFilters ? 'block' : 'none';

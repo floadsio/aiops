@@ -118,11 +118,17 @@ aiops issues list
 # Work on an issue (claims, starts session, populates AGENTS.override.md)
 aiops issues work 501 --tool claude --attach
 
+# Work on an issue with yolo mode (skip Claude permission checks)
+aiops issues work 501 --tool claude --yolo
+
 # View issue details
 aiops issues view 501
 
 # Start generic session (not tied to an issue)
 aiops sessions start --project aiops --tool shell
+
+# Start session with yolo mode (skip Claude permission checks)
+aiops sessions start --project aiops --tool claude --yolo
 
 # Admin: Start session as another user
 aiops sessions start --project aiops --tool codex --user user@example.com
@@ -162,6 +168,21 @@ aiops system backup restore <id>
 - `aiops sessions start` - Start sessions not tied to specific issues
 - `aiops sessions list` - List and manage active sessions
 - `aiops sessions attach` - Attach to any running session
+
+### Yolo Mode (`--yolo` flag)
+
+Both `aiops issues work` and `aiops sessions start` support the `--yolo` flag to skip Claude permission checks:
+
+```bash
+aiops issues work 501 --tool claude --yolo
+aiops sessions start --project aiops --tool claude --yolo
+```
+
+**When to use:**
+- Development and testing in isolated environments
+- When you want Claude to make automatic edits without prompting
+
+**⚠️ Safety warning:** Yolo mode is dangerous and should only be used in isolated environments without sensitive data or internet access. Per [Anthropic's recommendations](https://www.anthropic.com/engineering/claude-code-best-practices), use this sparingly and only when you fully understand the implications.
 
 ### Admin Session Management
 

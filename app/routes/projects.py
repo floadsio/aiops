@@ -158,7 +158,7 @@ def _issue_sort_key(issue: ExternalIssue):
     return reference
 
 
-@projects_bp.route("/<int:project_id>", methods=["GET", "POST"])
+@projects_bp.route("/<int:project_id>", methods=["GET", "POST"], strict_slashes=False)
 @login_required
 def project_detail(project_id: int):
     project = (

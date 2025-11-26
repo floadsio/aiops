@@ -609,6 +609,38 @@ class Activity(BaseModel, TimestampMixin):
     user: Mapped[Optional["User"]] = relationship("User")
 
 
+class AIIssuePreviews(BaseModel, TimestampMixin):
+    """Temporary storage for AI-assisted issue preview data.
+
+    Stores preview data (issue_data, project_id, integration_id) temporarily
+    while users review and confirm the AI-generated issue. Preview tokens
+    expire after a configurable timeout (default: 1 hour).
+    """
+
+    __tablename__ = "ai_issue_previews"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    preview_token: Mapped[str] = mapped_column(
+        String(255), nullable=False, unique=True, index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"), nullable=False
+    )
+    integration_id: Mapped[int] = mapped_column(
+        ForeignKey("project_integrations.id", ondelete="CASCADE"), nullable=False
+    )
+    issue_data: Mapped[dict[str, Any]] = mapped_column(db.JSON, nullable=False)
+    ai_tool: Mapped[str] = mapped_column(String(50), nullable=False)
+    issue_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, index=True
+    )
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

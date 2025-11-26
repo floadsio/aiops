@@ -195,25 +195,24 @@ def _convert_jira_mentions(text: str) -> str:
     @username format that's more readable.
 
     Examples:
-    - [~accountid:557058:5010d224-...] → @5010d224-...
+    - [~accountid:557058:5010d224-...] → @user:557058
     - [~jsmith] → @jsmith
     """
     def replace_mention(match):
         mention_id = match.group(1)
         display_name = mention_id
 
-        # If it's an account ID with UUID parts, try to extract a meaningful name
+        # If it's an account ID with multiple parts, try to extract a meaningful name
         if ':' in mention_id:
             parts = mention_id.split(':')
-            # Try to find the most readable part
-            # Usually: accountid:numberic:uuid format
-            # Extract uuid or the last meaningful part
-            if len(parts) >= 3 and len(parts[2]) > 8:
-                # UUID format - show first 8 chars
-                display_name = parts[2][:8]
+            # Usually: numeric_id:uuid format
+            # Prefer the numeric ID as it's more compact and stable
+            if len(parts) >= 2 and parts[0]:
+                # Show the numeric ID (e.g., 557058)
+                display_name = f"user:{parts[0]}"
             elif len(parts) >= 2:
-                # Show the numeric ID or name part
-                display_name = parts[1] if parts[1] else parts[-1]
+                # Fall back to showing a shortened UUID (first 8 chars)
+                display_name = parts[-1][:8] if parts[-1] else "user"
 
         return f'<span class="jira-mention">@{escape(display_name)}</span>'
 
@@ -236,6 +235,12 @@ def render_issue_rich_text(value: str | None) -> Markup:
     if _looks_like_html(with_mentions):
         sanitized = _sanitize_html(with_mentions)
         if sanitized:
+            # If HTML only contains our jira-mention spans + plain text, convert newlines to <br>
+            # This handles the common case of plain text with Jira mentions
+            if '<span class="jira-mention">' in sanitized:
+                # Replace newlines with <br> in the sanitized HTML
+                # This preserves the mention spans while adding line breaks
+                sanitized = sanitized.replace("\n", "<br>")
             return Markup(sanitized)
 
     # Check if it's Markdown

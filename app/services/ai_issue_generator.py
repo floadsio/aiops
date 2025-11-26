@@ -22,13 +22,17 @@ class AIIssueGenerationError(Exception):
 
 def generate_issue_from_description(
     description: str,
+    ai_tool: str | None = None,
     issue_type: str | None = None,
+    user_id: int | None = None,
 ) -> dict[str, Any]:
     """Generate a structured issue from a natural language description using Ollama.
 
     Args:
         description: Natural language description of what the user wants to work on
+        ai_tool: AI tool to use (ignored, only Ollama is used)
         issue_type: Optional hint about issue type (feature, bug, etc.)
+        user_id: User ID for context (ignored, not needed for Ollama)
 
     Returns:
         Dictionary with:

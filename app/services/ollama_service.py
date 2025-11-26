@@ -112,48 +112,61 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
     try:
         # First, try standard JSON parsing
         return json.loads(json_str)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as initial_error:
         # If standard parsing fails, try multiple fixes for Ollama output issues
+        logger.debug(f"Initial JSON parse failed: {initial_error}, trying fixes...", extra={"json_length": len(json_str)})
 
-        # Step 1: Remove actual newlines that appear after structural characters
-        # Ollama sometimes outputs {\n "key": or ,\n "key": (with actual newline chars) instead of proper JSON
-        # Use simple string replacement to avoid breaking escaped sequences in string content
-        # NOTE: Do NOT use r'' raw string prefix - we need to match actual newline characters, not literal \n
-        fixed_json = json_str.replace('{\n ', '{ ').replace(',\n ', ', ')
+        # Step 1: Remove actual newlines and various whitespace patterns after structural characters
+        # Ollama outputs {\n "key": , {\n\t "key": , {  \n  "key": with various spacing combinations
+        # Use regex to handle all whitespace variations
+        fixed_json = re.sub(r'([\{\[,:])\s*\n\s*', r'\1 ', json_str)
 
         try:
             return json.loads(fixed_json)
         except json.JSONDecodeError:
-            # Step 2: Normalize whitespace around JSON structural characters
-            # Remove newlines/spaces after { [ , and before } ] to avoid parsing errors
-            fixed_json = re.sub(r'([{,\[])\s+', r'\1 ', fixed_json)
-            fixed_json = re.sub(r'\s+([}\]])', r'\1', fixed_json)
+            # Step 2: Also remove newlines before closing brackets
+            fixed_json = re.sub(r'\s*\n\s*([\}\]])', r'\1', fixed_json)
 
             try:
                 return json.loads(fixed_json)
             except json.JSONDecodeError:
-                # Step 3: If still failing, fix unescaped actual newlines in string values
-                # The Ollama model may output literal newlines in JSON string fields
-
-                # Find all quoted strings and fix newlines within them
-                def fix_string(match):
-                    s = match.group(0)
-                    # Replace literal newlines and carriage returns with escaped versions
-                    s = s.replace('\r\n', '\\n')  # Windows line endings
-                    s = s.replace('\n', '\\n')    # Unix line endings
-                    s = s.replace('\r', '\\n')    # Mac line endings
-                    return s
-
-                # Fix newlines within quoted strings
-                fixed_json = re.sub(r'"(?:[^"\\]|\\.)*"', fix_string, fixed_json)
+                # Step 3: Remove ALL whitespace sequences (multiple spaces/tabs/newlines) and replace with single space
+                # This handles cases where there are multiple newlines or mixed whitespace
+                fixed_json = re.sub(r'\s+', ' ', fixed_json)
 
                 try:
                     return json.loads(fixed_json)
-                except json.JSONDecodeError as exc:
-                    raise OllamaServiceError(
-                        f"Failed to parse JSON from response: {exc}. "
-                        f"Text was: {json_str[:200]}"
-                    ) from exc
+                except json.JSONDecodeError:
+                    # Step 4: If still failing, fix unescaped actual newlines in string values
+                    # The Ollama model may output literal newlines in JSON string fields
+
+                    # Find all quoted strings and fix newlines within them
+                    def fix_string(match):
+                        s = match.group(0)
+                        # Replace literal newlines and carriage returns with escaped versions
+                        s = s.replace('\r\n', '\\n')  # Windows line endings
+                        s = s.replace('\n', '\\n')    # Unix line endings
+                        s = s.replace('\r', '\\n')    # Mac line endings
+                        return s
+
+                    # Fix newlines within quoted strings
+                    fixed_json = re.sub(r'"(?:[^"\\]|\\.)*"', fix_string, fixed_json)
+
+                    try:
+                        return json.loads(fixed_json)
+                    except json.JSONDecodeError as exc:
+                        logger.error(
+                            f"Failed to parse JSON after all fixes: {exc}",
+                            extra={
+                                "original_length": len(json_str),
+                                "original_start": json_str[:100],
+                                "error_pos": exc.pos,
+                            }
+                        )
+                        raise OllamaServiceError(
+                            f"Failed to parse JSON from response: {exc}. "
+                            f"Text was: {json_str[:200]}"
+                        ) from exc
 
 
 def generate_issue_with_ollama(

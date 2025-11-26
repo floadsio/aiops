@@ -2267,19 +2267,22 @@ def create_assisted_issue():
     # Create form - Flask-WTF will auto-populate from request on POST
     form = AIAssistedIssueForm()
     form.project_id.choices = project_choices
+    # Initialize integration_id choices (will be empty until project is selected)
+    form.integration_id.choices = []
 
     # Check if form is submitted and valid
     if form.validate_on_submit():
         # Handle form submission - generate preview
         project_id = form.project_id.data
+        integration_id = form.integration_id.data
         description = form.description.data
         ai_tool = form.ai_tool.data
         issue_type = form.issue_type.data if form.issue_type.data else None
 
         # Get integration and project
-        integration = ProjectIntegration.query.filter_by(project_id=project_id).first()
-        if not integration:
-            flash("No integration found for this project", "error")
+        integration = ProjectIntegration.query.get(integration_id)
+        if not integration or integration.project_id != project_id:
+            flash("Invalid integration selected for this project", "error")
             return render_template(
                 "admin/create_assisted_issue.html",
                 form=form,

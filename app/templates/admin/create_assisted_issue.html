@@ -58,7 +58,98 @@
       gap: 1rem;
       margin-top: 2rem;
     }
+    #integration_id[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   </style>
+{% endblock %}
+{% block extra_scripts %}
+  {{ super() }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const projectSelect = document.getElementById('{{ form.project_id.id }}');
+      const integrationSelect = document.getElementById('{{ form.integration_id.id }}');
+      const integrationMessage = document.getElementById('integration-message');
+      const submitBtn = document.getElementById('submit-btn');
+
+      async function loadIntegrations(projectId) {
+        if (!projectId) {
+          integrationSelect.innerHTML = '<option value="">Select a project first</option>';
+          integrationSelect.disabled = true;
+          integrationMessage.style.display = 'none';
+          submitBtn.disabled = true;
+          return;
+        }
+
+        integrationSelect.innerHTML = '<option value="">Loading integrations...</option>';
+        integrationSelect.disabled = true;
+        integrationMessage.style.display = 'none';
+
+        try {
+          const response = await fetch(`/api/v1/projects/${projectId}/integrations`);
+          if (!response.ok) {
+            throw new Error('Failed to load integrations');
+          }
+
+          const data = await response.json();
+          const integrations = data.integrations || [];
+
+          if (integrations.length === 0) {
+            integrationSelect.innerHTML = '<option value="">No integrations configured</option>';
+            integrationSelect.disabled = true;
+            integrationMessage.textContent = 'This project has no integrations. Please configure one first.';
+            integrationMessage.style.display = 'block';
+            submitBtn.disabled = true;
+          } else {
+            // Build options
+            let html = '<option value="">Select an integration</option>';
+            integrations.forEach(int => {
+              html += `<option value="${int.project_integration_id}">${int.display_name}</option>`;
+            });
+            integrationSelect.innerHTML = html;
+            integrationSelect.disabled = false;
+
+            // Auto-select if only one integration
+            if (integrations.length === 1) {
+              integrationSelect.value = integrations[0].project_integration_id;
+              integrationMessage.textContent = 'Auto-selected single integration';
+              integrationMessage.style.display = 'block';
+            }
+
+            // Enable submit button if integration is selected
+            submitBtn.disabled = integrationSelect.value === '';
+          }
+        } catch (error) {
+          console.error('Error loading integrations:', error);
+          integrationSelect.innerHTML = '<option value="">Error loading integrations</option>';
+          integrationSelect.disabled = true;
+          integrationMessage.textContent = 'Failed to load integrations. Please refresh the page.';
+          integrationMessage.style.display = 'block';
+          submitBtn.disabled = true;
+        }
+      }
+
+      // Load integrations when project changes
+      projectSelect.addEventListener('change', function() {
+        loadIntegrations(this.value);
+      });
+
+      // Update submit button when integration changes
+      integrationSelect.addEventListener('change', function() {
+        submitBtn.disabled = !this.value;
+      });
+
+      // Initialize - load integrations if project is already selected
+      if (projectSelect.value) {
+        loadIntegrations(projectSelect.value);
+      } else {
+        integrationSelect.innerHTML = '<option value="">Select a project first</option>';
+        integrationSelect.disabled = true;
+        submitBtn.disabled = true;
+      }
+    });
+  </script>
 {% endblock %}
 {% block content %}
 <div class="create-assisted-container">
@@ -86,14 +177,26 @@
         </div>
 
         <div class="form-section">
+          <label for="{{ form.integration_id.id }}">
+            <h3>Integration</h3>
+          </label>
+          <div id="integration-container">
+            <select id="{{ form.integration_id.id }}" name="{{ form.integration_id.name }}" required disabled>
+              <option value="">Loading integrations...</option>
+            </select>
+            <small id="integration-message" style="display:none; color: #94a3b8;"></small>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-section">
           <label for="{{ form.ai_tool.id }}">
             <h3>AI Tool</h3>
           </label>
           {{ form.ai_tool(required=True) }}
         </div>
-      </div>
 
-      <div class="form-grid">
         <div class="form-section">
           <label for="{{ form.issue_type.id }}">
             <h3>Issue Type (Optional)</h3>

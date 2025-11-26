@@ -593,6 +593,12 @@ class AIAssistedIssueForm(FlaskForm):
         coerce=int,
         validators=[DataRequired()],
     )
+    integration_id = SelectField(
+        "Integration",
+        coerce=int,
+        validators=[DataRequired()],
+        description="Select which integration to use for creating the issue",
+    )
     ai_tool = SelectField(
         "AI Tool",
         choices=[

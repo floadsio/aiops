@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timezone
 
 from ...extensions import db
-from ...models import AISession, Project, Tenant, User
+from ...models import AISession, Project, ProjectIntegration, Tenant, User
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.git_service import ensure_repo_checkout, get_repo_status
 from ...services.tmux_service import TmuxServiceError, close_tmux_target, respawn_pane
@@ -375,3 +375,47 @@ def respawn_tmux_pane_api(project_id: int):
         return jsonify({"success": True})
     except TmuxServiceError as exc:
         return jsonify({"error": str(exc)}), 500
+
+
+@api_v1_bp.get("/projects/<int:project_id>/integrations")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def get_project_integrations(project_id: int):
+    """Get all integrations available for a project.
+
+    Args:
+        project_id: Project ID
+
+    Returns:
+        200: List of integrations linked to the project
+        403: Access denied
+        404: Project not found
+    """
+    project = Project.query.get_or_404(project_id)
+    user = g.api_user
+
+    if not _ensure_project_access(project, user):
+        return jsonify({"error": "Access denied"}), 403
+
+    # Get all project integrations for this project
+    project_integrations = ProjectIntegration.query.filter_by(
+        project_id=project_id
+    ).all()
+
+    integrations = []
+    for proj_int in project_integrations:
+        integration = proj_int.integration
+        integrations.append({
+            "id": proj_int.id,
+            "integration_id": integration.id,
+            "project_integration_id": proj_int.id,
+            "provider": integration.provider,
+            "name": integration.name,
+            "display_name": f"{integration.provider.upper()} - {integration.name}",
+            "external_identifier": proj_int.external_identifier,
+        })
+
+    return jsonify({
+        "integrations": integrations,
+        "count": len(integrations),
+    })

@@ -121,6 +121,19 @@ def _extract_json_from_response(response_text: str) -> dict[str, Any]:
     print(f"DEBUG: Attempting to parse JSON: {debug_info}", file=sys.stderr)
     logger.info("Attempting to parse JSON from Ollama response", extra=debug_info)
 
+    # CRITICAL FIX: Ollama returns JSON with literal backslash-n sequences (\\n as two chars)
+    # not actual newline characters. We need to unescape these BEFORE parsing.
+    # Check if the JSON has literal backslash-n (char code 92 = backslash, followed by n)
+    if len(json_str) > 1 and json_str[1] == '\\':
+        # This looks like escaped JSON - unescape it
+        # The string repr shows {\\ but actual content is {\ so we need to interpret escape sequences
+        try:
+            # Try using unicode_escape codec to handle the escape sequences
+            json_str = json_str.encode('utf-8').decode('unicode-escape')
+            logger.info("Unescaped JSON from Ollama response", extra={"new_first_50": repr(json_str[:50])})
+        except Exception as e:
+            logger.warning(f"Failed to unescape JSON: {e}", extra={"original_first_50": repr(json_str[:50])})
+
     try:
         # First, try standard JSON parsing
         return json.loads(json_str)

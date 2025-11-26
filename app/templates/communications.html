@@ -1714,7 +1714,7 @@ async function loadFilters() {
         const option = document.createElement('option');
         option.value = project.id;
         option.textContent = `${project.tenant_name || 'Unknown'} / ${project.name}`;
-        option.dataset.tenantId = project.tenant_id;
+        option.dataset.tenantId = String(project.tenant_id); // Convert to string for comparison
         projectSelect.appendChild(option);
       });
 
@@ -1730,23 +1730,25 @@ async function loadFilters() {
 
 // Filter projects based on selected tenant
 function updateProjectsForTenant() {
-  const tenantId = document.getElementById('tenantFilter').value;
+  const tenantId = String(document.getElementById('tenantFilter').value).trim();
   const projectSelect = document.getElementById('projectFilter');
 
+  console.log('Filtering projects for tenant:', tenantId); // Debug
+
   // If tenant is selected, only show projects from that tenant
-  if (tenantId) {
+  if (tenantId && tenantId !== '') {
     // Hide all projects that don't belong to selected tenant
     Array.from(projectSelect.options).forEach((option) => {
-      const projectTenantId = option.dataset.tenantId;
+      const projectTenantId = String(option.dataset.tenantId || '').trim();
+
       if (option.value === '') {
         // Always show "All Projects" option
         option.style.display = '';
-      } else if (projectTenantId === tenantId) {
-        // Show this project (belongs to selected tenant)
-        option.style.display = '';
       } else {
-        // Hide this project (belongs to different tenant)
-        option.style.display = 'none';
+        // Compare IDs (both as strings)
+        const shouldShow = projectTenantId === tenantId;
+        option.style.display = shouldShow ? '' : 'none';
+        console.log(`Project "${option.textContent}" tenant_id="${projectTenantId}" matches="${shouldShow}"`); // Debug
       }
     });
   } else {

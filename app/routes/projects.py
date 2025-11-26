@@ -1087,6 +1087,62 @@ def unpin_issue(project_id: int, issue_id: int):
     return redirect(url_for("projects.project_detail", project_id=project.id))
 
 
+@projects_bp.route("/<int:project_id>/issues/<int:issue_id>/comment", methods=["POST"])
+@login_required
+def comment_issue(project_id: int, issue_id: int):
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    integration = issue.project_integration
+    if integration is None or integration.project_id != project_id:
+        abort(404)
+
+    comment_body = (request.form.get("comment") or "").strip()
+    if not comment_body:
+        flash("Comment cannot be empty.", "warning")
+        return redirect(url_for("projects.project_detail", project_id=project.id))
+
+    try:
+        import subprocess
+        # Use the aiops CLI to add the comment
+        result = subprocess.run(
+            [
+                str(Path.cwd() / ".venv" / "bin" / "aiops"),
+                "issues",
+                "comment",
+                str(issue_id),
+                comment_body,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            error_msg = result.stderr or result.stdout or "Unknown error"
+            flash(f"Failed to add comment: {error_msg}", "danger")
+            return redirect(url_for("projects.project_detail", project_id=project.id))
+
+        # Sync the issue to get updated comments
+        from ..services.issues import sync_project_integration
+        sync_project_integration(integration)
+
+        flash(f"Comment added to issue {issue.external_id}.", "success")
+    except subprocess.TimeoutExpired:
+        current_app.logger.error("Comment operation timed out for issue %s", issue_id)
+        flash("Comment operation timed out.", "danger")
+    except IssueSyncError as exc:
+        flash(f"Failed to sync issue: {str(exc)}", "danger")
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.exception("Failed to add comment to issue %s", issue_id)
+        flash("An error occurred while adding your comment.", "danger")
+
+    return redirect(url_for("projects.project_detail", project_id=project.id))
+
+
 @projects_bp.route("/<int:project_id>/ai/session", methods=["POST"])
 @login_required
 def start_ai_session(project_id: int):

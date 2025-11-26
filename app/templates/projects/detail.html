@@ -190,6 +190,329 @@
       background: rgba(59, 130, 246, 0.2);
       color: var(--pico-color-blue-300);
     }
+
+    /* Issue Cards Grid */
+    .issues-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (min-width: 1024px) {
+      .issues-grid {
+        grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+      }
+    }
+
+    /* Individual Issue Card */
+    .issue-card {
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+      background: rgba(255, 255, 255, 0.98);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .issue-card:hover {
+      border-color: rgba(59, 130, 246, 0.5);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
+    }
+
+    [data-theme="dark"] .issue-card {
+      background: rgba(15, 23, 42, 0.5);
+      border-color: rgba(148, 163, 184, 0.45);
+    }
+
+    [data-theme="dark"] .issue-card:hover {
+      border-color: rgba(59, 130, 246, 0.6);
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    }
+
+    .issue-card__header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+      padding-bottom: 1rem;
+    }
+
+    .issue-card__title-section {
+      display: flex;
+      gap: 1rem;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .issue-card__title {
+      margin: 0;
+      flex: 1;
+      min-width: 0;
+      word-wrap: break-word;
+      font-size: 1.1rem;
+      line-height: 1.4;
+    }
+
+    .issue-card__badges {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .issue-card__meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .issue-card__id {
+      font-weight: 600;
+      color: var(--pico-color-blue-600);
+      font-size: 0.9rem;
+    }
+
+    [data-theme="dark"] .issue-card__id {
+      color: var(--pico-color-blue-300);
+    }
+
+    .issue-card__timestamp {
+      color: #64748b;
+      font-size: 0.85rem;
+    }
+
+    [data-theme="dark"] .issue-card__timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-card__labels {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .issue-card__content {
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Comments Section */
+    .issue-comments__header {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 0.75rem 0;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .issue-comments__header:hover {
+      color: var(--pico-color-blue-600);
+    }
+
+    .issue-comments__list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin: 1rem 0;
+      padding: 1rem 0;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+    }
+
+    .issue-comment {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .issue-comment__header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+    }
+
+    .issue-comment__author {
+      font-weight: 600;
+      color: var(--pico-color-slate-900);
+      display: inline-block;
+    }
+
+    [data-theme="dark"] .issue-comment__author {
+      color: rgba(226, 232, 240, 0.95);
+    }
+
+    .issue-comment__timestamp {
+      color: #64748b;
+      font-size: 0.85rem;
+      display: inline-block;
+    }
+
+    [data-theme="dark"] .issue-comment__timestamp {
+      color: rgba(148, 163, 184, 0.75);
+    }
+
+    .issue-comment__link {
+      color: var(--pico-color-blue-600);
+      text-decoration: none;
+      font-size: 1rem;
+      display: inline-flex;
+      align-items: center;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+
+    .issue-comment__link:hover {
+      opacity: 1;
+    }
+
+    .issue-comment__body {
+      line-height: 1.6;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      margin-left: 0.5rem;
+    }
+
+    [data-theme="dark"] .issue-comment__body {
+      color: rgba(226, 232, 240, 0.85);
+    }
+
+    .issue-comment__body p {
+      margin: 0.5rem 0;
+    }
+
+    .issue-comment__body p:first-child {
+      margin-top: 0;
+    }
+
+    .issue-comment__body p:last-child {
+      margin-bottom: 0;
+    }
+
+    .issue-comment__body pre {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.5rem 0;
+    }
+
+    [data-theme="dark"] .issue-comment__body pre {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+
+    .issue-comment__body code {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    [data-theme="dark"] .issue-comment__body code {
+      background: rgba(148, 163, 184, 0.2);
+    }
+
+    .issue-comment__body blockquote {
+      border-left: 3px solid rgba(148, 163, 184, 0.5);
+      padding-left: 1rem;
+      margin-left: 0;
+      margin: 0.5rem 0;
+      color: #64748b;
+      font-style: italic;
+    }
+
+    [data-theme="dark"] .issue-comment__body blockquote {
+      border-left-color: rgba(148, 163, 184, 0.6);
+      color: rgba(148, 163, 184, 0.8);
+    }
+
+    /* Reply Form */
+    .issue-comment__reply {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: rgba(59, 130, 246, 0.05);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 0.5rem;
+    }
+
+    [data-theme="dark"] .issue-comment__reply {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: rgba(59, 130, 246, 0.35);
+    }
+
+    .issue-comment__reply label {
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .issue-comment__reply textarea {
+      margin-bottom: 0.75rem;
+      width: 100%;
+    }
+
+    .issue-comment__reply button {
+      margin-top: 0;
+    }
+
+    /* Issue Card Footer */
+    .issue-card__footer {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+      padding-top: 1rem;
+      margin-top: auto;
+    }
+
+    .issue-card__actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .issue-card__actions button,
+    .issue-card__actions a {
+      font-size: 0.9rem;
+      padding: 0.4rem 0.8rem;
+    }
+
+    .issue-card__state-actions {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .issue-card__state-actions form {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .issue-card__state-actions button {
+      font-size: 0.9rem;
+      padding: 0.4rem 0.8rem;
+      margin: 0;
+    }
+
+    .issue-card__state-actions input {
+      font-size: 0.85rem;
+      padding: 0.4rem 0.6rem;
+      height: auto;
+    }
   </style>
 {% endblock %}
 {% block content %}
@@ -427,158 +750,181 @@
           </details>
         {% endif %}
         {% if group.issues %}
-          <ul>
+          <div class="issues-grid">
             {% for issue in group.issues %}
-              <li>
-                <strong>{{ issue.title }}</strong>
-                {% if issue.status %}
-                  <span class="badge secondary">{{ issue.status }}</span>
-                {% endif %}
-                {% if issue.assignee %}
-                  <span class="badge">{{ issue.assignee }}</span>
-                {% endif %}
-                <br />
-                <small>
-                  ID {{ issue.external_id }}
-                  {% if issue.updated_display %}
-                    • Updated {{ issue.updated_display }}
-                  {% endif %}
-                </small>
+              <article class="issue-card">
+                <!-- Issue Header -->
+                <header class="issue-card__header">
+                  <div class="issue-card__title-section">
+                    <h4 class="issue-card__title">{{ issue.title }}</h4>
+                    <div class="issue-card__badges">
+                      {% if issue.status %}
+                        <span class="badge secondary">{{ issue.status }}</span>
+                      {% endif %}
+                      {% if issue.assignee %}
+                        <span class="badge">{{ issue.assignee }}</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="issue-card__meta">
+                    <small class="issue-card__id">{{ issue.external_id }}</small>
+                    {% if issue.updated_display %}
+                      <small class="issue-card__timestamp">Updated {{ issue.updated_display }}</small>
+                    {% endif %}
+                  </div>
+                </header>
+
+                <!-- Labels -->
                 {% if issue.labels %}
-                  <br />
-                  <small>Labels: {{ issue.labels|join(', ') }}</small>
+                  <div class="issue-card__labels">
+                    {% for label in issue.labels %}
+                      <span class="badge outline">{{ label }}</span>
+                    {% endfor %}
+                  </div>
                 {% endif %}
-                {% if issue.url %}
-                  <br />
-                  <a
-                    href="{{ issue.url }}"
-                    target="_blank"
-                    rel="noopener"
-                  >Open in {{ group.provider_display }}</a>
-                {% endif %}
-                <br />
-                <button
-                  type="button"
-                  class="secondary start-codex-session"
-                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id, issue_id=issue.id) }}"
-                  data-prepare="{{ url_for(
-                    'projects.prepare_issue_context',
-                    project_id=project.id,
-                    issue_id=issue.id
-                  ) }}"
-                  data-context='{{ issue.codex_payload|tojson }}'
-                  data-tool="claude"
-                  data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
-                >
-                  Claude
-                </button>
-                <button
-                  type="button"
-                  class="secondary start-codex-session"
-                  data-target="{{ url_for('projects.project_ai_console', project_id=project.id, issue_id=issue.id) }}"
-                  data-prepare="{{ url_for(
-                    'projects.prepare_issue_context',
-                    project_id=project.id,
-                    issue_id=issue.id
-                  ) }}"
-                  data-context='{{ issue.codex_payload|tojson }}'
-                  data-tool="codex"
-                  data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
-                >
-                  Codex
-                </button>
-                <button
-                  type="button"
-                  class="tertiary populate-agents-md"
-                  data-populate="{{ url_for(
-                    'projects.populate_issue_agents_md',
-                    project_id=project.id,
-                    issue_id=issue.id
-                  ) }}"
-                >
-                  Populate AGENTS.override.md
-                </button>
-                {% if issue.comment_count %}
-                  <details class="issue-comment-thread">
-                    <summary>
-                      {{ issue.comment_count }}
-                      comment{{ '' if issue.comment_count == 1 else 's' }} synced
-                      from tracker
-                    </summary>
-                    <ul class="issue-comments">
-                      {% for comment in issue.comments %}
-                        <li>
-                          <div class="issue-comment__header">
-                            <span class="issue-comment__author">
-                              {% if comment.author %}
-                                {{ comment.author }}
-                              {% else %}
-                                <span class="text-muted">Unknown author</span>
+
+                <!-- Issue Content -->
+                <div class="issue-card__content">
+                  <!-- Comments Section -->
+                  {% if issue.comment_count %}
+                    <details class="issue-comment-thread" open>
+                      <summary class="issue-comments__header">
+                        💬 Conversation ({{ issue.comment_count }} comment{{ '' if issue.comment_count == 1 else 's' }})
+                      </summary>
+                      <div class="issue-comments__list">
+                        {% for comment in issue.comments %}
+                          <div class="issue-comment">
+                            <div class="issue-comment__header">
+                              <strong class="issue-comment__author">
+                                {% if comment.author %}
+                                  {{ comment.author }}
+                                {% else %}
+                                  <span class="text-muted">Unknown author</span>
+                                {% endif %}
+                              </strong>
+                              {% if comment.created_display %}
+                                <small class="issue-comment__timestamp">{{ comment.created_display }}</small>
                               {% endif %}
-                            </span>
-                            {% if comment.created_display %}
-                              <span class="issue-comment__timestamp">{{ comment.created_display }}</span>
-                            {% endif %}
-                            {% if comment.url %}
-                              <a href="{{ comment.url }}" target="_blank" rel="noopener" style="font-size: 0.85rem;">View</a>
-                            {% endif %}
+                              {% if comment.url %}
+                                <a href="{{ comment.url }}" target="_blank" rel="noopener" class="issue-comment__link">↗</a>
+                              {% endif %}
+                            </div>
+                            <div class="issue-comment__body">
+                              {{ comment.body|render_issue_content }}
+                            </div>
                           </div>
-                          <div class="issue-comment__body">
-                            {{ comment.body|render_issue_content }}
-                          </div>
-                        </li>
-                      {% endfor %}
-                    </ul>
-                  </details>
-                {% endif %}
-                {% if issue.can_assign %}
-                  <form
-                    method="post"
-                    class="inline-form"
-                    action="{{ url_for('projects.assign_issue', project_id=project.id, issue_id=issue.id) }}"
-                  >
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <input
-                      type="text"
-                      name="assignee"
-                      placeholder="Assign to (comma-separated)"
-                      style="max-width: 14rem;"
-                    />
-                    <button type="submit" class="secondary outline">Assign</button>
-                  </form>
-                {% endif %}
-                {% if issue.status_key != 'closed' %}
-                  <form
-                    method="post"
-                    class="inline-form"
-                    action="{{ url_for('projects.close_issue', project_id=project.id, issue_id=issue.id) }}"
-                  >
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <button type="submit" class="secondary outline">Close Issue</button>
-                  </form>
-                {% endif %}
-                {% if issue.is_pinned %}
-                  <form
-                    method="post"
-                    class="inline-form"
-                    action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}"
-                  >
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <button type="submit" class="tertiary outline" style="color:#f59e0b;">★ Unpin</button>
-                  </form>
-                {% else %}
-                  <form
-                    method="post"
-                    class="inline-form"
-                    action="{{ url_for('projects.pin_issue', project_id=project.id, issue_id=issue.id) }}"
-                  >
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                    <button type="submit" class="tertiary outline">☆ Pin</button>
-                  </form>
-                {% endif %}
-              </li>
+                        {% endfor %}
+                      </div>
+
+                      <!-- Reply Form -->
+                      <form method="post" class="issue-comment__reply" action="{{ url_for('projects.comment_issue', project_id=project.id, issue_id=issue.id) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <label for="reply-{{ issue.id }}">
+                          <small>Add your reply:</small>
+                        </label>
+                        <textarea
+                          id="reply-{{ issue.id }}"
+                          name="comment"
+                          placeholder="Type your reply here... (markdown supported)"
+                          rows="3"
+                          style="font-family: monospace; font-size: 0.9rem;"
+                        ></textarea>
+                        <button type="submit" class="secondary">Post Reply</button>
+                      </form>
+                    </details>
+                  {% else %}
+                    <!-- Reply Form for Issues Without Comments -->
+                    <form method="post" class="issue-comment__reply" action="{{ url_for('projects.comment_issue', project_id=project.id, issue_id=issue.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                      <label for="reply-{{ issue.id }}">
+                        <small>Start a conversation:</small>
+                      </label>
+                      <textarea
+                        id="reply-{{ issue.id }}"
+                        name="comment"
+                        placeholder="Type your comment here... (markdown supported)"
+                        rows="3"
+                        style="font-family: monospace; font-size: 0.9rem;"
+                      ></textarea>
+                      <button type="submit" class="secondary">Post Comment</button>
+                    </form>
+                  {% endif %}
+                </div>
+
+                <!-- Footer Actions -->
+                <footer class="issue-card__footer">
+                  <div class="issue-card__actions">
+                    <button
+                      type="button"
+                      class="secondary start-codex-session"
+                      data-target="{{ url_for('projects.project_ai_console', project_id=project.id, issue_id=issue.id) }}"
+                      data-prepare="{{ url_for('projects.prepare_issue_context', project_id=project.id, issue_id=issue.id) }}"
+                      data-context='{{ issue.codex_payload|tojson }}'
+                      data-tool="claude"
+                      data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
+                      title="Start AI-assisted work session"
+                    >
+                      🤖 Claude
+                    </button>
+                    <button
+                      type="button"
+                      class="secondary start-codex-session"
+                      data-target="{{ url_for('projects.project_ai_console', project_id=project.id, issue_id=issue.id) }}"
+                      data-prepare="{{ url_for('projects.prepare_issue_context', project_id=project.id, issue_id=issue.id) }}"
+                      data-context='{{ issue.codex_payload|tojson }}'
+                      data-tool="codex"
+                      data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
+                      title="Start Codex work session"
+                    >
+                      🎨 Codex
+                    </button>
+                    {% if issue.url %}
+                      <a
+                        href="{{ issue.url }}"
+                        target="_blank"
+                        rel="noopener"
+                        class="button secondary outline"
+                        title="Open in {{ group.provider_display }}"
+                      >
+                        🔗 {{ group.provider_display }}
+                      </a>
+                    {% endif %}
+                  </div>
+                  <div class="issue-card__state-actions">
+                    {% if issue.is_pinned %}
+                      <form method="post" action="{{ url_for('projects.unpin_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="tertiary outline" title="Unpin this issue">★ Pinned</button>
+                      </form>
+                    {% else %}
+                      <form method="post" action="{{ url_for('projects.pin_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="tertiary outline" title="Pin this issue">☆ Pin</button>
+                      </form>
+                    {% endif %}
+                    {% if issue.status_key != 'closed' %}
+                      <form method="post" action="{{ url_for('projects.close_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="secondary outline" title="Close this issue">✓ Close</button>
+                      </form>
+                    {% endif %}
+                    {% if issue.can_assign %}
+                      <form method="post" action="{{ url_for('projects.assign_issue', project_id=project.id, issue_id=issue.id) }}" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <input
+                          type="text"
+                          name="assignee"
+                          placeholder="Assign..."
+                          style="max-width: 10rem; display:inline-block; margin-right: 0.5rem;"
+                        />
+                        <button type="submit" class="secondary outline" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">Assign</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                </footer>
+              </article>
             {% endfor %}
-          </ul>
+          </div>
         {% else %}
           {% if group.total_issues %}
             <p class="text-muted">No issues match the current filter.</p>

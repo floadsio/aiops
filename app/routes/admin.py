@@ -2267,8 +2267,25 @@ def create_assisted_issue():
     # Create form - Flask-WTF will auto-populate from request on POST
     form = AIAssistedIssueForm()
     form.project_id.choices = project_choices
-    # Initialize integration_id choices (will be empty until project is selected)
-    form.integration_id.choices = []
+
+    # Populate integration_id choices based on selected project
+    # This is needed for form validation to work on both GET and POST
+    if request.method == 'POST' and request.form.get('project_id'):
+        # On POST, get the selected project_id from form data
+        try:
+            selected_project_id = int(request.form.get('project_id'))
+            integrations = ProjectIntegration.query.filter_by(
+                project_id=selected_project_id
+            ).all()
+            form.integration_id.choices = [
+                (i.id, f"{i.integration.provider.upper()} - {i.integration.name}")
+                for i in integrations
+            ]
+        except (ValueError, TypeError):
+            form.integration_id.choices = []
+    else:
+        # On GET, leave empty and let JavaScript populate it
+        form.integration_id.choices = []
 
     # Check if form is submitted and valid
     if form.validate_on_submit():

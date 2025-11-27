@@ -114,40 +114,6 @@ def _current_user_obj():
     return user_obj
 
 
-@projects_bp.route("/ai/status", methods=["GET"])
-@login_required
-def ai_status_overview():
-    """Display per-user AI tool capacity information."""
-    user = _current_user_obj()
-    if user is None:
-        abort(403)
-
-    # Display Claude usage from database instead of running CLI command
-    # The usage data is populated by the update mechanism or API calls
-    claude_usage = {
-        "input_tokens_limit": user.claude_input_tokens_limit,
-        "input_tokens_remaining": user.claude_input_tokens_remaining,
-        "output_tokens_limit": user.claude_output_tokens_limit,
-        "output_tokens_remaining": user.claude_output_tokens_remaining,
-        "requests_limit": user.claude_requests_limit,
-        "requests_remaining": user.claude_requests_remaining,
-        "last_updated": user.claude_usage_last_updated,
-    }
-
-    # Skip Claude CLI status check for now - it times out when Claude sessions are active
-    # TODO: Implement non-blocking status check or use a background job
-    claude_status = None
-    claude_status_error = "Claude CLI status check is temporarily disabled to avoid timeouts during active sessions."
-
-    return render_template(
-        "projects/ai_status.html",
-        claude_usage=claude_usage,
-        claude_status=claude_status,
-        claude_status_error=claude_status_error,
-        linux_username=_current_linux_username(),
-    )
-
-
 @projects_bp.route("/communications", methods=["GET"])
 @login_required
 def communications():

@@ -177,7 +177,7 @@
           <span class="cli-command-label">Start AI Session (Primary Workflow)</span>
           <div class="cli-command-code">
             <code>{{ cli_commands.work_on_issue }}</code>
-            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.work_on_issue }}')">Copy</button>
+            <button class="copy-button" data-copy-text="{{ cli_commands.work_on_issue }}">Copy</button>
           </div>
         </div>
 
@@ -185,7 +185,7 @@
           <span class="cli-command-label">View Issue Details</span>
           <div class="cli-command-code">
             <code>{{ cli_commands.get_details }}</code>
-            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.get_details }}')">Copy</button>
+            <button class="copy-button" data-copy-text="{{ cli_commands.get_details }}">Copy</button>
           </div>
         </div>
 
@@ -193,7 +193,7 @@
           <span class="cli-command-label">Add Comment / Update Status</span>
           <div class="cli-command-code">
             <code>{{ cli_commands.add_comment }}</code>
-            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.add_comment }}')">Copy</button>
+            <button class="copy-button" data-copy-text="{{ cli_commands.add_comment }}">Copy</button>
           </div>
         </div>
 
@@ -201,7 +201,7 @@
           <span class="cli-command-label">Close Issue (When Complete)</span>
           <div class="cli-command-code">
             <code>{{ cli_commands.close_issue }}</code>
-            <button class="copy-button" onclick="copyToClipboard(this, '{{ cli_commands.close_issue }}')">Copy</button>
+            <button class="copy-button" data-copy-text="{{ cli_commands.close_issue }}">Copy</button>
           </div>
         </div>
       </div>
@@ -222,23 +222,30 @@
 </div>
 
 <script>
-function copyToClipboard(button, text) {
-  navigator.clipboard.writeText(text).then(() => {
-    const originalText = button.textContent;
-    button.textContent = 'Copied!';
-    button.classList.add('copied');
+// Add click handlers to all copy buttons
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.copy-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const text = this.getAttribute('data-copy-text');
 
-    setTimeout(() => {
-      button.textContent = originalText;
-      button.classList.remove('copied');
-    }, 2000);
-  }).catch(err => {
-    console.error('Failed to copy:', err);
-    button.textContent = 'Failed';
-    setTimeout(() => {
-      button.textContent = 'Copy';
-    }, 2000);
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = this.textContent;
+        this.textContent = 'Copied!';
+        this.classList.add('copied');
+
+        setTimeout(() => {
+          this.textContent = originalText;
+          this.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+        this.textContent = 'Failed';
+        setTimeout(() => {
+          this.textContent = 'Copy';
+        }, 2000);
+      });
+    });
   });
-}
+});
 </script>
 {% endblock %}

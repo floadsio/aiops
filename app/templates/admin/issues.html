@@ -837,88 +837,105 @@
       font-style: italic;
     }
 
-    /* Issue comment body - same styling as description */
-    .issue-comment__body {
-      line-height: 1.45;
-      font-size: 0.95rem;
+    /* Comment body styling - shared with Communications page */
+    .comment-body {
+      line-height: 1.6;
       color: var(--pico-color-slate-800);
       word-wrap: break-word;
+      overflow-wrap: break-word;
     }
-    [data-theme="dark"] .issue-comment__body {
+    [data-theme="dark"] .comment-body {
       color: rgba(226, 232, 240, 0.85);
     }
-    .issue-comment__body p {
-      margin: 0.15rem 0;
+    .comment-body p {
+      margin: 0.5rem 0;
     }
-    .issue-comment__body p:first-child {
+    .comment-body p:first-child {
       margin-top: 0;
     }
-    .issue-comment__body p:last-child {
+    .comment-body p:last-child {
       margin-bottom: 0;
     }
-    .issue-comment__body a {
+    .comment-body a {
       color: var(--md-primary);
       text-decoration: underline;
     }
-    [data-theme="dark"] .issue-comment__body a {
+    [data-theme="dark"] .comment-body a {
       color: #42a5f5;
     }
-    .issue-comment__body code,
-    .issue-comment__body tt {
+    .comment-body code {
       background: rgba(148, 163, 184, 0.1);
       padding: 0.2rem 0.4rem;
       border-radius: 0.2rem;
       font-family: 'Courier New', monospace;
       font-size: 0.9em;
     }
-    [data-theme="dark"] .issue-comment__body code,
-    [data-theme="dark"] .issue-comment__body tt {
+    [data-theme="dark"] .comment-body code {
       background: rgba(148, 163, 184, 0.2);
     }
-    .issue-comment__body pre {
+    .comment-body pre {
       background: rgba(26, 29, 35, 0.05);
       border: 1px solid rgba(148, 163, 184, 0.25);
       border-radius: 0.4rem;
-      padding: 0.5rem;
+      padding: 0.75rem;
       overflow-x: auto;
       font-size: 0.85rem;
-      margin: 0.3rem 0;
+      margin: 0.75rem 0;
     }
-    [data-theme="dark"] .issue-comment__body pre {
+    [data-theme="dark"] .comment-body pre {
       background: rgba(26, 29, 35, 0.35);
       border-color: rgba(148, 163, 184, 0.35);
     }
-    .issue-comment__body pre code {
+    .comment-body pre code {
       background: transparent;
       padding: 0;
       border-radius: 0;
     }
-    .issue-comment__body ul,
-    .issue-comment__body ol {
-      margin: 0.2rem 0;
-      padding-left: 1.75rem;
-    }
-    .issue-comment__body li {
-      margin: 0.1rem 0;
-    }
-    .issue-comment__body blockquote {
+    .comment-body blockquote {
       border-left: 3px solid var(--md-primary);
       padding-left: 1rem;
-      margin: 0.3rem 0;
+      margin-left: 0;
       color: #64748b;
       font-style: italic;
     }
-    [data-theme="dark"] .issue-comment__body blockquote {
+    [data-theme="dark"] .comment-body blockquote {
       color: rgba(148, 163, 184, 0.75);
     }
-    /* Jira code panels in comments */
-    .issue-comment__body .code.panel {
-      margin: 0.3rem 0;
+    .comment-body ul,
+    .comment-body ol {
+      margin: 0.75rem 0;
+      padding-left: 2rem;
     }
-    .issue-comment__body .codeContent.panelContent {
+    .comment-body li {
+      margin: 0.25rem 0;
+    }
+    .comment-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .comment-body th,
+    .comment-body td {
+      padding: 0.5rem;
+      text-align: left;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .comment-body th {
+      background: rgba(148, 163, 184, 0.1);
+      font-weight: 600;
+    }
+    [data-theme="dark"] .comment-body th {
+      background: rgba(148, 163, 184, 0.15);
+    }
+    /* Jira code panels */
+    .comment-body .code.panel {
+      margin: 0.75rem 0;
+    }
+    .comment-body .codeContent.panelContent {
       padding: 0;
     }
-    .issue-comment__body .codeContent.panelContent pre {
+    .comment-body .codeContent.panelContent pre {
       margin: 0;
       border: none;
       background: transparent;
@@ -1252,7 +1269,7 @@
                     {% if comment.created_display %} · {{ comment.created_display }}{% endif %}
                     {% if comment.url %} · <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>{% endif %}
                   </div>
-                  <div class="issue-comment__body">
+                  <div class="comment-body">
                     {% if comment.body_html %}
                       {# Pre-rendered HTML from Jira API #}
                       {{ comment.body_html|sanitize_html }}

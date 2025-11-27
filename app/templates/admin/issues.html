@@ -434,11 +434,10 @@
       font-size: 0.95rem;
       line-height: 1.45;
     }
-  .issues-card-list {
-    display: none;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  .issues-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
     .issue-status-form {
       display: inline-flex;
@@ -475,15 +474,14 @@
       color: rgba(226, 232, 240, 0.9);
     }
     .issue-card {
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 1rem;
-      padding: 1rem 1.15rem;
-      background: rgba(255, 255, 255, 0.86);
-      width: 100%;
+      padding: 1rem 1.25rem;
+      border-radius: 0.7rem;
+      background: rgba(15, 23, 42, 0.04);
+      border: 1px solid rgba(148, 163, 184, 0.2);
     }
     [data-theme="dark"] .issue-card {
-      background: rgba(15, 23, 42, 0.65);
-      border-color: rgba(148, 163, 184, 0.4);
+      background: rgba(148, 163, 184, 0.08);
+      border-color: rgba(148, 163, 184, 0.3);
     }
     .issue-card__header {
       display: flex;
@@ -563,13 +561,7 @@
         padding: 0.6rem 1rem;
       }
     }
-    @media (max-width: 720px) {
-      .table-scroll.issues-table {
-        display: none;
-      }
-      .issues-card-list {
-        display: grid;
-      }
+    @media (max-width: 768px) {
       /* Issue actions row - AI tools and buttons */
       .issue-actions-row td {
         padding: 0.75rem;
@@ -961,317 +953,6 @@
     {% endif %}.
   </p>
 
-  <div class="table-scroll issues-table">
-    <table>
-      <thead>
-        <tr>
-          {% for column in sort_columns %}
-            {% set header = sort_headers.get(column.key) %}
-            <th scope="col" aria-sort="{{ header.aria_sort }}">
-              <a href="{{ header.url }}" class="sort-link{% if header.is_active %} is-active{% endif %}">
-                {{ column.label }}
-                <span class="sort-indicator" aria-hidden="true">
-                  {% if header.is_active %}
-                    {% if sort_state.direction == 'asc' %}▲{% else %}▼{% endif %}
-                  {% else %}
-                    ↕
-                  {% endif %}
-                </span>
-              </a>
-            </th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for issue in issues %}
-          <tr class="issue-data-row">
-            <td>
-              {% if issue.url %}
-                <a href="{{ issue.url }}" target="_blank" rel="noopener">{{ issue.external_id }}</a>
-              {% else %}
-                {{ issue.external_id }}
-              {% endif %}
-            </td>
-            <td>
-              <button
-                type="button"
-                class="issue-title-button issue-detail-toggle"
-                data-issue-id="{{ issue.id }}"
-                aria-expanded="false"
-                aria-controls="issue-detail-{{ issue.id }}"
-              >
-                {{ issue.title }}
-              </button>
-            </td>
-            <td>
-              {% set requires_custom = issue.status and issue.status not in issue.status_choices %}
-              <form method="post" action="{{ issue.status_update_endpoint }}" class="issue-status-form issue-status-form--table issue-status-form--inline" data-issue-status-form>
-                <select name="status_choice" class="issue-status-select" aria-label="Update status for {{ issue.external_id }}" data-status-select onchange="this.form.submit()">
-                  <option value="" {% if not issue.status %}selected{% endif %}>Unspecified</option>
-                  {% for choice in issue.status_choices %}
-                    <option value="{{ choice }}" {% if issue.status == choice %}selected{% endif %}>{{ choice }}</option>
-                  {% endfor %}
-                  <option value="__custom__" {% if requires_custom %}selected{% endif %}>Custom status…</option>
-                </select>
-                <input
-                  type="text"
-                  name="status_custom"
-                  value="{{ issue.status if requires_custom else '' }}"
-                  maxlength="{{ issue_status_max_length }}"
-                  class="issue-status-input issue-status-input--custom"
-                  placeholder="Enter custom status"
-                  data-status-custom
-                  {% if not requires_custom %}hidden disabled{% endif %}
-                />
-                <input type="hidden" name="status" value="{{ issue.status or '' }}" data-status-hidden />
-                <input type="hidden" name="next" value="{{ current_view_url }}" />
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-              </form>
-            </td>
-            <td>{{ issue.provider|capitalize }}</td>
-            <td>{{ issue.project_name or "Unknown project" }}</td>
-            <td>
-              {% if issue.tenant_name %}
-                <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
-                  <span class="tenant-badge__swatch" aria-hidden="true"></span>
-                  {{ issue.tenant_name }}
-                </span>
-              {% else %}
-                <span class="text-muted">Unknown tenant</span>
-              {% endif %}
-            </td>
-            <td>{{ issue.updated_display or "Unknown" }}</td>
-            <td>{{ issue.assignee or "Unassigned" }}</td>
-            <td>
-              {% if issue.labels %}
-                {{ issue.labels|join(', ') }}
-              {% else %}
-                <span class="text-muted">None</span>
-              {% endif %}
-            </td>
-          </tr>
-          <tr class="issue-actions-row">
-            <td colspan="9">
-              {% if issue.project_id %}
-                <div class="issues-actions">
-                  {% if issue.is_pinned %}
-                    <form
-                      method="post"
-                      class="inline-form"
-                      action="{{ url_for('projects.unpin_issue', project_id=issue.project_id, issue_id=issue.id) }}"
-                    >
-                      <input type="hidden" name="next" value="{{ current_view_url }}" />
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                      <button type="submit" class="tertiary outline" style="color:#f59e0b;">★ Unpin</button>
-                    </form>
-                  {% else %}
-                    <form
-                      method="post"
-                      class="inline-form"
-                      action="{{ url_for('projects.pin_issue', project_id=issue.project_id, issue_id=issue.id) }}"
-                    >
-                      <input type="hidden" name="next" value="{{ current_view_url }}" />
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                      <button type="submit" class="tertiary outline">☆ Pin</button>
-                    </form>
-                  {% endif %}
-                  {% if issue.codex_target and issue.prepare_endpoint and issue.codex_payload %}
-                    <label style="margin-right: 1em; font-size: 0.9em;">
-                      <input type="checkbox" class="yolo-mode-checkbox-issue" data-issue-id="{{ issue.id }}" data-project-id="{{ issue.project_id }}" />
-                      <span style="color: #ff6b6b;" title="Skip all permissions (dangerous)">⚠️ Yolo</span>
-                    </label>
-                    <button
-                      type="button"
-                      class="secondary outline issues-start-codex"
-                      data-project-id="{{ issue.project_id }}"
-                      data-target="{{ issue.codex_target }}"
-                      data-prepare="{{ issue.prepare_endpoint }}"
-                      data-context='{{ issue.codex_payload|tojson }}'
-                      data-tool="claude"
-                      data-command="{{ ai_tool_commands.get('claude') or default_ai_shell }}"
-                      data-issue-id="{{ issue.id }}"
-                    >
-                      Claude
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary outline issues-start-codex"
-                      data-project-id="{{ issue.project_id }}"
-                      data-target="{{ issue.codex_target }}"
-                      data-prepare="{{ issue.prepare_endpoint }}"
-                      data-context='{{ issue.codex_payload|tojson }}'
-                      data-tool="codex"
-                      data-command="{{ ai_tool_commands.get('codex') or default_ai_shell }}"
-                      data-issue-id="{{ issue.id }}"
-                    >
-                      Codex
-                    </button>
-                    <button
-                      type="button"
-                      class="secondary outline issues-start-codex"
-                      data-project-id="{{ issue.project_id }}"
-                      data-target="{{ issue.codex_target }}"
-                      data-prepare="{{ issue.prepare_endpoint }}"
-                      data-context='{{ issue.codex_payload|tojson }}'
-                      data-tool="shell"
-                      data-command="{{ ai_tool_commands.get('shell') or default_ai_shell }}"
-                      data-issue-id="{{ issue.id }}"
-                    >
-                      Shell
-                    </button>
-                  {% endif %}
-                  {% if issue.populate_endpoint %}
-                    <button
-                      type="button"
-                      class="tertiary issues-populate-agents"
-                      data-populate="{{ issue.populate_endpoint }}"
-                    >
-                      Populate AGENTS.override.md
-                    </button>
-                  {% endif %}
-                </div>
-              {% else %}
-                <span class="text-muted">Unavailable</span>
-              {% endif %}
-            </td>
-          </tr>
-          <tr id="issue-detail-{{ issue.id }}" class="issue-detail-row" hidden>
-            <td colspan="10">
-              <div class="issue-detail">
-                <div class="issue-detail__header">
-                  <div>
-                    <h3 class="issue-card__title">{{ issue.title }}</h3>
-                    <p class="text-muted">
-                      ID: <code>{{ issue.external_id }}</code>
-                    </p>
-                  </div>
-                  <div class="issue-detail__status">
-                    <div>
-                      {% if issue.status %}
-                        <span class="badge {% if issue.status_key == 'closed' %}success{% elif issue.status_key == 'open' %}secondary{% endif %}">
-                          {{ issue.status }}
-                        </span>
-                      {% else %}
-                        <span class="badge">Unspecified</span>
-                      {% endif %}
-                    </div>
-                    {% set requires_custom_detail = issue.status and issue.status not in issue.status_choices %}
-                    <form method="post" action="{{ issue.status_update_endpoint }}" class="issue-status-form" data-issue-status-form>
-                      <select name="status_choice" class="issue-status-select" aria-label="Update status for {{ issue.external_id }}" data-status-select>
-                        <option value="" {% if not issue.status %}selected{% endif %}>Unspecified</option>
-                        {% for choice in issue.status_choices %}
-                          <option value="{{ choice }}" {% if issue.status == choice %}selected{% endif %}>{{ choice }}</option>
-                        {% endfor %}
-                        <option value="__custom__" {% if requires_custom_detail %}selected{% endif %}>Custom status…</option>
-                      </select>
-                      <input
-                        type="text"
-                        name="status_custom"
-                        value="{{ issue.status if requires_custom_detail else '' }}"
-                        maxlength="{{ issue_status_max_length }}"
-                        class="issue-status-input issue-status-input--custom"
-                        placeholder="Enter custom status"
-                        data-status-custom
-                        {% if not requires_custom_detail %}hidden disabled{% endif %}
-                      />
-                      <input type="hidden" name="status" value="{{ issue.status or '' }}" data-status-hidden />
-                      <input type="hidden" name="next" value="{{ current_view_url }}" />
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                      <button type="submit" class="secondary outline">Save</button>
-                    </form>
-                    {% if issue.url %}
-                      <a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a>
-                    {% endif %}
-                  </div>
-                </div>
-                <dl class="issue-detail__meta">
-                  <div>
-                    <dt>Provider</dt>
-                    <dd>{{ issue.provider|capitalize }}</dd>
-                  </div>
-                  <div>
-                    <dt>Project</dt>
-                    <dd>{{ issue.project_name or "Unknown project" }}</dd>
-                  </div>
-                  <div>
-                    <dt>Tenant</dt>
-                    <dd>
-                      {% if issue.tenant_name %}
-                        <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
-                          <span class="tenant-badge__swatch" aria-hidden="true"></span>
-                          {{ issue.tenant_name }}
-                        </span>
-                      {% else %}
-                        <span class="text-muted">Unknown tenant</span>
-                      {% endif %}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Last Updated</dt>
-                    <dd>{{ issue.updated_display or "Unknown" }}</dd>
-                  </div>
-                  <div>
-                    <dt>Assignee</dt>
-                    <dd>{{ issue.assignee or "Unassigned" }}</dd>
-                  </div>
-                  <div>
-                    <dt>Labels</dt>
-                    <dd>
-                      {% if issue.labels %}
-                        {{ issue.labels|join(', ') }}
-                      {% else %}
-                        <span class="text-muted">None</span>
-                      {% endif %}
-                    </dd>
-                  </div>
-                </dl>
-                <div>
-                  <h4>Issue Description</h4>
-                  <div class="issue-detail__description">
-                    {% if issue.description_available %}
-                      {{ issue.description|render_issue_content }}
-                    {% else %}
-                      <span class="text-muted">{{ issue.description_fallback }}</span>
-                    {% endif %}
-                  </div>
-                </div>
-                <div>
-                  <h4>Recent Comments</h4>
-                  {% if issue.comment_count %}
-                    <ul class="issue-comments">
-                      {% for comment in issue.comments %}
-                        <li>
-                          <small>
-                            {% if comment.author %}
-                              {{ comment.author }}
-                            {% else %}
-                              <span class="text-muted">Unknown author</span>
-                            {% endif %}
-                            {% if comment.created_display %}
-                              • {{ comment.created_display }}
-                            {% endif %}
-                            {% if comment.url %}
-                              • <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>
-                            {% endif %}
-                          </small>
-                          <div class="issue-comment__body">
-                            {{ comment.body|render_issue_content }}
-                          </div>
-                        </li>
-                      {% endfor %}
-                    </ul>
-                  {% else %}
-                    <p class="text-muted">No comments cached.</p>
-                  {% endif %}
-                </div>
-              </div>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="issues-card-list">
     {% for issue in issues %}
       <article class="issue-card">
         <header class="issue-card__header">

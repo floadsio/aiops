@@ -88,10 +88,12 @@ _MARKDOWN_PATTERNS = [
 _JIRA_MARKUP_PATTERNS = [
     re.compile(r"^h[1-6]\.\s+", re.MULTILINE),  # Headers: h1. h2. etc. (MUST have this)
     re.compile(r"\{code[:\}]"),  # Code blocks: {code} or {code:java}
+    re.compile(r"\{noformat\}"),  # Noformat blocks: {noformat}
     re.compile(r"\{\{[^}]+\}\}"),  # Inline code: {{text}}
     re.compile(r"^\s*bq\.\s+", re.MULTILINE),  # Blockquote: bq.
     re.compile(r"^----+$", re.MULTILINE),  # Horizontal rule
     re.compile(r"^\|\|.+\|\|$", re.MULTILINE),  # Table header row
+    re.compile(r"\[~(?:accountid:)?[^\]]+\]"),  # Jira mentions: [~user] or [~accountid:...]
 ]
 
 # Create a Mistune instance for rendering Markdown

@@ -83,15 +83,12 @@ _MARKDOWN_PATTERNS = [
 
 # Patterns that suggest Jira markup content (Confluence/Textile wiki markup)
 _JIRA_MARKUP_PATTERNS = [
-    re.compile(r"^h[1-6]\.\s+", re.MULTILINE),  # Headers: h1. h2. etc.
+    re.compile(r"^h[1-6]\.\s+", re.MULTILINE),  # Headers: h1. h2. etc. (MUST have this)
     re.compile(r"\{code[:\}]"),  # Code blocks: {code} or {code:java}
     re.compile(r"\{\{[^}]+\}\}"),  # Inline code: {{text}}
-    re.compile(r"\*[^*\n]+\*"),  # Bold: *text*
-    re.compile(r"_[^_\n]+_"),  # Italic/emphasis: _text_
-    re.compile(r"-[^-\n]+-"),  # Deleted: -text-
-    re.compile(r"\+[^+\n]+\+"),  # Inserted: +text+
     re.compile(r"^\s*bq\.\s+", re.MULTILINE),  # Blockquote: bq.
     re.compile(r"^----+$", re.MULTILINE),  # Horizontal rule
+    re.compile(r"^\|\|.+\|\|$", re.MULTILINE),  # Table header row
 ]
 
 # Create a Mistune instance for rendering Markdown

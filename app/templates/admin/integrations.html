@@ -146,17 +146,30 @@
   .integration-name-link:hover::after {
     transform: translateX(3px);
   }
+  .table-scroll table td {
+    vertical-align: top;
+    padding: 0.75rem 0.5rem;
+  }
+  .integration-projects-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
   .manage-projects-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.35rem;
     padding: 0.4rem 0.75rem;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
     text-decoration: none;
     background: var(--pico-primary);
     color: var(--pico-primary-inverse);
     border-radius: var(--pico-border-radius);
     transition: background 0.2s;
+    white-space: nowrap;
+    min-width: 120px;
   }
   .manage-projects-btn:hover {
     background: var(--pico-primary-hover);
@@ -212,6 +225,10 @@
     .manage-projects-btn {
       width: 100%;
       justify-content: center;
+      min-width: 0;
+    }
+    .integration-projects-cell {
+      align-items: stretch;
     }
   }
 
@@ -329,46 +346,49 @@
           </details>
         </td>
         <td>
-          {% if integration.project_integrations %}
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
-              <span class="badge" style="font-size: 1rem; padding: 0.35rem 0.75rem;">
+          <div class="integration-projects-cell">
+            {% if integration.project_integrations %}
+              <span class="badge" style="font-size: 0.9rem; padding: 0.3rem 0.6rem;">
                 {{ integration.project_integrations|length }} project{{ 's' if integration.project_integrations|length != 1 else '' }}
               </span>
-              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn">
+              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn" role="button">
                 Manage Projects
               </a>
-            </div>
-            <details style="margin-top: 0.75rem;">
-              <summary>Show mapped projects ({{ integration.project_integrations|length }})</summary>
-              <ul style="margin-top: 0.5rem;">
-                {% for project_integration in integration.project_integrations %}
-                  <li>
-                    <a href="{{ url_for('projects.project_detail', project_id=project_integration.project.id) }}">
-                      {{ project_integration.project.name if project_integration.project else "Unknown project" }}
-                    </a>
-                    {% if project_integration.issues %}
-                      <small>({{ project_integration.issues|length }} issue{{ 's' if project_integration.issues|length != 1 else '' }})</small>
-                    {% endif %}
-                  </li>
-                {% endfor %}
-              </ul>
-            </details>
-          {% else %}
-            <span class="text-muted" style="display: block; margin-bottom: 0.5rem;">No linked projects yet</span>
-            <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn">
-              Add Projects
-            </a>
-          {% endif %}
+              <details style="margin-top: 0.5rem;">
+                <summary style="font-size: 0.85rem; cursor: pointer;">Show mapped projects ({{ integration.project_integrations|length }})</summary>
+                <ul style="margin-top: 0.5rem; font-size: 0.85rem;">
+                  {% for project_integration in integration.project_integrations %}
+                    <li>
+                      <a href="{{ url_for('projects.project_detail', project_id=project_integration.project.id) }}">
+                        {{ project_integration.project.name if project_integration.project else "Unknown project" }}
+                      </a>
+                      {% if project_integration.issues %}
+                        <small>({{ project_integration.issues|length }} issue{{ 's' if project_integration.issues|length != 1 else '' }})</small>
+                      {% endif %}
+                    </li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% else %}
+              <span class="text-muted" style="display: block; margin-bottom: 0.5rem; font-size: 0.85rem;">No linked projects yet</span>
+              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn" role="button">
+                Add Projects
+              </a>
+            {% endif %}
+          </div>
         </td>
         <td>
-          <form method="post" class="inline-form">
+          <form method="post" class="inline-form" style="margin: 0;">
             {{ integration_delete_form.csrf_token }}
             {{ integration_delete_form.integration_id(value=integration.id) }}
-            {{ integration_delete_form.submit(
-              class_="link-button danger",
-              value="Remove",
+            <button
+              type="submit"
+              class="secondary outline"
+              style="padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--pico-del-color); border-color: var(--pico-del-color);"
               onclick="return confirm('Remove integration {{ integration.name }} and all linked issues?')"
-            ) }}
+            >
+              Remove
+            </button>
           </form>
         </td>
       </tr>

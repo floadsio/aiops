@@ -1,6 +1,6 @@
 # aiops Control Panel
 
-> Current release: **0.3.0** (November 2025)
+> Current release: **0.6.3** (November 2025)
 
 This project provides a Flask-based web UI and CLI that orchestrates multi-tenant source control workspaces, AI-assisted code editing, and infrastructure automation.
 

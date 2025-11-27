@@ -131,6 +131,7 @@ def reconnect_persistent_sessions() -> int:
             session_id=db_session.session_id,
             project_id=db_session.project_id,
             user_id=db_session.user_id,
+            tool=db_session.tool,
             command=db_session.command or "",
             tmux_target=db_session.tmux_target,
             pipe_file=pipe_file,

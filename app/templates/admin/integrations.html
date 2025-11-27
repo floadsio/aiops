@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Integrations | aiops Control Panel{% endblock %}
 {% block content %}
-<h1>Issue Integrations</h1>
-<p>Register tenant-level credentials for GitHub, GitLab, or Jira and map them to one or more projects. Each integration can sync issues from multiple repositories or project boards.</p>
+<div class="integrations-header">
+  <div>
+    <h1>Issue Integrations</h1>
+    <p>Register tenant-level credentials for GitHub, GitLab, or Jira and map them to one or more projects. Each integration can sync issues from multiple repositories or project boards.</p>
+  </div>
+</div>
 
 <article style="background: var(--pico-code-background-color); border-left: 4px solid var(--pico-primary); margin-bottom: 1.5rem;">
   <p><strong>💡 How to map an integration to multiple projects:</strong></p>
@@ -13,6 +17,99 @@
   </ol>
 </article>
 
+<style>
+  .integrations-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  .integrations-filters {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .integrations-filters select,
+  .integrations-filters input {
+    margin: 0;
+    min-width: 200px;
+    flex: 1 1 auto;
+  }
+  .clear-filters-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .integrations-card-list {
+    display: none;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    grid-template-columns: 1fr;
+  }
+  .integration-card {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0.75rem;
+    padding: 1rem 1.15rem;
+    background: rgba(255, 255, 255, 0.86);
+    width: 100%;
+  }
+  [data-theme="dark"] .integration-card {
+    background: rgba(15, 23, 42, 0.65);
+    border-color: rgba(148, 163, 184, 0.4);
+  }
+  .integration-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .integration-card__name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--pico-primary);
+    margin: 0 0 0.25rem 0;
+  }
+  .integration-card__meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+  .integration-card__meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .integration-card__meta dt {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(71, 85, 105, 0.9);
+    margin: 0;
+  }
+  .integration-card__meta dd {
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  [data-theme="dark"] .integration-card__meta dt {
+    color: rgba(226, 232, 240, 0.72);
+  }
+  .integration-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .integration-card__actions button,
+  .integration-card__actions a {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    margin: 0;
+  }
 <style>
   .button-row {
     display: flex;
@@ -65,7 +162,40 @@
     background: var(--pico-primary-hover);
     color: var(--pico-primary-inverse);
   }
-  @media (max-width: 640px) {
+  /* ============================================
+     MOBILE RESPONSIVE STYLES
+     ============================================ */
+
+  @media (max-width: 768px) {
+    .integrations-header {
+      margin-bottom: 1rem;
+    }
+    .integrations-header h1 {
+      font-size: 1.5rem;
+    }
+    .integrations-filters {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .integrations-filters select,
+    .integrations-filters input {
+      width: 100%;
+      min-width: 0;
+      font-size: 1rem; /* Prevents zoom on iOS */
+    }
+    .clear-filters-btn {
+      width: 100%;
+    }
+    .table-scroll {
+      display: none;
+    }
+    .integrations-card-list {
+      display: grid;
+    }
+    .grid {
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
     .button-row {
       flex-direction: column;
       align-items: stretch;
@@ -79,10 +209,61 @@
       align-self: stretch;
       justify-content: center;
     }
+    .manage-projects-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .integrations-header h1 {
+      font-size: 1.25rem;
+    }
+    .integrations-header p {
+      font-size: 0.85rem;
+    }
+    .integration-card {
+      padding: 0.75rem;
+    }
+    .integration-card__name {
+      font-size: 0.95rem;
+    }
+    .integration-card__meta {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
   }
 </style>
 
 <h2>Configured Integrations</h2>
+
+<!-- Filters -->
+<div class="integrations-filters">
+  <input
+    type="text"
+    id="searchIntegrations"
+    placeholder="Search integrations..."
+    aria-label="Search"
+  >
+  <select id="tenantFilter" aria-label="Filter by tenant">
+    <option value="">All Tenants</option>
+    {% for tenant in (integrations | map(attribute='tenant') | unique | sort(attribute='name')) %}
+      {% if tenant %}
+        <option value="{{ tenant.id }}">{{ tenant.name }}</option>
+      {% endif %}
+    {% endfor %}
+  </select>
+  <select id="providerFilter" aria-label="Filter by provider">
+    <option value="">All Providers</option>
+    <option value="github">GitHub</option>
+    <option value="gitlab">GitLab</option>
+    <option value="jira">Jira</option>
+  </select>
+  <button id="clearFilters" class="clear-filters-btn secondary outline" style="display: none;">
+    Clear Filters
+  </button>
+</div>
+
 {% if integrations %}
 <div class="table-scroll">
   <table>
@@ -194,6 +375,103 @@
       {% endfor %}
     </tbody>
   </table>
+</div>
+
+<!-- Mobile Card View -->
+<div class="integrations-card-list">
+  {% for integration in integrations %}
+    <article class="integration-card" data-integration-id="{{ integration.id }}" data-tenant-id="{{ integration.tenant.id if integration.tenant else '' }}" data-provider="{{ integration.provider }}">
+      <div class="integration-card__header">
+        <div>
+          <h3 class="integration-card__name">
+            <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}">
+              {{ integration.name }}
+            </a>
+          </h3>
+          {% if integration.enabled %}
+            <span class="badge success">Enabled</span>
+          {% else %}
+            <span class="badge">Disabled</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <dl class="integration-card__meta">
+        <div class="integration-card__meta-item">
+          <dt>Tenant</dt>
+          <dd>
+            {% if integration.tenant %}
+              <span class="tenant-badge" style="--tenant-color: {{ integration.tenant.color or default_tenant_color }}">
+                <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                {{ integration.tenant.name }}
+              </span>
+            {% else %}
+              <span class="text-muted">Unknown</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div class="integration-card__meta-item">
+          <dt>Provider</dt>
+          <dd>{{ integration.provider|capitalize }}</dd>
+        </div>
+        <div class="integration-card__meta-item">
+          <dt>Base URL</dt>
+          <dd>
+            {% if integration.base_url %}
+              <code style="font-size: 0.8rem;">{{ integration.base_url }}</code>
+            {% else %}
+              <span class="text-muted">Default</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div class="integration-card__meta-item">
+          <dt>Linked Projects</dt>
+          <dd>
+            {% if integration.project_integrations %}
+              <span class="badge" style="font-size: 0.9rem;">
+                {{ integration.project_integrations|length }} project{{ 's' if integration.project_integrations|length != 1 else '' }}
+              </span>
+            {% else %}
+              <span class="text-muted">None</span>
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+
+      <div class="integration-card__actions">
+        <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" role="button" class="secondary">
+          Manage Projects
+        </a>
+        <form method="post" class="inline-form" style="display: inline;">
+          {{ integration_delete_form.csrf_token }}
+          {{ integration_delete_form.integration_id(value=integration.id) }}
+          {{ integration_delete_form.submit(
+            class_="link-button danger",
+            value="Remove",
+            onclick="return confirm('Remove integration " + integration.name + " and all linked issues?')"
+          ) }}
+        </form>
+      </div>
+
+      {% if integration.project_integrations %}
+        <details style="margin-top: 1rem;">
+          <summary style="font-size: 0.9rem;">Show mapped projects ({{ integration.project_integrations|length }})</summary>
+          <ul style="margin-top: 0.5rem; font-size: 0.85rem;">
+            {% for project_integration in integration.project_integrations %}
+              <li>
+                <a href="{{ url_for('projects.project_detail', project_id=project_integration.project.id) }}">
+                  {{ project_integration.project.name if project_integration.project else "Unknown project" }}
+                </a>
+                {% if project_integration.issues %}
+                  <small>({{ project_integration.issues|length }} issue{{ 's' if project_integration.issues|length != 1 else '' }})</small>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        </details>
+      {% endif %}
+    </article>
+  {% endfor %}
 </div>
 {% else %}
 <p>No integrations configured yet.</p>
@@ -413,6 +691,76 @@
         testButton.disabled = false;
       }
     });
+  })();
+
+  // Filter functionality
+  (function () {
+    const searchInput = document.getElementById('searchIntegrations');
+    const tenantFilter = document.getElementById('tenantFilter');
+    const providerFilter = document.getElementById('providerFilter');
+    const clearFiltersBtn = document.getElementById('clearFilters');
+
+    function updateClearButton() {
+      const hasFilters =
+        searchInput.value ||
+        tenantFilter.value ||
+        providerFilter.value;
+      clearFiltersBtn.style.display = hasFilters ? 'block' : 'none';
+    }
+
+    function filterIntegrations() {
+      const searchValue = searchInput.value.toLowerCase();
+      const tenantValue = tenantFilter.value;
+      const providerValue = providerFilter.value;
+
+      // Filter table rows
+      const tableRows = document.querySelectorAll('.table-scroll tbody tr');
+      tableRows.forEach(row => {
+        const integrationName = (row.cells[1]?.textContent || '').toLowerCase();
+        const providerCell = (row.cells[2]?.textContent || '').toLowerCase();
+        const tenantId = row.querySelector('.tenant-badge')?.closest('td')?.querySelector('[style*="--tenant-color"]')?.closest('span')?.textContent || '';
+
+        const matchesSearch = !searchValue || integrationName.includes(searchValue);
+        const matchesTenant = !tenantValue || row.querySelector(`[style*="--tenant-color"]`)?.closest('span')?.textContent.includes(tenantFilter.options[tenantFilter.selectedIndex]?.text || '');
+        const matchesProvider = !providerValue || providerCell.includes(providerValue);
+
+        row.style.display = (matchesSearch && matchesTenant && matchesProvider) ? '' : 'none';
+      });
+
+      // Filter mobile cards
+      const cards = document.querySelectorAll('.integration-card');
+      cards.forEach(card => {
+        const integrationName = (card.querySelector('.integration-card__name')?.textContent || '').toLowerCase();
+        const cardTenantId = card.dataset.tenantId;
+        const cardProvider = card.dataset.provider;
+
+        const matchesSearch = !searchValue || integrationName.includes(searchValue);
+        const matchesTenant = !tenantValue || cardTenantId === tenantValue;
+        const matchesProvider = !providerValue || cardProvider === providerValue;
+
+        card.style.display = (matchesSearch && matchesTenant && matchesProvider) ? '' : 'none';
+      });
+
+      updateClearButton();
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener('input', filterIntegrations);
+    }
+    if (tenantFilter) {
+      tenantFilter.addEventListener('change', filterIntegrations);
+    }
+    if (providerFilter) {
+      providerFilter.addEventListener('change', filterIntegrations);
+    }
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener('click', () => {
+        searchInput.value = '';
+        tenantFilter.value = '';
+        providerFilter.value = '';
+        filterIntegrations();
+      });
+    }
   })();
 </script>
 {% endblock %}

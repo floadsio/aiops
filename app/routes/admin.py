@@ -2439,7 +2439,7 @@ def confirm_assisted_issue():
 
         # Pass CLI commands to success page
         cli_commands = {
-            "work_on_issue": f"aiops issues work {issue.id}",
+            "work_on_issue": f"aiops issues work {issue.id} --tool {ai_tool}",
             "get_details": f"aiops issues get {issue.id} --output json",
             "add_comment": f"aiops issues comment {issue.id} \"Your update\"",
             "close_issue": f"aiops issues close {issue.id}",

@@ -20,7 +20,8 @@
     .issues-filter-form {
       display: contents;
     }
-    .issues-filters select {
+    .issues-filters select,
+    .issues-filters input[type="text"] {
       margin: 0;
       border-radius: 0.5rem;
       border: 1px solid rgba(148, 163, 184, 0.6);
@@ -28,7 +29,8 @@
       min-width: 180px;
       flex: 1 1 auto;
     }
-    [data-theme="dark"] .issues-filters select {
+    [data-theme="dark"] .issues-filters select,
+    [data-theme="dark"] .issues-filters input[type="text"] {
       border-color: rgba(148, 163, 184, 0.5);
       background: rgba(15, 23, 42, 0.65);
       color: rgba(226, 232, 240, 0.9);
@@ -873,6 +875,12 @@
     <input type="hidden" name="sort" value="{{ sort_state.key }}">
     <input type="hidden" name="direction" value="{{ sort_state.direction }}">
   </form>
+  <input
+    type="text"
+    id="issueSearchInput"
+    placeholder="Search issues..."
+    aria-label="Search issues"
+  >
 </div>
 
 <!-- Actions Section -->
@@ -1629,6 +1637,35 @@
       });
 
       syncState();
+    });
+  })();
+
+  // Client-side search filter
+  (function() {
+    const searchInput = document.getElementById('issueSearchInput');
+    const issueCards = document.querySelectorAll('.issue-card');
+
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', function() {
+      const searchQuery = this.value.toLowerCase().trim();
+
+      issueCards.forEach(card => {
+        if (!searchQuery) {
+          card.style.display = '';
+          return;
+        }
+
+        const title = card.querySelector('.issue-card__title')?.textContent.toLowerCase() || '';
+        const description = card.querySelector('.issue-card__description')?.textContent.toLowerCase() || '';
+        const meta = card.querySelector('.issue-card__meta')?.textContent.toLowerCase() || '';
+
+        const matches = title.includes(searchQuery) ||
+                       description.includes(searchQuery) ||
+                       meta.includes(searchQuery);
+
+        card.style.display = matches ? '' : 'none';
+      });
     });
   })();
 </script>

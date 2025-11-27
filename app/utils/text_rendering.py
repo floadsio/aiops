@@ -32,6 +32,7 @@ _ALLOWED_TAGS: set[str] = {
     "h6",
     "hr",
     "i",
+    "img",  # For Jira inline images
     "li",
     "ol",
     "p",
@@ -44,15 +45,17 @@ _ALLOWED_TAGS: set[str] = {
     "th",
     "thead",
     "tr",
+    "tt",  # Jira inline code (teletype)
     "u",
     "ul",
 }
-_SELF_CLOSING_TAGS = {"br", "hr"}
+_SELF_CLOSING_TAGS = {"br", "hr", "img"}
 _ALLOWED_ATTRS: dict[str, set[str]] = {
     "a": {"href", "rel", "target", "title"},
     "code": {"class"},
-    "div": {"class"},
-    "span": {"class"},
+    "div": {"class", "style"},  # Jira uses inline styles for panels
+    "img": {"src", "alt", "width", "height", "style"},  # Jira inline images
+    "span": {"class", "style"},  # Jira uses inline styles
     "table": {"class"},
     "td": {"colspan"},
     "th": {"colspan"},

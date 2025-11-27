@@ -55,10 +55,12 @@ _ALLOWED_ATTRS: dict[str, set[str]] = {
     "code": {"class"},
     "div": {"class", "style"},  # Jira uses inline styles for panels
     "img": {"src", "alt", "width", "height", "style"},  # Jira inline images
+    "pre": {"class"},  # Jira uses class="code-java" etc.
     "span": {"class", "style"},  # Jira uses inline styles
     "table": {"class"},
     "td": {"colspan"},
     "th": {"colspan"},
+    "ul": {"class", "type"},  # Jira uses class="alternate" and type="square"
 }
 _SAFE_URL_SCHEMES = {"http", "https", "mailto", "tel"}
 _HTML_DETECTION_RE = re.compile(r"<\/?\w+[^>]*>")

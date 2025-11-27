@@ -423,15 +423,18 @@
       body[data-sidebar-collapsed="true"] .app-sidebar__menu .sidebar-theme-toggle {
         justify-content: center;
         padding: 0.6rem 0.5rem;
-        font-size: 1.3rem;
-        overflow: hidden;
-        text-overflow: clip;
-        white-space: nowrap;
-        width: 2.2rem;
-        margin: 0 auto;
+      }
+      body[data-sidebar-collapsed="true"] .app-sidebar__menu .menu-icon {
+        font-size: 1.4rem;
+      }
+      body[data-sidebar-collapsed="true"] .app-sidebar__menu .menu-label {
+        display: none;
       }
       body[data-sidebar-collapsed="true"] .app-sidebar__menu .sidebar-theme-toggle #theme-toggle-label {
         display: none;
+      }
+      body[data-sidebar-collapsed="true"] .app-sidebar__menu .sidebar-theme-toggle #theme-toggle-icon {
+        font-size: 1.4rem;
       }
       body[data-sidebar-collapsed="true"] .app-sidebar__menu .sidebar-logout {
         border-top: none;
@@ -808,25 +811,25 @@
           </button>
         </div>
         <ul class="app-sidebar__menu">
-          <li><a href="{{ url_for('admin.dashboard') }}">📊 Dashboard</a></li>
-          <li><a href="{{ url_for('admin.manage_issues') }}">🐛 Issues</a></li>
-          <li><a href="{{ url_for('projects.communications') }}">💬 Communications</a></li>
-          <li><a href="{{ url_for('admin.manage_projects') }}">📁 Projects</a></li>
-          <li><a href="{{ url_for('admin.manage_tenants') }}">🏢 Tenants</a></li>
-          <li><a href="{{ url_for('admin.manage_integrations') }}">🔗 Integrations</a></li>
-          <li><a href="{{ url_for('admin.manage_ssh_keys') }}">🔑 SSH Keys</a></li>
-          <li><a href="{{ url_for('admin.manage_user_identity_mappings') }}">👤 User Identities</a></li>
-          <li><a href="{{ url_for('admin.view_activity') }}">📋 Activity</a></li>
-          <li><a href="{{ url_for('admin.view_statistics') }}">📈 Statistics</a></li>
-          <li><a href="{{ url_for('admin.system_status') }}">💚 System Status</a></li>
-          <li><a href="{{ url_for('admin.manage_settings') }}">⚙️ Settings</a></li>
+          <li><a href="{{ url_for('admin.dashboard') }}"><span class="menu-icon">📊</span><span class="menu-label"> Dashboard</span></a></li>
+          <li><a href="{{ url_for('admin.manage_issues') }}"><span class="menu-icon">🐛</span><span class="menu-label"> Issues</span></a></li>
+          <li><a href="{{ url_for('projects.communications') }}"><span class="menu-icon">💬</span><span class="menu-label"> Communications</span></a></li>
+          <li><a href="{{ url_for('admin.manage_projects') }}"><span class="menu-icon">📁</span><span class="menu-label"> Projects</span></a></li>
+          <li><a href="{{ url_for('admin.manage_tenants') }}"><span class="menu-icon">🏢</span><span class="menu-label"> Tenants</span></a></li>
+          <li><a href="{{ url_for('admin.manage_integrations') }}"><span class="menu-icon">🔗</span><span class="menu-label"> Integrations</span></a></li>
+          <li><a href="{{ url_for('admin.manage_ssh_keys') }}"><span class="menu-icon">🔑</span><span class="menu-label"> SSH Keys</span></a></li>
+          <li><a href="{{ url_for('admin.manage_user_identity_mappings') }}"><span class="menu-icon">👤</span><span class="menu-label"> User Identities</span></a></li>
+          <li><a href="{{ url_for('admin.view_activity') }}"><span class="menu-icon">📋</span><span class="menu-label"> Activity</span></a></li>
+          <li><a href="{{ url_for('admin.view_statistics') }}"><span class="menu-icon">📈</span><span class="menu-label"> Statistics</span></a></li>
+          <li><a href="{{ url_for('admin.system_status') }}"><span class="menu-icon">💚</span><span class="menu-label"> System Status</span></a></li>
+          <li><a href="{{ url_for('admin.manage_settings') }}"><span class="menu-icon">⚙️</span><span class="menu-label"> Settings</span></a></li>
           <li>
             <button type="button" class="theme-toggle sidebar-theme-toggle" id="theme-toggle" aria-label="Toggle theme">
               <span aria-hidden="true" id="theme-toggle-icon">🌙</span>
               <span id="theme-toggle-label">Dark</span>
             </button>
           </li>
-          <li><a href="{{ url_for('auth.logout') }}" class="sidebar-logout">🚪 Logout</a></li>
+          <li><a href="{{ url_for('auth.logout') }}" class="sidebar-logout"><span class="menu-icon">🚪</span><span class="menu-label"> Logout</span></a></li>
         </ul>
       </aside>
     {% endif %}

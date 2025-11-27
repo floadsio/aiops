@@ -432,7 +432,6 @@
     }
     .issue-card__description {
       margin-top: 0.75rem;
-      white-space: pre-wrap;
       font-size: 0.95rem;
       line-height: 1.45;
     }
@@ -837,6 +836,94 @@
     .issue-card__description em {
       font-style: italic;
     }
+
+    /* Issue comment body - same styling as description */
+    .issue-comment__body {
+      line-height: 1.45;
+      font-size: 0.95rem;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+    }
+    [data-theme="dark"] .issue-comment__body {
+      color: rgba(226, 232, 240, 0.85);
+    }
+    .issue-comment__body p {
+      margin: 0.15rem 0;
+    }
+    .issue-comment__body p:first-child {
+      margin-top: 0;
+    }
+    .issue-comment__body p:last-child {
+      margin-bottom: 0;
+    }
+    .issue-comment__body a {
+      color: var(--md-primary);
+      text-decoration: underline;
+    }
+    [data-theme="dark"] .issue-comment__body a {
+      color: #42a5f5;
+    }
+    .issue-comment__body code,
+    .issue-comment__body tt {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    [data-theme="dark"] .issue-comment__body code,
+    [data-theme="dark"] .issue-comment__body tt {
+      background: rgba(148, 163, 184, 0.2);
+    }
+    .issue-comment__body pre {
+      background: rgba(26, 29, 35, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.5rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.3rem 0;
+    }
+    [data-theme="dark"] .issue-comment__body pre {
+      background: rgba(26, 29, 35, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+    .issue-comment__body pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
+    .issue-comment__body ul,
+    .issue-comment__body ol {
+      margin: 0.2rem 0;
+      padding-left: 1.75rem;
+    }
+    .issue-comment__body li {
+      margin: 0.1rem 0;
+    }
+    .issue-comment__body blockquote {
+      border-left: 3px solid var(--md-primary);
+      padding-left: 1rem;
+      margin: 0.3rem 0;
+      color: #64748b;
+      font-style: italic;
+    }
+    [data-theme="dark"] .issue-comment__body blockquote {
+      color: rgba(148, 163, 184, 0.75);
+    }
+    /* Jira code panels in comments */
+    .issue-comment__body .code.panel {
+      margin: 0.3rem 0;
+    }
+    .issue-comment__body .codeContent.panelContent {
+      padding: 0;
+    }
+    .issue-comment__body .codeContent.panelContent pre {
+      margin: 0;
+      border: none;
+      background: transparent;
+    }
+
     .issue-card__details summary {
       cursor: pointer;
       font-weight: 500;

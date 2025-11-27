@@ -42,143 +42,146 @@
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
   }
-  .integrations-card-list {
-    display: none;
-    gap: 1rem;
-    margin-top: 1.5rem;
-    grid-template-columns: 1fr;
+
+  /* Card Layout - based on Statistics page contributor cards */
+  .integrations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
   }
+
   .integration-card {
-    border: 1px solid rgba(148, 163, 184, 0.3);
-    border-radius: 0.75rem;
-    padding: 1rem 1.15rem;
-    background: rgba(255, 255, 255, 0.86);
-    width: 100%;
+    padding: 1rem 1.25rem;
+    border-radius: 0.7rem;
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid rgba(148, 163, 184, 0.2);
   }
+
   [data-theme="dark"] .integration-card {
-    background: rgba(15, 23, 42, 0.65);
-    border-color: rgba(148, 163, 184, 0.4);
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.3);
   }
+
   .integration-card__header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
-    gap: 0.75rem;
-    margin-bottom: 1rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    gap: 1rem;
+    flex-wrap: wrap;
   }
+
+  .integration-card__title-section {
+    flex: 1;
+    min-width: 200px;
+  }
+
   .integration-card__name {
     font-weight: 600;
-    font-size: 1.05rem;
+    font-size: 1rem;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .integration-card__name a {
     color: var(--pico-primary);
-    margin: 0 0 0.25rem 0;
+    text-decoration: none;
   }
-  .integration-card__meta {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
-    margin: 1rem 0;
+
+  .integration-card__name a:hover {
+    text-decoration: underline;
   }
-  .integration-card__meta-item {
+
+  .integration-card__badges {
     display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    align-items: center;
   }
-  .integration-card__meta dt {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: rgba(71, 85, 105, 0.9);
-    margin: 0;
+
+  .integration-card__meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+    flex-wrap: wrap;
   }
-  .integration-card__meta dd {
-    margin: 0;
-    font-weight: 600;
-    font-size: 0.9rem;
+
+  .integration-card__base-url {
+    margin: 0.5rem 0;
+    font-size: 0.85rem;
   }
-  [data-theme="dark"] .integration-card__meta dt {
-    color: rgba(226, 232, 240, 0.72);
+
+  .integration-card__base-url code {
+    font-size: 0.8rem;
   }
+
   .integration-card__actions {
     display: flex;
-    flex-wrap: wrap;
     gap: 0.5rem;
-    margin-top: 1rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
   }
+
   .integration-card__actions button,
-  .integration-card__actions a {
+  .integration-card__actions a[role="button"] {
     padding: 0.4rem 0.8rem;
     font-size: 0.85rem;
     margin: 0;
   }
-<style>
+
+  .integration-card__projects,
+  .integration-card__edit {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .integration-card__projects summary,
+  .integration-card__edit summary {
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--pico-primary);
+    font-weight: 500;
+  }
+
+  .integration-card__projects ul {
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    padding-left: 1.5rem;
+  }
+
+  .integration-card__projects li {
+    margin: 0.25rem 0;
+  }
+
+  .integration-card__projects a {
+    color: var(--pico-primary);
+    text-decoration: none;
+  }
+
+  .integration-card__projects a:hover {
+    text-decoration: underline;
+  }
+
   .button-row {
     display: flex;
     gap: 0.75rem;
     flex-wrap: wrap;
     align-items: center;
   }
+
   .integration-inline-form {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     margin-top: 0.75rem;
   }
+
   .integration-inline-form button {
     align-self: flex-start;
   }
-  .integration-name-link {
-    font-weight: 600;
-    font-size: 1.05rem;
-    text-decoration: none;
-    color: var(--pico-primary);
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-  .integration-name-link:hover {
-    text-decoration: underline;
-  }
-  .integration-name-link::after {
-    content: "→";
-    font-size: 1.1rem;
-    transition: transform 0.2s;
-  }
-  .integration-name-link:hover::after {
-    transform: translateX(3px);
-  }
-  .table-scroll table td {
-    vertical-align: top;
-    padding: 0.75rem 0.5rem;
-  }
-  .integration-projects-cell {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    align-items: flex-start;
-  }
-  .manage-projects-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    padding: 0.4rem 0.75rem;
-    font-size: 0.85rem;
-    text-decoration: none;
-    background: var(--pico-primary);
-    color: var(--pico-primary-inverse);
-    border-radius: var(--pico-border-radius);
-    transition: background 0.2s;
-    white-space: nowrap;
-    min-width: 120px;
-  }
-  .manage-projects-btn:hover {
-    background: var(--pico-primary-hover);
-    color: var(--pico-primary-inverse);
-  }
-  /* ============================================
-     MOBILE RESPONSIVE STYLES
-     ============================================ */
 
+  /* Mobile responsive styles */
   @media (max-width: 768px) {
     .integrations-header {
       margin-bottom: 1rem;
@@ -199,12 +202,6 @@
     .clear-filters-btn {
       width: 100%;
     }
-    .table-scroll {
-      display: none;
-    }
-    .integrations-card-list {
-      display: grid;
-    }
     .grid {
       grid-template-columns: 1fr;
       gap: 1.5rem;
@@ -222,13 +219,13 @@
       align-self: stretch;
       justify-content: center;
     }
-    .manage-projects-btn {
+    .integration-card__actions {
+      flex-direction: column;
+    }
+    .integration-card__actions button,
+    .integration-card__actions a[role="button"] {
       width: 100%;
       justify-content: center;
-      min-width: 0;
-    }
-    .integration-projects-cell {
-      align-items: stretch;
     }
   }
 
@@ -241,13 +238,6 @@
     }
     .integration-card {
       padding: 0.75rem;
-    }
-    .integration-card__name {
-      font-size: 0.95rem;
-    }
-    .integration-card__meta {
-      grid-template-columns: 1fr;
-      gap: 0.5rem;
     }
   }
 </style>
@@ -282,201 +272,68 @@
 </div>
 
 {% if integrations %}
-<div class="table-scroll">
-  <table>
-    <thead>
-      <tr>
-        <th>Tenant</th>
-        <th>Name</th>
-        <th>Provider</th>
-        <th>Base URL</th>
-        <th>Status</th>
-        <th>Linked Projects</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for integration in integrations %}
-      <tr>
-        <td>
-          {% if integration.tenant %}
-            <span class="tenant-badge" style="--tenant-color: {{ integration.tenant.color or default_tenant_color }}">
-              <span class="tenant-badge__swatch" aria-hidden="true"></span>
-              {{ integration.tenant.name }}
-            </span>
-          {% else %}
-            <span class="text-muted">Unknown</span>
-          {% endif %}
-        </td>
-        <td>
-          <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="integration-name-link" title="Click to manage project mappings">
-            {{ integration.name }}
-          </a>
-        </td>
-        <td>{{ integration.provider|capitalize }}</td>
-        <td>{% if integration.base_url %}<code>{{ integration.base_url }}</code>{% else %}<span class="text-muted">Default</span>{% endif %}</td>
-        <td>
-          {% if integration.enabled %}
-            <span class="badge success">Enabled</span>
-          {% else %}
-            <span class="badge">Disabled</span>
-          {% endif %}
-          <details style="margin-top: 0.5rem;">
-            <summary>Edit integration</summary>
-            {% set tenant_update_form = tenant_integration_update_forms[integration.id] %}
-            <form method="post" action="{{ url_for('admin.update_tenant_integration', integration_id=integration.id) }}" class="integration-inline-form">
-              {{ tenant_update_form.hidden_tag() }}
-              <label>
-                {{ tenant_update_form.name.label }}
-                {{ tenant_update_form.name() }}
-              </label>
-              <label>
-                {{ tenant_update_form.base_url.label }}
-                {{ tenant_update_form.base_url(placeholder="Optional override for self-hosted instances") }}
-              </label>
-              <label>
-                {{ tenant_update_form.api_token.label }}
-                {{ tenant_update_form.api_token(placeholder="Leave blank to keep current token") }}
-                {% if tenant_update_form.api_token.description %}
-                <small class="text-muted">{{ tenant_update_form.api_token.description }}</small>
-                {% endif %}
-              </label>
-              <button type="submit" class="secondary">{{ tenant_update_form.submit.label.text }}</button>
-            </form>
-          </details>
-        </td>
-        <td>
-          <div class="integration-projects-cell">
-            {% if integration.project_integrations %}
-              <span class="badge" style="font-size: 0.9rem; padding: 0.3rem 0.6rem;">
-                {{ integration.project_integrations|length }} project{{ 's' if integration.project_integrations|length != 1 else '' }}
-              </span>
-              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn" role="button">
-                Manage Projects
-              </a>
-              <details style="margin-top: 0.5rem;">
-                <summary style="font-size: 0.85rem; cursor: pointer;">Show mapped projects ({{ integration.project_integrations|length }})</summary>
-                <ul style="margin-top: 0.5rem; font-size: 0.85rem;">
-                  {% for project_integration in integration.project_integrations %}
-                    <li>
-                      <a href="{{ url_for('projects.project_detail', project_id=project_integration.project.id) }}">
-                        {{ project_integration.project.name if project_integration.project else "Unknown project" }}
-                      </a>
-                      {% if project_integration.issues %}
-                        <small>({{ project_integration.issues|length }} issue{{ 's' if project_integration.issues|length != 1 else '' }})</small>
-                      {% endif %}
-                    </li>
-                  {% endfor %}
-                </ul>
-              </details>
-            {% else %}
-              <span class="text-muted" style="display: block; margin-bottom: 0.5rem; font-size: 0.85rem;">No linked projects yet</span>
-              <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" class="manage-projects-btn" role="button">
-                Add Projects
-              </a>
-            {% endif %}
-          </div>
-        </td>
-        <td>
-          <form method="post" class="inline-form" style="margin: 0;">
-            {{ integration_delete_form.csrf_token }}
-            {{ integration_delete_form.integration_id(value=integration.id) }}
-            <button
-              type="submit"
-              class="secondary outline"
-              style="padding: 0.4rem 0.75rem; font-size: 0.85rem; color: var(--pico-del-color); border-color: var(--pico-del-color);"
-              onclick="return confirm('Remove integration {{ integration.name }} and all linked issues?')"
-            >
-              Remove
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-
-<!-- Mobile Card View -->
-<div class="integrations-card-list">
+<div class="integrations-list">
   {% for integration in integrations %}
     <article class="integration-card" data-integration-id="{{ integration.id }}" data-tenant-id="{{ integration.tenant.id if integration.tenant else '' }}" data-provider="{{ integration.provider }}">
       <div class="integration-card__header">
-        <div>
+        <div class="integration-card__title-section">
           <h3 class="integration-card__name">
             <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}">
               {{ integration.name }}
             </a>
           </h3>
-          {% if integration.enabled %}
-            <span class="badge success">Enabled</span>
-          {% else %}
-            <span class="badge">Disabled</span>
-          {% endif %}
-        </div>
-      </div>
-
-      <dl class="integration-card__meta">
-        <div class="integration-card__meta-item">
-          <dt>Tenant</dt>
-          <dd>
+          <div class="integration-card__badges">
             {% if integration.tenant %}
               <span class="tenant-badge" style="--tenant-color: {{ integration.tenant.color or default_tenant_color }}">
                 <span class="tenant-badge__swatch" aria-hidden="true"></span>
                 {{ integration.tenant.name }}
               </span>
-            {% else %}
-              <span class="text-muted">Unknown</span>
             {% endif %}
-          </dd>
-        </div>
-        <div class="integration-card__meta-item">
-          <dt>Provider</dt>
-          <dd>{{ integration.provider|capitalize }}</dd>
-        </div>
-        <div class="integration-card__meta-item">
-          <dt>Base URL</dt>
-          <dd>
-            {% if integration.base_url %}
-              <code style="font-size: 0.8rem;">{{ integration.base_url }}</code>
+            <span class="badge">{{ integration.provider|capitalize }}</span>
+            {% if integration.enabled %}
+              <span class="badge success">Enabled</span>
             {% else %}
-              <span class="text-muted">Default</span>
+              <span class="badge">Disabled</span>
             {% endif %}
-          </dd>
+          </div>
         </div>
-        <div class="integration-card__meta-item">
-          <dt>Linked Projects</dt>
-          <dd>
-            {% if integration.project_integrations %}
-              <span class="badge" style="font-size: 0.9rem;">
-                {{ integration.project_integrations|length }} project{{ 's' if integration.project_integrations|length != 1 else '' }}
-              </span>
-            {% else %}
-              <span class="text-muted">None</span>
-            {% endif %}
-          </dd>
+        <div class="integration-card__meta">
+          {% if integration.project_integrations %}
+            <span>📁 {{ integration.project_integrations|length }} project{{ 's' if integration.project_integrations|length != 1 else '' }}</span>
+          {% else %}
+            <span class="text-muted">No projects linked</span>
+          {% endif %}
         </div>
-      </dl>
+      </div>
+
+      {% if integration.base_url %}
+        <div class="integration-card__base-url">
+          <strong>Base URL:</strong> <code>{{ integration.base_url }}</code>
+        </div>
+      {% endif %}
 
       <div class="integration-card__actions">
         <a href="{{ url_for('admin.integration_detail', integration_id=integration.id) }}" role="button" class="secondary">
           Manage Projects
         </a>
-        <form method="post" class="inline-form" style="display: inline;">
+        <form method="post" class="inline-form" style="display: inline; margin: 0;">
           {{ integration_delete_form.csrf_token }}
           {{ integration_delete_form.integration_id(value=integration.id) }}
-          {{ integration_delete_form.submit(
-            class_="link-button danger",
-            value="Remove",
-            onclick="return confirm('Remove integration " + integration.name + " and all linked issues?')"
-          ) }}
+          <button
+            type="submit"
+            class="secondary outline"
+            style="color: var(--pico-del-color); border-color: var(--pico-del-color);"
+            onclick="return confirm('Remove integration {{ integration.name }} and all linked issues?')"
+          >
+            Remove
+          </button>
         </form>
       </div>
 
       {% if integration.project_integrations %}
-        <details style="margin-top: 1rem;">
-          <summary style="font-size: 0.9rem;">Show mapped projects ({{ integration.project_integrations|length }})</summary>
-          <ul style="margin-top: 0.5rem; font-size: 0.85rem;">
+        <details class="integration-card__projects">
+          <summary>Show linked projects ({{ integration.project_integrations|length }})</summary>
+          <ul>
             {% for project_integration in integration.project_integrations %}
               <li>
                 <a href="{{ url_for('projects.project_detail', project_id=project_integration.project.id) }}">
@@ -490,6 +347,30 @@
           </ul>
         </details>
       {% endif %}
+
+      <details class="integration-card__edit">
+        <summary>Edit integration settings</summary>
+        {% set tenant_update_form = tenant_integration_update_forms[integration.id] %}
+        <form method="post" action="{{ url_for('admin.update_tenant_integration', integration_id=integration.id) }}" class="integration-inline-form">
+          {{ tenant_update_form.hidden_tag() }}
+          <label>
+            {{ tenant_update_form.name.label }}
+            {{ tenant_update_form.name() }}
+          </label>
+          <label>
+            {{ tenant_update_form.base_url.label }}
+            {{ tenant_update_form.base_url(placeholder="Optional override for self-hosted instances") }}
+          </label>
+          <label>
+            {{ tenant_update_form.api_token.label }}
+            {{ tenant_update_form.api_token(placeholder="Leave blank to keep current token") }}
+            {% if tenant_update_form.api_token.description %}
+            <small class="text-muted">{{ tenant_update_form.api_token.description }}</small>
+            {% endif %}
+          </label>
+          <button type="submit" class="secondary">{{ tenant_update_form.submit.label.text }}</button>
+        </form>
+      </details>
     </article>
   {% endfor %}
 </div>
@@ -733,21 +614,7 @@
       const tenantValue = tenantFilter.value;
       const providerValue = providerFilter.value;
 
-      // Filter table rows
-      const tableRows = document.querySelectorAll('.table-scroll tbody tr');
-      tableRows.forEach(row => {
-        const integrationName = (row.cells[1]?.textContent || '').toLowerCase();
-        const providerCell = (row.cells[2]?.textContent || '').toLowerCase();
-        const tenantId = row.querySelector('.tenant-badge')?.closest('td')?.querySelector('[style*="--tenant-color"]')?.closest('span')?.textContent || '';
-
-        const matchesSearch = !searchValue || integrationName.includes(searchValue);
-        const matchesTenant = !tenantValue || row.querySelector(`[style*="--tenant-color"]`)?.closest('span')?.textContent.includes(tenantFilter.options[tenantFilter.selectedIndex]?.text || '');
-        const matchesProvider = !providerValue || providerCell.includes(providerValue);
-
-        row.style.display = (matchesSearch && matchesTenant && matchesProvider) ? '' : 'none';
-      });
-
-      // Filter mobile cards
+      // Filter cards
       const cards = document.querySelectorAll('.integration-card');
       cards.forEach(card => {
         const integrationName = (card.querySelector('.integration-card__name')?.textContent || '').toLowerCase();

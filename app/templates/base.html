@@ -982,6 +982,7 @@
 
         const setSidebarCollapsed = (collapsed, persist = false) => {
           document.body.setAttribute("data-sidebar-collapsed", collapsed ? "true" : "false");
+          sidebarCollapseIcon.textContent = collapsed ? "»" : "«";
           if (persist && window.localStorage) {
             try {
               localStorage.setItem(storageKey, collapsed ? "true" : "false");
@@ -1006,11 +1007,8 @@
         };
 
         sidebarCollapseToggle.addEventListener("click", () => {
-          setSidebarCollapsed(true, true);
-        });
-
-        sidebarExpandToggle.addEventListener("click", () => {
-          setSidebarCollapsed(false, true);
+          const isCollapsed = document.body.getAttribute("data-sidebar-collapsed") === "true";
+          setSidebarCollapsed(!isCollapsed, true);
         });
 
         initialize();

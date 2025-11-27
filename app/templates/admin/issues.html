@@ -498,30 +498,15 @@
       font-size: 0.95rem;
     }
     .issue-card__meta {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 0.6rem 1rem;
-      margin: 1rem 0 0;
-      padding: 0;
-    }
-    .issue-card__meta-item {
       display: flex;
-      flex-direction: column;
-      gap: 0.15rem;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      font-size: 0.8rem;
+      color: #64748b;
+      margin: 0.75rem 0;
     }
-    .issue-card__meta dt {
-      margin: 0;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: rgba(71, 85, 105, 0.9);
-    }
-    .issue-card__meta dd {
-      margin: 0;
-      font-weight: 600;
-    }
-    [data-theme="dark"] .issue-card__meta dt {
-      color: rgba(226, 232, 240, 0.72);
+    [data-theme="dark"] .issue-card__meta {
+      color: rgba(148, 163, 184, 0.75);
     }
     @media (max-width: 768px) {
       .issues-header {
@@ -710,6 +695,88 @@
       justify-content: flex-end;
       gap: 0.5rem;
       margin-top: 1.25rem;
+    }
+
+    /* Issue description styling (from communications) */
+    .issue-card__description {
+      line-height: 1.6;
+      color: var(--pico-color-slate-800);
+      word-wrap: break-word;
+      padding: 1rem;
+      background: rgba(241, 245, 249, 0.5);
+      border-radius: 0.5rem;
+      border-left: 3px solid var(--pico-primary);
+      margin-top: 0.75rem;
+    }
+    [data-theme="dark"] .issue-card__description {
+      color: rgba(226, 232, 240, 0.85);
+      background: rgba(30, 41, 59, 0.4);
+    }
+    .issue-card__description p {
+      margin: 0.5rem 0;
+    }
+    .issue-card__description p:first-child {
+      margin-top: 0;
+    }
+    .issue-card__description p:last-child {
+      margin-bottom: 0;
+    }
+    .issue-card__description a {
+      color: var(--md-primary);
+      text-decoration: underline;
+    }
+    .issue-card__description code {
+      background: rgba(148, 163, 184, 0.1);
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.2rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    [data-theme="dark"] .issue-card__description code {
+      background: rgba(148, 163, 184, 0.2);
+    }
+    .issue-card__description pre {
+      background: rgba(15, 23, 42, 0.05);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      border-radius: 0.4rem;
+      padding: 0.75rem;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      margin: 0.75rem 0;
+    }
+    [data-theme="dark"] .issue-card__description pre {
+      background: rgba(15, 23, 42, 0.35);
+      border-color: rgba(148, 163, 184, 0.35);
+    }
+    .issue-card__description blockquote {
+      border-left: 3px solid var(--pico-primary);
+      padding-left: 1rem;
+      margin-left: 0;
+      color: #64748b;
+      font-style: italic;
+    }
+    .issue-card__description ul,
+    .issue-card__description ol {
+      margin: 0.75rem 0;
+      padding-left: 2rem;
+    }
+    .issue-card__details summary {
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--pico-primary);
+      margin-bottom: 0.5rem;
+    }
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      background: rgba(148, 163, 184, 0.15);
+    }
+    [data-theme="dark"] .provider-badge {
+      background: rgba(148, 163, 184, 0.25);
     }
   </style>
 {% endblock %}
@@ -976,47 +1043,22 @@
             {% endif %}
           </div>
         </header>
-        <dl class="issue-card__meta">
-          <div class="issue-card__meta-item">
-            <dt>Provider</dt>
-            <dd>{{ issue.provider|capitalize }}</dd>
-          </div>
-          <div class="issue-card__meta-item">
-            <dt>Project</dt>
-            <dd>{{ issue.project_name or "Unknown project" }}</dd>
-          </div>
-          <div class="issue-card__meta-item">
-            <dt>Tenant</dt>
-            <dd>
-              {% if issue.tenant_name %}
-                <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
-                  <span class="tenant-badge__swatch" aria-hidden="true"></span>
-                  {{ issue.tenant_name }}
-                </span>
-              {% else %}
-                <span class="text-muted">Unknown tenant</span>
-              {% endif %}
-            </dd>
-          </div>
-          <div class="issue-card__meta-item">
-            <dt>Updated</dt>
-            <dd>{{ issue.updated_display or "Unknown" }}</dd>
-          </div>
-          <div class="issue-card__meta-item">
-            <dt>Assignee</dt>
-            <dd>{{ issue.assignee or "Unassigned" }}</dd>
-          </div>
-          <div class="issue-card__meta-item">
-            <dt>Labels</dt>
-            <dd>
-              {% if issue.labels %}
-                {{ issue.labels|join(', ') }}
-              {% else %}
-                <span class="text-muted">None</span>
-              {% endif %}
-            </dd>
-          </div>
-        </dl>
+        <div class="issue-card__meta">
+          <span class="provider-badge">{{ issue.provider|capitalize }}</span>
+          <span>📁 {{ issue.project_name or "Unknown project" }}</span>
+          {% if issue.tenant_name %}
+            <span class="tenant-badge" style="--tenant-color: {{ issue.tenant_color or default_tenant_color }}">
+              <span class="tenant-badge__swatch" aria-hidden="true"></span>
+              {{ issue.tenant_name }}
+            </span>
+          {% endif %}
+          {% if issue.assignee %}
+            <span>👤 {{ issue.assignee }}</span>
+          {% else %}
+            <span class="text-muted">Unassigned</span>
+          {% endif %}
+          <span class="text-muted">Updated {{ issue.updated_display or "Unknown" }}</span>
+        </div>
         <details class="issue-card__details">
           <summary>View details</summary>
           <div class="issue-card__description">

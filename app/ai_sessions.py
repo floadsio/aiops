@@ -305,6 +305,69 @@ def _is_interactive_tool(command_str: str, tool: str | None) -> bool:
     )
 
 
+def _is_ai_tool(tool: str | None) -> bool:
+    """Check if the tool is an AI assistant (not a plain shell).
+
+    Returns True for claude, codex, aider, etc., but False for shell.
+    """
+    if not tool:
+        return False
+    return tool.lower() not in ("shell", "bash", "sh", "zsh")
+
+
+def _send_initial_context_prompt(tmux_target: str, workspace_path: str, tool: str) -> None:
+    """Send initial prompt to AI tool to read AGENTS.override.md.
+
+    Uses tmux send-keys to instruct the AI tool to read the context file
+    after it has initialized.
+
+    Args:
+        tmux_target: Full tmux target (session:window format)
+        workspace_path: Path to the workspace directory
+        tool: The AI tool being used (claude, codex, etc.)
+    """
+    import time
+
+    agents_file_path = Path(workspace_path) / "AGENTS.override.md"
+
+    # Only send prompt if the file exists
+    if not agents_file_path.exists():
+        current_app.logger.debug(
+            "Skipping initial context prompt - AGENTS.override.md not found at %s",
+            agents_file_path,
+        )
+        return
+
+    # Wait for tool to initialize
+    # Different tools may need different initialization times
+    delay = 2.0 if tool == "codex" else 1.5
+
+    current_app.logger.info(
+        "Waiting %.1f seconds for %s to initialize before sending context prompt",
+        delay,
+        tool,
+    )
+    time.sleep(delay)
+
+    # Send prompt to read the file
+    prompt = f"read {agents_file_path}"
+
+    try:
+        subprocess.run(
+            ["tmux", "send-keys", "-t", tmux_target, prompt, "Enter"],
+            check=True,
+            capture_output=True,
+            timeout=5,
+        )
+        current_app.logger.info(
+            "Sent initial context prompt to %s: %s", tmux_target, prompt
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        current_app.logger.warning(
+            "Failed to send initial context prompt to %s: %s", tmux_target, exc
+        )
+
+
 def _resolve_tmux_window(
     project,
     user,
@@ -1072,6 +1135,14 @@ def create_persistent_session(
         user_id,
         project.id,
     )
+
+    # Send initial context prompt to AI tools if AGENTS.override.md exists
+    if tool and _is_ai_tool(tool) and should_bootstrap:
+        threading.Thread(
+            target=_send_initial_context_prompt,
+            args=(tmux_target_full, start_dir, tool),
+            daemon=True,
+        ).start()
 
     return session_record
 

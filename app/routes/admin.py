@@ -87,6 +87,7 @@ from ..security import hash_password
 from ..services.agent_context import (
     MISSING_ISSUE_DETAILS_MESSAGE,
     extract_issue_description,
+    extract_issue_description_html,
 )
 from ..services.ai_cli_update_service import (
     CLICommandError,
@@ -509,6 +510,7 @@ def _prepare_comment_entries(raw_comments: list[dict[str, Any]] | None):
             {
                 "author": comment.get("author"),
                 "body": comment.get("body") or "",
+                "body_html": comment.get("body_html"),  # Pre-rendered HTML from Jira
                 "created_display": created_display,
                 "url": comment.get("url"),
             }
@@ -2670,6 +2672,7 @@ def manage_issues():
         )
 
         description_text = extract_issue_description(issue)
+        description_html = extract_issue_description_html(issue)
         comment_entries = _prepare_comment_entries(getattr(issue, "comments", []))
 
         issue_entries.append(
@@ -2695,7 +2698,8 @@ def manage_issues():
                 "updated_display": _format_issue_timestamp(updated_reference),
                 "updated_sort": _issue_sort_key(issue),
                 "description": description_text,
-                "description_available": bool(description_text),
+                "description_html": description_html,
+                "description_available": bool(description_text or description_html),
                 "description_fallback": MISSING_ISSUE_DETAILS_MESSAGE,
                 "comments": comment_entries,
                 "comment_count": len(comment_entries),

@@ -1124,12 +1124,38 @@
         <details class="issue-card__details">
           <summary>View details</summary>
           <div class="issue-card__description">
-            {% if issue.description_available %}
+            {% if issue.description_html %}
+              {# Pre-rendered HTML from Jira API - sanitize and display directly #}
+              {{ issue.description_html|sanitize_html }}
+            {% elif issue.description_available %}
+              {# Markdown/plain text - render using text_rendering #}
               {{ issue.description|render_issue_content }}
             {% else %}
               <span class="text-muted">{{ issue.description_fallback }}</span>
             {% endif %}
           </div>
+          {% if issue.comments %}
+            <div class="issue-comments" style="margin-top: 1rem;">
+              <strong>Comments ({{ issue.comment_count }})</strong>
+              {% for comment in issue.comments %}
+                <div class="issue-comment" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.4rem;">
+                  <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">
+                    <strong>{{ comment.author or 'Unknown' }}</strong>
+                    {% if comment.created_display %} · {{ comment.created_display }}{% endif %}
+                    {% if comment.url %} · <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>{% endif %}
+                  </div>
+                  <div class="issue-comment__body">
+                    {% if comment.body_html %}
+                      {# Pre-rendered HTML from Jira API #}
+                      {{ comment.body_html|sanitize_html }}
+                    {% else %}
+                      {{ comment.body|render_issue_content }}
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
           {% if issue.url %}
             <p><a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a></p>
           {% endif %}

@@ -464,6 +464,43 @@ def extract_issue_description(issue: ExternalIssue) -> str | None:
     return description.strip() or None
 
 
+def extract_issue_description_html(issue: ExternalIssue) -> str | None:
+    """Extract pre-rendered HTML description from Jira's renderedFields.
+
+    For Jira issues, the API returns pre-rendered HTML in renderedFields.description
+    when expand=["renderedFields"] is used. This HTML is already formatted by Jira
+    and is preferable to re-rendering wiki markup or ADF ourselves.
+
+    Args:
+        issue: The ExternalIssue to extract description from
+
+    Returns:
+        Pre-rendered HTML string if available, None otherwise
+    """
+    payload = issue.raw_payload or {}
+    if not payload:
+        return None
+
+    integration = (
+        issue.project_integration.integration if issue.project_integration else None
+    )
+    provider = (integration.provider if integration else "").lower()
+
+    # Only Jira has renderedFields with pre-rendered HTML
+    if provider != "jira":
+        return None
+
+    rendered_fields = payload.get("renderedFields")
+    if not isinstance(rendered_fields, dict):
+        return None
+
+    description_html = rendered_fields.get("description")
+    if not description_html or not isinstance(description_html, str):
+        return None
+
+    return description_html.strip() or None
+
+
 def write_local_issue_context(
     project: Project,
     primary_issue: ExternalIssue,

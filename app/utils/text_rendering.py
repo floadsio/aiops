@@ -193,7 +193,41 @@ def _sanitize_html(html: str) -> str:
     parser = _IssueHTMLSanitizer()
     parser.feed(html)
     parser.close()
-    return parser.get_html()
+    result = parser.get_html()
+    # Post-process: wrap code-like patterns in <code> tags
+    # Match patterns like {key="value"} or {key=value} that look like metric selectors
+    result = _wrap_inline_code_patterns(result)
+    return result
+
+
+# Pattern for code-like content: {key="value", ...} or {key=value}
+# Also matches metric_name{selector} patterns common in Prometheus/PromQL
+_INLINE_CODE_PATTERN = re.compile(
+    r'(?<!<)([a-zA-Z_][a-zA-Z0-9_]*\{[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*["\']?[^{}\n]+?["\']?\})'
+    r'|'
+    r'(?<![<\w])(\{[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*["\']?[^{}\n]+?["\']?\})(?![>\w])'
+)
+
+
+def _wrap_inline_code_patterns(html: str) -> str:
+    """Wrap code-like patterns in <code> tags if not already in a code context."""
+
+    def replace_match(match: re.Match) -> str:
+        # Either group 1 (metric{selector}) or group 2 ({selector} alone)
+        text = match.group(1) or match.group(2)
+        return f'<code class="inline-code">{text}</code>'
+
+    # Simple approach: only replace if not already inside a tag
+    # Split by existing code/pre tags and only process text outside them
+    parts = re.split(r'(<(?:code|pre)[^>]*>.*?</(?:code|pre)>)', html, flags=re.DOTALL)
+    result = []
+    for i, part in enumerate(parts):
+        # Odd indices are the code/pre blocks, leave them alone
+        if i % 2 == 1:
+            result.append(part)
+        else:
+            result.append(_INLINE_CODE_PATTERN.sub(replace_match, part))
+    return ''.join(result)
 
 
 def _looks_like_html(text: str) -> bool:

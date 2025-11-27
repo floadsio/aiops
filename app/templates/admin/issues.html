@@ -873,6 +873,20 @@
     [data-theme="dark"] .comment-body code {
       background: rgba(148, 163, 184, 0.2);
     }
+    /* Inline code with box styling (auto-detected patterns like {key=value}) */
+    .comment-body code.inline-code {
+      background: #f4f5f7;
+      border: 1px solid #dfe1e6;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 0.85em;
+      white-space: nowrap;
+    }
+    [data-theme="dark"] .comment-body code.inline-code {
+      background: #1e2127;
+      border-color: #3d444d;
+    }
     .comment-body pre {
       background: rgba(26, 29, 35, 0.05);
       border: 1px solid rgba(148, 163, 184, 0.25);

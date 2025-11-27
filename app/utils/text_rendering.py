@@ -277,17 +277,37 @@ def _convert_jira_markup_to_html(text: str) -> str:
     """
     html = text
 
-    # Headers: h1. Header Text -> <h1>Header Text</h1>
-    for level in range(1, 7):
-        pattern = re.compile(rf"^h{level}\.\s+(.+)$", re.MULTILINE)
-        html = pattern.sub(rf"<h{level}>\1</h{level}>", html)
+    # Extract code blocks first to protect them from other processing
+    code_blocks: list[str] = []
+
+    def save_code_block(match: re.Match) -> str:
+        code_content = match.group(1)
+        # Escape HTML in code blocks
+        code_content = code_content.replace("&", "&amp;")
+        code_content = code_content.replace("<", "&lt;")
+        code_content = code_content.replace(">", "&gt;")
+        placeholder = f"__CODE_BLOCK_{len(code_blocks)}__"
+        code_blocks.append(f"<pre><code>{code_content}</code></pre>")
+        return placeholder
 
     # Code blocks: {code}...{code} or {code:lang}...{code}
     html = re.sub(
         r"\{code(?::[^}]+)?\}([\s\S]*?)\{code\}",
-        r"<pre><code>\1</code></pre>",
+        save_code_block,
         html,
     )
+
+    # Also handle {noformat}...{noformat} blocks
+    html = re.sub(
+        r"\{noformat\}([\s\S]*?)\{noformat\}",
+        save_code_block,
+        html,
+    )
+
+    # Headers: h1. Header Text -> <h1>Header Text</h1>
+    for level in range(1, 7):
+        pattern = re.compile(rf"^h{level}\.\s+(.+)$", re.MULTILINE)
+        html = pattern.sub(rf"<h{level}>\1</h{level}>", html)
 
     # Inline code: {{text}} -> <code>text</code>
     html = re.sub(r"\{\{([^}]+)\}\}", r"<code>\1</code>", html)
@@ -367,8 +387,8 @@ def _convert_jira_markup_to_html(text: str) -> str:
 
     for line in lines:
         stripped = line.strip()
-        # Check if line is already an HTML tag
-        if stripped.startswith("<") or not stripped:
+        # Check if line is already an HTML tag or a code block placeholder
+        if stripped.startswith("<") or stripped.startswith("__CODE_BLOCK_") or not stripped:
             # Flush paragraph if we were building one
             if in_paragraph:
                 result_lines.append("<p>" + " ".join(paragraph_lines) + "</p>")
@@ -387,7 +407,13 @@ def _convert_jira_markup_to_html(text: str) -> str:
     if in_paragraph and paragraph_lines:
         result_lines.append("<p>" + " ".join(paragraph_lines) + "</p>")
 
-    return "\n".join(result_lines)
+    html = "\n".join(result_lines)
+
+    # Restore code blocks
+    for i, code_block in enumerate(code_blocks):
+        html = html.replace(f"__CODE_BLOCK_{i}__", code_block)
+
+    return html
 
 
 def _convert_jira_mentions(text: str) -> str:

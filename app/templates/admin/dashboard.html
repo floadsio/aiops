@@ -1015,15 +1015,6 @@
               class="secondary start-ai-session-btn"
               data-project-id="{{ project.id }}"
               data-issue-id="{{ issue.id }}"
-              data-tool="gemini"
-            >
-              ✨ Gemini
-            </button>
-            <button
-              type="button"
-              class="secondary start-ai-session-btn"
-              data-project-id="{{ project.id }}"
-              data-issue-id="{{ issue.id }}"
               data-tool="shell"
             >
               🖥️ Shell
@@ -1479,7 +1470,7 @@
   <header class="tmux-section-header">
     <div class="dashboard-section-heading">
       <h2>AI Session History</h2>
-      <small>Resume past Claude, Codex, and Gemini sessions</small>
+      <small>Resume past Claude and Codex sessions</small>
     </div>
     <div class="tmux-scope-controls">
       <label>
@@ -1487,7 +1478,6 @@
           <option value="">All tools</option>
           <option value="claude">🤖 Claude</option>
           <option value="codex">💻 Codex</option>
-          <option value="gemini">✨ Gemini</option>
         </select>
       </label>
       <label>

@@ -161,7 +161,7 @@ def check_git() -> dict[str, Any]:
 
 
 def check_ai_tools() -> dict[str, Any]:
-    """Check availability of AI tools (Claude, Codex, Gemini).
+    """Check availability of AI tools (Claude, Codex).
 
     Returns:
         Status dict with 'healthy', 'message', and 'details'

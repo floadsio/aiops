@@ -8,10 +8,10 @@ This project provides a Flask-based web UI and CLI that orchestrates multi-tenan
 - **Multi-tenant Management** – Manage tenants and associated projects stored in a relational database (SQLite by default).
 - **Complete Issue Tracking Integration** – Full CRUD operations for issues and comments across GitHub, GitLab, and Jira with complete feature parity.
 - **Per-User Workspaces** – Isolated workspace directories for each user with their own git configuration and SSH keys.
-- **AI-Assisted Development** – Launch AI sessions (Claude Code, Codex, Gemini) directly on issues with automatic context population.
+- **AI-Assisted Development** – Launch AI sessions (Claude Code, Codex) directly on issues with automatic context population.
 - **Cross-Platform CLI** – Command-line client for macOS and Linux to manage issues, start AI sessions, and attach to remote tmux sessions via SSH.
 - **Git Operations** – Clone, update, push repositories, manage branches, create and merge pull/merge requests through web UI or CLI.
-- **AI Tool Management** – Install and upgrade AI CLIs (Codex, Gemini, Claude) without shell access via admin settings.
+- **AI Tool Management** – Install and upgrade AI CLIs (Codex, Claude) without shell access via admin settings.
 - **Ansible Automation** – Run Ansible jobs via Semaphore to provision remote environments after code updates.
 - **Session Management** – List and reuse active AI sessions, attach to remote tmux sessions from your local machine.
 
@@ -232,24 +232,19 @@ Press `Ctrl+B` then `D` to detach and return to your local shell. Run the same c
 ## AI Console
 
 - Browser sessions default to the `codex` CLI when no tool is selected, falling back to `DEFAULT_AI_SHELL` only if the Codex command is unavailable. By default we run `codex --sandbox danger-full-access --ask-for-approval never` so Codex starts with full permissions; override `CODEX_COMMAND`, `CODEX_SANDBOX_MODE`, or `CODEX_APPROVAL_MODE` in `.env` if you prefer another setup.
-- Add Gemini (`gemini-cli`) to `ALLOWED_AI_TOOLS` automatically by setting `GEMINI_COMMAND` (defaults to `gemini`).
 - Add Claude (`claude`) to `ALLOWED_AI_TOOLS` by setting `CLAUDE_COMMAND` (defaults to `claude`). Store per-user Anthropic API keys via the admin settings and these keys are exported as `CLAUDE_CODE_OAUTH_TOKEN` before Claude sessions start.
 - Configure Claude's permission handling with `CLAUDE_PERMISSION_MODE` (defaults to `acceptEdits`):
   - `acceptEdits`: Auto-accept file edits, prompt for dangerous commands (recommended for security)
   - `prompt`: Prompt for all actions (default interactive mode, slower)
   - `yolo`: Skip all permissions with `--dangerously-skip-permissions` (⚠️ dangerous - only use in isolated environments without sensitive data or internet access, per [Anthropic's recommendations](https://www.anthropic.com/engineering/claude-code-best-practices))
 - Use Admin → Settings to check the Claude CLI status and run the `CLAUDE_UPDATE_COMMAND` (default `sudo npm install -g @anthropic-ai/claude-code`) without leaving the browser.
-- The AI Tool Maintenance cards on Admin → Settings run the configured npm or Homebrew updates for Codex, Gemini, and Claude. Override `CODEX_UPDATE_COMMAND`, `GEMINI_UPDATE_COMMAND`, and `CLAUDE_UPDATE_COMMAND`, plus optional `CODEX_BREW_PACKAGE`, `GEMINI_BREW_PACKAGE`, or `CLAUDE_BREW_PACKAGE`, in `.env`.
+- The AI Tool Maintenance cards on Admin → Settings run the configured npm or Homebrew updates for Codex and Claude. Override `CODEX_UPDATE_COMMAND` and `CLAUDE_UPDATE_COMMAND`, plus optional `CODEX_BREW_PACKAGE` or `CLAUDE_BREW_PACKAGE`, in `.env`.
 - When tmux is installed, terminals attach to a per-tenant session (`<tenant>-shell`), reusing the same workspace on subsequent launches.
 - Configure defaults with `DEFAULT_AI_TOOL` and `DEFAULT_AI_SHELL` in `.env`; toggle multiplexing with `USE_TMUX_FOR_AI_SESSIONS`.
-- Use the admin settings cards to install or update Codex (`CODEX_UPDATE_COMMAND`) and Gemini (`GEMINI_UPDATE_COMMAND`) CLIs via npm.
-- Paste the required `google_accounts.json` / `oauth_creds.json` payloads into Admin → Settings for each user via the Gemini credentials dropdown; aiops stores the JSON per user under `instance/gemini/user-<id>/` and writes it into their CLI directory (`GEMINI_CONFIG_DIR/user-<id>`, default `~/.gemini/user-<id>`) whenever they save or launch a Gemini session, so authentication persists automatically.
+- Use the admin settings cards to install or update Codex (`CODEX_UPDATE_COMMAND`) CLI via npm.
 - Paste Codex `auth.json` payloads into the Codex credentials card; aiops keeps per-user copies under `instance/codex/user-<id>/auth.json` and copies the selected user's file into `CODEX_CONFIG_DIR/auth.json` (default `~/.codex/auth.json`) right before launching a Codex tmux session, so credentials never leak between accounts.
-- Customize each user's Gemini CLI behavior (default model, UI theme, sandboxing) by editing `settings.json` in the same admin card; aiops mirrors it into `GEMINI_CONFIG_DIR/user-<id>/settings.json` per the [Gemini CLI configuration guide](https://geminicli.com/docs/get-started/configuration/).
-- Set `GEMINI_APPROVAL_MODE` (defaults to `auto_edit`) if you want aiops to automatically append `--approval-mode <value>` to the Gemini CLI command; if you provide your own `GEMINI_COMMAND` that already contains the flag, aiops leaves it untouched.
-- Ensure Homebrew-installed binaries are picked up by setting `CLI_EXTRA_PATHS` (defaults to `/opt/homebrew/bin:/usr/local/bin`), which aiops prepends to `PATH` whenever it checks or updates Codex, Claude, or Gemini.
-- CLI status cards first run the configured `codex`, `gemini`, and `claude` binaries (falling back to npm metadata, or `brew info --json` for Claude) so version checks work whether you installed the tools via Homebrew on macOS or npm on Debian. Override `CLAUDE_BREW_PACKAGE` if you use a different tap name.
-- When a tmux window launches with Gemini selected, aiops copies that user's `google_accounts.json` / `oauth_creds.json` (and a safe fallback `settings.json`) into the live CLI directory (`~/.gemini`) before running the command so the official CLI sees the files without relying on any `GEMINI_*` environment overrides.
+- Ensure Homebrew-installed binaries are picked up by setting `CLI_EXTRA_PATHS` (defaults to `/opt/homebrew/bin:/usr/local/bin`), which aiops prepends to `PATH` whenever it checks or updates Codex or Claude.
+- CLI status cards first run the configured `codex` and `claude` binaries (falling back to npm metadata, or `brew info --json` for Claude) so version checks work whether you installed the tools via Homebrew on macOS or npm on Debian. Override `CLAUDE_BREW_PACKAGE` if you use a different tap name.
 
 ## Semaphore Integration
 

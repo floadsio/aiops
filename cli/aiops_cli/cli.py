@@ -22,7 +22,6 @@ error_console = Console(stderr=True)
 
 AI_TOOL_LABELS = {
     "codex": "Codex CLI",
-    "gemini": "@google/gemini-cli",
     "claude": "Claude CLI",
 }
 
@@ -458,7 +457,7 @@ def issues_create(
 @click.option("--project", required=True, help="Project ID or name")
 @click.option("--integration", type=int, help="Integration ID (if not provided, uses first integration for project)")
 @click.option("--description", help="Natural language description of what to work on")
-@click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), default="claude", help="AI tool to use")
+@click.option("--tool", type=click.Choice(["claude", "codex"]), default="claude", help="AI tool to use")
 @click.option("--type", "issue_type", type=click.Choice(["feature", "bug"]), help="Issue type hint")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
 @click.pass_context
@@ -530,7 +529,7 @@ def issues_create_assisted(
                 sys.exit(1)
 
         # Show what we're doing
-        console.print(f"\n[cyan]Creating issue with AI assistance...[/cyan]")
+        console.print("\n[cyan]Creating issue with AI assistance...[/cyan]")
         console.print(f"  Tool: {tool}")
         console.print(f"  Project ID: {project_id}")
         console.print(f"  Integration ID: {integration}")
@@ -637,17 +636,17 @@ def issues_create_assisted(
             if result.get("branch_error"):
                 console.print(f"\n[yellow]⚠ Branch creation failed:[/yellow] {result['branch_error']}")
             if result.get("session_url"):
-                console.print(f"\n[green]✓ Session created[/green]")
+                console.print("\n[green]✓ Session created[/green]")
                 console.print(f"Session URL: {result['session_url']}")
             if result.get("session_error"):
                 console.print(f"\n[yellow]⚠ Session creation failed:[/yellow] {result['session_error']}")
 
-            console.print(f"\n[dim]Next steps:[/dim]")
+            console.print("\n[dim]Next steps:[/dim]")
             console.print(f"  1. Review the issue at {result['issue_url']}")
             if result.get("branch_name"):
                 console.print(f"  2. Checkout branch: git checkout {result['branch_name']}")
             if result.get("session_url"):
-                console.print(f"  3. Start working in the AI session")
+                console.print("  3. Start working in the AI session")
             else:
                 console.print(f"  2. Start working: aiops issues work {result['issue_id']}")
 
@@ -1098,8 +1097,6 @@ def issues_sessions(
                 tool_name = "claude"
             elif "codex" in command.lower():
                 tool_name = "codex"
-            elif "gemini" in command.lower():
-                tool_name = "gemini"
             tmux_target = session.get("tmux_target", "")
 
             if project:
@@ -1160,7 +1157,7 @@ def issues_sessions(
 @issues.command(name="start")
 @click.option("--project", help="Project ID or name (required if multiple projects)")
 @click.option("--issue", type=int, help="Issue ID to work on")
-@click.option("--tool", type=click.Choice(["claude", "codex", "gemini", "shell"]), help="AI tool to use")
+@click.option("--tool", type=click.Choice(["claude", "codex", "shell"]), help="AI tool to use")
 @click.option("--prompt", help="Initial prompt to send to the AI")
 @click.option("--user", help="User email or ID to start session as (admin only)")
 @click.option("--attach", is_flag=True, default=True, help="Attach to session after starting (default: true)")
@@ -1275,7 +1272,7 @@ def issues_start(
 
 @issues.command(name="work")
 @click.argument("issue_id", type=int)
-@click.option("--tool", type=click.Choice(["claude", "codex", "gemini"]), help="AI tool to use")
+@click.option("--tool", type=click.Choice(["claude", "codex"]), help="AI tool to use")
 @click.option("--prompt", help="Initial prompt to send to the AI")
 @click.option("--attach", is_flag=True, help="Attach to tmux session after starting")
 @click.option("--yolo", is_flag=True, help="Skip all permissions for Claude (dangerous)")
@@ -1876,7 +1873,7 @@ def sessions() -> None:
 
 @sessions.command(name="start")
 @click.option("--project", required=True, help="Project ID or name")
-@click.option("--tool", type=click.Choice(["claude", "codex", "gemini", "shell"]), help="AI tool to use")
+@click.option("--tool", type=click.Choice(["claude", "codex", "shell"]), help="AI tool to use")
 @click.option("--prompt", help="Initial prompt to send")
 @click.option("--user", help="User email or ID to start session as (admin only)")
 @click.option("--attach/--no-attach", default=True, help="Attach to session after starting")
@@ -2390,11 +2387,11 @@ def sessions_upload(
         )
 
         # Display success
-        console.print(f"\n[green]✓ File uploaded successfully![/green]")
+        console.print("\n[green]✓ File uploaded successfully![/green]")
         console.print(f"  Workspace path: {result['workspace_path']}")
         console.print(f"  Relative path: {result['relative_path']}")
         console.print(f"  Size: {result['size'] / 1024:.1f} KB")
-        console.print(f"\n[dim]The AI can now access this file in the session.[/dim]")
+        console.print("\n[dim]The AI can now access this file in the session.[/dim]")
 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
@@ -2651,7 +2648,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                                     shutil.rmtree(match)
                                 else:
                                     match.unlink()
-                            except Exception as e:
+                            except Exception:
                                 # Ignore cleanup errors, they're not critical
                                 pass
                     else:
@@ -2663,7 +2660,7 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                                     shutil.rmtree(match)
                                 else:
                                     match.unlink()
-                            except Exception as e:
+                            except Exception:
                                 # Ignore cleanup errors, they're not critical
                                 pass
 
@@ -3064,17 +3061,17 @@ def system_update_and_restart(ctx: click.Context, skip_migrations: bool, yes: bo
 
 
 @system.command(name="update-ai-tool")
-@click.argument("tool", type=click.Choice(["codex", "gemini", "claude"]))
+@click.argument("tool", type=click.Choice(["codex", "claude"]))
 @click.option("--source", type=click.Choice(["npm", "brew"]), required=True, help="Update source (npm or brew)")
 @click.pass_context
 def system_update_ai_tool(ctx: click.Context, tool: str, source: str) -> None:
-    """Update an AI tool CLI on the server (e.g., codex, gemini).
+    """Update an AI tool CLI on the server (e.g., codex, claude).
 
     Requires admin API key.
 
     Examples:
         aiops system update-ai-tool codex --source npm
-        aiops system update-ai-tool gemini --source brew
+        aiops system update-ai-tool claude --source brew
     """
     client = get_client(ctx)
     tool_label = AI_TOOL_LABELS.get(tool, tool)
@@ -3145,7 +3142,7 @@ def system_switch_branch(ctx: click.Context, branch: str, restart: bool, yes: bo
         })
 
         if result.get("success"):
-            console.print(f"[green]✓ Branch switched successfully![/green]")
+            console.print("[green]✓ Branch switched successfully![/green]")
             console.print(f"Current branch: {result.get('current_branch')}")
 
             if result.get("git_output"):
@@ -3158,7 +3155,7 @@ def system_switch_branch(ctx: click.Context, branch: str, restart: bool, yes: bo
             elif restart:
                 console.print("\n[yellow]⚠ Service restart initiated but status unknown[/yellow]")
         else:
-            error_console.print(f"[red]✗ Failed to switch branch[/red]")
+            error_console.print("[red]✗ Failed to switch branch[/red]")
             error_console.print(f"Error: {result.get('error', 'Unknown error')}")
             sys.exit(1)
 

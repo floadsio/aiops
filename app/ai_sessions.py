@@ -26,10 +26,6 @@ from .services.codex_config_service import (
     ensure_codex_auth,
     sync_codex_credentials_for_linux_user,
 )
-from .services.gemini_config_service import (
-    ensure_user_config,
-    sync_credentials_to_cli_home,
-)
 from .services.git_service import build_project_git_env
 from .services.cli_git_service import supports_cli_git
 from .services.tmux_metadata import record_tmux_tool
@@ -269,18 +265,6 @@ def _first_command_token(command: str | None) -> str | None:
     return tokens[0] if tokens else None
 
 
-def _uses_gemini(command_str: str, tool: str | None) -> bool:
-    tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
-    configured = tool_commands.get("gemini")
-    if tool == "gemini":
-        return True
-    configured_token = _first_command_token(configured)
-    command_token = _first_command_token(command_str)
-    return bool(
-        configured_token and command_token and configured_token == command_token
-    )
-
-
 def _uses_codex(command_str: str, tool: str | None) -> bool:
     tool_commands = current_app.config.get("ALLOWED_AI_TOOLS", {})
     configured = tool_commands.get("codex")
@@ -308,7 +292,7 @@ def _uses_claude(command_str: str, tool: str | None) -> bool:
 def _is_interactive_tool(command_str: str, tool: str | None) -> bool:
     """Check if the command is for an interactive AI tool that needs stdin connected to TTY.
 
-    Interactive tools like Claude Code, Codex, and Gemini CLI use terminal UI libraries
+    Interactive tools like Claude Code and Codex use terminal UI libraries
     (Ink, etc.) that require raw mode access to stdin. These cannot work with heredoc
     input redirection.
 
@@ -317,7 +301,6 @@ def _is_interactive_tool(command_str: str, tool: str | None) -> bool:
     return (
         _uses_claude(command_str, tool)
         or _uses_codex(command_str, tool)
-        or _uses_gemini(command_str, tool)
         or command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
     )
 
@@ -570,10 +553,6 @@ def create_session(
     current_app.logger.warning(f"DEBUG: create_session called with tool={tool}, command={command}")
     command_str = _resolve_command(tool, command, permission_mode=permission_mode)
     current_app.logger.warning(f"DEBUG: Resolved command: {command_str}")
-    uses_gemini = _uses_gemini(command_str, tool)
-    if uses_gemini:
-        ensure_user_config(user_id)
-        sync_credentials_to_cli_home(user_id)
     # Prepare Git author information from user
     # Also grab linux_username before fork since DB session won't be available after fork
     user = User.query.get(user_id)
@@ -896,10 +875,6 @@ def create_persistent_session(
     Uses tmux pipe-pane for output capture instead of PTY fork.
     """
     command_str = _resolve_command(tool, command, permission_mode=permission_mode)
-    uses_gemini = _uses_gemini(command_str, tool)
-    if uses_gemini:
-        ensure_user_config(user_id)
-        sync_credentials_to_cli_home(user_id)
 
     # Get user info
     user = User.query.get(user_id)

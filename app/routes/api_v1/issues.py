@@ -1081,8 +1081,6 @@ def create_assisted_issue():
             - session_id: Created session ID (if start_session=true)
             - session_url: URL to attach to session (if start_session=true)
     """
-    from ...services.ai_issue_generator import generate_branch_name
-    from ...services.git_service import checkout_or_create_branch
     from ...services.issues import create_issue_for_project_integration
     from flask import session as flask_session
 

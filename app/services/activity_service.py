@@ -6,14 +6,13 @@ It captures user actions, resource changes, and system events for audit and moni
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Optional
 
 from flask import current_app, has_request_context, request
 from sqlalchemy.exc import SQLAlchemyError
 
 from ..extensions import db
-from ..models import Activity, User
+from ..models import Activity
 
 
 def log_activity(

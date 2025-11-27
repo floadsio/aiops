@@ -15,7 +15,6 @@ from ...services.api_auth import require_api_auth
 @require_api_auth(scopes=["read"])
 def list_activities_api():
     """List activities via API (for CLI)."""
-    from ...models import Activity
     from ...services.activity_service import get_recent_activities
 
     # Get filter parameters

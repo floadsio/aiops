@@ -16,10 +16,8 @@ from werkzeug.utils import secure_filename
 from ..ai_sessions import (
     close_session,
     create_session,
-    find_session_for_issue,
     get_session,
     find_session_for_issue,
-    _resolve_command,
     resize_session,
     write_to_session,
     _resolve_command,
@@ -30,7 +28,7 @@ from ..models import ExternalIssue, Project, ProjectIntegration, Tenant, User
 from ..services.git_service import ensure_repo_checkout, get_repo_status, run_git_action
 from ..services.tmux_service import session_name_for_user
 from ..services.issues.utils import normalize_issue_status
-from ..services.activity_logger import log_api_activity, log_git_operation, log_session_operation
+from ..services.activity_logger import log_api_activity
 from ..services.activity_service import ActivityType, ResourceType
 from ..services.workspace_service import get_workspace_path
 
@@ -1216,7 +1214,6 @@ def remap_issue(issue_id: int):
 @api_bp.get("/activities")
 def list_activities_api():
     """List activities via API (for CLI)."""
-    from ..models import Activity
     from ..services.activity_service import get_recent_activities
 
     # Get filter parameters

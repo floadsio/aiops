@@ -18,6 +18,285 @@
   - `documentation` for docs updates
   - Additional context labels as needed (e.g., `high-priority`, `breaking-change`)
 
+### 2. Live Testing on Production
+
+**When you create a feature branch and want to test it live on production:**
+
+```bash
+# Step 1: Create feature branch and PR (as described below)
+git checkout -b feature/xyz-description
+# ... make changes ...
+git commit -m "Feature: description"
+git push -u origin feature/xyz-description
+
+# Step 2: Create PR via aiops CLI
+aiops git pr-create <project> \
+  --title "Feature: description" \
+  --description "..." \
+  --source feature/xyz-description \
+  --target main
+
+# Step 3: Switch production to feature branch for live testing
+# SSH into production server or use direct git commands:
+cd /home/syseng/aiops
+sudo git fetch origin feature/xyz-description
+sudo git checkout feature/xyz-description
+sudo systemctl restart aiops
+```
+
+### 3. Document Completed Features
+
+**AFTER a feature has been implemented and tested (before merging to main):**
+
+1. **Post Implementation Summary to GitHub Issue**
+   - Include complete list of features delivered
+   - Document all files modified with brief descriptions
+   - List key functions/components and their purposes
+   - Document API endpoints (if applicable)
+   - Include design decisions and rationale
+   - List all commits in feature branch
+   - Example structure:
+     ```markdown
+     ## ✅ Implementation Complete - Feature Name (Issue #XXX)
+     
+     ### Overview
+     [Brief description of what was built]
+     
+     ### Features Implemented
+     - Feature 1 with details
+     - Feature 2 with details
+     
+     ### Technical Implementation
+     #### Files Modified
+     1. path/to/file.py (description)
+     2. path/to/template.html (description)
+     
+     #### Key Functions
+     - function_name() - what it does
+     
+     ### API Endpoints
+     - GET /api/v1/endpoint - description
+     
+     ### Design Decisions
+     1. Decision 1 - rationale
+     2. Decision 2 - rationale
+     
+     ### How to Resume/Extend
+     [Notes on future enhancements and testing]
+     
+     ### Commits
+     [List of all commits in feature branch]
+     ```
+
+2. **Use aiops CLI to Post Comment**
+   ```bash
+   # Find internal issue ID
+   aiops issues list --project <project> -o json | grep '"external_id":"<number>"' -B 5 | grep '"id"'
+   
+   # Post implementation summary from file
+   aiops issues comment <internal-id> --file /path/to/summary.txt
+   ```
+
+3. **This Documents For Future Resume**
+   - Future developers can understand the complete architecture
+   - Design decisions are explained for context
+   - Extension points are documented
+   - Testing notes are available
+   - Commit history is summarized
+
+### 4. Merge and Deploy Workflow
+
+```bash
+# Step 1: Switch production back to main (if on feature branch)
+cd /home/syseng/aiops
+sudo git fetch origin main
+sudo git checkout main
+sudo systemctl restart aiops
+
+# Step 2: Merge feature branch to main (from workspace)
+git checkout main
+git pull origin main
+git merge feature/xyz-description --no-ff -m "Merge: Feature - Description (closes #XXX)"
+git push origin main
+
+# Step 3: Deploy to production
+cd /home/syseng/aiops
+sudo git fetch origin main
+sudo git reset --hard origin/main
+sudo systemctl restart aiops
+
+# Step 4: Verify deployment
+sudo systemctl status aiops --no-pager
+git log --oneline -1
+```
+
+### 5. Close the Issue
+
+```bash
+# After merged and deployed to production
+aiops issues comment <internal-id> "✅ Implemented and merged in $(git rev-parse --short HEAD)"
+aiops issues close <internal-id>
+```
+
+---
+
+## Pull/Merge Request Creation
+
+**CRITICAL: ALWAYS use `aiops git pr-create` for creating pull requests (GitHub) or merge requests (GitLab)**
+
+### Command Syntax
+```bash
+aiops git pr-create <project> \
+  --title "Feature: Add authentication (closes #123)" \
+  --description "Implements user authentication with JWT tokens.
+
+Closes #123
+
+Changes:
+- Added User model
+- Implemented JWT auth
+- Added login/logout endpoints
+
+Testing:
+- Manual testing completed
+- Unit tests added and passing" \
+  --source feature-auth \
+  --target main \
+  --assignee githubusername \
+  --draft                                      # Optional: create as draft PR
+```
+
+### PR/MR Guidelines
+- **NEVER use `gh pr create`, `glab mr create`, or direct git push with PR creation**
+- **ALWAYS use `aiops git pr-create`** to create PRs/MRs
+- **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
+- The CLI automatically detects provider (GitHub/GitLab) and creates appropriate PR/MR
+- Supports both GitHub pull requests and GitLab merge requests
+- Assignee becomes reviewer for GitHub, assignee for GitLab
+- Use `--draft` flag to create draft PRs (GitHub only)
+- **ALWAYS reference the issue** in PR title and description:
+  - `closes #123` or `fixes #456` for features/bugs
+  - `refs #789` for related work that doesn't close the issue
+
+### GitHub Fine-Grained PAT Requirements
+For full PR/MR functionality, GitHub fine-grained personal access tokens need:
+- **Contents: Read and write** (required for merging PRs)
+- **Issues: Read and write** (for issue synchronization and comments)
+- **Pull requests: Read and write** (for creating and merging PRs)
+- **Metadata: Read** (automatically added)
+
+## Pull/Merge Request Merging
+
+**CRITICAL: ALWAYS use `aiops git pr-merge` for merging pull requests (GitHub) or merge requests (GitLab)**
+
+### Command Syntax
+```bash
+# Basic merge (creates merge commit)
+aiops git pr-merge <project> <pr-number>
+
+# Squash merge (combines all commits into one)
+aiops git pr-merge <project> <pr-number> --method squash
+
+# Rebase merge (rebases commits onto target branch)
+aiops git pr-merge <project> <pr-number> --method rebase
+
+# Delete source branch after merging
+aiops git pr-merge <project> <pr-number> --delete-branch
+
+# Custom merge commit message
+aiops git pr-merge <project> <pr-number> --message "Fix critical bug"
+
+# Combine options
+aiops git pr-merge <project> <pr-number> --method squash --delete-branch
+```
+
+### Merge Guidelines
+- **NEVER use `gh pr merge`, `glab mr merge`, or GitHub/GitLab web UI for merging**
+- **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
+- The CLI automatically detects provider (GitHub/GitLab)
+- Merge methods:
+  - `merge` (default): Creates a merge commit preserving all commits
+  - `squash`: Combines all commits into a single commit
+  - `rebase`: Rebases commits onto target branch
+- Use `--delete-branch` to automatically clean up the source branch after merge
+- Requires integration with "Pull requests: Write" and "Contents: Write" permissions
+
+### Commit Message Best Practices
+- Reference issue in commits: `"Add validation (refs #123)"`
+- Use descriptive commit messages
+- Commit frequently with logical changes
+- Each commit should be a working state when possible
+
+## Production System Management
+
+**IMPORTANT: AI agents CAN restart production when configuration changes require it**
+
+### When Production Restart is Required
+- ✅ Changes to `.env` configuration files
+- ✅ Updates to environment variables (permission modes, API keys, etc.)
+- ✅ System updates via `aiops system update`
+- ✅ Database migrations
+- ✅ After merging configuration changes to production
+
+### Production Restart Commands
+```bash
+# Restart production backend (requires sudo/admin)
+aiops system restart
+
+# Or use the configured restart command directly
+sudo systemctl restart aiops
+
+# Combined update and restart
+aiops system update-and-restart
+```
+
+### Production Safety Guidelines
+- ✅ **DO restart production** when configuration changes require it (e.g., `.env` updates)
+- ✅ **DO use `aiops system restart`** for controlled restarts
+- ✅ **DO verify changes** before restarting when possible
+- ❌ **NEVER modify `/home/syseng/aiops/` directly** - work in personal workspaces and merge via PRs
+- ❌ **NEVER auto-update production code** without testing in workspace first
+- ❌ **NEVER restart production** for experimental changes or untested code
+
+### Example: Configuration Change Workflow
+```bash
+# 1. Update production configuration (e.g., .env file)
+# Edit /home/syseng/aiops/.env
+
+# 2. Verify the change
+cat /home/syseng/aiops/.env | grep CLAUDE_PERMISSION_MODE
+
+# 3. Restart production to apply changes
+aiops system restart
+
+# 4. Monitor logs to ensure successful restart
+tail -f /home/syseng/aiops/logs/aiops.log
+```
+
+**Key Principle:** Configuration changes in production `.env` files are safe to apply immediately with restarts. Code changes should always go through workspace → PR → merge → production deployment workflow.
+
+---
+
+## Development Workflow - Features & Bug Fixes
+
+**CRITICAL: ALWAYS follow this workflow for new features AND bug fixes**
+
+### 1. Create an Issue First
+- **ALWAYS create an issue** before starting work on:
+  - ✅ New features
+  - ✅ Bug fixes
+  - ✅ Significant refactoring
+  - ✅ Breaking changes
+- Document requirements/bug description, acceptance criteria, and scope
+- Use the issue for discussion and planning
+- Link all commits and PRs to the issue
+- **ALWAYS set appropriate labels** when creating issues:
+  - `bug` for bug fixes
+  - `feature` or `enhancement` for new features
+  - `refactor` for refactoring work
+  - `documentation` for docs updates
+  - Additional context labels as needed (e.g., `high-priority`, `breaking-change`)
+
 ```bash
 # Create feature issue (works identically for GitHub, GitLab, Jira)
 aiops issues create --project <project> \
@@ -708,126 +987,107 @@ tail -f /home/syseng/aiops/logs/aiops.log
 
 ---
 
+---
+
+---
+
 ## Current Issue Context
 <!-- issue-context:start -->
 
 NOTE: Generated issue context. Update before publishing if needed.
 
-# 125 - Central Communication Page for Issue Comments
+# 128 - Remove Gemini support from codebase
 
-        _Updated: 2025-11-26 18:06:45Z_
+        _Updated: 2025-11-27 13:18:49Z_
 
         ## Issue Snapshot
         - Provider: github
         - Status: open
-        - Assignee: ivomarino
-        - Labels: feature, communication
-        - Source: https://github.com/floadsio/aiops/issues/125
-        - Last Synced: 2025-11-26 17:55 UTC
+        - Assignee: Michael Turko
+        - Labels: none
+        - Source: https://github.com/floadsio/aiops/issues/128
+        - Last Synced: 2025-11-27 13:17 UTC
 
         ## Issue Description
-        ## Overview
-Create a central communication page to display all ongoing communications from all tenants on GitHub, GitLab, Jira, etc.
+        No additional details provided by the issue tracker.
 
-## Requirements
-- Display comments in a thread-like view
-- Support HTML or Markdown formatting based on the system
-- Allow direct replies to comments
-- Map remote issue system users to real users with existing database info
-
-## Acceptance Criteria
-- [ ] Implement comment threading for all supported systems
-- [ ] Format comments correctly (HTML or Markdown)
-- [ ] Enable direct replies to comments
-- [ ] Integrate user mapping from remote systems to database
-
-## Technical Notes
-[Optional implementation notes]
-
-        
-
-## Issue Comments (1)
-
-            **ivomarino** on 2025-11-26T17:55:07+00:00 ([link](https://github.com/floadsio/aiops/issues/125#issuecomment-3582561196))
-
-_Created via aiops by @ivomarino_
-
-## Project Context
+        ## Project Context
         - Project: aiops
         - Repository: git@github.com:floadsio/aiops.git
         - Local Path: instance/repos/aiops
 
         ## Other Known Issues
-        - [github] 1: Add Cross-Platform Issue Creation + User Mapping Support in aiops; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-15 14:41 UTC; url=https://github.com/floadsio/aiops/issues/1
-- [github] 3: Feature: Create New Issues Directly from the AIops Issues Page; status=closed; assignee=Ivo Marino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/3
-- [github] 5: Issue: Add Project Filter to Issues Page; status=closed; assignee=Ivo Marino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/5
-- [github] 4: Issue: Improve UI Responsiveness + Redesign Main Menu Layout; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-16 13:43 UTC; url=https://github.com/floadsio/aiops/issues/4
-- [github] 6: Issue: Add Close Button to Pinned Issues on Dashboard; status=closed; assignee=Ivo Marino; updated=2025-11-15 17:33 UTC; url=https://github.com/floadsio/aiops/issues/6
-- [github] 7: Issue: Implement a Public AIops API for AI Agents and CLI Clients; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-16 22:55 UTC; url=https://github.com/floadsio/aiops/issues/7
-- [github] 8: Issue: Implement aiops CLI Client for macOS & Linux; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-17 21:00 UTC; url=https://github.com/floadsio/aiops/issues/8
-- [github] 9: Publish aiops-cli to PyPI; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-17 20:56 UTC; url=https://github.com/floadsio/aiops/issues/9
-- [github] 10: Publish aiops-cli v0.3.0 to PyPI; status=open; assignee=Ivo Marino; labels=enhancement; updated=2025-11-17 21:45 UTC; url=https://github.com/floadsio/aiops/issues/10
-- [github] 11: Feature: Global AGENTS.md content for override files; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-17 22:00 UTC; url=https://github.com/floadsio/aiops/issues/11
-- [github] 12: Cleanup tests and test CLI commenting features; status=closed; updated=2025-11-17 22:07 UTC; url=https://github.com/floadsio/aiops/issues/12
-- [github] 13: Feature: Database Backup and Download via CLI and Web UI; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-18 11:45 UTC; url=https://github.com/floadsio/aiops/issues/13
-- [github] 14: Feature: Add GitLab Issue Comment Support; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-18 02:49 UTC; url=https://github.com/floadsio/aiops/issues/14
-- [github] 15: Feature: Add GitHub Comment Editing Support; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 13:36 UTC; url=https://github.com/floadsio/aiops/issues/15
-- [github] 16: User-specific integration credentials for personal tokens; status=closed; assignee=Ivo Marino; updated=2025-11-19 13:25 UTC; url=https://github.com/floadsio/aiops/issues/16
-- [github] 17: Issue: Confusing 'Status unavailable' message for newly initialized workspaces; status=closed; assignee=Ivo Marino; labels=bug, ux; updated=2025-11-18 12:29 UTC; url=https://github.com/floadsio/aiops/issues/17
-- [github] 18: Setup: Michael needs personal SSH key for GitHub authentication; status=closed; assignee=Ivo Marino; labels=setup, infrastructure; updated=2025-11-18 13:15 UTC; url=https://github.com/floadsio/aiops/issues/18
-- [github] 19: Issue: Per-user workspaces require directory traversal permissions; status=closed; assignee=Ivo Marino; labels=bug, infrastructure, workspace; updated=2025-11-19 13:25 UTC; url=https://github.com/floadsio/aiops/issues/19
-- [github] 20: Bug: Per-user sessions not using sudo when reusing existing tmux windows; status=closed; assignee=Ivo Marino; labels=bug, critical, security; updated=2025-11-18 13:32 UTC; url=https://github.com/floadsio/aiops/issues/20
-- [github] 21: Decouple tmux sessions from backend process lifecycle; status=closed; assignee=Ivo Marino; updated=2025-11-18 15:29 UTC; url=https://github.com/floadsio/aiops/issues/21
-- [github] 22: Fix tmux session buttons visibility on mobile (responsive mode); status=closed; assignee=Ivo Marino; updated=2025-11-19 13:13 UTC; url=https://github.com/floadsio/aiops/issues/22
-- [github] 23: Add web UI for editing integration names and details; status=closed; assignee=Ivo Marino; updated=2025-11-19 10:12 UTC; url=https://github.com/floadsio/aiops/issues/23
-- [github] 24: Fix 500 error when setting personal API token for integration; status=closed; assignee=Ivo Marino; updated=2025-11-19 10:04 UTC; url=https://github.com/floadsio/aiops/issues/24
-- [github] 25: Group duplicate assignee names in Issues dashboard; status=closed; assignee=Ivo Marino; updated=2025-11-19 10:53 UTC; url=https://github.com/floadsio/aiops/issues/25
-- [github] 27: Fix AI tool button routing - wrong tool started from pinned issues; status=closed; assignee=Ivo Marino; updated=2025-11-19 13:13 UTC; url=https://github.com/floadsio/aiops/issues/27
-- [github] 29: Add pr-merge command to aiops CLI for GitHub and GitLab; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 13:13 UTC; url=https://github.com/floadsio/aiops/issues/29
-- [github] 31: Add --file option to 'aiops issues comment' command; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 15:36 UTC; url=https://github.com/floadsio/aiops/issues/31
-- [github] 32: SSH key management: Store keys in database for multi-user access; status=closed; assignee=Ivo Marino; labels=enhancement, feature, security; updated=2025-11-19 17:22 UTC; url=https://github.com/floadsio/aiops/issues/32
-- [github] 34: Evaluate using official CLI tools (gh, glab) for git operations; status=closed; assignee=Ivo Marino; labels=enhancement, feature, evaluation; updated=2025-11-19 17:22 UTC; url=https://github.com/floadsio/aiops/issues/34
-- [github] 36: Feature: AI-assisted issue creation with automated branch and session setup; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ai; updated=2025-11-19 22:36 UTC; url=https://github.com/floadsio/aiops/issues/36
-- [github] 42: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:22 UTC; url=https://github.com/floadsio/aiops/issues/42
-- [github] 49: Handle failed integrations gracefully during issue sync; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-19 22:50 UTC; url=https://github.com/floadsio/aiops/issues/49
-- [github] 51: Auto-assign AI-assisted issues to creating user; status=closed; labels=bug; updated=2025-11-19 23:01 UTC; url=https://github.com/floadsio/aiops/issues/51
-- [github] 53: Enable Claude Code yolo mode for AI sessions by default; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 23:13 UTC; url=https://github.com/floadsio/aiops/issues/53
-- [github] 55: Add Activity page to track all aiops operations; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-20 12:05 UTC; url=https://github.com/floadsio/aiops/issues/55
-- [github] 56: When I want to start a new Session in aiops and select Codex or other AI, it should not reuse another tool; status=closed; assignee=Michael Turko; labels=bug; updated=2025-11-20 17:38 UTC; url=https://github.com/floadsio/aiops/issues/56
-- [github] 62: Auto-generate AGENTS.override.md for all AI sessions with merged context; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-20 18:15 UTC; url=https://github.com/floadsio/aiops/issues/62
-- [github] 64: Add automatic initial prompt to AI tools to read AGENTS.override.md; status=open; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-20 18:20 UTC; url=https://github.com/floadsio/aiops/issues/64
-- [github] 65: Filter AGENTS.override.md from git dirty status check; status=closed; assignee=Michael Turko; labels=enhancement, ux; updated=2025-11-22 03:29 UTC; url=https://github.com/floadsio/aiops/issues/65
-- [github] 66: Add statistics and status page for issue resolution metrics; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-21 09:10 UTC; url=https://github.com/floadsio/aiops/issues/66
-- [github] 68: Add feature to remap issues between aiops projects; status=closed; assignee=Ivo Marino; updated=2025-11-21 09:22 UTC; url=https://github.com/floadsio/aiops/issues/68
-- [github] 69: Fix 'aiops update' failure with stale generated files; status=closed; assignee=Ivo Marino; labels=bug, cli; updated=2025-11-21 09:33 UTC; url=https://github.com/floadsio/aiops/issues/69
-- [github] 70: Display tenant name alongside project name to avoid confusion; status=closed; assignee=Ivo Marino; updated=2025-11-23 20:00 UTC; url=https://github.com/floadsio/aiops/issues/70
-- [github] 71: Allow integrations to map to multiple projects; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-23 20:00 UTC; url=https://github.com/floadsio/aiops/issues/71
-- [github] 73: Enable file/image transfer from local machine to AI session workspace; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-25 15:09 UTC; url=https://github.com/floadsio/aiops/issues/73
-- [github] 76: Fix AI-created issues/PRs showing wrong creator (always ivomarino); status=closed; assignee=Ivo Marino; labels=bug, draft; updated=2025-11-24 14:27 UTC; url=https://github.com/floadsio/aiops/issues/76
-- [github] 77: Draft: The AI assisted Issue functionality seems to be broken; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-22 08:19 UTC; url=https://github.com/floadsio/aiops/issues/77
-- [github] 81: Add assignee filtering to issues list command; status=closed; assignee=Michael Turko; labels=enhancement, feature, draft, cli; updated=2025-11-25 04:35 UTC; url=https://github.com/floadsio/aiops/issues/81
-- [github] 85: Add creator attribution comments to Jira issues; status=closed; assignee=Michael Turko; labels=enhancement, feature; updated=2025-11-24 14:35 UTC; url=https://github.com/floadsio/aiops/issues/85
-- [github] 87: Support per-integration Jira account IDs for attribution; status=closed; assignee=Michael Turko; labels=enhancement, feature; updated=2025-11-24 15:41 UTC; url=https://github.com/floadsio/aiops/issues/87
-- [github] 89: Codex AI-assisted issue creation fails with unexpected argument; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-25 22:01 UTC; url=https://github.com/floadsio/aiops/issues/89
-- [github] 91: Migrate legacy API routes to v1 API (broken after issue #81 fix); status=closed; assignee=Michael Turko; updated=2025-11-25 05:28 UTC; url=https://github.com/floadsio/aiops/issues/91
-- [github] 92: Email notifications show wrong sender name (shared PAT owner instead of actual user); status=open; assignee=Michael Turko; updated=2025-11-25 05:39 UTC; url=https://github.com/floadsio/aiops/issues/92
-- [github] 93: Add session close/kill button to UI; status=open; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:38 UTC; url=https://github.com/floadsio/aiops/issues/93
-- [github] 94: Add like button to issues for expressing support; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/94
-- [github] 95: Add rocket reaction button to issues for expressing great ideas; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/95
-- [github] 96: Add heart button to issues for quick reactions; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/96
-- [github] 97: Add thumbs down reaction button to issues; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/97
-- [github] 101: Fix: Workspace initialization race condition causing false failures; status=closed; labels=bug, enhancement; updated=2025-11-26 08:47 UTC; url=https://github.com/floadsio/aiops/issues/101
-- [github] 102: Integrate self-hosted Ollama for AI-assisted issue text generation; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-25 18:02 UTC; url=https://github.com/floadsio/aiops/issues/102
-- [github] 106: Add end-to-end functional health checks for core aiops features; status=closed; assignee=Ivo Marino; labels=feature, cli, testing, health-monitoring, web-ui; updated=2025-11-25 15:54 UTC; url=https://github.com/floadsio/aiops/issues/106
-- [github] 111: Integrate self-hosted Ollama for AI-assisted issue generation; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ai; updated=2025-11-25 22:09 UTC; url=https://github.com/floadsio/aiops/issues/111
-- [github] 116: Add Ollama availability check to System Status > AI Tools; status=closed; assignee=Ivo Marino; labels=enhancement, ai-tools, system-status; updated=2025-11-25 23:25 UTC; url=https://github.com/floadsio/aiops/issues/116
-- [github] 117: CLI version display is hardcoded instead of reading from VERSION file; status=closed; assignee=Ivo Marino; labels=bug, cli; updated=2025-11-25 23:40 UTC; url=https://github.com/floadsio/aiops/issues/117
+        - [github] 125: Central Communication Page for Issue Comments; status=closed; assignee=Ivo Marino; labels=feature, communication; updated=2025-11-26 23:12 UTC; url=https://github.com/floadsio/aiops/issues/125
 - [github] 126: Lighten dark mode theme to match GitHub-inspired palette; status=open; assignee=Ivo Marino; updated=2025-11-26 18:04 UTC; url=https://github.com/floadsio/aiops/issues/126
 - [github] 118: Jira issue comments not syncing on refresh; status=closed; assignee=Ivo Marino; labels=bug, jira, sync; updated=2025-11-26 15:22 UTC; url=https://github.com/floadsio/aiops/issues/118
 - [github] 123: Add integration selector to AI-Assisted Issue creation form; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ui; updated=2025-11-26 10:04 UTC; url=https://github.com/floadsio/aiops/issues/123
+- [github] 101: Fix: Workspace initialization race condition causing false failures; status=closed; labels=bug, enhancement; updated=2025-11-26 08:47 UTC; url=https://github.com/floadsio/aiops/issues/101
 - [github] 124: AI tool selection ignored when starting issue work sessions; status=closed; assignee=Ivo Marino; labels=bug, cli, sessions; updated=2025-11-26 08:09 UTC; url=https://github.com/floadsio/aiops/issues/124
 - [github] 121: Fix issue/PR attribution to use current user instead of hardcoded author; status=closed; assignee=Michael Turko; labels=bug, authentication, user-context; updated=2025-11-26 06:24 UTC; url=https://github.com/floadsio/aiops/issues/121
 - [github] 119: Test Ollama integration and local LLM functionality; status=closed; assignee=Michael Turko; labels=ai, testing, integration; updated=2025-11-26 05:37 UTC; url=https://github.com/floadsio/aiops/issues/119
+- [github] 117: CLI version display is hardcoded instead of reading from VERSION file; status=closed; assignee=Ivo Marino; labels=bug, cli; updated=2025-11-25 23:40 UTC; url=https://github.com/floadsio/aiops/issues/117
+- [github] 116: Add Ollama availability check to System Status > AI Tools; status=closed; assignee=Ivo Marino; labels=enhancement, ai-tools, system-status; updated=2025-11-25 23:25 UTC; url=https://github.com/floadsio/aiops/issues/116
+- [github] 111: Integrate self-hosted Ollama for AI-assisted issue generation; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ai; updated=2025-11-25 22:09 UTC; url=https://github.com/floadsio/aiops/issues/111
+- [github] 89: Codex AI-assisted issue creation fails with unexpected argument; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-25 22:01 UTC; url=https://github.com/floadsio/aiops/issues/89
+- [github] 102: Integrate self-hosted Ollama for AI-assisted issue text generation; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-25 18:02 UTC; url=https://github.com/floadsio/aiops/issues/102
+- [github] 106: Add end-to-end functional health checks for core aiops features; status=closed; assignee=Ivo Marino; labels=feature, cli, testing, health-monitoring, web-ui; updated=2025-11-25 15:54 UTC; url=https://github.com/floadsio/aiops/issues/106
+- [github] 73: Enable file/image transfer from local machine to AI session workspace; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-25 15:09 UTC; url=https://github.com/floadsio/aiops/issues/73
+- [github] 97: Add thumbs down reaction button to issues; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/97
+- [github] 95: Add rocket reaction button to issues for expressing great ideas; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/95
+- [github] 96: Add heart button to issues for quick reactions; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/96
+- [github] 94: Add like button to issues for expressing support; status=closed; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:57 UTC; url=https://github.com/floadsio/aiops/issues/94
+- [github] 93: Add session close/kill button to UI; status=open; assignee=Michael Turko; labels=enhancement, feature, ui; updated=2025-11-25 09:38 UTC; url=https://github.com/floadsio/aiops/issues/93
+- [github] 92: Email notifications show wrong sender name (shared PAT owner instead of actual user); status=open; assignee=Michael Turko; updated=2025-11-25 05:39 UTC; url=https://github.com/floadsio/aiops/issues/92
+- [github] 91: Migrate legacy API routes to v1 API (broken after issue #81 fix); status=closed; assignee=Michael Turko; updated=2025-11-25 05:28 UTC; url=https://github.com/floadsio/aiops/issues/91
+- [github] 81: Add assignee filtering to issues list command; status=closed; assignee=Michael Turko; labels=enhancement, feature, draft, cli; updated=2025-11-25 04:35 UTC; url=https://github.com/floadsio/aiops/issues/81
+- [github] 87: Support per-integration Jira account IDs for attribution; status=closed; assignee=Michael Turko; labels=enhancement, feature; updated=2025-11-24 15:41 UTC; url=https://github.com/floadsio/aiops/issues/87
+- [github] 85: Add creator attribution comments to Jira issues; status=closed; assignee=Michael Turko; labels=enhancement, feature; updated=2025-11-24 14:35 UTC; url=https://github.com/floadsio/aiops/issues/85
+- [github] 76: Fix AI-created issues/PRs showing wrong creator (always ivomarino); status=closed; assignee=Ivo Marino; labels=bug, draft; updated=2025-11-24 14:27 UTC; url=https://github.com/floadsio/aiops/issues/76
+- [github] 71: Allow integrations to map to multiple projects; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-23 20:00 UTC; url=https://github.com/floadsio/aiops/issues/71
+- [github] 70: Display tenant name alongside project name to avoid confusion; status=closed; assignee=Ivo Marino; updated=2025-11-23 20:00 UTC; url=https://github.com/floadsio/aiops/issues/70
+- [github] 77: Draft: The AI assisted Issue functionality seems to be broken; status=closed; assignee=Michael Turko; labels=draft; updated=2025-11-22 08:19 UTC; url=https://github.com/floadsio/aiops/issues/77
+- [github] 65: Filter AGENTS.override.md from git dirty status check; status=closed; assignee=Michael Turko; labels=enhancement, ux; updated=2025-11-22 03:29 UTC; url=https://github.com/floadsio/aiops/issues/65
+- [github] 69: Fix 'aiops update' failure with stale generated files; status=closed; assignee=Ivo Marino; labels=bug, cli; updated=2025-11-21 09:33 UTC; url=https://github.com/floadsio/aiops/issues/69
+- [github] 68: Add feature to remap issues between aiops projects; status=closed; assignee=Ivo Marino; updated=2025-11-21 09:22 UTC; url=https://github.com/floadsio/aiops/issues/68
+- [github] 66: Add statistics and status page for issue resolution metrics; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-21 09:10 UTC; url=https://github.com/floadsio/aiops/issues/66
+- [github] 64: Add automatic initial prompt to AI tools to read AGENTS.override.md; status=open; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-20 18:20 UTC; url=https://github.com/floadsio/aiops/issues/64
+- [github] 62: Auto-generate AGENTS.override.md for all AI sessions with merged context; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-20 18:15 UTC; url=https://github.com/floadsio/aiops/issues/62
+- [github] 56: When I want to start a new Session in aiops and select Codex or other AI, it should not reuse another tool; status=closed; assignee=Michael Turko; labels=bug; updated=2025-11-20 17:38 UTC; url=https://github.com/floadsio/aiops/issues/56
+- [github] 55: Add Activity page to track all aiops operations; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-20 12:05 UTC; url=https://github.com/floadsio/aiops/issues/55
+- [github] 53: Enable Claude Code yolo mode for AI sessions by default; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 23:13 UTC; url=https://github.com/floadsio/aiops/issues/53
+- [github] 51: Auto-assign AI-assisted issues to creating user; status=closed; labels=bug; updated=2025-11-19 23:01 UTC; url=https://github.com/floadsio/aiops/issues/51
+- [github] 49: Handle failed integrations gracefully during issue sync; status=closed; assignee=Ivo Marino; labels=bug; updated=2025-11-19 22:50 UTC; url=https://github.com/floadsio/aiops/issues/49
+- [github] 36: Feature: AI-assisted issue creation with automated branch and session setup; status=closed; assignee=Ivo Marino; labels=enhancement, feature, ai; updated=2025-11-19 22:36 UTC; url=https://github.com/floadsio/aiops/issues/36
+- [github] 42: Draft: When you refresh issues it may fail because a private GitLab...; status=closed; labels=bug, draft; updated=2025-11-19 22:22 UTC; url=https://github.com/floadsio/aiops/issues/42
+- [github] 34: Evaluate using official CLI tools (gh, glab) for git operations; status=closed; assignee=Ivo Marino; labels=enhancement, feature, evaluation; updated=2025-11-19 17:22 UTC; url=https://github.com/floadsio/aiops/issues/34
+- [github] 32: SSH key management: Store keys in database for multi-user access; status=closed; assignee=Ivo Marino; labels=enhancement, feature, security; updated=2025-11-19 17:22 UTC; url=https://github.com/floadsio/aiops/issues/32
+- [github] 31: Add --file option to 'aiops issues comment' command; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 15:36 UTC; url=https://github.com/floadsio/aiops/issues/31
+- [github] 15: Feature: Add GitHub Comment Editing Support; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 13:36 UTC; url=https://github.com/floadsio/aiops/issues/15
+- [github] 19: Issue: Per-user workspaces require directory traversal permissions; status=closed; assignee=Ivo Marino; labels=bug, infrastructure, workspace; updated=2025-11-19 13:25 UTC; url=https://github.com/floadsio/aiops/issues/19
+- [github] 16: User-specific integration credentials for personal tokens; status=closed; assignee=Ivo Marino; updated=2025-11-19 13:25 UTC; url=https://github.com/floadsio/aiops/issues/16
+- [github] 29: Add pr-merge command to aiops CLI for GitHub and GitLab; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-19 13:13 UTC; url=https://github.com/floadsio/aiops/issues/29
+- [github] 22: Fix tmux session buttons visibility on mobile (responsive mode); status=closed; assignee=Ivo Marino; updated=2025-11-19 13:13 UTC; url=https://github.com/floadsio/aiops/issues/22
+- [github] 27: Fix AI tool button routing - wrong tool started from pinned issues; status=closed; assignee=Ivo Marino; updated=2025-11-19 13:13 UTC; url=https://github.com/floadsio/aiops/issues/27
+- [github] 25: Group duplicate assignee names in Issues dashboard; status=closed; assignee=Ivo Marino; updated=2025-11-19 10:53 UTC; url=https://github.com/floadsio/aiops/issues/25
+- [github] 23: Add web UI for editing integration names and details; status=closed; assignee=Ivo Marino; updated=2025-11-19 10:12 UTC; url=https://github.com/floadsio/aiops/issues/23
+- [github] 24: Fix 500 error when setting personal API token for integration; status=closed; assignee=Ivo Marino; updated=2025-11-19 10:04 UTC; url=https://github.com/floadsio/aiops/issues/24
+- [github] 21: Decouple tmux sessions from backend process lifecycle; status=closed; assignee=Ivo Marino; updated=2025-11-18 15:29 UTC; url=https://github.com/floadsio/aiops/issues/21
+- [github] 20: Bug: Per-user sessions not using sudo when reusing existing tmux windows; status=closed; assignee=Ivo Marino; labels=bug, critical, security; updated=2025-11-18 13:32 UTC; url=https://github.com/floadsio/aiops/issues/20
+- [github] 18: Setup: Michael needs personal SSH key for GitHub authentication; status=closed; assignee=Ivo Marino; labels=setup, infrastructure; updated=2025-11-18 13:15 UTC; url=https://github.com/floadsio/aiops/issues/18
+- [github] 17: Issue: Confusing 'Status unavailable' message for newly initialized workspaces; status=closed; assignee=Ivo Marino; labels=bug, ux; updated=2025-11-18 12:29 UTC; url=https://github.com/floadsio/aiops/issues/17
+- [github] 13: Feature: Database Backup and Download via CLI and Web UI; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-18 11:45 UTC; url=https://github.com/floadsio/aiops/issues/13
+- [github] 14: Feature: Add GitLab Issue Comment Support; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-18 02:49 UTC; url=https://github.com/floadsio/aiops/issues/14
+- [github] 12: Cleanup tests and test CLI commenting features; status=closed; updated=2025-11-17 22:07 UTC; url=https://github.com/floadsio/aiops/issues/12
+- [github] 11: Feature: Global AGENTS.md content for override files; status=closed; assignee=Ivo Marino; labels=enhancement, feature; updated=2025-11-17 22:00 UTC; url=https://github.com/floadsio/aiops/issues/11
+- [github] 10: Publish aiops-cli v0.3.0 to PyPI; status=open; assignee=Ivo Marino; labels=enhancement; updated=2025-11-17 21:45 UTC; url=https://github.com/floadsio/aiops/issues/10
+- [github] 8: Issue: Implement aiops CLI Client for macOS & Linux; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-17 21:00 UTC; url=https://github.com/floadsio/aiops/issues/8
+- [github] 9: Publish aiops-cli to PyPI; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-17 20:56 UTC; url=https://github.com/floadsio/aiops/issues/9
+- [github] 7: Issue: Implement a Public AIops API for AI Agents and CLI Clients; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-16 22:55 UTC; url=https://github.com/floadsio/aiops/issues/7
+- [github] 4: Issue: Improve UI Responsiveness + Redesign Main Menu Layout; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-16 13:43 UTC; url=https://github.com/floadsio/aiops/issues/4
+- [github] 5: Issue: Add Project Filter to Issues Page; status=closed; assignee=Ivo Marino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/5
+- [github] 3: Feature: Create New Issues Directly from the AIops Issues Page; status=closed; assignee=Ivo Marino; updated=2025-11-15 17:34 UTC; url=https://github.com/floadsio/aiops/issues/3
+- [github] 6: Issue: Add Close Button to Pinned Issues on Dashboard; status=closed; assignee=Ivo Marino; updated=2025-11-15 17:33 UTC; url=https://github.com/floadsio/aiops/issues/6
+- [github] 1: Add Cross-Platform Issue Creation + User Mapping Support in aiops; status=closed; assignee=Ivo Marino; labels=enhancement; updated=2025-11-15 14:41 UTC; url=https://github.com/floadsio/aiops/issues/1
 
         ## Workflow Reminders
         1. Confirm the acceptance criteria with the external issue tracker.

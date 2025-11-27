@@ -16,7 +16,6 @@ from flask import (
     Blueprint,
     current_app,
     flash,
-    g,
     jsonify,
     redirect,
     render_template,
@@ -31,7 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from ..constants import DEFAULT_TENANT_COLOR, sanitize_tenant_color
-from ..extensions import csrf, db
+from ..extensions import db
 from ..forms.admin import (
     AIToolUpdateForm,
     APIKeyCreateForm,
@@ -1045,37 +1044,6 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
             }
         )
 
-    gemini_actions = [
-        _make_action(
-            "npm",
-            label="Update via npm",
-            helper="Runs GEMINI_UPDATE_COMMAND.",
-            command=config.get("GEMINI_UPDATE_COMMAND"),
-        ),
-    ]
-    gemini_brew_package = (config.get("GEMINI_BREW_PACKAGE") or "").strip()
-    gemini_actions.append(
-        _make_action(
-            "brew",
-            label="Update via Homebrew",
-            helper="Runs brew upgrade for GEMINI_BREW_PACKAGE.",
-            command=f"brew upgrade {gemini_brew_package}"
-            if gemini_brew_package
-            else "",
-        )
-    )
-    gemini_actions = [action for action in gemini_actions if action]
-    if gemini_actions:
-        cards.append(
-            {
-                "key": "gemini",
-                "title": "✨ Gemini CLI",
-                "description": "Upgrade the Gemini CLI for browser-based terminals.",
-                "actions": gemini_actions,
-                "versions": None,  # Load versions on-demand for better page performance
-            }
-        )
-
     claude_actions = [
         _make_action(
             "npm",
@@ -1400,7 +1368,6 @@ def run_ai_tool_update_command(tool: str):
     tool_key = tool.lower().strip()
     tool_label = {
         "codex": "Codex CLI",
-        "gemini": "Gemini CLI",
         "claude": "Claude CLI",
     }.get(tool_key, tool.title())
 
@@ -2371,9 +2338,7 @@ def create_assisted_issue():
 def confirm_assisted_issue():
     """Create an issue with AI assistance (Step 2: Confirm and create)."""
     from flask import session as flask_session
-    from ..models import ProjectIntegration, ExternalIssue, PinnedIssue
-    from ..services.ai_issue_generator import generate_branch_name
-    from ..services.git_service import checkout_or_create_branch
+    from ..models import ProjectIntegration, ExternalIssue
     from ..services.issues import (
         create_issue_for_project_integration,
         serialize_issue_comments,
@@ -4267,7 +4232,6 @@ def view_activity():
 @admin_required
 def export_activity():
     """Export activity log to CSV or JSON."""
-    from ..models import Activity
     from ..services.activity_service import get_recent_activities
     import csv
     import io
@@ -4456,7 +4420,6 @@ def activity_stats():
 @admin_required
 def activity_list_api():
     """List activities via API (for CLI)."""
-    from ..models import Activity
     from ..services.activity_service import get_recent_activities
 
     # Get filter parameters (same as view_activity)

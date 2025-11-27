@@ -9,19 +9,6 @@ INSTANCE_DIR = BASE_DIR / "instance"
 INSTANCE_PATH = str(INSTANCE_DIR.resolve())
 
 
-def _ensure_gemini_approval_mode(command: str, mode: str | None) -> str:
-    if not mode:
-        return command
-    try:
-        tokens = shlex.split(command)
-    except ValueError:
-        return command
-    for token in tokens:
-        if token.startswith("--approval-mode"):
-            return command
-    return f"{command} --approval-mode {mode}"
-
-
 def _get_int_env_var(name: str, default: int) -> int:
     value = os.getenv(name)
     if value is None:
@@ -118,15 +105,10 @@ class Config:
         "REPO_STORAGE_PATH", str((INSTANCE_DIR / "repos").resolve())
     )
     AIOPS_ROOT = os.getenv("AIOPS_ROOT", str(BASE_DIR.resolve()))
-    GEMINI_APPROVAL_MODE = os.getenv("GEMINI_APPROVAL_MODE", "auto_edit")
     CLI_EXTRA_PATHS = os.getenv("CLI_EXTRA_PATHS", "/opt/homebrew/bin:/usr/local/bin")
     CODEX_SANDBOX_MODE = os.getenv("CODEX_SANDBOX_MODE", "danger-full-access")
     CODEX_APPROVAL_MODE = os.getenv("CODEX_APPROVAL_MODE", "never")
     CLAUDE_PERMISSION_MODE = os.getenv("CLAUDE_PERMISSION_MODE", "acceptEdits")
-    _GEMINI_COMMAND = _ensure_gemini_approval_mode(
-        os.getenv("GEMINI_COMMAND", "gemini"),
-        GEMINI_APPROVAL_MODE,
-    )
     _CODEX_COMMAND = _ensure_codex_flags(
         os.getenv("CODEX_COMMAND", "codex"),
         sandbox_mode=CODEX_SANDBOX_MODE,
@@ -139,7 +121,6 @@ class Config:
     ALLOWED_AI_TOOLS = {
         "codex": _CODEX_COMMAND,
         "aider": os.getenv("AIDER_COMMAND", "aider"),
-        "gemini": _GEMINI_COMMAND,
         "claude": _CLAUDE_COMMAND,
         "shell": os.getenv("DEFAULT_AI_SHELL", "/bin/bash"),
     }
@@ -196,8 +177,6 @@ class Config:
         "LOG_FILE",
         str((BASE_DIR / "logs" / "aiops.log").resolve()),
     )
-    GEMINI_CONFIG_DIR = os.getenv("GEMINI_CONFIG_DIR", str((Path.home() / ".gemini")))
-    GEMINI_DEFAULT_MODEL = os.getenv("GEMINI_DEFAULT_MODEL", "gemini-2.5-pro")
     CODEX_CONFIG_DIR = os.getenv("CODEX_CONFIG_DIR", str((Path.home() / ".codex")))
     CLAUDE_CONFIG_DIR = os.getenv("CLAUDE_CONFIG_DIR", str((Path.home() / ".claude")))
     CODEX_UPDATE_COMMAND = os.getenv(
@@ -208,15 +187,6 @@ class Config:
     CODEX_LATEST_VERSION_COMMAND = os.getenv(
         "CODEX_LATEST_VERSION_COMMAND",
         "npm view @openai/codex version",
-    )
-    GEMINI_UPDATE_COMMAND = os.getenv(
-        "GEMINI_UPDATE_COMMAND", "npm install -g @google/gemini-cli"
-    )
-    GEMINI_BREW_PACKAGE = os.getenv("GEMINI_BREW_PACKAGE", "")
-    GEMINI_VERSION_COMMAND = os.getenv("GEMINI_VERSION_COMMAND", "gemini --version")
-    GEMINI_LATEST_VERSION_COMMAND = os.getenv(
-        "GEMINI_LATEST_VERSION_COMMAND",
-        "npm view @google/gemini-cli version",
     )
     CLAUDE_UPDATE_COMMAND = os.getenv(
         "CLAUDE_UPDATE_COMMAND", "npm install -g @anthropic-ai/claude-code"

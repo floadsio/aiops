@@ -335,14 +335,13 @@ class UserIntegrationCredential(BaseModel, TimestampMixin):
 
 
 class AISession(BaseModel, TimestampMixin):
-    """Tracks AI tool sessions for resumption across Claude, Codex, and Gemini.
+    """Tracks AI tool sessions for resumption across Claude and Codex.
 
     Stores session identifiers that can be used to resume interrupted or
     completed AI sessions via the web UI. Each tool has different resumption
     patterns:
     - Claude: uses session UUIDs with --resume flag
     - Codex: uses session UUIDs with resume command
-    - Gemini: uses custom tags with /chat resume command
     """
 
     __tablename__ = "ai_sessions"

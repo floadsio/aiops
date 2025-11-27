@@ -1,4 +1,3 @@
-import base64
 import json
 import shlex
 from types import SimpleNamespace
@@ -10,11 +9,6 @@ from app.ai_sessions import (
 from app.config import Config
 from app.services.claude_config_service import save_claude_api_key
 from app.services.codex_config_service import save_codex_auth
-from app.services.gemini_config_service import (
-    save_google_accounts,
-    save_oauth_creds,
-    save_settings_json,
-)
 from app.services.git_service import build_project_git_env
 
 
@@ -78,7 +72,6 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
 
     app = create_app(TestConfig, instance_path=tmp_path / "instance")
@@ -151,7 +144,6 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
 
     app = create_app(TestConfig, instance_path=tmp_path / "instance")
@@ -212,7 +204,6 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
 
     app = create_app(TestConfig, instance_path=tmp_path / "instance")
@@ -268,99 +259,12 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
         assert pane.commands == [("clear", True)]
 
 
-def test_create_session_exports_gemini_config(monkeypatch, tmp_path):
-    class TestConfig(Config):
-        TESTING = True
-        WTF_CSRF_ENABLED = False
-        REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
-
-    app = create_app(TestConfig, instance_path=tmp_path / "instance")
-
-    with app.app_context():
-        project_path = tmp_path / "repos" / "demo"
-        project_path.mkdir(parents=True, exist_ok=True)
-        project = SimpleNamespace(
-            id=4,
-            name="Demo Project",
-            local_path=str(project_path),
-            tenant=SimpleNamespace(name="Tenant Beta"),
-        )
-
-        pane = FakePane()
-        window = FakeWindow("demo-project-p4")
-        window._pane = pane
-        session_obj = FakeSession("aiops", window)
-
-        monkeypatch.setattr(
-            "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
-                session_obj,
-                window,
-                True,
-            ),
-        )
-        monkeypatch.setattr("app.ai_sessions.shutil.which", lambda _: "/usr/bin/tmux")
-        monkeypatch.setattr("app.ai_sessions.pty.fork", lambda: (2468, 42))
-        monkeypatch.setattr("app.ai_sessions._set_winsize", lambda *_, **__: None)
-
-        class DummyThread:
-            def __init__(self, *_, **__):
-                pass
-
-            def start(self):
-                pass
-
-        monkeypatch.setattr(
-            "app.ai_sessions.threading.Thread", lambda *a, **k: DummyThread()
-        )
-
-        captured = {}
-
-        def fake_register(session):
-            captured["session"] = session
-            return session
-
-        monkeypatch.setattr("app.ai_sessions._register_session", fake_register)
-
-        save_google_accounts(json.dumps({"accounts": []}), user_id=303)
-        save_oauth_creds(json.dumps({"token": "demo"}), user_id=303)
-        save_settings_json(json.dumps({"model": "gemini-2.5-flash"}), user_id=303)
-
-        session = create_session(project, user_id=303, tool="gemini")
-
-        expected_command = app.config["ALLOWED_AI_TOOLS"]["gemini"]
-        assert "--approval-mode auto_edit" in expected_command
-        assert session.command == expected_command
-        git_env = build_project_git_env(project)
-        expected_git = (
-            f"export GIT_SSH_COMMAND={shlex.quote(git_env['GIT_SSH_COMMAND'])}"
-        )
-        cli_home = tmp_path / ".gemini"
-
-        assert pane.commands == [
-            (expected_git, True),
-            ("clear", True),
-            (expected_command, True),
-        ]
-        settings_path = tmp_path / ".gemini" / "user-303" / "settings.json"
-        assert json.loads(settings_path.read_text())["model"] == "gemini-2.5-flash"
-        home_settings = json.loads((cli_home / "settings.json").read_text())
-        assert home_settings.get("model") == "gemini-2.5-flash"
-        assert json.loads((cli_home / "google_accounts.json").read_text()) == {
-            "accounts": []
-        }
-        assert json.loads((cli_home / "oauth_creds.json").read_text()) == {
-            "token": "demo"
-        }
-
 
 def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
     class TestConfig(Config):
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
 
     app = create_app(TestConfig, instance_path=tmp_path / "instance")
@@ -433,7 +337,6 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
         CLAUDE_CONFIG_DIR = str(tmp_path / ".claude")
 
@@ -507,7 +410,6 @@ def test_per_user_session_injects_tenant_key_via_ssh_agent(monkeypatch, tmp_path
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
 
     app = create_app(TestConfig, instance_path=tmp_path / "instance")
@@ -669,7 +571,6 @@ def test_create_session_with_linux_user_switching(monkeypatch, tmp_path):
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
         # Configure Linux user mapping
         LINUX_USER_STRATEGY = "mapping"
@@ -769,7 +670,6 @@ def test_create_session_logs_user_switch_failure(monkeypatch, tmp_path, capsys):
         TESTING = True
         WTF_CSRF_ENABLED = False
         REPO_STORAGE_PATH = str(tmp_path / "repos")
-        GEMINI_CONFIG_DIR = str(tmp_path / ".gemini")
         CODEX_CONFIG_DIR = str(tmp_path / ".codex")
         LINUX_USER_STRATEGY = "mapping"
         LINUX_USER_MAPPING = {"user@example.com": "nonexistent_user_xyz"}

@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import re
 import uuid
-from typing import Any
 
 from flask import current_app, g, jsonify, request
 from flask_login import current_user  # type: ignore

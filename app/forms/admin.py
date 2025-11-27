@@ -604,7 +604,6 @@ class AIAssistedIssueForm(FlaskForm):
         choices=[
             ("claude", "Claude"),
             ("codex", "Codex"),
-            ("gemini", "Gemini"),
         ],
         default="claude",
         validators=[DataRequired()],

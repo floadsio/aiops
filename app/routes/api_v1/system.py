@@ -24,7 +24,6 @@ from . import api_v1_bp
 
 AI_TOOL_LABELS = {
     "codex": "Codex CLI",
-    "gemini": "Gemini CLI",
     "claude": "Claude CLI",
 }
 

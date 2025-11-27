@@ -47,7 +47,6 @@ from ..services.ansible_runner import (
     get_semaphore_templates,
     run_ansible_playbook,
 )
-from ..services.ai_status_service import AIStatusError, get_claude_status
 from ..services.git_service import (
     commit_project_files,
     get_project_commit_history,
@@ -1143,7 +1142,7 @@ def comment_issue(project_id: int, issue_id: int):
         flash("Comment operation timed out.", "danger")
     except IssueSyncError as exc:
         flash(f"Failed to sync issue: {str(exc)}", "danger")
-    except Exception as exc:  # noqa: BLE001
+    except Exception:  # noqa: BLE001
         current_app.logger.exception("Failed to add comment to issue %s", issue_id)
         flash("An error occurred while adding your comment.", "danger")
 

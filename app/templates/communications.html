@@ -47,10 +47,10 @@
       border: 1px solid rgba(148, 163, 184, 0.25);
       border-radius: 0.75rem;
       overflow: hidden;
-      background: rgba(15, 23, 42, 0.01);
+      background: rgba(26, 29, 35, 0.01);
     }
     [data-theme="dark"] .communication-thread {
-      background: rgba(15, 23, 42, 0.2);
+      background: rgba(26, 29, 35, 0.2);
       border-color: rgba(148, 163, 184, 0.35);
     }
 
@@ -454,7 +454,7 @@
     }
 
     .issue-post__body pre {
-      background: rgba(15, 23, 42, 0.05);
+      background: rgba(26, 29, 35, 0.05);
       border: 1px solid rgba(148, 163, 184, 0.25);
       border-radius: 0.4rem;
       padding: 0.75rem;
@@ -463,7 +463,7 @@
       margin: 0.75rem 0;
     }
     [data-theme="dark"] .issue-post__body pre {
-      background: rgba(15, 23, 42, 0.35);
+      background: rgba(26, 29, 35, 0.35);
       border-color: rgba(148, 163, 184, 0.35);
     }
 
@@ -690,7 +690,7 @@
     }
 
     .comment-body pre {
-      background: rgba(15, 23, 42, 0.05);
+      background: rgba(26, 29, 35, 0.05);
       border: 1px solid rgba(148, 163, 184, 0.25);
       border-radius: 0.4rem;
       padding: 0.75rem;
@@ -699,7 +699,7 @@
       margin: 0.75rem 0;
     }
     [data-theme="dark"] .comment-body pre {
-      background: rgba(15, 23, 42, 0.35);
+      background: rgba(26, 29, 35, 0.35);
       border-color: rgba(148, 163, 184, 0.35);
     }
 
@@ -803,12 +803,12 @@
     .comment-reply-form {
       margin-top: 0.75rem;
       padding: 0.75rem;
-      background: rgba(15, 23, 42, 0.05);
+      background: rgba(26, 29, 35, 0.05);
       border-radius: 0.3rem;
       border: 1px solid rgba(148, 163, 184, 0.15);
     }
     [data-theme="dark"] .comment-reply-form {
-      background: rgba(15, 23, 42, 0.15);
+      background: rgba(26, 29, 35, 0.15);
       border-color: rgba(148, 163, 184, 0.25);
     }
 
@@ -856,11 +856,11 @@
       display: none;
       padding: 1rem;
       border-top: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(15, 23, 42, 0.02);
+      background: rgba(26, 29, 35, 0.02);
       margin-top: 0.75rem;
     }
     [data-theme="dark"] .reply-form {
-      background: rgba(15, 23, 42, 0.15);
+      background: rgba(26, 29, 35, 0.15);
       border-top-color: rgba(148, 163, 184, 0.3);
     }
 
@@ -1468,7 +1468,7 @@ function renderThread(thread) {
           </button>
         </div>
         <!-- Reply form for this comment -->
-        <div class="comment-reply-form collapsed" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(15, 23, 42, 0.05); border-radius: 0.3rem; display: none;" data-theme-dark-bg="rgba(15, 23, 42, 0.15)">
+        <div class="comment-reply-form collapsed" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(26, 29, 35, 0.05); border-radius: 0.3rem; display: none;" data-theme-dark-bg="rgba(26, 29, 35, 0.15)">
           <textarea placeholder="Reply to ${escapeHtml(comment.author.display_name || comment.author.remote_name)}..." style="width: 100%; min-height: 70px; margin: 0 0 0.5rem 0; font-size: 0.95rem; font-family: inherit; padding: 0.5rem;" class="comment-reply-textarea"></textarea>
           <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button onclick="submitCommentReply(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" type="button" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;">

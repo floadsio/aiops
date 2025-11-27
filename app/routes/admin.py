@@ -3342,17 +3342,6 @@ def manage_integrations():
             project_form.project_id.errors.append("Selected project not found.")
             valid = False
 
-        if (
-            valid
-            and integration
-            and project
-            and integration.tenant_id != project.tenant_id
-        ):
-            project_form.integration_id.errors.append(
-                "Integration tenant does not match the selected project."
-            )
-            valid = False
-
         if valid and integration and project:
             existing_link = ProjectIntegration.query.filter_by(
                 integration_id=integration.id,

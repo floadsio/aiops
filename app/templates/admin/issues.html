@@ -20,7 +20,8 @@
     .issues-filter-form {
       display: contents;
     }
-    .issues-filters select {
+    .issues-filters select,
+    .issues-filters input[type="text"] {
       margin: 0;
       border-radius: 0.5rem;
       border: 1px solid rgba(148, 163, 184, 0.6);
@@ -28,7 +29,8 @@
       min-width: 180px;
       flex: 1 1 auto;
     }
-    [data-theme="dark"] .issues-filters select {
+    [data-theme="dark"] .issues-filters select,
+    [data-theme="dark"] .issues-filters input[type="text"] {
       border-color: rgba(148, 163, 184, 0.5);
       background: rgba(15, 23, 42, 0.65);
       color: rgba(226, 232, 240, 0.9);
@@ -503,7 +505,7 @@
       flex-wrap: wrap;
       font-size: 0.8rem;
       color: #64748b;
-      margin: 0.75rem 0;
+      margin: 0.5rem 0;
     }
     [data-theme="dark"] .issue-card__meta {
       color: rgba(148, 163, 184, 0.75);
@@ -699,21 +701,21 @@
 
     /* Issue description styling (from communications) */
     .issue-card__description {
-      line-height: 1.6;
+      line-height: 1.4;
       color: var(--pico-color-slate-800);
       word-wrap: break-word;
-      padding: 1rem;
-      background: rgba(241, 245, 249, 0.5);
-      border-radius: 0.5rem;
-      border-left: 3px solid var(--pico-primary);
-      margin-top: 0.75rem;
+      margin: 0.25rem 0 0 0;
+      padding: 0;
+      background: transparent;
+      border-radius: 0;
+      border-left: none;
     }
     [data-theme="dark"] .issue-card__description {
       color: rgba(226, 232, 240, 0.85);
-      background: rgba(30, 41, 59, 0.4);
+      background: transparent;
     }
     .issue-card__description p {
-      margin: 0.5rem 0;
+      margin: 0.15rem 0;
     }
     .issue-card__description p:first-child {
       margin-top: 0;
@@ -724,6 +726,9 @@
     .issue-card__description a {
       color: var(--md-primary);
       text-decoration: underline;
+    }
+    [data-theme="dark"] .issue-card__description a {
+      color: #42a5f5;
     }
     .issue-card__description code {
       background: rgba(148, 163, 184, 0.1);
@@ -739,32 +744,83 @@
       background: rgba(15, 23, 42, 0.05);
       border: 1px solid rgba(148, 163, 184, 0.25);
       border-radius: 0.4rem;
-      padding: 0.75rem;
+      padding: 0.5rem;
       overflow-x: auto;
       font-size: 0.85rem;
-      margin: 0.75rem 0;
+      margin: 0.3rem 0;
     }
     [data-theme="dark"] .issue-card__description pre {
       background: rgba(15, 23, 42, 0.35);
       border-color: rgba(148, 163, 184, 0.35);
     }
+    .issue-card__description pre code {
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+    }
     .issue-card__description blockquote {
-      border-left: 3px solid var(--pico-primary);
+      border-left: 3px solid var(--md-primary);
       padding-left: 1rem;
-      margin-left: 0;
+      margin: 0.3rem 0;
       color: #64748b;
       font-style: italic;
     }
+    [data-theme="dark"] .issue-card__description blockquote {
+      color: rgba(148, 163, 184, 0.75);
+    }
     .issue-card__description ul,
     .issue-card__description ol {
-      margin: 0.75rem 0;
-      padding-left: 2rem;
+      margin: 0.2rem 0;
+      padding-left: 1.75rem;
+    }
+    .issue-card__description li {
+      margin: 0.1rem 0;
+    }
+    .issue-card__description h1,
+    .issue-card__description h2,
+    .issue-card__description h3,
+    .issue-card__description h4,
+    .issue-card__description h5,
+    .issue-card__description h6 {
+      margin: 0.5rem 0 0.2rem 0;
+      font-weight: 600;
+    }
+    .issue-card__description h1 {
+      font-size: 1.3rem;
+      border-bottom: 2px solid rgba(148, 163, 184, 0.25);
+      padding-bottom: 0.3rem;
+    }
+    .issue-card__description h2 {
+      font-size: 1.15rem;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      padding-bottom: 0.15rem;
+    }
+    .issue-card__description h3 {
+      font-size: 1.05rem;
+    }
+    .issue-card__description hr {
+      margin: 0.4rem 0;
+      border: none;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .issue-card__description del {
+      color: #64748b;
+      text-decoration: line-through;
+    }
+    [data-theme="dark"] .issue-card__description del {
+      color: rgba(148, 163, 184, 0.75);
+    }
+    .issue-card__description strong {
+      font-weight: 700;
+    }
+    .issue-card__description em {
+      font-style: italic;
     }
     .issue-card__details summary {
       cursor: pointer;
       font-weight: 500;
       color: var(--pico-primary);
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.35rem;
     }
     .provider-badge {
       display: inline-flex;
@@ -819,6 +875,12 @@
     <input type="hidden" name="sort" value="{{ sort_state.key }}">
     <input type="hidden" name="direction" value="{{ sort_state.direction }}">
   </form>
+  <input
+    type="text"
+    id="issueSearchInput"
+    placeholder="Search issues..."
+    aria-label="Search issues"
+  >
 </div>
 
 <!-- Actions Section -->
@@ -1575,6 +1637,35 @@
       });
 
       syncState();
+    });
+  })();
+
+  // Client-side search filter
+  (function() {
+    const searchInput = document.getElementById('issueSearchInput');
+    const issueCards = document.querySelectorAll('.issue-card');
+
+    if (!searchInput) return;
+
+    searchInput.addEventListener('input', function() {
+      const searchQuery = this.value.toLowerCase().trim();
+
+      issueCards.forEach(card => {
+        if (!searchQuery) {
+          card.style.display = '';
+          return;
+        }
+
+        const title = card.querySelector('.issue-card__title')?.textContent.toLowerCase() || '';
+        const description = card.querySelector('.issue-card__description')?.textContent.toLowerCase() || '';
+        const meta = card.querySelector('.issue-card__meta')?.textContent.toLowerCase() || '';
+
+        const matches = title.includes(searchQuery) ||
+                       description.includes(searchQuery) ||
+                       meta.includes(searchQuery);
+
+        card.style.display = matches ? '' : 'none';
+      });
     });
   })();
 </script>

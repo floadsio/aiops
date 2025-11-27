@@ -316,6 +316,14 @@ def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:
         if created_at and created_at.tzinfo is None:
             created_at = created_at.replace(tzinfo=timezone.utc)
         comment_id = getattr(comment, "id", None)
+
+        # Extract body_html if available from GitHub API
+        # GitHub provides this via raw_data when using Accept: application/vnd.github.html+json
+        body_html = None
+        raw_data = getattr(comment, "raw_data", None)
+        if isinstance(raw_data, dict):
+            body_html = raw_data.get("body_html")
+
         comments.append(
             IssueCommentPayload(
                 author=str(author) if author else None,
@@ -323,6 +331,7 @@ def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:
                 created_at=created_at,
                 url=getattr(comment, "html_url", None),
                 id=str(comment_id) if comment_id else None,
+                body_html=str(body_html) if body_html else None,
             )
         )
         if len(comments) > MAX_COMMENTS_PER_ISSUE:

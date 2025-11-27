@@ -128,113 +128,6 @@
     [data-theme="dark"] .issue-comment__timestamp {
       color: rgba(148, 163, 184, 0.75);
     }
-    .issue-comment__body {
-      line-height: 1.6;
-      color: var(--pico-color-slate-800);
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-    [data-theme="dark"] .issue-comment__body {
-      color: rgba(226, 232, 240, 0.85);
-    }
-    .issue-comment__body p {
-      margin: 0.5rem 0;
-    }
-    .issue-comment__body p:first-child {
-      margin-top: 0;
-    }
-    .issue-comment__body p:last-child {
-      margin-bottom: 0;
-    }
-    .issue-comment__body pre {
-      background: rgba(26, 29, 35, 0.05);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 0.4rem;
-      padding: 0.75rem;
-      overflow-x: auto;
-      font-size: 0.85rem;
-    }
-    [data-theme="dark"] .issue-comment__body pre {
-      background: rgba(26, 29, 35, 0.35);
-      border-color: rgba(148, 163, 184, 0.35);
-    }
-    .issue-comment__body code {
-      background: rgba(148, 163, 184, 0.1);
-      padding: 0.2rem 0.4rem;
-      border-radius: 0.2rem;
-      font-family: monospace;
-      font-size: 0.9em;
-    }
-    [data-theme="dark"] .issue-comment__body code {
-      background: rgba(148, 163, 184, 0.2);
-    }
-    .issue-comment__body blockquote {
-      border-left: 3px solid rgba(148, 163, 184, 0.5);
-      padding-left: 1rem;
-      margin-left: 0;
-      color: #64748b;
-      font-style: italic;
-    }
-    [data-theme="dark"] .issue-comment__body blockquote {
-      border-left-color: rgba(148, 163, 184, 0.6);
-      color: rgba(148, 163, 184, 0.8);
-    }
-    .jira-mention {
-      background: rgba(59, 130, 246, 0.1);
-      padding: 0.2rem 0.4rem;
-      border-radius: 0.3rem;
-      font-weight: 500;
-      color: var(--pico-color-blue-600);
-    }
-    [data-theme="dark"] .jira-mention {
-      background: rgba(59, 130, 246, 0.2);
-      color: var(--pico-color-blue-300);
-    }
-    /* Jira code panel styling */
-    .issue-comment__body .code.panel,
-    .issue-comment__body div.code.panel {
-      background: rgba(26, 29, 35, 0.05);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      border-radius: 0.5rem;
-      margin: 0.75rem 0;
-      overflow: hidden;
-    }
-    [data-theme="dark"] .issue-comment__body .code.panel,
-    [data-theme="dark"] .issue-comment__body div.code.panel {
-      background: rgba(26, 29, 35, 0.45);
-      border-color: rgba(148, 163, 184, 0.4);
-    }
-    .issue-comment__body .code.panel .codeContent,
-    .issue-comment__body .code.panel .codeContent.panelContent {
-      padding: 0;
-      margin: 0;
-    }
-    .issue-comment__body .code.panel pre {
-      margin: 0;
-      padding: 0.85rem 1rem;
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-      font-size: 0.85rem;
-      line-height: 1.5;
-      overflow-x: auto;
-      white-space: pre;
-    }
-    /* Inline code patterns styling */
-    .issue-comment__body .inline-code {
-      background: rgba(26, 29, 35, 0.08);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 0.3rem;
-      padding: 0.15rem 0.4rem;
-      font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
-      font-size: 0.85em;
-      white-space: nowrap;
-    }
-    [data-theme="dark"] .issue-comment__body .inline-code {
-      background: rgba(26, 29, 35, 0.5);
-      border-color: rgba(148, 163, 184, 0.35);
-    }
 
     /* Issue Cards Grid */
     .issues-grid {
@@ -444,17 +337,6 @@
       opacity: 1;
     }
 
-    .issue-comment__body {
-      line-height: 1.6;
-      color: var(--pico-color-slate-800);
-      word-wrap: break-word;
-      overflow-wrap: break-word;
-    }
-
-    [data-theme="dark"] .issue-comment__body {
-      color: rgba(226, 232, 240, 0.85);
-    }
-
     .issue-comment__reply-toggle {
       display: inline-flex;
       align-items: center;
@@ -504,59 +386,6 @@
     .issue-comment__reply-form button {
       font-size: 0.85rem;
       padding: 0.35rem 0.7rem;
-    }
-
-    .issue-comment__body p {
-      margin: 0.5rem 0;
-    }
-
-    .issue-comment__body p:first-child {
-      margin-top: 0;
-    }
-
-    .issue-comment__body p:last-child {
-      margin-bottom: 0;
-    }
-
-    .issue-comment__body pre {
-      background: rgba(26, 29, 35, 0.05);
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      border-radius: 0.4rem;
-      padding: 0.75rem;
-      overflow-x: auto;
-      font-size: 0.85rem;
-      margin: 0.5rem 0;
-    }
-
-    [data-theme="dark"] .issue-comment__body pre {
-      background: rgba(26, 29, 35, 0.35);
-      border-color: rgba(148, 163, 184, 0.35);
-    }
-
-    .issue-comment__body code {
-      background: rgba(148, 163, 184, 0.1);
-      padding: 0.2rem 0.4rem;
-      border-radius: 0.2rem;
-      font-family: monospace;
-      font-size: 0.9em;
-    }
-
-    [data-theme="dark"] .issue-comment__body code {
-      background: rgba(148, 163, 184, 0.2);
-    }
-
-    .issue-comment__body blockquote {
-      border-left: 3px solid rgba(148, 163, 184, 0.5);
-      padding-left: 1rem;
-      margin-left: 0;
-      margin: 0.5rem 0;
-      color: #64748b;
-      font-style: italic;
-    }
-
-    [data-theme="dark"] .issue-comment__body blockquote {
-      border-left-color: rgba(148, 163, 184, 0.6);
-      color: rgba(148, 163, 184, 0.8);
     }
 
     /* Reply Form */
@@ -929,7 +758,7 @@
                                 <a href="{{ comment.url }}" target="_blank" rel="noopener" class="issue-comment__link" title="View in {{ group.provider_display }}">↗</a>
                               {% endif %}
                             </div>
-                            <div class="issue-comment__body">
+                            <div class="comment-body">
                               {% if comment.body_html %}
                                 {{ comment.body_html|sanitize_html }}
                               {% else %}

@@ -81,6 +81,19 @@ _MARKDOWN_PATTERNS = [
     re.compile(r"!\[[^\]]*\]\([^\)]+\)"),  # Images
 ]
 
+# Patterns that suggest Jira markup content (Confluence/Textile wiki markup)
+_JIRA_MARKUP_PATTERNS = [
+    re.compile(r"^h[1-6]\.\s+", re.MULTILINE),  # Headers: h1. h2. etc.
+    re.compile(r"\{code[:\}]"),  # Code blocks: {code} or {code:java}
+    re.compile(r"\{\{[^}]+\}\}"),  # Inline code: {{text}}
+    re.compile(r"\*[^*\n]+\*"),  # Bold: *text*
+    re.compile(r"_[^_\n]+_"),  # Italic/emphasis: _text_
+    re.compile(r"-[^-\n]+-"),  # Deleted: -text-
+    re.compile(r"\+[^+\n]+\+"),  # Inserted: +text+
+    re.compile(r"^\s*bq\.\s+", re.MULTILINE),  # Blockquote: bq.
+    re.compile(r"^----+$", re.MULTILINE),  # Horizontal rule
+]
+
 # Create a Mistune instance for rendering Markdown
 _markdown_renderer = mistune.create_markdown(
     plugins=["strikethrough", "footnotes", "table", "task_lists"]
@@ -192,6 +205,139 @@ def _looks_like_markdown(text: str) -> bool:
     return matches >= 1
 
 
+def _looks_like_jira_markup(text: str) -> bool:
+    """Detect if text contains Jira markup syntax."""
+    # Check for Jira markup patterns
+    matches = sum(1 for pattern in _JIRA_MARKUP_PATTERNS if pattern.search(text))
+    return matches >= 1
+
+
+def _convert_jira_markup_to_html(text: str) -> str:
+    """Convert Jira markup (Confluence wiki markup) to HTML.
+
+    Supports basic Jira markup patterns:
+    - Headers: h1. through h6.
+    - Bold: *text*
+    - Italic: _text_
+    - Deleted: -text-
+    - Inserted: +text+
+    - Inline code: {{text}}
+    - Code blocks: {code}...{code}
+    - Blockquotes: bq. text
+    - Horizontal rules: ----
+    - Lists: * and #
+    """
+    html = text
+
+    # Headers: h1. Header Text -> <h1>Header Text</h1>
+    for level in range(1, 7):
+        pattern = re.compile(rf"^h{level}\.\s+(.+)$", re.MULTILINE)
+        html = pattern.sub(rf"<h{level}>\1</h{level}>", html)
+
+    # Code blocks: {code}...{code} or {code:lang}...{code}
+    html = re.sub(
+        r"\{code(?::[^}]+)?\}([\s\S]*?)\{code\}",
+        r"<pre><code>\1</code></pre>",
+        html,
+    )
+
+    # Inline code: {{text}} -> <code>text</code>
+    html = re.sub(r"\{\{([^}]+)\}\}", r"<code>\1</code>", html)
+
+    # Blockquotes: bq. text -> <blockquote>text</blockquote>
+    html = re.sub(r"^bq\.\s+(.+)$", r"<blockquote>\1</blockquote>", html, flags=re.MULTILINE)
+
+    # Horizontal rules: ---- -> <hr>
+    html = re.sub(r"^----+$", r"<hr>", html, flags=re.MULTILINE)
+
+    # Lists - numbered: # item -> <ol><li>item</li></ol>
+    lines = html.split("\n")
+    result_lines = []
+    in_ol = False
+    in_ul = False
+
+    for line in lines:
+        # Ordered list
+        if re.match(r"^\s*#\s+", line):
+            if not in_ol:
+                if in_ul:
+                    result_lines.append("</ul>")
+                    in_ul = False
+                result_lines.append("<ol>")
+                in_ol = True
+            item_text = re.sub(r"^\s*#\s+", "", line)
+            result_lines.append(f"<li>{item_text}</li>")
+        # Unordered list
+        elif re.match(r"^\s*\*\s+", line):
+            if not in_ul:
+                if in_ol:
+                    result_lines.append("</ol>")
+                    in_ol = False
+                result_lines.append("<ul>")
+                in_ul = True
+            item_text = re.sub(r"^\s*\*\s+", "", line)
+            result_lines.append(f"<li>{item_text}</li>")
+        else:
+            if in_ol:
+                result_lines.append("</ol>")
+                in_ol = False
+            if in_ul:
+                result_lines.append("</ul>")
+                in_ul = False
+            result_lines.append(line)
+
+    # Close any open lists
+    if in_ol:
+        result_lines.append("</ol>")
+    if in_ul:
+        result_lines.append("</ul>")
+
+    html = "\n".join(result_lines)
+
+    # Inline formatting (apply after lists to avoid conflicts with * for bullets)
+    # Bold: *text* -> <strong>text</strong>
+    html = re.sub(r"\*([^*\n]+?)\*", r"<strong>\1</strong>", html)
+
+    # Italic: _text_ -> <em>text</em>
+    html = re.sub(r"\b_([^_\n]+?)_\b", r"<em>\1</em>", html)
+
+    # Deleted: -text- -> <del>text</del>
+    html = re.sub(r"\b-([^-\n]+?)-\b", r"<del>\1</del>", html)
+
+    # Inserted: +text+ -> <ins>text</ins>
+    html = re.sub(r"\b\+([^+\n]+?)\+\b", r"<ins>\1</ins>", html)
+
+    # Wrap paragraphs: consecutive non-HTML lines become <p>...</p>
+    lines = html.split("\n")
+    result_lines = []
+    in_paragraph = False
+    paragraph_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        # Check if line is already an HTML tag
+        if stripped.startswith("<") or not stripped:
+            # Flush paragraph if we were building one
+            if in_paragraph:
+                result_lines.append("<p>" + " ".join(paragraph_lines) + "</p>")
+                paragraph_lines = []
+                in_paragraph = False
+            # Add the HTML line as-is
+            if stripped:
+                result_lines.append(line)
+        else:
+            # Accumulate paragraph content
+            if not in_paragraph:
+                in_paragraph = True
+            paragraph_lines.append(stripped)
+
+    # Flush any remaining paragraph
+    if in_paragraph and paragraph_lines:
+        result_lines.append("<p>" + " ".join(paragraph_lines) + "</p>")
+
+    return "\n".join(result_lines)
+
+
 def _convert_jira_mentions(text: str) -> str:
     """Convert Jira mentions [~accountid:...] to readable format.
 
@@ -245,6 +391,15 @@ def render_issue_rich_text(value: str | None) -> Markup:
                 # Replace newlines with <br> in the sanitized HTML
                 # This preserves the mention spans while adding line breaks
                 sanitized = sanitized.replace("\n", "<br>")
+            return Markup(sanitized)
+
+    # Check if it's Jira markup (before Markdown, as Jira has distinct patterns)
+    if _looks_like_jira_markup(with_mentions):
+        # Convert Jira markup to HTML
+        jira_html = _convert_jira_markup_to_html(with_mentions)
+        # Sanitize the resulting HTML to ensure safety
+        sanitized = _sanitize_html(jira_html)
+        if sanitized:
             return Markup(sanitized)
 
     # Check if it's Markdown

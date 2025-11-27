@@ -132,8 +132,8 @@ def fetch_issues(
     if not isinstance(issues, list):
         raise IssueSyncError("Unexpected Jira response payload.")
 
-    # Fetch comments separately for each issue (search_issues doesn't include them)
-    # This is a known limitation of the Jira Python library and REST API
+    # Fetch each issue individually with renderedFields to get comment HTML
+    # search_issues doesn't include comments, and client.comments() doesn't return rendered HTML
     client = JIRA(
         server=base_url,  # type: ignore[arg-type]
         basic_auth=(username, integration.api_token),  # type: ignore[arg-type]
@@ -145,11 +145,22 @@ def fetch_issues(
             if not issue_key:
                 continue
             try:
-                comments_list = client.comments(issue_key)
-                # Populate the comment field structure that _extract_comment_payloads expects
-                issue.setdefault("fields", {})["comment"] = {
-                    "comments": [comment.raw for comment in comments_list[:MAX_COMMENTS_PER_ISSUE]]
-                }
+                # Fetch full issue with rendered fields to get comment HTML
+                full_issue = client.issue(
+                    issue_key,
+                    fields=",".join(DEFAULT_FIELDS),
+                    expand=",".join(DEFAULT_EXPAND),
+                )
+                full_data = getattr(full_issue, "raw", {})
+                # Copy comments and renderedFields from full issue data
+                if isinstance(full_data, dict):
+                    fields = full_data.get("fields", {})
+                    if "comment" in fields:
+                        issue.setdefault("fields", {})["comment"] = fields["comment"]
+                    # Also copy renderedFields for comment HTML
+                    rendered_fields = full_data.get("renderedFields")
+                    if rendered_fields:
+                        issue["renderedFields"] = rendered_fields
             except Exception:  # noqa: BLE001
                 # Continue without comments if fetch fails (graceful degradation)
                 pass

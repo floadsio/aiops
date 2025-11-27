@@ -442,20 +442,9 @@ def test_fetch_issues_includes_comments(monkeypatch):
     """Test that comments are fetched and included in issue payload."""
     captured: Dict[str, Any] = {}
 
-    class FakeComment:
-        def __init__(self, comment_id: str, author_name: str, body: str, created: str):
-            self.id = comment_id
-            self.author = SimpleNamespace(displayName=author_name)
-            self.body = body
-            self.created = created
-            self.updated = created
-            self.raw = {
-                "id": comment_id,
-                "author": {"displayName": author_name},
-                "body": body,
-                "created": created,
-                "updated": created,
-            }
+    class FakeIssue:
+        def __init__(self, raw_data: dict):
+            self.raw = raw_data
 
     class FakeJIRA:
         def __init__(self, *args, **kwargs):
@@ -477,12 +466,44 @@ def test_fetch_issues_includes_comments(monkeypatch):
                 ]
             }
 
-        def comments(self, issue_key: str) -> List[Any]:
-            captured["comments_requested_for"] = issue_key
-            return [
-                FakeComment("10001", "Alice", "First comment", "2024-10-01T10:00:00.000+0000"),
-                FakeComment("10002", "Bob", "Second comment", "2024-10-01T11:00:00.000+0000"),
-            ]
+        def issue(self, issue_key: str, **kwargs: Any) -> FakeIssue:
+            captured["issue_requested_for"] = issue_key
+            return FakeIssue({
+                "key": issue_key,
+                "fields": {
+                    "summary": "Fix bug",
+                    "status": {"name": "Open"},
+                    "assignee": None,
+                    "updated": "2024-10-01T12:34:00.000+0000",
+                    "labels": [],
+                    "comment": {
+                        "comments": [
+                            {
+                                "id": "10001",
+                                "author": {"displayName": "Alice"},
+                                "body": "First comment",
+                                "created": "2024-10-01T10:00:00.000+0000",
+                                "updated": "2024-10-01T10:00:00.000+0000",
+                            },
+                            {
+                                "id": "10002",
+                                "author": {"displayName": "Bob"},
+                                "body": "Second comment",
+                                "created": "2024-10-01T11:00:00.000+0000",
+                                "updated": "2024-10-01T11:00:00.000+0000",
+                            },
+                        ]
+                    },
+                },
+                "renderedFields": {
+                    "comment": {
+                        "comments": [
+                            {"id": "10001", "body": "<p>First comment</p>"},
+                            {"id": "10002", "body": "<p>Second comment</p>"},
+                        ]
+                    }
+                },
+            })
 
         def close(self):
             pass
@@ -504,17 +525,19 @@ def test_fetch_issues_includes_comments(monkeypatch):
     assert len(results) == 1
     issue = results[0]
     assert issue.external_id == "DEVOPS-5"
-    assert captured["comments_requested_for"] == "DEVOPS-5"
+    assert captured["issue_requested_for"] == "DEVOPS-5"
     assert len(issue.comments) == 2
     # Comments are reversed by _extract_comment_payloads
     assert issue.comments[0].author == "Bob"
     assert issue.comments[0].body == "Second comment"
+    assert issue.comments[0].body_html == "<p>Second comment</p>"
     assert issue.comments[1].author == "Alice"
     assert issue.comments[1].body == "First comment"
+    assert issue.comments[1].body_html == "<p>First comment</p>"
 
 
 def test_fetch_issues_handles_comment_fetch_failure_gracefully(monkeypatch):
-    """Test that issue sync continues if comment fetch fails."""
+    """Test that issue sync continues if issue() fetch fails."""
     captured: Dict[str, Any] = {}
 
     class FakeJIRA:
@@ -537,9 +560,9 @@ def test_fetch_issues_handles_comment_fetch_failure_gracefully(monkeypatch):
                 ]
             }
 
-        def comments(self, issue_key: str) -> List[Any]:
-            captured["comments_attempted"] = True
-            raise Exception("Failed to fetch comments")
+        def issue(self, issue_key: str, **kwargs: Any) -> Any:
+            captured["issue_fetch_attempted"] = True
+            raise Exception("Failed to fetch issue details")
 
         def close(self):
             pass
@@ -558,7 +581,7 @@ def test_fetch_issues_handles_comment_fetch_failure_gracefully(monkeypatch):
 
     results = jira_service.fetch_issues(integration, project_integration)
 
-    assert captured.get("comments_attempted") is True
+    assert captured.get("issue_fetch_attempted") is True
     assert len(results) == 1
     assert results[0].external_id == "DEVOPS-6"
     assert results[0].comments == []  # No comments due to error, but issue still synced
@@ -566,20 +589,10 @@ def test_fetch_issues_handles_comment_fetch_failure_gracefully(monkeypatch):
 
 def test_fetch_issues_limits_comments_per_issue(monkeypatch):
     """Test that only MAX_COMMENTS_PER_ISSUE comments are included."""
-    class FakeComment:
-        def __init__(self, comment_id: str):
-            self.id = comment_id
-            self.author = SimpleNamespace(displayName="User")
-            self.body = f"Comment {comment_id}"
-            self.created = "2024-10-01T10:00:00.000+0000"
-            self.updated = "2024-10-01T10:00:00.000+0000"
-            self.raw = {
-                "id": comment_id,
-                "author": {"displayName": "User"},
-                "body": f"Comment {comment_id}",
-                "created": "2024-10-01T10:00:00.000+0000",
-                "updated": "2024-10-01T10:00:00.000+0000",
-            }
+
+    class FakeIssue:
+        def __init__(self, raw_data: dict):
+            self.raw = raw_data
 
     class FakeJIRA:
         def __init__(self, *args, **kwargs):
@@ -601,9 +614,37 @@ def test_fetch_issues_limits_comments_per_issue(monkeypatch):
                 ]
             }
 
-        def comments(self, issue_key: str) -> List[Any]:
+        def issue(self, issue_key: str, **kwargs: Any) -> FakeIssue:
             # Return more comments than MAX_COMMENTS_PER_ISSUE
-            return [FakeComment(str(i)) for i in range(30)]
+            comments = [
+                {
+                    "id": str(i),
+                    "author": {"displayName": "User"},
+                    "body": f"Comment {i}",
+                    "created": "2024-10-01T10:00:00.000+0000",
+                    "updated": "2024-10-01T10:00:00.000+0000",
+                }
+                for i in range(30)
+            ]
+            return FakeIssue({
+                "key": issue_key,
+                "fields": {
+                    "summary": "Many comments",
+                    "status": {"name": "Open"},
+                    "assignee": None,
+                    "updated": "2024-10-01T12:34:00.000+0000",
+                    "labels": [],
+                    "comment": {"comments": comments},
+                },
+                "renderedFields": {
+                    "comment": {
+                        "comments": [
+                            {"id": str(i), "body": f"<p>Comment {i}</p>"}
+                            for i in range(30)
+                        ]
+                    }
+                },
+            })
 
         def close(self):
             pass

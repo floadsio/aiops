@@ -212,6 +212,54 @@ def _looks_like_jira_markup(text: str) -> bool:
     return matches >= 1
 
 
+def _convert_jira_tables(text: str) -> str:
+    """Convert Jira table markup to HTML tables.
+
+    Jira tables use:
+    - ||header|| for header cells
+    - |cell| for regular cells
+    """
+    lines = text.split("\n")
+    result = []
+    in_table = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        # Header row: ||col1||col2||
+        if stripped.startswith("||") and stripped.endswith("||"):
+            if not in_table:
+                result.append("<table>")
+                in_table = True
+            # Extract headers
+            headers = [h.strip() for h in stripped.strip("|").split("||")]
+            cells_html = "".join(f"<th>{h}</th>" for h in headers if h)
+            result.append(f"<tr>{cells_html}</tr>")
+
+        # Regular row: |col1|col2|
+        elif stripped.startswith("|") and stripped.endswith("|") and not stripped.startswith("||"):
+            if not in_table:
+                result.append("<table>")
+                in_table = True
+            # Extract cells
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
+            cells_html = "".join(f"<td>{c}</td>" for c in cells if c)
+            result.append(f"<tr>{cells_html}</tr>")
+
+        else:
+            # Not a table row - close table if open
+            if in_table:
+                result.append("</table>")
+                in_table = False
+            result.append(line)
+
+    # Close table if still open
+    if in_table:
+        result.append("</table>")
+
+    return "\n".join(result)
+
+
 def _convert_jira_markup_to_html(text: str) -> str:
     """Convert Jira markup (Confluence wiki markup) to HTML.
 
@@ -249,6 +297,10 @@ def _convert_jira_markup_to_html(text: str) -> str:
 
     # Horizontal rules: ---- -> <hr>
     html = re.sub(r"^----+$", r"<hr>", html, flags=re.MULTILINE)
+
+    # Tables: ||header||header|| -> <table><tr><th>header</th><th>header</th></tr>
+    # and |cell|cell| -> <tr><td>cell</td><td>cell</td></tr>
+    html = _convert_jira_tables(html)
 
     # Lists - numbered: # item -> <ol><li>item</li></ol>
     lines = html.split("\n")
@@ -294,18 +346,18 @@ def _convert_jira_markup_to_html(text: str) -> str:
 
     html = "\n".join(result_lines)
 
-    # Inline formatting (apply after lists to avoid conflicts with * for bullets)
+    # Inline formatting (apply after lists and tables to avoid conflicts)
     # Bold: *text* -> <strong>text</strong>
     html = re.sub(r"\*([^*\n]+?)\*", r"<strong>\1</strong>", html)
 
     # Italic: _text_ -> <em>text</em>
     html = re.sub(r"\b_([^_\n]+?)_\b", r"<em>\1</em>", html)
 
-    # Deleted: -text- -> <del>text</del>
-    html = re.sub(r"\b-([^-\n]+?)-\b", r"<del>\1</del>", html)
+    # Deleted: -text- -> <del>text</del> (require spaces around for safety)
+    html = re.sub(r"(?<!\S)-([^-\n]+?)-(?!\S)", r"<del>\1</del>", html)
 
-    # Inserted: +text+ -> <ins>text</ins>
-    html = re.sub(r"\b\+([^+\n]+?)\+\b", r"<ins>\1</ins>", html)
+    # Inserted: +text+ -> <ins>text</ins> (require spaces around for safety)
+    html = re.sub(r"(?<!\S)\+([^+\n]+?)\+(?!\S)", r"<ins>\1</ins>", html)
 
     # Wrap paragraphs: consecutive non-HTML lines become <p>...</p>
     lines = html.split("\n")

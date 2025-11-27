@@ -47,6 +47,10 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
         fields.get("labels") if isinstance(fields.get("labels"), list) else []
     )
     labels = [str(label) for label in labels_source]  # type: ignore[union-attr]
+
+    # Get rendered fields if available (contains HTML-rendered content)
+    rendered_fields = issue.get("renderedFields")
+
     return IssuePayload(
         external_id=str(key),
         title=str(fields.get("summary", "")),
@@ -56,7 +60,7 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
         labels=labels,
         external_updated_at=parse_datetime(fields.get("updated")),
         raw=issue,
-        comments=_extract_comment_payloads(fields),
+        comments=_extract_comment_payloads(fields, rendered_fields),
     )
 
 
@@ -863,12 +867,26 @@ def _resolve_status(fields: dict) -> Optional[str]:
     return None
 
 
-def _extract_comment_payloads(fields: dict) -> List[IssueCommentPayload]:
+def _extract_comment_payloads(fields: dict, rendered_fields: Optional[dict] = None) -> List[IssueCommentPayload]:
     comments: List[IssueCommentPayload] = []
     block = fields.get("comment")
     entries = block.get("comments") if isinstance(block, dict) else None
     if not isinstance(entries, list):
         return comments
+
+    # Build a map of comment ID to rendered HTML body from renderedFields
+    rendered_map = {}
+    if rendered_fields:
+        rendered_comment_block = rendered_fields.get("comment", {})
+        rendered_entries = rendered_comment_block.get("comments", [])
+        if isinstance(rendered_entries, list):
+            for rendered_entry in rendered_entries:
+                if isinstance(rendered_entry, dict):
+                    comment_id = rendered_entry.get("id")
+                    rendered_body = rendered_entry.get("body")
+                    if comment_id and rendered_body:
+                        rendered_map[str(comment_id)] = str(rendered_body)
+
     for entry in reversed(entries):
         author_raw = entry.get("author") if isinstance(entry, dict) else None
         author_name = None
@@ -876,6 +894,12 @@ def _extract_comment_payloads(fields: dict) -> List[IssueCommentPayload]:
             author_name = author_raw.get("displayName") or author_raw.get("name")
         created_value = entry.get("updated") or entry.get("created")
         comment_id = entry.get("id")  # Extract comment ID
+
+        # Get rendered HTML if available
+        body_html = None
+        if comment_id:
+            body_html = rendered_map.get(str(comment_id))
+
         comments.append(
             IssueCommentPayload(
                 author=str(author_name) if author_name else None,
@@ -883,6 +907,7 @@ def _extract_comment_payloads(fields: dict) -> List[IssueCommentPayload]:
                 created_at=parse_datetime(created_value),
                 url=None,
                 id=str(comment_id) if comment_id else None,
+                body_html=body_html,
             )
         )
         if len(comments) >= MAX_COMMENTS_PER_ISSUE:

@@ -144,8 +144,12 @@ def _comment_to_dict(
     author = comment.get("author", "Unknown")
     body = comment.get("body", "")
 
-    # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, HTML, etc.)
-    rendered_body = render_issue_rich_text(body)
+    # Use pre-rendered HTML if available (Jira, GitHub provide this), otherwise render it
+    body_html = comment.get("body_html")
+    if not body_html:
+        # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, etc.)
+        rendered_body = render_issue_rich_text(body)
+        body_html = str(rendered_body)
 
     return {
         "id": comment.get("id"),
@@ -155,7 +159,7 @@ def _comment_to_dict(
             integration.provider.lower(),
         ),
         "body": body,
-        "body_html": str(rendered_body),  # Pre-rendered HTML for display
+        "body_html": body_html,  # Pre-rendered HTML for display
         "created_at": comment.get("created_at"),
         "url": comment.get("url"),
     }

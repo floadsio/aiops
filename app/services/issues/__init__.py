@@ -20,6 +20,7 @@ class IssueCommentPayload:
     created_at: Optional[datetime]
     url: Optional[str]
     id: Optional[str] = None  # Comment ID from the provider (Jira, GitHub, GitLab)
+    body_html: Optional[str] = None  # Pre-rendered HTML from API (Jira, GitHub)
 
 
 @dataclass(slots=True)
@@ -119,15 +120,17 @@ def serialize_issue_comments(
             created_value = created_at.astimezone(_UTC).isoformat()
         else:
             created_value = None
-        serialized.append(
-            {
-                "id": comment.id,
-                "author": comment.author,
-                "body": comment.body,
-                "url": comment.url,
-                "created_at": created_value,
-            }
-        )
+        entry = {
+            "id": comment.id,
+            "author": comment.author,
+            "body": comment.body,
+            "url": comment.url,
+            "created_at": created_value,
+        }
+        # Include body_html if available (Jira, GitHub provide pre-rendered HTML)
+        if comment.body_html:
+            entry["body_html"] = comment.body_html
+        serialized.append(entry)
     return serialized
 
 

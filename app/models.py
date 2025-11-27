@@ -41,25 +41,6 @@ class User(BaseModel, TimestampMixin):
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     linux_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    claude_input_tokens_limit: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    claude_input_tokens_remaining: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    claude_output_tokens_limit: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    claude_output_tokens_remaining: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    claude_requests_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    claude_requests_remaining: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
-    claude_usage_last_updated: Mapped[Optional[datetime]] = mapped_column(
-        DateTime, nullable=True
-    )
     aiops_cli_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     aiops_cli_api_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 

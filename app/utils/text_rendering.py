@@ -454,30 +454,100 @@ def _convert_jira_markup_to_html(text: str) -> str:
     return html
 
 
+# Cache for Jira account ID to user name lookups
+_jira_user_cache: dict[str, str] = {}
+_jira_user_cache_loaded = False
+
+
+def _load_jira_user_cache() -> None:
+    """Load Jira account ID to user name mappings from database."""
+    global _jira_user_cache, _jira_user_cache_loaded
+    if _jira_user_cache_loaded:
+        return
+
+    try:
+        # Import here to avoid circular imports
+        from flask import current_app
+        from app.models import User, UserIdentityMap
+
+        # Only load if we're in an app context
+        if not current_app:
+            return
+
+        # Query all user identity mappings with Jira account IDs
+        mappings = (
+            UserIdentityMap.query
+            .join(User)
+            .filter(UserIdentityMap.jira_account_id.isnot(None))
+            .all()
+        )
+        for mapping in mappings:
+            if mapping.jira_account_id and mapping.user:
+                # Store both the full account ID and partial matches
+                account_id = mapping.jira_account_id
+                user_name = mapping.user.name or mapping.user.email or "User"
+                _jira_user_cache[account_id] = user_name
+                # Also store by the numeric prefix (e.g., "557058")
+                if ':' in account_id:
+                    prefix = account_id.split(':')[0]
+                    if prefix not in _jira_user_cache:
+                        _jira_user_cache[prefix] = user_name
+
+        _jira_user_cache_loaded = True
+    except Exception:
+        # If we can't load the cache, we'll fall back to showing IDs
+        pass
+
+
+def _resolve_jira_user(account_id: str) -> str | None:
+    """Resolve a Jira account ID to a user name."""
+    _load_jira_user_cache()
+
+    # Try exact match first
+    if account_id in _jira_user_cache:
+        return _jira_user_cache[account_id]
+
+    # Try matching by numeric prefix (e.g., "557058" from "557058:uuid")
+    if ':' in account_id:
+        prefix = account_id.split(':')[0]
+        if prefix in _jira_user_cache:
+            return _jira_user_cache[prefix]
+
+        # Try matching by any account ID that starts with the same prefix
+        for cached_id, name in _jira_user_cache.items():
+            if cached_id.startswith(prefix + ':') or cached_id == prefix:
+                return name
+
+    return None
+
+
 def _convert_jira_mentions(text: str) -> str:
     """Convert Jira mentions [~accountid:...] to readable format.
 
     Converts [~accountid:ID] or [~username] patterns to
-    @username format that's more readable.
+    @username format that's more readable. Uses the user_identity_map
+    table to resolve account IDs to actual user names.
 
     Examples:
-    - [~accountid:557058:5010d224-...] → @user:557058
+    - [~accountid:557058:5010d224-...] → @Ivo Marino (if mapped)
+    - [~accountid:557058:5010d224-...] → @user:557058 (if not mapped)
     - [~jsmith] → @jsmith
     """
     def replace_mention(match):
         mention_id = match.group(1)
-        display_name = mention_id
 
-        # If it's an account ID with multiple parts, try to extract a meaningful name
+        # Try to resolve from user identity map
+        resolved_name = _resolve_jira_user(mention_id)
+        if resolved_name:
+            return f'<span class="jira-mention">@{escape(resolved_name)}</span>'
+
+        # Fall back to showing a reasonable identifier
+        display_name = mention_id
         if ':' in mention_id:
             parts = mention_id.split(':')
-            # Usually: numeric_id:uuid format
-            # Prefer the numeric ID as it's more compact and stable
             if len(parts) >= 2 and parts[0]:
-                # Show the numeric ID (e.g., 557058)
                 display_name = f"user:{parts[0]}"
             elif len(parts) >= 2:
-                # Fall back to showing a shortened UUID (first 8 chars)
                 display_name = parts[-1][:8] if parts[-1] else "user"
 
         return f'<span class="jira-mention">@{escape(display_name)}</span>'

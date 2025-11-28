@@ -1037,6 +1037,27 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
           <p>Individual users can override the global dotfiles configuration with their personal repository. Set <code>personal_dotfile_repo_url</code> and <code>personal_dotfile_branch</code> on the user account to use their own dotfiles instead of the organization-wide ones.</p>
         </details>
       </article>
+
+      <!-- Initialize Dotfiles for Current User -->
+      <article class="settings-card">
+        <h3>🚀 Initialize Dotfiles in Home Directory</h3>
+        <p>Clone and setup your personal dotfiles in <code>~/.yadm/</code>. This will apply your organization's configuration files to your home directory.</p>
+
+        <div id="yadm-init-status" style="display: none; margin-bottom: 1rem;">
+          <small id="yadm-init-message" class="text-muted"></small>
+        </div>
+
+        <div class="settings-actions">
+          <button
+            type="button"
+            class="primary"
+            id="yadm-init-btn"
+            onclick="initializeYadmForUser()">
+            <span id="yadm-init-text">🗂️ Initialize Dotfiles</span>
+            <span id="yadm-init-spinner" class="spinner loading" style="display: none; margin-left: 0.5rem;"></span>
+          </button>
+        </div>
+      </article>
     </div>
   </section>
 </div>
@@ -1078,6 +1099,62 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     // Load logs on demand instead of automatically for better page load performance
     output.textContent = 'Click "Refresh Logs" to load application logs';
   })();
+
+  // Initialize Dotfiles for User
+  async function initializeYadmForUser() {
+    const btn = document.getElementById('yadm-init-btn');
+    const text = document.getElementById('yadm-init-text');
+    const spinner = document.getElementById('yadm-init-spinner');
+    const statusDiv = document.getElementById('yadm-init-status');
+    const statusMsg = document.getElementById('yadm-init-message');
+
+    // Disable button and show spinner
+    btn.disabled = true;
+    text.style.display = 'none';
+    spinner.style.display = 'inline-block';
+    statusDiv.style.display = 'none';
+
+    try {
+      const response = await fetch('/admin/yadm/init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('input[name="csrf_token"]').value
+        },
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      // Hide spinner
+      spinner.style.display = 'none';
+      text.style.display = 'inline';
+      statusDiv.style.display = 'block';
+
+      if (response.ok && data.status === 'success') {
+        // Success
+        statusMsg.style.color = '#10b981';
+        statusMsg.innerHTML = `
+          ✓ <strong>${data.message}</strong><br>
+          <small>Home: ${data.home || 'N/A'}</small>
+        `;
+      } else {
+        // Error
+        statusMsg.style.color = '#ef4444';
+        statusMsg.textContent = data.message || 'Failed to initialize yadm';
+      }
+    } catch (error) {
+      // Network error
+      spinner.style.display = 'none';
+      text.style.display = 'inline';
+      statusDiv.style.display = 'block';
+      statusMsg.style.color = '#ef4444';
+      statusMsg.textContent = `Error: ${error.message}`;
+    } finally {
+      // Re-enable button
+      btn.disabled = false;
+    }
+  }
 
 </script>
 {% endblock %}

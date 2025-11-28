@@ -4298,6 +4298,76 @@ def save_yadm_settings():
     return redirect(url_for("admin.manage_settings"))
 
 
+@admin_bp.route("/yadm/init", methods=["POST"])
+@admin_required
+@login_required
+def initialize_yadm_web():
+    """Initialize yadm for the current user via web UI.
+
+    Returns:
+        JSON response with status, message, and paths
+    """
+    from ..models import User, Project
+    from ..services.yadm_service import initialize_yadm_for_user, YadmServiceError
+
+    try:
+        # Use current_user
+        user = current_user
+        if not user:
+            return jsonify({
+                "status": "failed",
+                "message": "User not authenticated"
+            }), 401
+
+        # Find dotfiles project for the user's tenant
+        # Look across all tenants the user has projects in
+        user_projects = Project.query.filter_by(owner_id=user.id).all()
+        if not user_projects:
+            return jsonify({
+                "status": "failed",
+                "message": "You have no associated projects"
+            }), 400
+
+        # Try to find a dotfiles project in any of the user's tenants
+        dotfiles_project = None
+        for proj in user_projects:
+            dotfiles = Project.query.filter_by(
+                name="dotfiles", tenant_id=proj.tenant_id
+            ).first()
+            if dotfiles:
+                dotfiles_project = dotfiles
+                break
+
+        if not dotfiles_project:
+            tenant_ids = [p.tenant_id for p in user_projects]
+            return jsonify({
+                "status": "failed",
+                "message": f"No dotfiles project found in any of your tenants"
+            }), 400
+
+        # Initialize yadm for the user
+        result = initialize_yadm_for_user(
+            user,
+            repo_url=dotfiles_project.repo_url,
+            repo_branch=dotfiles_project.default_branch or "main"
+        )
+
+        return jsonify(result), 200
+
+    except YadmServiceError as exc:
+        current_app.logger.warning(f"Yadm initialization failed for {current_user.email}: {exc}")
+        return jsonify({
+            "status": "failed",
+            "message": str(exc)
+        }), 400
+    except Exception as exc:
+        current_app.logger.exception(f"Unexpected error initializing yadm for {current_user.email}")
+        return jsonify({
+            "status": "failed",
+            "message": f"Unexpected error: {exc}"
+        }), 500
+
+
 @admin_bp.route("/activity", methods=["GET"])
 @admin_required
 def view_activity():

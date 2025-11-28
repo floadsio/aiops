@@ -274,6 +274,16 @@ def apply_yadm_bootstrap(
         YadmServiceError: If bootstrap execution fails
     """
     try:
+        # Detect yadm configuration directory for custom setups
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home, linux_username)
+        config_name = Path(yadm_config_dir).name if yadm_config_dir else "yadm"
+
+        # Build environment with YADM_DIR for custom setups
+        env = os.environ.copy()
+        env["HOME"] = user_home
+        if config_name != "yadm" and yadm_config_dir:
+            env["YADM_DIR"] = yadm_config_dir
+
         cmd = ["yadm", "bootstrap"]
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
@@ -283,6 +293,7 @@ def apply_yadm_bootstrap(
             text=True,
             timeout=120,
             cwd=user_home,
+            env=env,
         )
 
         if result.returncode != 0:
@@ -316,6 +327,16 @@ def yadm_decrypt(
         YadmServiceError: If decryption fails
     """
     try:
+        # Detect yadm configuration directory for custom setups
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home, linux_username)
+        config_name = Path(yadm_config_dir).name if yadm_config_dir else "yadm"
+
+        # Build environment with YADM_DIR for custom setups
+        env = os.environ.copy()
+        env["HOME"] = user_home
+        if config_name != "yadm" and yadm_config_dir:
+            env["YADM_DIR"] = yadm_config_dir
+
         cmd = ["yadm", "decrypt"]
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
@@ -332,6 +353,7 @@ def yadm_decrypt(
             input=stdin_data,
             timeout=60,
             cwd=user_home,
+            env=env,
         )
 
         if result.returncode != 0:

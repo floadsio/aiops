@@ -662,3 +662,31 @@ class YadmSettingsForm(FlaskForm):
         },
     )
     submit = SubmitField("Save Dotfiles Configuration")
+
+
+class YadmPersonalConfigForm(FlaskForm):
+    """Form for personal dotfiles configuration override."""
+
+    personal_dotfile_repo_url = URLField(
+        "Personal Dotfiles Repository URL",
+        validators=[Optional(), URL()],
+        render_kw={
+            "placeholder": "https://github.com/yourname/dotfiles",
+            "aria-description": "Override organization defaults with your personal dotfiles repository",
+        },
+    )
+    personal_dotfile_branch = StringField(
+        "Repository Branch",
+        validators=[Optional(), Length(min=1, max=128)],
+        render_kw={
+            "placeholder": "main",
+            "aria-description": "Git branch to use for personal dotfiles",
+        },
+    )
+    clear_override = BooleanField(
+        "Clear override and use global configuration",
+        render_kw={
+            "aria-description": "Check this to remove your personal override and use the organization-wide dotfiles configuration"
+        },
+    )
+    submit = SubmitField("Save Configuration")

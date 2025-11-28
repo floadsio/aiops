@@ -1,0 +1,860 @@
+{% extends "base.html" %}
+
+{% block title %}Dotfiles Management | aiops{% endblock %}
+
+{% block extra_head %}
+<style>
+  .dotfiles-page {
+    max-width: 1200px;
+  }
+
+  .dotfiles-header {
+    margin-bottom: 2rem;
+  }
+
+  .status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 2rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .status-badge.initialized {
+    background-color: rgba(63, 185, 80, 0.15);
+    color: #3fb950;
+  }
+
+  .status-badge.not-initialized {
+    background-color: rgba(208, 85, 75, 0.15);
+    color: #d05544;
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .config-card {
+    padding: 1.5rem;
+    border-radius: 0.7rem;
+    background: rgba(148, 163, 184, 0.05);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .status-card {
+    padding: 1rem;
+    border-radius: 0.7rem;
+    background: rgba(148, 163, 184, 0.05);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+
+  .status-card h3 {
+    margin-top: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(230, 237, 243, 0.8);
+  }
+
+  .status-item {
+    margin: 0.75rem 0;
+    font-size: 0.9rem;
+  }
+
+  .status-label {
+    color: rgba(230, 237, 243, 0.6);
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .status-value {
+    color: rgba(230, 237, 243, 0.95);
+    font-weight: 500;
+  }
+
+  .status-value.error {
+    color: #d05544;
+  }
+
+  .status-value.success {
+    color: #3fb950;
+  }
+
+  .status-value.warning {
+    color: #d4a574;
+  }
+
+  .action-section {
+    margin-bottom: 2rem;
+  }
+
+  .action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .action-card {
+    padding: 1.25rem;
+    border-radius: 0.7rem;
+    background: rgba(88, 166, 255, 0.08);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .action-card h4 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+
+  .action-card p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: rgba(230, 237, 243, 0.7);
+  }
+
+  .action-card button {
+    align-self: flex-start;
+  }
+
+  .file-tabs {
+    margin-bottom: 2rem;
+  }
+
+  .tab-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .tab-button {
+    padding: 0.5rem 1rem;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(230, 237, 243, 0.7);
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+  }
+
+  .tab-button:hover {
+    color: rgba(230, 237, 243, 0.95);
+  }
+
+  .tab-button.active {
+    border-bottom-color: #58a6ff;
+    color: #58a6ff;
+  }
+
+  .tab-content {
+    display: none;
+  }
+
+  .tab-content.active {
+    display: block;
+  }
+
+  .file-list {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .file-item {
+    padding: 0.5rem 0.75rem;
+    background: rgba(148, 163, 184, 0.05);
+    border-radius: 0.4rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    font-family: monospace;
+    word-break: break-all;
+  }
+
+  .file-item:last-child {
+    margin-bottom: 0;
+  }
+
+  .file-search {
+    margin-bottom: 0.75rem;
+  }
+
+  .file-search input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.4rem;
+    background: rgba(26, 29, 35, 0.5);
+    color: rgba(230, 237, 243, 0.95);
+    font-size: 0.9rem;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: rgba(230, 237, 243, 0.6);
+  }
+
+  .empty-state p {
+    margin: 0.5rem 0;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(230, 237, 243, 0.2);
+    border-radius: 50%;
+    border-top-color: #58a6ff;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .form-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .form-group {
+    margin-bottom: 1rem;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+  }
+
+  .form-group input,
+  .form-group textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 0.4rem;
+    background: rgba(26, 29, 35, 0.5);
+    color: rgba(230, 237, 243, 0.95);
+    font-size: 0.9rem;
+  }
+
+  .form-group input:focus,
+  .form-group textarea:focus {
+    outline: none;
+    border-color: #58a6ff;
+    background: rgba(26, 29, 35, 0.8);
+  }
+
+  .form-help {
+    font-size: 0.8rem;
+    color: rgba(230, 237, 243, 0.5);
+    margin-top: 0.3rem;
+  }
+
+  .checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+  }
+
+  .checkbox-group input[type="checkbox"] {
+    width: auto;
+  }
+
+  .checkbox-label {
+    margin: 0;
+    cursor: pointer;
+  }
+
+  .alert {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .alert.info {
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.2);
+    color: #58a6ff;
+  }
+
+  .alert.error {
+    background: rgba(208, 85, 75, 0.1);
+    border: 1px solid rgba(208, 85, 75, 0.2);
+    color: #d05544;
+  }
+
+  .alert.success {
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.2);
+    color: #3fb950;
+  }
+
+  .details-toggle {
+    margin-top: 1rem;
+    cursor: pointer;
+    color: #58a6ff;
+    text-decoration: underline;
+    font-size: 0.9rem;
+  }
+
+  .details-content {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(148, 163, 184, 0.05);
+    border-radius: 0.5rem;
+    border-left: 3px solid #58a6ff;
+  }
+
+  .details-content.open {
+    display: block;
+  }
+
+  .details-item {
+    margin: 0.5rem 0;
+    font-size: 0.85rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dotfiles-page">
+  <!-- Header -->
+  <div class="dotfiles-header">
+    <h1>🗂️ Dotfiles Management</h1>
+    <p class="text-muted">Manage your configuration files and dotfiles repository</p>
+    {% if yadm_status %}
+      {% if yadm_status.is_initialized %}
+        <span class="status-badge initialized">✓ Initialized</span>
+      {% else %}
+        <span class="status-badge not-initialized">⚠ Not Initialized</span>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- Error Messages -->
+  {% if yadm_error %}
+    <div class="alert error">
+      ⚠️ {{ yadm_error }}
+    </div>
+  {% endif %}
+
+  {% if not yadm_installed %}
+    <div class="alert error">
+      ⚠️ yadm is not installed on this system. Contact your administrator to install it.
+    </div>
+  {% endif %}
+
+  <!-- Configuration Section -->
+  {% if yadm_installed %}
+    <section class="config-grid">
+      <!-- Global Configuration Card (Admin Only) -->
+      {% if is_admin and global_config %}
+        <div class="config-card">
+          <h3>🌐 Global Configuration</h3>
+          <div class="status-item">
+            <span class="status-label">Repository URL:</span>
+            <span class="status-value" style="word-break: break-all;">{{ global_config.repo_url or 'Not configured' }}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">Branch:</span>
+            <span class="status-value">{{ global_config.branch.value if global_config.branch else 'main' }}</span>
+          </div>
+          <div class="form-help">
+            This is the organization-wide dotfiles configuration. <a href="{{ url_for('admin.manage_settings') }}#dotfiles">Edit in Settings</a>
+          </div>
+        </div>
+      {% elif not is_admin and global_config %}
+        <div class="config-card">
+          <h3>🌐 Global Configuration</h3>
+          <div class="alert info">
+            Your organization uses a shared dotfiles repository. You can override it below with your personal repository.
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Personal Configuration Card -->
+      <div class="config-card">
+        <h3>👤 Personal Configuration</h3>
+        <form method="post" class="form-section">
+          {{ form.hidden_tag() }}
+
+          <div class="form-group">
+            {{ form.personal_dotfile_repo_url.label }}
+            {{ form.personal_dotfile_repo_url(class="form-control") }}
+            {% if form.personal_dotfile_repo_url.errors %}
+              <div class="alert error">{{ form.personal_dotfile_repo_url.errors[0] }}</div>
+            {% endif %}
+            <span class="form-help">Leave empty to use global configuration</span>
+          </div>
+
+          <div class="form-group">
+            {{ form.personal_dotfile_branch.label }}
+            {{ form.personal_dotfile_branch(class="form-control", placeholder="main") }}
+            <span class="form-help">Git branch to use (default: main)</span>
+          </div>
+
+          <div class="checkbox-group">
+            {{ form.clear_override() }}
+            <label class="checkbox-label" for="clear_override">{{ form.clear_override.label.text }}</label>
+          </div>
+
+          {{ form.submit(class="primary") }}
+        </form>
+      </div>
+    </section>
+  {% endif %}
+
+  <!-- Status Overview -->
+  {% if yadm_status and yadm_status.is_initialized %}
+    <section class="status-grid">
+      <!-- Managed Files Card -->
+      <div class="status-card">
+        <h3>📁 Managed Files</h3>
+        <div class="status-item">
+          <span class="status-label">Tracked Files:</span>
+          <span class="status-value">{{ yadm_status.files.tracked|length }}</span>
+        </div>
+        <div class="status-item">
+          <span class="status-label">Encrypted Files:</span>
+          <span class="status-value">{{ yadm_status.files.encrypted|length }}</span>
+        </div>
+        {% if yadm_status.files.modified %}
+          <div class="status-item">
+            <span class="status-label">Modified Files:</span>
+            <span class="status-value warning">{{ yadm_status.files.modified|length }}</span>
+          </div>
+        {% endif %}
+        {% if yadm_status.files.error %}
+          <div class="status-item">
+            <span class="status-value error">Error: {{ yadm_status.files.error }}</span>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Git Repository Card -->
+      <div class="status-card">
+        <h3>🔗 Git Repository</h3>
+        {% if yadm_status.git.branch %}
+          <div class="status-item">
+            <span class="status-label">Branch:</span>
+            <span class="status-value">{{ yadm_status.git.branch }}</span>
+          </div>
+        {% endif %}
+        {% if yadm_status.git.remote_url %}
+          <div class="status-item">
+            <span class="status-label">Remote:</span>
+            <span class="status-value" style="word-break: break-all; font-size: 0.8rem;">{{ yadm_status.git.remote_url }}</span>
+          </div>
+        {% endif %}
+        <div class="status-item">
+          <span class="status-label">Status:</span>
+          <span class="status-value {% if yadm_status.git.status_summary == 'Clean' %}success{% elif yadm_status.git.status_summary == 'Modified' %}warning{% else %}error{% endif %}">
+            {{ yadm_status.git.status_summary }}
+          </span>
+        </div>
+        {% if yadm_status.git.commits_ahead or yadm_status.git.commits_behind %}
+          <div class="status-item">
+            <span class="status-label">Commits:</span>
+            <span class="status-value">
+              {% if yadm_status.git.commits_ahead %}↑{{ yadm_status.git.commits_ahead }}{% endif %}
+              {% if yadm_status.git.commits_behind %}↓{{ yadm_status.git.commits_behind }}{% endif %}
+            </span>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Bootstrap Card -->
+      <div class="status-card">
+        <h3>🚀 Bootstrap</h3>
+        <div class="status-item">
+          <span class="status-label">Bootstrap Script:</span>
+          <span class="status-value {% if yadm_status.bootstrap.exists %}success{% else %}error{% endif %}">
+            {% if yadm_status.bootstrap.exists %}✓ Exists{% else %}✗ Not found{% endif %}
+          </span>
+        </div>
+        {% if yadm_status.bootstrap.executable %}
+          <div class="status-item">
+            <span class="status-label">Executable:</span>
+            <span class="status-value success">✓ Yes</span>
+          </div>
+        {% endif %}
+        {% if yadm_status.bootstrap.bootstrap_scripts %}
+          <div class="status-item">
+            <span class="status-label">Bootstrap.d Scripts:</span>
+            <span class="status-value">{{ yadm_status.bootstrap.bootstrap_scripts|length }}</span>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Encryption Card -->
+      <div class="status-card">
+        <h3>🔐 Encryption</h3>
+        {% if yadm_status.encryption.has_encrypt_patterns %}
+          <div class="status-item">
+            <span class="status-label">Encrypted Files:</span>
+            <span class="status-value">{{ yadm_status.encryption.encrypted_file_count }}</span>
+          </div>
+          <div class="status-item">
+            <span class="status-label">GPG Key:</span>
+            <span class="status-value {% if yadm_status.encryption.gpg_key_configured %}success{% else %}warning{% endif %}">
+              {% if yadm_status.encryption.gpg_key_configured %}✓ Configured{% else %}⚠ Not configured{% endif %}
+            </span>
+          </div>
+        {% else %}
+          <div class="status-item">
+            <span class="status-label">Encrypted Files:</span>
+            <span class="status-value">None</span>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Action Buttons -->
+    <section class="action-section">
+      <h2>Actions</h2>
+      <div class="action-buttons">
+        <!-- Pull & Update -->
+        <div class="action-card">
+          <h4>⬇️ Pull & Update</h4>
+          <p>Pull latest changes from repository and re-run bootstrap</p>
+          <button type="button" class="primary" onclick="pullAndUpdate()" id="pull-btn">
+            Pull & Update
+          </button>
+          <div id="pull-status" style="display: none; margin-top: 0.75rem;">
+            <div class="spinner" style="display: inline-block;"></div>
+            <span id="pull-message" style="margin-left: 0.5rem; font-size: 0.85rem;"></span>
+          </div>
+        </div>
+
+        <!-- Decrypt Files -->
+        {% if yadm_status.encryption.has_encrypt_patterns %}
+          <div class="action-card">
+            <h4>🔓 Decrypt Files</h4>
+            <p>Decrypt encrypted dotfiles</p>
+            <button type="button" class="primary" onclick="decryptFiles()" id="decrypt-btn">
+              Decrypt Files
+            </button>
+            <div id="decrypt-status" style="display: none; margin-top: 0.75rem;">
+              <div class="spinner" style="display: inline-block;"></div>
+              <span id="decrypt-message" style="margin-left: 0.5rem; font-size: 0.85rem;"></span>
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- File Lists -->
+    <section class="file-tabs">
+      <h2>Tracked Files</h2>
+
+      <div class="tab-nav">
+        <button type="button" class="tab-button active" onclick="switchTab('tracked')">
+          Tracked ({{ yadm_status.files.tracked|length }})
+        </button>
+        {% if yadm_status.files.encrypted %}
+          <button type="button" class="tab-button" onclick="switchTab('encrypted')">
+            Encrypted ({{ yadm_status.files.encrypted|length }})
+          </button>
+        {% endif %}
+        {% if yadm_status.files.modified %}
+          <button type="button" class="tab-button" onclick="switchTab('modified')">
+            Modified ({{ yadm_status.files.modified|length }})
+          </button>
+        {% endif %}
+      </div>
+
+      <!-- Tracked Tab -->
+      <div id="tracked" class="tab-content active">
+        {% if yadm_status.files.tracked %}
+          <div class="file-search">
+            <input type="text" id="tracked-search" placeholder="Search files..." onkeyup="filterFiles('tracked')">
+          </div>
+          <div class="file-list" id="tracked-list">
+            {% for file in yadm_status.files.tracked[:50] %}
+              <div class="file-item">{{ file }}</div>
+            {% endfor %}
+            {% if yadm_status.files.tracked|length > 50 %}
+              <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
+                <span class="text-muted">+{{ yadm_status.files.tracked|length - 50 }} more files</span>
+              </div>
+            {% endif %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <p>No tracked files</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Encrypted Tab -->
+      {% if yadm_status.files.encrypted %}
+        <div id="encrypted" class="tab-content">
+          <div class="file-search">
+            <input type="text" id="encrypted-search" placeholder="Search files..." onkeyup="filterFiles('encrypted')">
+          </div>
+          <div class="file-list" id="encrypted-list">
+            {% for file in yadm_status.files.encrypted[:50] %}
+              <div class="file-item">{{ file }}</div>
+            {% endfor %}
+            {% if yadm_status.files.encrypted|length > 50 %}
+              <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
+                <span class="text-muted">+{{ yadm_status.files.encrypted|length - 50 }} more files</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Modified Tab -->
+      {% if yadm_status.files.modified %}
+        <div id="modified" class="tab-content">
+          <div class="file-search">
+            <input type="text" id="modified-search" placeholder="Search files..." onkeyup="filterFiles('modified')">
+          </div>
+          <div class="file-list" id="modified-list">
+            {% for file in yadm_status.files.modified[:50] %}
+              <div class="file-item">{{ file }}</div>
+            {% endfor %}
+            {% if yadm_status.files.modified|length > 50 %}
+              <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
+                <span class="text-muted">+{{ yadm_status.files.modified|length - 50 }} more files</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+    </section>
+
+    <!-- Details -->
+    <div class="details-toggle" onclick="toggleDetails()">📋 Show Technical Details</div>
+    <div id="details-content" class="details-content">
+      {% if yadm_status.git.last_pull %}
+        <div class="details-item">
+          <strong>Last Pull:</strong> {{ yadm_status.git.last_pull }}
+        </div>
+      {% endif %}
+      {% if yadm_status.bootstrap.last_run %}
+        <div class="details-item">
+          <strong>Bootstrap Last Modified:</strong> {{ yadm_status.bootstrap.last_run }}
+        </div>
+      {% endif %}
+      {% if yadm_status.bootstrap.bootstrap_scripts %}
+        <div class="details-item">
+          <strong>Bootstrap.d Scripts:</strong>
+          {% for script in yadm_status.bootstrap.bootstrap_scripts %}
+            <div style="margin-left: 1rem; font-family: monospace; font-size: 0.8rem;">{{ script }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+      <div class="details-item">
+        <strong>User Home:</strong> <code>{{ yadm_status.user_home }}</code>
+      </div>
+      <div class="details-item">
+        <strong>Yadm Directory:</strong> <code>{{ yadm_status.user_home }}/.yadm</code>
+      </div>
+    </div>
+  {% elif yadm_installed %}
+    <!-- Initialize Card -->
+    <section class="action-section">
+      <div class="alert info">
+        Dotfiles are not yet initialized. Click the button below to set up your dotfiles repository.
+      </div>
+
+      <div class="action-buttons">
+        <div class="action-card" style="grid-column: 1 / -1;">
+          <h4>🚀 Initialize Dotfiles</h4>
+          <p>Clone and set up your dotfiles repository</p>
+          <button type="button" class="primary" onclick="initializeDotfiles()" id="init-btn">
+            Initialize Dotfiles
+          </button>
+          <div id="init-status" style="display: none; margin-top: 0.75rem;">
+            <div class="spinner" style="display: inline-block;"></div>
+            <span id="init-message" style="margin-left: 0.5rem; font-size: 0.85rem;"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+</div>
+
+<script>
+  function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(el => {
+      el.classList.remove('active');
+    });
+
+    // Remove active from all buttons
+    document.querySelectorAll('.tab-button').forEach(btn => {
+      btn.classList.remove('active');
+    });
+
+    // Show selected tab
+    const tab = document.getElementById(tabName);
+    if (tab) {
+      tab.classList.add('active');
+      event.target.classList.add('active');
+    }
+  }
+
+  function filterFiles(tabName) {
+    const searchInput = document.getElementById(tabName + '-search');
+    const fileList = document.getElementById(tabName + '-list');
+    const filter = searchInput.value.toLowerCase();
+
+    if (!fileList) return;
+
+    const items = fileList.querySelectorAll('.file-item');
+    items.forEach(item => {
+      const text = item.textContent.toLowerCase();
+      item.style.display = text.includes(filter) ? '' : 'none';
+    });
+  }
+
+  function toggleDetails() {
+    const details = document.getElementById('details-content');
+    if (details) {
+      details.classList.toggle('open');
+    }
+  }
+
+  function getCsrfToken() {
+    return document.querySelector('input[name="csrf_token"]')?.value || '';
+  }
+
+  async function initializeDotfiles() {
+    const btn = document.getElementById('init-btn');
+    const status = document.getElementById('init-status');
+    const message = document.getElementById('init-message');
+
+    if (!btn || !status || !message) return;
+
+    btn.disabled = true;
+    status.style.display = 'block';
+    message.textContent = 'Initializing...';
+
+    try {
+      const response = await fetch('/api/v1/dotfiles/init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken()
+        },
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        message.textContent = '✓ Initialization complete! Reloading...';
+        setTimeout(() => location.reload(), 2000);
+      } else {
+        message.textContent = '✗ Error: ' + (data.error || 'Unknown error');
+        message.style.color = '#d05544';
+      }
+    } catch (error) {
+      message.textContent = '✗ Error: ' + error.message;
+      message.style.color = '#d05544';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function pullAndUpdate() {
+    const btn = document.getElementById('pull-btn');
+    const status = document.getElementById('pull-status');
+    const message = document.getElementById('pull-message');
+
+    if (!btn || !status || !message) return;
+
+    btn.disabled = true;
+    status.style.display = 'block';
+    message.textContent = 'Updating...';
+
+    try {
+      const response = await fetch('/api/v1/dotfiles/pull-and-update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken()
+        },
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        message.textContent = '✓ Update complete! Reloading...';
+        setTimeout(() => location.reload(), 2000);
+      } else {
+        message.textContent = '✗ Error: ' + (data.error || 'Unknown error');
+        message.style.color = '#d05544';
+      }
+    } catch (error) {
+      message.textContent = '✗ Error: ' + error.message;
+      message.style.color = '#d05544';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function decryptFiles() {
+    const btn = document.getElementById('decrypt-btn');
+    const status = document.getElementById('decrypt-status');
+    const message = document.getElementById('decrypt-message');
+
+    if (!btn || !status || !message) return;
+
+    btn.disabled = true;
+    status.style.display = 'block';
+    message.textContent = 'Decrypting...';
+
+    try {
+      const response = await fetch('/api/v1/dotfiles/decrypt', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': getCsrfToken()
+        },
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        message.textContent = '✓ Decryption complete!';
+        message.style.color = '#3fb950';
+      } else {
+        message.textContent = '✗ Error: ' + (data.error || 'Unknown error');
+        message.style.color = '#d05544';
+      }
+    } catch (error) {
+      message.textContent = '✗ Error: ' + error.message;
+      message.style.color = '#d05544';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+</script>
+{% endblock %}

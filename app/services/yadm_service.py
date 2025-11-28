@@ -1020,16 +1020,31 @@ def get_yadm_encryption_status(
             if archive_path.exists():
                 result["archive_exists"] = True
                 try:
-                    # Try to use yadm decrypt -l to list files
-                    # Note: This requires yadm to be configured for the standard location
+                    # For hybrid/custom setups, determine the correct YADM_DIR
+                    # YADM_DIR should point to the config directory for yadm to find the archive
+                    config_name = Path(yadm_config_dir).name if yadm_config_dir else "yadm"
+
+                    # Build environment for yadm command
+                    env = os.environ.copy()
+                    env["HOME"] = user_home
+
+                    # Set YADM_DIR to help yadm find the correct config and archive
+                    # For custom setups like yadm-floads, this tells yadm where to look
+                    if config_name != "yadm" and yadm_config_dir:
+                        env["YADM_DIR"] = yadm_config_dir
+
+                    # Try to use yadm decrypt -l to list files in archive
+                    # With proper YADM_DIR, this should find archives in custom locations
                     cmd = ["yadm", "decrypt", "-l"]
                     sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+
                     res = subprocess.run(
                         sudo_cmd,
                         capture_output=True,
                         text=True,
                         timeout=30,
                         cwd=user_home,
+                        env=env,
                     )
                     if res.returncode == 0 and res.stdout:
                         # Parse the output to get file list
@@ -1042,10 +1057,10 @@ def get_yadm_encryption_status(
                         break  # Got files, stop checking other archives
                     else:
                         # If yadm decrypt fails, log but don't treat as error
-                        # Archive exists but may be in non-standard location or encrypted
+                        # Archive exists but may be encrypted or require password
                         logger.debug(
                             f"Could not list archive files for {linux_username} "
-                            f"(may be in custom location or require decryption): {res.stderr}"
+                            f"from {archive_path}: {res.stderr}"
                         )
                 except Exception as e:
                     logger.debug(

@@ -1016,6 +1016,24 @@
         </span>
       </h2>
       <p class="pinned-issues-subtitle">Issues you've pinned for quick access</p>
+      {% set closed_pinned = [] %}
+      {% for tenant_name, tenant_issues in pinned_issues_grouped %}
+        {% for pinned in tenant_issues %}
+          {% if pinned.issue.status == 'closed' %}
+            {% set _ = closed_pinned.append(pinned) %}
+          {% endif %}
+        {% endfor %}
+      {% endfor %}
+      {% if closed_pinned %}
+      <div style="margin-top: 1rem;">
+        <form method="post" action="{{ url_for('admin.cleanup_closed_pinned') }}" style="display: inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <button type="submit" class="secondary outline" onclick="return confirm('Remove all {{ closed_pinned|length }} closed pinned issue{{ 's' if closed_pinned|length != 1 else '' }}? This cannot be undone.');">
+            🧹 Cleanup {{ closed_pinned|length }} Closed Issue{{ 's' if closed_pinned|length != 1 else '' }}
+          </button>
+        </form>
+      </div>
+      {% endif %}
     </div>
   </header>
   <div class="issue-list" style="margin-top:0;">

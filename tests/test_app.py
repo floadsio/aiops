@@ -8,6 +8,7 @@ from app import create_app, db
 from app.config import Config
 from app.models import (
     ExternalIssue,
+    PinnedIssue,
     Project,
     ProjectIntegration,
     SSHKey,
@@ -1187,3 +1188,114 @@ def test_run_ansible_playbook_uses_semaphore(monkeypatch, tmp_path):
         assert captured_payload["diff"] is True
         assert captured_payload["limit"] == "all"
         assert captured_payload["inventory_id"] == 9
+
+
+def test_cleanup_closed_pinned_issues(tmp_path):
+    """Test cleanup of closed pinned issues."""
+
+    class TestConfig(Config):
+        TESTING = True
+        WTF_CSRF_ENABLED = False
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{tmp_path / 'cleanup.db'}"
+        REPO_STORAGE_PATH = str(tmp_path / "repos")
+
+    app = create_app(TestConfig, instance_path=tmp_path / "instance")
+
+    user_id = None
+    with app.app_context():
+        db.create_all()
+
+        # Create user and login
+        admin_user = User(
+            email="admin@example.com",
+            name="Admin User",
+            password_hash=hash_password("pass123"),
+            is_admin=True,
+        )
+        db.session.add(admin_user)
+
+        # Create tenant and project
+        tenant = Tenant(name="test", description="Test tenant")
+        integration = TenantIntegration(
+            tenant=tenant,
+            provider="github",
+            name="Test GitHub",
+            api_token="token",
+            enabled=True,
+            settings={},
+        )
+        project = Project(
+            name="test-project",
+            repo_url="git@example.com/test.git",
+            default_branch="main",
+            local_path=str(tmp_path / "repos" / "test-project"),
+            tenant=tenant,
+            owner=admin_user,
+        )
+        project_integration = ProjectIntegration(
+            project=project,
+            integration=integration,
+            external_identifier="test/repo",
+            config={},
+        )
+
+        # Create issues: one open, one closed
+        open_issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="1",
+            title="Open issue",
+            status="open",
+        )
+        closed_issue = ExternalIssue(
+            project_integration=project_integration,
+            external_id="2",
+            title="Closed issue",
+            status="closed",
+        )
+
+        # Create pinned issues for both
+        pinned_open = PinnedIssue(user=admin_user, issue=open_issue)
+        pinned_closed = PinnedIssue(user=admin_user, issue=closed_issue)
+
+        db.session.add_all(
+            [
+                admin_user,
+                tenant,
+                integration,
+                project,
+                project_integration,
+                open_issue,
+                closed_issue,
+                pinned_open,
+                pinned_closed,
+            ]
+        )
+        db.session.commit()
+        user_id = admin_user.id
+
+    client = app.test_client()
+
+    # Login
+    login_resp = client.post(
+        "/login",
+        data={"email": "admin@example.com", "password": "pass123"},
+        follow_redirects=True,
+    )
+    assert login_resp.status_code == 200
+
+    # Verify both issues are pinned
+    with app.app_context():
+        pinned_count = PinnedIssue.query.filter_by(user_id=user_id).count()
+        assert pinned_count == 2
+
+    # Call cleanup endpoint
+    cleanup_resp = client.post("/admin/cleanup-closed-pinned", follow_redirects=True)
+    assert cleanup_resp.status_code == 200
+    body = cleanup_resp.get_data(as_text=True)
+    assert "Cleaned up" in body or "closed" in body.lower()
+
+    # Verify only closed issue was removed
+    with app.app_context():
+        remaining_pinned = PinnedIssue.query.filter_by(user_id=user_id).all()
+        assert len(remaining_pinned) == 1
+        assert remaining_pinned[0].issue.external_id == "1"  # Open issue remains

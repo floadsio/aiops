@@ -508,10 +508,6 @@
           <span class="status-label">Tracked Files:</span>
           <span class="status-value">{{ yadm_status.files.tracked|length }}</span>
         </div>
-        <div class="status-item">
-          <span class="status-label">Encrypted Files:</span>
-          <span class="status-value">{{ yadm_status.files.encrypted|length }}</span>
-        </div>
         {% if yadm_status.files.modified %}
           <div class="status-item">
             <span class="status-label">Modified Files:</span>

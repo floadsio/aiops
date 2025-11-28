@@ -871,6 +871,33 @@ def get_yadm_bootstrap_info(
         }
 
 
+def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
+    """Find yadm directory (standard or custom).
+
+    Returns:
+        Tuple of (yadm_config_dir, yadm_data_dir) or (None, None) if not found.
+        For standard yadm: (~/.yadm, ~/.local/share/yadm)
+        For custom yadm: (~/.config/yadm-floads, ~/.local/share/yadm-floads)
+    """
+    # Check standard location first
+    standard_yadm_config = Path(user_home) / ".yadm"
+    standard_yadm_data = Path(user_home) / ".local" / "share" / "yadm"
+    if standard_yadm_config.exists():
+        return (str(standard_yadm_config), str(standard_yadm_data))
+
+    # Check for custom yadm directories in ~/.config (e.g., yadm-floads)
+    config_dir = Path(user_home) / ".config"
+    if config_dir.exists():
+        for item in config_dir.iterdir():
+            if item.is_dir() and item.name.startswith("yadm"):
+                # Found custom yadm config, construct corresponding data dir
+                yadm_variant = item.name  # e.g., "yadm-floads"
+                yadm_data = Path(user_home) / ".local" / "share" / yadm_variant
+                return (str(item), str(yadm_data))
+
+    return (None, None)
+
+
 def get_yadm_encryption_status(
     linux_username: str,
     user_home: str,
@@ -899,8 +926,14 @@ def get_yadm_encryption_status(
             "error": None,
         }
 
+        # Detect yadm directory (standard or custom)
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home)
+        if not yadm_config_dir or not yadm_data_dir:
+            logger.debug(f"No yadm configuration found for {linux_username}")
+            return result
+
         # Check for encrypt patterns
-        encrypt_file = Path(user_home) / ".yadm" / "encrypt"
+        encrypt_file = Path(yadm_config_dir) / "encrypt"
         if encrypt_file.exists():
             result["has_encrypt_patterns"] = True
             try:
@@ -915,10 +948,24 @@ def get_yadm_encryption_status(
                 )
 
         # Check for archive and list encrypted files
-        archive_path = Path(user_home) / ".local" / "share" / "yadm" / "archive"
+        archive_path = Path(yadm_data_dir) / "archive"
         if archive_path.exists():
             result["archive_exists"] = True
             try:
+                # Determine YADM_DIR from config directory
+                # For ~/.yadm, YADM_DIR should be empty (uses default)
+                # For custom yadm, YADM_DIR should point to ~/.config/yadm-*
+                yadm_config_name = Path(yadm_config_dir).name
+                if yadm_config_name != ".yadm":
+                    # Custom yadm setup: set YADM_DIR
+                    yadm_env = dict(os.environ)
+                    yadm_env["YADM_DIR"] = yadm_config_dir
+                    # Also set HOME for proper expansion
+                    yadm_env["HOME"] = user_home
+                else:
+                    yadm_env = dict(os.environ)
+                    yadm_env["HOME"] = user_home
+
                 # Use yadm decrypt -l to list files in archive without extracting
                 cmd = ["yadm", "decrypt", "-l"]
                 sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
@@ -928,6 +975,7 @@ def get_yadm_encryption_status(
                     text=True,
                     timeout=30,
                     cwd=user_home,
+                    env=yadm_env,
                 )
                 if res.returncode == 0 and res.stdout:
                     # Parse the output to get file list
@@ -1003,10 +1051,11 @@ def get_full_yadm_status(user: User) -> dict[str, Any]:
     user_home = f"/home/{linux_username}"
 
     try:
-        # Check if yadm is initialized
-        # yadm stores its git repo at ~/.local/share/yadm/repo.git
-        yadm_repo_dir = Path(user_home) / ".local" / "share" / "yadm" / "repo.git"
-        is_initialized = yadm_repo_dir.exists()
+        # Check if yadm is initialized (standard or custom)
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home)
+        is_initialized = yadm_config_dir is not None and (
+            Path(yadm_data_dir) / "repo.git"
+        ).exists()
 
         result = {
             "user_email": user.email,

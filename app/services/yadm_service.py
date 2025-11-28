@@ -396,8 +396,12 @@ def yadm_decrypt(
                             passphrase_stdin = f"{passphrase}\n"
 
                             # Decrypt via openssl, passing passphrase to stdin
+                            # Run as target user to access their files
+                            sudo_decrypt_cmd = [
+                                "sudo", "-u", linux_username, "-H"
+                            ] + decrypt_cmd
                             decrypt_result = subprocess.run(
-                                decrypt_cmd,
+                                sudo_decrypt_cmd,
                                 input=passphrase_stdin.encode(),
                                 capture_output=True,
                                 timeout=60,
@@ -453,8 +457,12 @@ def yadm_decrypt(
                                     "-in", str(variant_archive),
                                     "-pass", "stdin"
                                 ]
+                                # Run as target user to access their files
+                                sudo_decrypt_cmd_iter = [
+                                    "sudo", "-u", linux_username, "-H"
+                                ] + decrypt_cmd_iter
                                 decrypt_result = subprocess.run(
-                                    decrypt_cmd_iter,
+                                    sudo_decrypt_cmd_iter,
                                     input=passphrase_stdin.encode(),
                                     capture_output=True,
                                     timeout=60,

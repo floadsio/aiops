@@ -287,6 +287,154 @@ db.session.commit()
 
 See PR #36 for implementation details.
 
+## yadm Integration for Dotfiles Management
+
+aiops supports **yadm (Yet Another Dotfiles Manager)** for managing user configuration files (.bashrc, .zshrc, .gitconfig, etc.) across workspaces.
+
+### Overview
+
+yadm enables:
+- **Git-managed dotfiles**: Store configurations in a Git repository
+- **Per-user customization**: Each user can have personal dotfiles
+- **Encrypted files**: Support for GPG-encrypted sensitive configurations
+- **Bootstrap scripts**: Run setup scripts automatically after cloning
+- **System-wide availability**: Works across all projects and users
+
+### System Requirements
+
+**Installation**: yadm is automatically installed during `deploy/install-service.sh` execution via `apt-get install yadm`.
+
+Check installation: `which yadm` or `yadm --version`
+
+### Configuration
+
+#### Per-Project Configuration
+
+Set dotfile repository at the project level (Admin UI or API):
+
+```python
+project.dotfile_enabled = True  # Enable yadm for this project
+project.dotfile_repo_url = "git@github.com:floads/dotfiles.git"
+project.dotfile_branch = "main"
+```
+
+#### Per-User Override
+
+Users can override project settings with personal dotfiles:
+
+```python
+user.personal_dotfile_repo_url = "git@github.com:yourname/dotfiles.git"
+user.personal_dotfile_branch = "main"
+```
+
+#### CLI Usage
+
+Initialize workspace with dotfiles:
+
+```bash
+flask init-workspace --user-email user@example.com --project-id 6 \
+  --enable-dotfiles \
+  --dotfile-repo git@github.com:floads/dotfiles.git \
+  --dotfile-branch main
+```
+
+### GPG Key Management
+
+For encrypted dotfiles, store GPG keys securely in the database:
+
+```python
+from app.services.yadm_service import store_gpg_key_encrypted
+
+# Store encrypted GPG key for a user
+store_gpg_key_encrypted(
+    user=user,
+    private_key_data=gpg_key_bytes,
+    key_id="4F8B3C1A2D5E7F9A",
+    passphrase=optional_passphrase
+)
+```
+
+Keys are encrypted using Fernet (same encryption as SSH keys) with `SSH_KEY_ENCRYPTION_KEY` from `.env`.
+
+### Core Services
+
+**File:** `app/services/yadm_service.py`
+
+Key functions:
+- `initialize_yadm_repo(linux_username, user_home, repo_url, branch)` - Clone dotfiles
+- `apply_yadm_bootstrap(linux_username, user_home)` - Run bootstrap script
+- `yadm_decrypt(linux_username, user_home)` - Decrypt encrypted files
+- `import_gpg_key(linux_username, user_home, key_data, key_id)` - Import GPG key
+- `verify_yadm_setup(linux_username, user_home)` - Health check
+- `store_gpg_key_encrypted(user, key_data, key_id)` - Store encrypted key in DB
+- `get_gpg_key_decrypted(user)` - Retrieve and decrypt key from DB
+
+### Integration with Workspace Initialization
+
+When `initialize_workspace()` is called:
+1. Project repository is cloned
+2. If `dotfile_enabled = True`, yadm is initialized:
+   - GPG key imported to user's keyring (if configured)
+   - Dotfiles repository cloned to `~/.yadm/`
+   - Bootstrap script runs automatically
+   - Encrypted files are decrypted
+3. Errors in yadm setup are logged but don't fail workspace initialization
+
+### Configuration Priority
+
+When initializing dotfiles:
+1. **User personal config** (highest priority)
+2. **Project team config** (medium priority)
+3. **Global defaults** from environment
+4. **Skip** if not configured (logged as info)
+
+### Example Dotfiles Repository Structure
+
+```
+https://gitlab.com/floads/dotfiles
+├── .yadm/
+│   ├── bootstrap           # Auto-run after clone
+│   └── encrypt             # Encryption patterns
+├── .bashrc                 # Bash configuration
+├── .zshrc                  # Zsh configuration
+├── .gitconfig              # Git configuration
+├── .config/
+│   ├── git/
+│   ├── tmux/
+│   └── ...
+└── README.md              # Setup guide
+```
+
+### Testing
+
+Unit tests: `tests/services/test_yadm_service.py` (26 tests, all passing)
+
+Tests cover:
+- GPG key encryption/decryption
+- yadm repository operations
+- Bootstrap execution
+- File decryption
+- Error handling
+
+### Production Considerations
+
+✅ **Security:**
+- GPG keys encrypted at rest in database (Fernet)
+- Keys only decrypted during workspace initialization
+- Keys never written to disk
+- Operations run as target user via sudo
+
+✅ **Error Handling:**
+- Graceful degradation if yadm not installed
+- Missing dotfile repos are logged, not fatal
+- Bootstrap failures don't block workspace
+- Decryption failures degrade gracefully
+
+✅ **Performance:**
+- Parallel processing possible (dotfiles init doesn't block project work)
+- Configurable timeouts (default 300s for clone, 120s for bootstrap)
+- Lazy initialization (only runs if enabled)
+
 ## Global Agent Context
 
 aiops supports **global AGENTS.md content** stored in the database and included in all `AGENTS.override.md` files.

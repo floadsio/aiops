@@ -1273,6 +1273,25 @@ def manage_settings():
         for cred in user_credentials
     }
 
+    # Load yadm (dotfiles) settings
+    from ..forms.admin import YadmSettingsForm
+    from ..models import SystemConfig
+
+    yadm_form = YadmSettingsForm()
+    dotfile_repo_url_config = SystemConfig.query.filter_by(
+        key="dotfile_repo_url"
+    ).first()
+    dotfile_repo_branch_config = SystemConfig.query.filter_by(
+        key="dotfile_repo_branch"
+    ).first()
+
+    if dotfile_repo_url_config and dotfile_repo_url_config.value:
+        yadm_form.dotfile_repo_url.data = dotfile_repo_url_config.value.get("url", "")
+    if dotfile_repo_branch_config and dotfile_repo_branch_config.value:
+        yadm_form.dotfile_repo_branch.data = dotfile_repo_branch_config.value.get(
+            "branch", "main"
+        )
+
     return render_template(
         "admin/settings.html",
         update_form=update_form,
@@ -1303,6 +1322,7 @@ def manage_settings():
         user_credential_create_form=user_credential_create_form,
         user_credentials=user_credentials,
         user_credential_delete_forms=user_credential_delete_forms,
+        yadm_form=yadm_form,
         now=datetime.utcnow(),
     )
 
@@ -4203,6 +4223,52 @@ def download_backup_web(backup_id: int):
         current_app.logger.exception("Failed to download backup.")
         flash(f"Error downloading backup: {exc}", "danger")
         return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/yadm", methods=["POST"])
+@admin_required
+def save_yadm_settings():
+    """Save global yadm (dotfiles) configuration."""
+    from ..extensions import db
+    from ..forms.admin import YadmSettingsForm
+    from ..models import SystemConfig
+
+    form = YadmSettingsForm()
+    if form.validate_on_submit():
+        try:
+            # Save or update dotfile_repo_url
+            repo_url_config = SystemConfig.query.filter_by(
+                key="dotfile_repo_url"
+            ).first()
+            if not repo_url_config:
+                repo_url_config = SystemConfig(key="dotfile_repo_url")
+                db.session.add(repo_url_config)
+            repo_url_config.value = {"url": form.dotfile_repo_url.data}
+
+            # Save or update dotfile_repo_branch
+            repo_branch_config = SystemConfig.query.filter_by(
+                key="dotfile_repo_branch"
+            ).first()
+            if not repo_branch_config:
+                repo_branch_config = SystemConfig(key="dotfile_repo_branch")
+                db.session.add(repo_branch_config)
+            repo_branch_config.value = {"branch": form.dotfile_repo_branch.data}
+
+            db.session.commit()
+            flash(
+                f"Dotfiles configuration saved: {form.dotfile_repo_url.data}",
+                "success",
+            )
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.exception("Failed to save yadm settings")
+            flash(f"Error saving dotfiles configuration: {exc}", "danger")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", "warning")
+
+    return redirect(url_for("admin.manage_settings"))
 
 
 @admin_bp.route("/activity", methods=["GET"])

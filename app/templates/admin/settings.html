@@ -913,6 +913,54 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
   </article>
     </div>
   </section>
+
+  <!-- Yadm / Dotfiles Configuration -->
+  <section>
+    <div class="settings-section">
+      <h2>🗂️ Dotfiles Management</h2>
+      <article>
+        <h3>Global Dotfiles Configuration</h3>
+        <p>Configure the organization-wide Git repository for managing dotfiles (configuration files like .bashrc, .zshrc, .gitconfig, etc.). When enabled, all workspace initializations will automatically clone and apply these dotfiles.</p>
+
+        <form method="POST" action="{{ url_for('admin.save_yadm_settings') }}" class="form-group">
+          {{ yadm_form.hidden_tag() }}
+
+          <div class="form-group">
+            {{ yadm_form.dotfile_repo_url.label(class="form-label") }}
+            {{ yadm_form.dotfile_repo_url(class="form-control" if yadm_form.dotfile_repo_url.errors else "", placeholder="https://gitlab.com/floads/dotfiles") }}
+            {% if yadm_form.dotfile_repo_url.errors %}
+              <small class="form-error">
+                {% for error in yadm_form.dotfile_repo_url.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </small>
+            {% endif %}
+          </div>
+
+          <div class="form-group">
+            {{ yadm_form.dotfile_repo_branch.label(class="form-label") }}
+            {{ yadm_form.dotfile_repo_branch(class="form-control" if yadm_form.dotfile_repo_branch.errors else "", placeholder="main") }}
+            {% if yadm_form.dotfile_repo_branch.errors %}
+              <small class="form-error">
+                {% for error in yadm_form.dotfile_repo_branch.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </small>
+            {% endif %}
+          </div>
+
+          <div class="settings-actions">
+            {{ yadm_form.submit(class="primary") }}
+          </div>
+        </form>
+
+        <details>
+          <summary><strong>Per-User Overrides</strong></summary>
+          <p>Individual users can override the global dotfiles configuration with their personal repository. Set <code>personal_dotfile_repo_url</code> and <code>personal_dotfile_branch</code> on the user account to use their own dotfiles instead of the organization-wide ones.</p>
+        </details>
+      </article>
+    </div>
+  </section>
 </div>
 <script>
   (function () {

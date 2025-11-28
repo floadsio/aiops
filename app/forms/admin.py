@@ -625,3 +625,32 @@ class AIAssistedIssueForm(FlaskForm):
         description="Select which user to attribute this issue to",
     )
     submit = SubmitField("Generate Issue Preview")
+
+
+class YadmSettingsForm(FlaskForm):
+    """Form for managing global yadm (dotfiles) configuration."""
+
+    dotfile_repo_url = URLField(
+        "Dotfiles Repository URL",
+        validators=[
+            DataRequired(),
+            URL(),
+        ],
+        render_kw={
+            "placeholder": "https://gitlab.com/floads/dotfiles",
+            "aria-description": "Git repository URL containing organization dotfiles (e.g., .bashrc, .zshrc, .gitconfig)",
+        },
+    )
+    dotfile_repo_branch = StringField(
+        "Repository Branch",
+        validators=[
+            DataRequired(),
+            Length(min=1, max=128),
+        ],
+        default="main",
+        render_kw={
+            "placeholder": "main",
+            "aria-description": "Git branch to clone from (default: main)",
+        },
+    )
+    submit = SubmitField("Save Dotfiles Configuration")

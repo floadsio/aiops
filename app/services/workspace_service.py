@@ -195,11 +195,28 @@ def workspace_exists(project, user) -> bool:
         return exists and has_git
 
 
+def _get_global_dotfile_settings() -> tuple[Optional[str], str]:
+    """Get global dotfile settings from database.
+
+    Returns:
+        Tuple of (repo_url, branch) or (None, "main") if not configured
+    """
+    from ..models import SystemConfig
+
+    repo_config = SystemConfig.query.filter_by(key="dotfile_repo_url").first()
+    branch_config = SystemConfig.query.filter_by(key="dotfile_repo_branch").first()
+
+    repo_url = repo_config.value.get("url") if repo_config and repo_config.value else None
+    branch = branch_config.value.get("branch") if branch_config and branch_config.value else "main"
+
+    return repo_url, branch
+
+
 def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
     """Initialize yadm dotfiles for a user if configured.
 
     This function:
-    1. Checks if global DOTFILE_REPO_URL is configured
+    1. Checks if global dotfile repo is configured in database
     2. Gets the dotfile repo URL (user personal override or global)
     3. Imports GPG key if available
     4. Clones and bootstraps the yadm repo
@@ -212,10 +229,8 @@ def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
         user: User model instance
         linux_username: Linux username for the user
     """
-    import os
-
-    # Get global dotfile repo URL from environment
-    global_dotfile_repo_url = os.getenv("DOTFILE_REPO_URL")
+    # Get global dotfile repo URL from database
+    global_dotfile_repo_url, default_branch = _get_global_dotfile_settings()
     if not global_dotfile_repo_url:
         return  # yadm not configured globally
 
@@ -233,7 +248,7 @@ def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
 
     if not dotfile_repo_url:
         dotfile_repo_url = global_dotfile_repo_url
-        dotfile_branch = os.getenv("DOTFILE_REPO_BRANCH", "main")
+        dotfile_branch = default_branch or "main"
 
     user_home = get_user_home_directory(linux_username)
     if not user_home:

@@ -650,9 +650,9 @@
             Encrypted ({{ yadm_status.files.encrypted|length }})
           </button>
         {% endif %}
-        {% if yadm_status.encryption.encrypted_patterns %}
+        {% if yadm_status.encryption.encrypted_files %}
           <button type="button" class="tab-button" onclick="switchTab('encryption-patterns')">
-            Encryption Patterns ({{ yadm_status.encryption.encrypted_patterns|length }})
+            Encrypted Files ({{ yadm_status.encryption.encrypted_files|length }})
           </button>
         {% endif %}
         {% if yadm_status.files.modified %}
@@ -723,19 +723,19 @@
         </div>
       {% endif %}
 
-      <!-- Encryption Patterns Tab -->
-      {% if yadm_status.encryption.encrypted_patterns %}
+      <!-- Encrypted Files from Archive Tab -->
+      {% if yadm_status.encryption.encrypted_files %}
         <div id="encryption-patterns" class="tab-content">
           <div class="file-search">
-            <input type="text" id="encryption-patterns-search" placeholder="Search patterns..." onkeyup="filterFiles('encryption-patterns')">
+            <input type="text" id="encryption-patterns-search" placeholder="Search encrypted files..." onkeyup="filterFiles('encryption-patterns')">
           </div>
           <div class="file-list" id="encryption-patterns-list">
-            {% for pattern in yadm_status.encryption.encrypted_patterns[:50] %}
-              <div class="file-item">{{ pattern }}</div>
+            {% for file in yadm_status.encryption.encrypted_files[:50] %}
+              <div class="file-item">{{ file }}</div>
             {% endfor %}
-            {% if yadm_status.encryption.encrypted_patterns|length > 50 %}
+            {% if yadm_status.encryption.encrypted_files|length > 50 %}
               <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
-                <span class="text-muted">+{{ yadm_status.encryption.encrypted_patterns|length - 50 }} more patterns</span>
+                <span class="text-muted">+{{ yadm_status.encryption.encrypted_files|length - 50 }} more files</span>
               </div>
             {% endif %}
           </div>

@@ -891,6 +891,8 @@ def get_yadm_encryption_status(
             "has_encrypt_patterns": False,
             "encrypted_file_count": 0,
             "encrypted_patterns": [],
+            "encrypted_files": [],
+            "archive_exists": False,
             "gpg_key_configured": False,
             "gpg_key_id": None,
             "gpg_key_imported": False,
@@ -910,6 +912,39 @@ def get_yadm_encryption_status(
             except Exception as e:
                 logger.warning(
                     f"Failed to read encrypt patterns for {linux_username}: {e}"
+                )
+
+        # Check for archive and list encrypted files
+        archive_path = Path(user_home) / ".local" / "share" / "yadm" / "archive"
+        if archive_path.exists():
+            result["archive_exists"] = True
+            try:
+                # Use yadm decrypt -l to list files in archive without extracting
+                cmd = ["yadm", "decrypt", "-l"]
+                sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+                res = subprocess.run(
+                    sudo_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    cwd=user_home,
+                )
+                if res.returncode == 0 and res.stdout:
+                    # Parse the output to get file list
+                    encrypted_files = [
+                        line.strip()
+                        for line in res.stdout.splitlines()
+                        if line.strip()
+                    ]
+                    result["encrypted_files"] = encrypted_files
+                else:
+                    logger.warning(
+                        f"Failed to list archive files for {linux_username}: "
+                        f"exit code {res.returncode}, stderr: {res.stderr}"
+                    )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to list archive files for {linux_username}: {e}"
                 )
 
         # Check for GPG key in database
@@ -943,6 +978,8 @@ def get_yadm_encryption_status(
             "has_encrypt_patterns": False,
             "encrypted_file_count": 0,
             "encrypted_patterns": [],
+            "encrypted_files": [],
+            "archive_exists": False,
             "gpg_key_configured": False,
             "gpg_key_id": None,
             "gpg_key_imported": False,

@@ -28,6 +28,38 @@ class YadmServiceError(Exception):
     pass
 
 
+def _build_yadm_cmd(
+    base_cmd: list[str],
+    yadm_config_dir: Optional[str] = None,
+    yadm_data_dir: Optional[str] = None,
+) -> list[str]:
+    """Build yadm command with proper directory flags for custom setups.
+
+    Args:
+        base_cmd: Base yadm command (e.g., ["decrypt"], ["list", "-a"])
+        yadm_config_dir: Path to yadm config directory
+        yadm_data_dir: Path to yadm data directory
+
+    Returns:
+        Complete yadm command with proper flags
+    """
+    # Check if this is a custom yadm setup (not the standard ~/.yadm)
+    config_name = (
+        Path(yadm_config_dir).name if yadm_config_dir else "yadm"
+    )
+
+    if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
+        # Use both --yadm-dir and --yadm-data for custom setups
+        return [
+            "yadm",
+            "--yadm-dir", yadm_config_dir,
+            "--yadm-data", yadm_data_dir,
+        ] + base_cmd
+    else:
+        # Standard yadm command
+        return ["yadm"] + base_cmd
+
+
 class YadmKeyEncryption:
     """Encryption utilities for storing GPG keys securely in the database."""
 
@@ -783,7 +815,17 @@ def get_yadm_managed_files(
             env["YADM_DIR"] = yadm_config_dir
 
         # Get tracked files: yadm list -a
-        cmd = ["yadm", "list", "-a"]
+        # Use both --yadm-dir and --yadm-data for custom setups
+        if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
+            cmd = [
+                "yadm",
+                "--yadm-dir", yadm_config_dir,
+                "--yadm-data", yadm_data_dir,
+                "list", "-a"
+            ]
+        else:
+            cmd = ["yadm", "list", "-a"]
+
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
             sudo_cmd,
@@ -840,7 +882,17 @@ def get_yadm_managed_files(
 
         # Get modified files from git status
         try:
-            cmd = ["yadm", "status", "-s"]
+            # Use both --yadm-dir and --yadm-data for custom setups
+            if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
+                cmd = [
+                    "yadm",
+                    "--yadm-dir", yadm_config_dir,
+                    "--yadm-data", yadm_data_dir,
+                    "status", "-s"
+                ]
+            else:
+                cmd = ["yadm", "status", "-s"]
+
             sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
             res = subprocess.run(
                 sudo_cmd,
@@ -890,6 +942,11 @@ def get_yadm_git_status(
         Dictionary with branch, remote, commits, and status information
     """
     try:
+        # Detect yadm configuration for custom setups
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(
+            user_home, linux_username
+        )
+
         result = {
             "branch": None,
             "remote_url": None,
@@ -902,7 +959,11 @@ def get_yadm_git_status(
         }
 
         # Get current branch
-        cmd = ["yadm", "rev-parse", "--abbrev-ref", "HEAD"]
+        cmd = _build_yadm_cmd(
+            ["rev-parse", "--abbrev-ref", "HEAD"],
+            yadm_config_dir,
+            yadm_data_dir,
+        )
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
             sudo_cmd,
@@ -915,7 +976,11 @@ def get_yadm_git_status(
             result["branch"] = res.stdout.strip()
 
         # Get remote URL
-        cmd = ["yadm", "remote", "get-url", "origin"]
+        cmd = _build_yadm_cmd(
+            ["remote", "get-url", "origin"],
+            yadm_config_dir,
+            yadm_data_dir,
+        )
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
             sudo_cmd,
@@ -929,7 +994,11 @@ def get_yadm_git_status(
 
         # Get commits ahead/behind
         try:
-            cmd = ["yadm", "rev-list", "--left-right", "--count", "@{u}...HEAD"]
+            cmd = _build_yadm_cmd(
+                ["rev-list", "--left-right", "--count", "@{u}...HEAD"],
+                yadm_config_dir,
+                yadm_data_dir,
+            )
             sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
             res = subprocess.run(
                 sudo_cmd,
@@ -947,7 +1016,11 @@ def get_yadm_git_status(
             pass  # May not have tracking branch
 
         # Get git status (dirty check)
-        cmd = ["yadm", "status", "--porcelain"]
+        cmd = _build_yadm_cmd(
+            ["status", "--porcelain"],
+            yadm_config_dir,
+            yadm_data_dir,
+        )
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
             sudo_cmd,
@@ -971,7 +1044,11 @@ def get_yadm_git_status(
 
         # Get last pull time from git reflog
         try:
-            cmd = ["yadm", "reflog", "-1", "--format=%ai"]
+            cmd = _build_yadm_cmd(
+                ["reflog", "-1", "--format=%ai"],
+                yadm_config_dir,
+                yadm_data_dir,
+            )
             sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
             res = subprocess.run(
                 sudo_cmd,

@@ -222,3 +222,6 @@ class Config:
             LINUX_USER_MAPPING = json.loads(_mapping_env)
         except (json.JSONDecodeError, ValueError):
             LINUX_USER_MAPPING = {}
+    # Dotfiles (yadm) Configuration
+    DOTFILE_REPO_URL = os.getenv("DOTFILE_REPO_URL")
+    DOTFILE_REPO_BRANCH = os.getenv("DOTFILE_REPO_BRANCH", "main")

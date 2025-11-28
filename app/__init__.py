@@ -7,7 +7,8 @@ from flask_wtf.csrf import generate_csrf  # type: ignore
 
 # Load environment variables from .env file BEFORE importing Config
 # This ensures Config class attributes can read env vars correctly
-load_dotenv()
+_env_file = Path(__file__).parent.parent / ".env"
+load_dotenv(_env_file)
 
 from .cli import register_cli_commands
 from .config import Config

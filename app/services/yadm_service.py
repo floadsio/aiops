@@ -383,14 +383,16 @@ def yadm_decrypt(
                     if passphrase:
                         try:
                             # Decrypt archive manually using modern OpenSSL syntax
-                            # Use -pass stdin for secure passphrase handling
+                            # Modern yadm uses PBKDF2 with 100k iterations and SHA512
                             decrypt_cmd = [
                                 "openssl", "enc", "-d", "-aes-256-cbc",
+                                "-pbkdf2", "-iter", "100000", "-md", "sha512",
                                 "-in", str(variant_archive),
                                 "-pass", "stdin"
                             ]
 
-                            tar_cmd = ["tar", "-xzf", "-"]
+                            # yadm archives are plain tar (not gzipped)
+                            tar_cmd = ["tar", "-xf", "-"]
 
                             # Prepare passphrase for stdin (newline-terminated)
                             passphrase_stdin = f"{passphrase}\n"
@@ -446,14 +448,14 @@ def yadm_decrypt(
                                     f"OpenSSL decrypt failed for "
                                     f"{linux_username}: {stderr_text}"
                                 )
-                                # Try with -iter for PBKDF2 key derivation
+                                # Try with old-style MD5 key derivation (yadm.openssl-old)
                                 logger.info(
-                                    "Retrying with -iter for modern "
+                                    "Retrying with old-style MD5 "
                                     "key derivation..."
                                 )
                                 decrypt_cmd_iter = [
                                     "openssl", "enc", "-d",
-                                    "-aes-256-cbc", "-iter", "1",
+                                    "-aes-256-cbc", "-md", "md5",
                                     "-in", str(variant_archive),
                                     "-pass", "stdin"
                                 ]
@@ -471,7 +473,7 @@ def yadm_decrypt(
                                 if decrypt_result.returncode == 0:
                                     logger.info(
                                         "OpenSSL decryption successful "
-                                        "with -iter flag"
+                                        "with old-style MD5"
                                     )
                                     tar_result = subprocess.run(
                                         ["sudo", "-u", linux_username, "-H"]
@@ -494,7 +496,7 @@ def yadm_decrypt(
                                         )
                                     )
                                     logger.warning(
-                                        f"OpenSSL decrypt with -iter also "
+                                        f"OpenSSL decrypt with MD5 also "
                                         f"failed: {stderr_text}"
                                     )
                         except Exception as e:

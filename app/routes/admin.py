@@ -964,7 +964,6 @@ def dashboard():
         PinnedIssue.query.filter_by(user_id=_current_user_obj().id)
         .join(ExternalIssue)
         .join(ProjectIntegration)
-        .filter(ExternalIssue.status != 'closed')
         .options(
             selectinload(PinnedIssue.issue)
             .selectinload(ExternalIssue.project_integration)

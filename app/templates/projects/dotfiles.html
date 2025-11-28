@@ -938,10 +938,10 @@
       const data = await response.json();
 
       if (response.ok) {
-        message.textContent = '✓ Decryption complete!';
+        message.textContent = '✓ Decryption complete! Reloading...';
         message.style.color = '#3fb950';
         if (spinner) spinner.style.display = 'none';
-        btn.disabled = false;
+        setTimeout(() => location.reload(), 2000);
       } else {
         message.textContent = '✗ Error: ' + (data.error || 'Unknown error');
         message.style.color = '#d05544';

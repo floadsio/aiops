@@ -852,7 +852,7 @@
     message.textContent = 'Initializing...';
 
     try {
-      const response = await fetch('/api/v1/dotfiles/init', {
+      const response = await fetch('/projects/dotfiles/init', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -890,7 +890,7 @@
     message.textContent = 'Updating...';
 
     try {
-      const response = await fetch('/api/v1/dotfiles/pull-and-update', {
+      const response = await fetch('/projects/dotfiles/pull-and-update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -928,7 +928,7 @@
     message.textContent = 'Decrypting...';
 
     try {
-      const response = await fetch('/api/v1/dotfiles/decrypt', {
+      const response = await fetch('/projects/dotfiles/decrypt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

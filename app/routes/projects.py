@@ -1580,3 +1580,71 @@ def manage_dotfiles():
         yadm_installed=check_yadm_installed(),
         is_admin=user.is_admin,
     )
+
+
+@projects_bp.post("/dotfiles/init")
+@login_required
+def init_dotfiles_web():
+    """Initialize dotfiles for current user (web UI endpoint)."""
+    from ..services.yadm_service import initialize_yadm_for_user, YadmServiceError
+
+    user = current_user
+    repo_url = user.personal_dotfile_repo_url or current_app.config.get("DOTFILE_REPO_URL")
+    repo_branch = user.personal_dotfile_branch or current_app.config.get("DOTFILE_REPO_BRANCH", "main")
+
+    if not repo_url:
+        return jsonify({
+            "error": "No dotfiles repository configured"
+        }), 400
+
+    try:
+        result = initialize_yadm_for_user(user, repo_url, repo_branch)
+        return jsonify(result), 200
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400
+
+
+@projects_bp.post("/dotfiles/pull-and-update")
+@login_required
+def pull_and_update_dotfiles_web():
+    """Pull latest dotfiles changes (web UI endpoint)."""
+    from ..services.yadm_service import pull_and_apply_yadm_update, YadmServiceError
+
+    user = current_user
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    try:
+        result = pull_and_apply_yadm_update(linux_username, user_home)
+        return jsonify(result), 200
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400
+
+
+@projects_bp.post("/dotfiles/decrypt")
+@login_required
+def decrypt_dotfiles_web():
+    """Decrypt dotfiles (web UI endpoint)."""
+    from ..services.yadm_service import yadm_decrypt, YadmServiceError
+
+    user = current_user
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    try:
+        yadm_decrypt(linux_username, user_home)
+        return jsonify({
+            "status": "success",
+            "message": "Dotfiles decrypted successfully"
+        }), 200
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400

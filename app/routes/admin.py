@@ -2380,10 +2380,12 @@ def create_assisted_issue():
                 )
             generation_time = time.time() - generation_start
 
-            # Step 2: Store preview in session and show preview page
+            # Step 2: Encode preview data and show preview page
             creator_user_id = form.creator_user_id.data
-            preview_token = str(uuid.uuid4())
-            flask_session[f"issue_preview_{preview_token}"] = {
+
+            # Encode all preview data as JSON to pass through form
+            # This avoids session persistence issues
+            preview_data = {
                 "project_id": project_id,
                 "integration_id": integration.id,
                 "issue_data": issue_data,
@@ -2392,12 +2394,12 @@ def create_assisted_issue():
                 "description": description,
                 "creator_user_id": creator_user_id,
             }
-            flask_session.permanent = True
+            preview_json = json.dumps(preview_data)
 
             return render_template(
                 "admin/preview_assisted_issue.html",
                 issue_data=issue_data,
-                preview_token=preview_token,
+                preview_json=preview_json,
                 project=project,
                 integration=integration.integration,
                 current_user=current_user,
@@ -2428,20 +2430,18 @@ def confirm_assisted_issue():
     )
     from datetime import datetime, timezone
 
-    # Get preview token from form
-    preview_token = request.form.get("preview_token")
-    if not preview_token:
-        flash("Preview token missing", "error")
+    # Get preview data from form
+    preview_json = request.form.get("preview_data")
+    if not preview_json:
+        flash("Preview data missing", "error")
         return redirect(url_for("admin.create_assisted_issue"))
 
-    # Retrieve preview from session
-    preview_key = f"issue_preview_{preview_token}"
-    if preview_key not in flask_session:
-        flash("Preview expired or invalid. Please try again.", "error")
+    # Decode preview data from JSON
+    try:
+        preview_data = json.loads(preview_json)
+    except (json.JSONDecodeError, ValueError):
+        flash("Preview data is invalid. Please try again.", "error")
         return redirect(url_for("admin.create_assisted_issue"))
-
-    preview_data = flask_session.pop(preview_key)
-    flask_session.permanent = True
 
     project_id = preview_data["project_id"]
     integration_id = preview_data["integration_id"]

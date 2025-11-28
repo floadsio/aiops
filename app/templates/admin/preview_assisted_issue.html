@@ -257,7 +257,7 @@
 
     <form id="confirm-form" method="post" action="{{ url_for('admin.confirm_assisted_issue') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-      <input type="hidden" name="preview_token" value="{{ preview_token }}">
+      <input type="hidden" name="preview_data" value="{{ preview_json }}">
 
       <div class="action-buttons">
         <button type="submit" class="primary">

@@ -871,7 +871,44 @@ def get_yadm_bootstrap_info(
         }
 
 
-def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
+def _find_yadm_config_via_sudo(linux_username: str, user_home: str) -> Optional[str]:
+    """Find yadm config directory via sudo when permissions restrict direct access.
+
+    Uses sudo to run find command as the user to locate yadm config directories.
+    Returns the first yadm config directory found, prioritizing yadm-* variants.
+    The find command has already verified the directory exists, so we don't need
+    to check again (which would fail with PermissionError for restricted access).
+    """
+    try:
+        # Find all yadm config directories under ~/.config
+        cmd = ["find", f"{user_home}/.config", "-maxdepth", "1", "-name", "yadm*", "-type", "d"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+        result = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        if result.returncode == 0 and result.stdout:
+            dirs = [d.strip() for d in result.stdout.splitlines() if d.strip()]
+
+            # Prioritize yadm-* variants (e.g., yadm-floads) over plain yadm
+            # Variants are variant names like "yadm-floads", plain is just "yadm"
+            dirs_sorted = sorted(dirs, key=lambda x: (Path(x).name == "yadm", x))
+
+            # Return first one - find command already verified it exists
+            # We can't check contents via Path due to permission restrictions,
+            # but find verified it's a directory that exists
+            if dirs_sorted:
+                return dirs_sorted[0]
+    except Exception as e:
+        logger.debug(f"Could not find yadm config via sudo for {linux_username}: {e}")
+
+    return None
+
+
+def _find_yadm_dir(user_home: str, linux_username: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
     """Find yadm directory (standard or custom).
 
     Returns:
@@ -911,25 +948,33 @@ def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
     repo_variant = repo_data_dir.name  # e.g., "yadm" or "yadm-floads"
 
     config_dir = Path(user_home) / ".config"
+    config_found = None
+
     try:
         if config_dir.exists():
             # Look for matching config: ~/.config/yadm or ~/.config/yadm-floads
             matching_config = config_dir / repo_variant
             try:
-                if (
-                    matching_config.exists()
-                    and matching_config.is_dir()
-                    and any(matching_config.iterdir())
-                ):
-                    # Found matching config with content for this repo
-                    return (str(matching_config), str(repo_data_dir))
+                # .exists() can throw PermissionError if parent dir is not accessible
+                try:
+                    if matching_config.exists():
+                        if (
+                            matching_config.is_dir()
+                            and any(matching_config.iterdir())
+                        ):
+                            # Found matching config with content for this repo
+                            return (str(matching_config), str(repo_data_dir))
+                except (PermissionError, OSError):
+                    # Can't access matching config, skip to variant search
+                    pass
             except (PermissionError, OSError):
-                # Can't access matching config, skip to variant search
                 pass
 
             # If repo is at standard location but no matching config with content,
             # try to find any yadm* config directory with content (for hybrid setups)
+            # Even if we can't enumerate .config, try checking specific yadm variants
             if repo_variant == "yadm":
+                # First try to enumerate if possible
                 try:
                     for item in sorted(config_dir.iterdir()):
                         try:
@@ -943,8 +988,31 @@ def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
                             # Skip directories we can't access
                             continue
                 except (PermissionError, OSError):
-                    # Can't enumerate config directory
-                    pass
+                    # Can't enumerate config directory directly
+                    # If we have linux_username, try via sudo for permission-restricted access
+                    if linux_username:
+                        config_found = _find_yadm_config_via_sudo(linux_username, user_home)
+                        if config_found:
+                            return (config_found, str(repo_data_dir))
+
+                    # Fall back to trying common yadm variants manually
+                    for variant_name in ["yadm-floads", "yadm-main", "yadm-backup"]:
+                        variant_config = config_dir / variant_name
+                        try:
+                            try:
+                                variant_exists = variant_config.exists()
+                            except (PermissionError, OSError):
+                                # Can't check if variant exists
+                                continue
+
+                            if (
+                                variant_exists
+                                and variant_config.is_dir()
+                                and any(variant_config.iterdir())
+                            ):
+                                return (str(variant_config), str(repo_data_dir))
+                        except (PermissionError, OSError):
+                            continue
     except (PermissionError, OSError):
         # Can't access config directory at all
         pass
@@ -983,7 +1051,7 @@ def get_yadm_encryption_status(
         }
 
         # Detect yadm directory (standard or custom)
-        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home)
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home, linux_username)
         if not yadm_config_dir or not yadm_data_dir:
             logger.debug(f"No yadm configuration found for {linux_username}")
             return result
@@ -1124,7 +1192,7 @@ def get_full_yadm_status(user: User) -> dict[str, Any]:
 
     try:
         # Check if yadm is initialized (standard or custom)
-        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home)
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home, linux_username)
         is_initialized = yadm_config_dir is not None and (
             Path(yadm_data_dir) / "repo.git"
         ).exists()

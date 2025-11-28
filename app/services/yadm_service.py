@@ -7,11 +7,13 @@ This service handles:
 - File encryption/decryption
 """
 
+import fnmatch
 import logging
 import os
 import subprocess
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
@@ -488,3 +490,487 @@ def initialize_yadm_for_user(
         raise YadmServiceError(
             f"Failed to initialize yadm for {user.email}: {exc}"
         ) from exc
+
+
+def pull_and_apply_yadm_update(
+    linux_username: str,
+    user_home: str,
+) -> dict[str, Any]:
+    """Pull latest changes from dotfiles repo and re-run bootstrap.
+
+    This combines pull + bootstrap + decrypt into a single update operation.
+
+    Args:
+        linux_username: Linux username (for sudo execution)
+        user_home: User's home directory
+
+    Returns:
+        Dictionary with status, message, and timestamp
+
+    Raises:
+        YadmServiceError: If pull fails (bootstrap/decrypt failures are non-critical)
+    """
+    try:
+        # 1. Pull from remote
+        pull_cmd = ["yadm", "pull"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pull_cmd
+        result = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=user_home,
+        )
+
+        if result.returncode != 0:
+            raise YadmServiceError(
+                f"yadm pull failed: {result.stderr or result.stdout}"
+            )
+
+        logger.info(f"Pulled latest yadm changes for user {linux_username}")
+
+        # 2. Run bootstrap (non-critical)
+        try:
+            apply_yadm_bootstrap(linux_username, user_home)
+        except YadmServiceError as e:
+            logger.warning(f"Bootstrap had issues for {linux_username}: {e}")
+
+        # 3. Run decrypt (non-critical)
+        try:
+            yadm_decrypt(linux_username, user_home)
+        except YadmServiceError as e:
+            logger.warning(f"Decrypt had issues for {linux_username}: {e}")
+
+        return {
+            "status": "success",
+            "message": "Dotfiles updated successfully",
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+    except subprocess.TimeoutExpired as exc:
+        raise YadmServiceError(f"yadm pull timed out: {exc}") from exc
+    except YadmServiceError:
+        raise
+    except Exception as exc:
+        logger.exception(f"Failed to update yadm for {linux_username}")
+        raise YadmServiceError(f"Update failed: {exc}") from exc
+
+
+def get_yadm_managed_files(
+    linux_username: str,
+    user_home: str,
+) -> dict[str, Any]:
+    """Get list of files managed by yadm repository.
+
+    Args:
+        linux_username: Linux username
+        user_home: User's home directory
+
+    Returns:
+        Dictionary with tracked, untracked, encrypted, and modified file lists
+    """
+    try:
+        result = {
+            "tracked": [],
+            "untracked": [],
+            "encrypted": [],
+            "modified": [],
+            "error": None,
+        }
+
+        # Get tracked files: yadm list -a
+        cmd = ["yadm", "list", "-a"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+        res = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=user_home,
+        )
+
+        if res.returncode == 0:
+            result["tracked"] = [f.strip() for f in res.stdout.splitlines() if f.strip()]
+
+        # Get encrypted patterns from .yadm/encrypt
+        encrypt_patterns_file = Path(user_home) / ".yadm" / "encrypt"
+        encrypted_files = []
+        if encrypt_patterns_file.exists():
+            try:
+                patterns = encrypt_patterns_file.read_text().splitlines()
+                # Match tracked files against patterns
+                for pattern in patterns:
+                    if pattern.strip():
+                        for tracked_file in result["tracked"]:
+                            if fnmatch.fnmatch(tracked_file, pattern.strip()):
+                                if tracked_file not in encrypted_files:
+                                    encrypted_files.append(tracked_file)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse encrypt patterns for {linux_username}: {e}"
+                )
+
+        result["encrypted"] = encrypted_files
+
+        # Get modified files from git status
+        try:
+            cmd = ["yadm", "status", "-s"]
+            sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+            res = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=user_home,
+            )
+
+            if res.returncode == 0:
+                modified = []
+                for line in res.stdout.splitlines():
+                    if line.strip():
+                        # Format: "XY filename"
+                        parts = line.strip().split(maxsplit=1)
+                        if len(parts) == 2:
+                            modified.append(parts[1])
+                result["modified"] = modified
+        except Exception as e:
+            logger.warning(f"Failed to get modified files for {linux_username}: {e}")
+
+        return result
+
+    except Exception as exc:
+        logger.error(f"Failed to get yadm file list for {linux_username}: {exc}")
+        return {
+            "tracked": [],
+            "untracked": [],
+            "encrypted": [],
+            "modified": [],
+            "error": str(exc),
+        }
+
+
+def get_yadm_git_status(
+    linux_username: str,
+    user_home: str,
+) -> dict[str, Any]:
+    """Get git status information for yadm repository.
+
+    Args:
+        linux_username: Linux username
+        user_home: User's home directory
+
+    Returns:
+        Dictionary with branch, remote, commits, and status information
+    """
+    try:
+        result = {
+            "branch": None,
+            "remote_url": None,
+            "commits_ahead": 0,
+            "commits_behind": 0,
+            "dirty": False,
+            "status_summary": "Unknown",
+            "last_pull": None,
+            "error": None,
+        }
+
+        # Get current branch
+        cmd = ["yadm", "rev-parse", "--abbrev-ref", "HEAD"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+        res = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=user_home,
+        )
+        if res.returncode == 0:
+            result["branch"] = res.stdout.strip()
+
+        # Get remote URL
+        cmd = ["yadm", "remote", "get-url", "origin"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+        res = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=user_home,
+        )
+        if res.returncode == 0:
+            result["remote_url"] = res.stdout.strip()
+
+        # Get commits ahead/behind
+        try:
+            cmd = ["yadm", "rev-list", "--left-right", "--count", "@{u}...HEAD"]
+            sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+            res = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=user_home,
+            )
+            if res.returncode == 0:
+                parts = res.stdout.strip().split()
+                if len(parts) == 2:
+                    result["commits_behind"] = int(parts[0])
+                    result["commits_ahead"] = int(parts[1])
+        except Exception:
+            pass  # May not have tracking branch
+
+        # Get git status (dirty check)
+        cmd = ["yadm", "status", "--porcelain"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+        res = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=user_home,
+        )
+        if res.returncode == 0:
+            result["dirty"] = bool(res.stdout.strip())
+
+        # Set status summary
+        if result["dirty"]:
+            result["status_summary"] = "Modified"
+        elif result["commits_ahead"] > 0:
+            result["status_summary"] = "Ahead"
+        elif result["commits_behind"] > 0:
+            result["status_summary"] = "Behind"
+        else:
+            result["status_summary"] = "Clean"
+
+        # Get last pull time from git reflog
+        try:
+            cmd = ["yadm", "reflog", "-1", "--format=%ai"]
+            sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+            res = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=user_home,
+            )
+            if res.returncode == 0:
+                result["last_pull"] = res.stdout.strip()
+        except Exception:
+            pass
+
+        return result
+
+    except Exception as exc:
+        logger.error(f"Failed to get git status for {linux_username}: {exc}")
+        return {
+            "branch": None,
+            "remote_url": None,
+            "commits_ahead": 0,
+            "commits_behind": 0,
+            "dirty": False,
+            "status_summary": "Error",
+            "last_pull": None,
+            "error": str(exc),
+        }
+
+
+def get_yadm_bootstrap_info(
+    linux_username: str,
+    user_home: str,
+) -> dict[str, Any]:
+    """Get bootstrap script information and status.
+
+    Args:
+        linux_username: Linux username
+        user_home: User's home directory
+
+    Returns:
+        Dictionary with bootstrap script info
+    """
+    try:
+        result = {
+            "exists": False,
+            "executable": False,
+            "last_run": None,
+            "has_bootstrap_dir": False,
+            "bootstrap_scripts": [],
+            "error": None,
+        }
+
+        bootstrap_file = Path(user_home) / ".yadm" / "bootstrap"
+        if bootstrap_file.exists():
+            result["exists"] = True
+            result["executable"] = os.access(bootstrap_file, os.X_OK)
+
+            # Get last modification time
+            try:
+                mtime = bootstrap_file.stat().st_mtime
+                result["last_run"] = datetime.fromtimestamp(mtime).isoformat()
+            except Exception:
+                pass
+
+        # Check for bootstrap.d directory
+        bootstrap_dir = Path(user_home) / ".yadm" / "bootstrap.d"
+        if bootstrap_dir.exists() and bootstrap_dir.is_dir():
+            result["has_bootstrap_dir"] = True
+            try:
+                scripts = sorted(
+                    [f.name for f in bootstrap_dir.iterdir() if f.is_file()]
+                )
+                result["bootstrap_scripts"] = scripts
+            except Exception as e:
+                logger.warning(
+                    f"Failed to list bootstrap.d scripts for {linux_username}: {e}"
+                )
+
+        return result
+
+    except Exception as exc:
+        logger.error(f"Failed to get bootstrap info for {linux_username}: {exc}")
+        return {
+            "exists": False,
+            "executable": False,
+            "last_run": None,
+            "has_bootstrap_dir": False,
+            "bootstrap_scripts": [],
+            "error": str(exc),
+        }
+
+
+def get_yadm_encryption_status(
+    linux_username: str,
+    user_home: str,
+    user: Optional[User] = None,
+) -> dict[str, Any]:
+    """Get encryption status and GPG key information.
+
+    Args:
+        linux_username: Linux username
+        user_home: User's home directory
+        user: Optional User model instance for GPG key info
+
+    Returns:
+        Dictionary with encryption status
+    """
+    try:
+        result = {
+            "has_encrypt_patterns": False,
+            "encrypted_file_count": 0,
+            "gpg_key_configured": False,
+            "gpg_key_id": None,
+            "gpg_key_imported": False,
+            "error": None,
+        }
+
+        # Check for encrypt patterns
+        encrypt_file = Path(user_home) / ".yadm" / "encrypt"
+        if encrypt_file.exists():
+            result["has_encrypt_patterns"] = True
+            try:
+                patterns = encrypt_file.read_text().splitlines()
+                # Count non-empty patterns
+                result["encrypted_file_count"] = len(
+                    [p for p in patterns if p.strip()]
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to read encrypt patterns for {linux_username}: {e}"
+                )
+
+        # Check for GPG key in database
+        if user:
+            result["gpg_key_configured"] = bool(user.gpg_private_key_encrypted)
+            if user.gpg_key_id:
+                result["gpg_key_id"] = user.gpg_key_id
+
+                # Check if GPG key is imported in user's keyring
+                try:
+                    cmd = ["gpg", "--list-keys", user.gpg_key_id]
+                    sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+                    res = subprocess.run(
+                        sudo_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=10,
+                        cwd=user_home,
+                    )
+                    result["gpg_key_imported"] = res.returncode == 0
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to check GPG key import for {linux_username}: {e}"
+                    )
+
+        return result
+
+    except Exception as exc:
+        logger.error(f"Failed to get encryption status for {linux_username}: {exc}")
+        return {
+            "has_encrypt_patterns": False,
+            "encrypted_file_count": 0,
+            "gpg_key_configured": False,
+            "gpg_key_id": None,
+            "gpg_key_imported": False,
+            "error": str(exc),
+        }
+
+
+def get_full_yadm_status(user: User) -> dict[str, Any]:
+    """Get complete yadm status snapshot (combines all status functions).
+
+    Args:
+        user: User model instance
+
+    Returns:
+        Comprehensive status dictionary combining all status info
+
+    Raises:
+        YadmServiceError: If user home directory cannot be determined
+    """
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    try:
+        # Check if yadm is initialized
+        yadm_dir = Path(user_home) / ".yadm"
+        is_initialized = yadm_dir.exists()
+
+        result = {
+            "user_email": user.email,
+            "linux_username": linux_username,
+            "user_home": user_home,
+            "is_initialized": is_initialized,
+            "yadm_installed": check_yadm_installed(),
+            "timestamp": datetime.utcnow().isoformat(),
+            "files": {},
+            "git": {},
+            "bootstrap": {},
+            "encryption": {},
+            "error": None,
+        }
+
+        if is_initialized:
+            # Get all status info
+            result["files"] = get_yadm_managed_files(linux_username, user_home)
+            result["git"] = get_yadm_git_status(linux_username, user_home)
+            result["bootstrap"] = get_yadm_bootstrap_info(linux_username, user_home)
+            result["encryption"] = get_yadm_encryption_status(
+                linux_username, user_home, user
+            )
+
+        return result
+
+    except Exception as exc:
+        logger.exception(f"Failed to get full yadm status for {user.email}")
+        return {
+            "user_email": user.email,
+            "linux_username": linux_username,
+            "user_home": user_home,
+            "is_initialized": False,
+            "yadm_installed": check_yadm_installed(),
+            "timestamp": datetime.utcnow().isoformat(),
+            "files": {},
+            "git": {},
+            "bootstrap": {},
+            "encryption": {},
+            "error": str(exc),
+        }

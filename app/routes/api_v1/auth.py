@@ -414,3 +414,115 @@ def initialize_yadm():
             "error": f"Unexpected error: {exc}",
             "status": "failed"
         }), 500
+
+
+@api_v1_bp.post("/dotfiles/init")
+@require_api_auth()
+@audit_api_request
+def dotfiles_init():
+    """Initialize dotfiles for current user.
+
+    Uses personal config override if set, otherwise uses global config.
+
+    Returns:
+        200: Dotfiles initialized successfully
+        400: Bad request or initialization failed
+    """
+    from ...services.yadm_service import initialize_yadm_for_user, YadmServiceError
+
+    user = g.api_user
+    repo_url = user.personal_dotfile_repo_url or current_app.config.get("DOTFILE_REPO_URL")
+    repo_branch = user.personal_dotfile_branch or current_app.config.get("DOTFILE_REPO_BRANCH", "main")
+
+    if not repo_url:
+        return jsonify({
+            "error": "No dotfiles repository configured"
+        }), 400
+
+    try:
+        result = initialize_yadm_for_user(user, repo_url, repo_branch)
+        return jsonify(result), 200
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400
+
+
+@api_v1_bp.post("/dotfiles/pull-and-update")
+@require_api_auth()
+@audit_api_request
+def dotfiles_pull_and_update():
+    """Pull latest changes and re-run bootstrap.
+
+    Returns:
+        200: Update completed successfully
+        400: Update failed
+    """
+    from ...services.yadm_service import pull_and_apply_yadm_update, YadmServiceError
+
+    user = g.api_user
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    try:
+        result = pull_and_apply_yadm_update(linux_username, user_home)
+        return jsonify(result), 200
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400
+
+
+@api_v1_bp.post("/dotfiles/decrypt")
+@require_api_auth()
+@audit_api_request
+def dotfiles_decrypt():
+    """Decrypt encrypted dotfiles.
+
+    Returns:
+        200: Decrypt completed
+        400: Decrypt failed
+    """
+    from ...services.yadm_service import yadm_decrypt, YadmServiceError
+
+    user = g.api_user
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    try:
+        yadm_decrypt(linux_username, user_home)
+        return jsonify({
+            "status": "success",
+            "message": "Encrypted files decrypted successfully"
+        }), 200
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400
+
+
+@api_v1_bp.get("/dotfiles/status")
+@require_api_auth()
+@audit_api_request
+def dotfiles_status():
+    """Get current yadm status snapshot.
+
+    Returns:
+        200: Status retrieved successfully
+        400: Failed to get status
+    """
+    from ...services.yadm_service import get_full_yadm_status
+
+    user = g.api_user
+
+    try:
+        status = get_full_yadm_status(user)
+        return jsonify(status), 200
+    except Exception as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "error"
+        }), 400

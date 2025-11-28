@@ -1497,3 +1497,81 @@ def project_ansible_console(project_id: int):
         task_result=task_result,
         template_error=template_error,
     )
+
+
+@projects_bp.route("/dotfiles", methods=["GET", "POST"])
+@login_required
+def manage_dotfiles():
+    """Display and manage user's dotfiles configuration."""
+    from ..forms.admin import YadmPersonalConfigForm
+    from ..services.yadm_service import get_full_yadm_status, check_yadm_installed
+    from ..models import SystemConfig
+
+    user = current_user
+
+    # Handle POST (configuration updates)
+    if request.method == "POST":
+        form = YadmPersonalConfigForm()
+        if form.validate_on_submit():
+            try:
+                if form.clear_override.data:
+                    user.personal_dotfile_repo_url = None
+                    user.personal_dotfile_branch = None
+                    message = "Dotfiles override cleared - using global configuration"
+                else:
+                    user.personal_dotfile_repo_url = form.personal_dotfile_repo_url.data
+                    user.personal_dotfile_branch = (
+                        form.personal_dotfile_branch.data or "main"
+                    )
+                    message = "Personal dotfiles configuration saved"
+
+                db.session.commit()
+                flash(message, "success")
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.exception("Failed to save dotfiles config")
+                flash(f"Error updating configuration: {e}", "danger")
+
+        return redirect(url_for("projects.manage_dotfiles"))
+
+    # GET - Display page
+    form = YadmPersonalConfigForm(
+        personal_dotfile_repo_url=user.personal_dotfile_repo_url or "",
+        personal_dotfile_branch=user.personal_dotfile_branch or "main",
+    )
+
+    # Get full status
+    yadm_status = None
+    yadm_error = None
+    if check_yadm_installed():
+        try:
+            yadm_status = get_full_yadm_status(user)
+        except Exception as e:
+            current_app.logger.exception("Failed to get yadm status")
+            yadm_error = str(e)
+    else:
+        yadm_error = "yadm is not installed on this system"
+
+    # Get global config
+    global_config = None
+    if user.is_admin:
+        system_config = SystemConfig.query.filter_by(
+            key_name="dotfile_repo_url"
+        ).first()
+        if system_config:
+            global_config = {
+                "repo_url": system_config.value,
+                "branch": SystemConfig.query.filter_by(
+                    key_name="dotfile_repo_branch"
+                ).first(),
+            }
+
+    return render_template(
+        "projects/dotfiles.html",
+        form=form,
+        yadm_status=yadm_status,
+        yadm_error=yadm_error,
+        global_config=global_config,
+        yadm_installed=check_yadm_installed(),
+        is_admin=user.is_admin,
+    )

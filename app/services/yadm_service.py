@@ -1131,53 +1131,13 @@ def get_yadm_encryption_status(
         for archive_path in archive_paths:
             if archive_path.exists():
                 result["archive_exists"] = True
-                try:
-                    # For hybrid/custom setups, determine the correct YADM_DIR
-                    # YADM_DIR should point to the config directory for yadm to find the archive
-                    config_name = Path(yadm_config_dir).name if yadm_config_dir else "yadm"
-
-                    # Build environment for yadm command
-                    env = os.environ.copy()
-                    env["HOME"] = user_home
-
-                    # Set YADM_DIR to help yadm find the correct config and archive
-                    # For custom setups like yadm-floads, this tells yadm where to look
-                    if config_name != "yadm" and yadm_config_dir:
-                        env["YADM_DIR"] = yadm_config_dir
-
-                    # Try to use yadm decrypt -l to list files in archive
-                    # With proper YADM_DIR, this should find archives in custom locations
-                    cmd = ["yadm", "decrypt", "-l"]
-                    sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
-
-                    res = subprocess.run(
-                        sudo_cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=user_home,
-                        env=env,
-                    )
-                    if res.returncode == 0 and res.stdout:
-                        # Parse the output to get file list
-                        encrypted_files = [
-                            line.strip()
-                            for line in res.stdout.splitlines()
-                            if line.strip()
-                        ]
-                        result["encrypted_files"] = encrypted_files
-                        break  # Got files, stop checking other archives
-                    else:
-                        # If yadm decrypt fails, log but don't treat as error
-                        # Archive exists but may be encrypted or require password
-                        logger.debug(
-                            f"Could not list archive files for {linux_username} "
-                            f"from {archive_path}: {res.stderr}"
-                        )
-                except Exception as e:
-                    logger.debug(
-                        f"Could not list archive files for {linux_username}: {e}"
-                    )
+                # If we have encryption patterns, use them as the encrypted files list
+                # This works because patterns define which files will be encrypted
+                # We can't list actual archive contents without a passphrase, but patterns
+                # tell us which files are intended to be encrypted/managed
+                if result.get("encrypted_patterns"):
+                    result["encrypted_files"] = result["encrypted_patterns"]
+                break  # Archive found, no need to check others
 
         # Check for GPG key in database
         if user:

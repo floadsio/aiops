@@ -648,7 +648,7 @@
         {% endif %}
         {% if yadm_status.encryption.encrypted_files %}
           <button type="button" class="tab-button" onclick="switchTab('encryption-patterns')">
-            Encrypted Files ({{ yadm_status.encryption.encrypted_files|length }})
+            Encryption Rules ({{ yadm_status.encryption.encrypted_files|length }})
           </button>
         {% endif %}
         {% if yadm_status.files.modified %}
@@ -719,19 +719,22 @@
         </div>
       {% endif %}
 
-      <!-- Encrypted Files from Archive Tab -->
+      <!-- Encryption Rules from Archive Tab -->
       {% if yadm_status.encryption.encrypted_files %}
         <div id="encryption-patterns" class="tab-content">
+          <p style="font-size: 0.9rem; color: rgba(230, 237, 243, 0.7); margin-bottom: 1rem;">
+            Glob patterns that define which files are encrypted. Files matching these patterns will be encrypted in the archive when you run <code>yadm encrypt</code>.
+          </p>
           <div class="file-search">
-            <input type="text" id="encryption-patterns-search" placeholder="Search encrypted files..." onkeyup="filterFiles('encryption-patterns')">
+            <input type="text" id="encryption-patterns-search" placeholder="Search patterns..." onkeyup="filterFiles('encryption-patterns')">
           </div>
           <div class="file-list" id="encryption-patterns-list">
-            {% for file in yadm_status.encryption.encrypted_files[:50] %}
-              <div class="file-item">{{ file }}</div>
+            {% for pattern in yadm_status.encryption.encrypted_files[:50] %}
+              <div class="file-item" style="font-family: monospace; font-size: 0.9rem;">{{ pattern }}</div>
             {% endfor %}
             {% if yadm_status.encryption.encrypted_files|length > 50 %}
               <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
-                <span class="text-muted">+{{ yadm_status.encryption.encrypted_files|length - 50 }} more files</span>
+                <span class="text-muted">+{{ yadm_status.encryption.encrypted_files|length - 50 }} more patterns</span>
               </div>
             {% endif %}
           </div>

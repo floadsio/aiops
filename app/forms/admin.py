@@ -13,7 +13,7 @@ from wtforms import (
     TextAreaField,
     URLField,
 )
-from wtforms.validators import URL, DataRequired, Length, Optional
+from wtforms.validators import URL, DataRequired, Length, Optional, ValidationError
 
 from ..constants import DEFAULT_TENANT_COLOR, TENANT_COLOR_CHOICES
 
@@ -65,6 +65,42 @@ def validate_repo_url(form, field):
         raise ValidationError("Enter a valid HTTPS or SSH repository URL.")
     if "/" not in parsed.path.strip("/"):
         raise ValidationError("Repository path must include owner/repo.")
+
+
+def validate_dotfiles_url(form, field):
+    """Validate dotfiles repository URL.
+
+    Accepts:
+    - HTTPS URLs: https://github.com/owner/dotfiles.git
+    - Git SSH URLs: git@github.com:owner/dotfiles.git
+    - Optional .git suffix for HTTP URLs
+    """
+    value = (field.data or "").strip()
+    if not value:
+        # Field is optional, so empty is OK
+        return
+
+    # Accept git@host:path format
+    if value.startswith("git@"):
+        if ":" not in value:
+            raise ValidationError(
+                "SSH URLs must follow git@host:owner/repo format."
+            )
+        return
+
+    # Accept ssh://git@host/path format
+    if value.lower().startswith("ssh://"):
+        parsed = urlparse(value)
+        if not parsed.hostname:
+            raise ValidationError("SSH URLs must include a hostname.")
+        return
+
+    # Accept HTTP/HTTPS URLs
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValidationError("Enter a valid HTTPS URL (https://...) or Git SSH URL (git@host:owner/repo).")
+    if "/" not in parsed.path.strip("/"):
+        raise ValidationError("URL must include repository path (e.g., owner/repo).")
 
 
 class ProjectForm(FlaskForm):
@@ -667,12 +703,12 @@ class YadmSettingsForm(FlaskForm):
 class YadmPersonalConfigForm(FlaskForm):
     """Form for personal dotfiles configuration override."""
 
-    personal_dotfile_repo_url = URLField(
+    personal_dotfile_repo_url = StringField(
         "Personal Dotfiles Repository URL",
-        validators=[Optional(), URL()],
+        validators=[Optional(), Length(max=512), validate_dotfiles_url],
         render_kw={
-            "placeholder": "https://github.com/yourname/dotfiles",
-            "aria-description": "Override organization defaults with your personal dotfiles repository",
+            "placeholder": "https://github.com/yourname/dotfiles or git@github.com:yourname/dotfiles.git",
+            "aria-description": "Override organization defaults with your personal dotfiles repository. Supports HTTPS and Git SSH URLs.",
         },
     )
     personal_dotfile_branch = StringField(

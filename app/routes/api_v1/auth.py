@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
-from flask import g, jsonify, request
+from flask import current_app, g, jsonify, request
 
 from ...extensions import db
 from ...models import APIKey, TenantIntegration, UserIntegrationCredential

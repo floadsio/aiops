@@ -1284,6 +1284,9 @@ def manage_settings():
     dotfile_repo_branch_config = SystemConfig.query.filter_by(
         key="dotfile_repo_branch"
     ).first()
+    dotfile_decrypt_password_config = SystemConfig.query.filter_by(
+        key="dotfile_decrypt_password"
+    ).first()
 
     if dotfile_repo_url_config and dotfile_repo_url_config.value:
         yadm_form.dotfile_repo_url.data = dotfile_repo_url_config.value.get("url", "")
@@ -1291,6 +1294,8 @@ def manage_settings():
         yadm_form.dotfile_repo_branch.data = dotfile_repo_branch_config.value.get(
             "branch", "main"
         )
+
+    yadm_password_configured = bool(dotfile_decrypt_password_config)
 
     return render_template(
         "admin/settings.html",
@@ -4253,6 +4258,28 @@ def save_yadm_settings():
                 repo_branch_config = SystemConfig(key="dotfile_repo_branch")
                 db.session.add(repo_branch_config)
             repo_branch_config.value = {"branch": form.dotfile_repo_branch.data}
+
+            # Save or update decrypt password (encrypted)
+            if form.decrypt_password.data:
+                from ..services.yadm_service import YadmKeyEncryption
+
+                encrypted_password = YadmKeyEncryption.encrypt_gpg_key(
+                    form.decrypt_password.data.encode()
+                )
+                decrypt_config = SystemConfig.query.filter_by(
+                    key="dotfile_decrypt_password"
+                ).first()
+                if not decrypt_config:
+                    decrypt_config = SystemConfig(key="dotfile_decrypt_password")
+                    db.session.add(decrypt_config)
+                decrypt_config.value = {"password": encrypted_password.decode()}
+            else:
+                # Clear password if empty
+                decrypt_config = SystemConfig.query.filter_by(
+                    key="dotfile_decrypt_password"
+                ).first()
+                if decrypt_config:
+                    db.session.delete(decrypt_config)
 
             db.session.commit()
             flash(

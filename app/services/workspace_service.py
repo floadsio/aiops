@@ -212,6 +212,35 @@ def _get_global_dotfile_settings() -> tuple[Optional[str], str]:
     return repo_url, branch
 
 
+def _get_global_decrypt_password() -> Optional[str]:
+    """Get the global decrypt password from database.
+
+    Returns:
+        Decrypted password string, or None if not configured
+    """
+    from ..models import SystemConfig
+    from .yadm_service import YadmKeyEncryption
+
+    decrypt_config = SystemConfig.query.filter_by(
+        key="dotfile_decrypt_password"
+    ).first()
+
+    if not decrypt_config or not decrypt_config.value:
+        return None
+
+    encrypted_password = decrypt_config.value.get("password")
+    if not encrypted_password:
+        return None
+
+    try:
+        # Decrypt the password
+        decrypted = YadmKeyEncryption.decrypt_gpg_key(encrypted_password.encode())
+        return decrypted.decode()
+    except Exception as exc:
+        log.warning(f"Failed to decrypt yadm password from database: {exc}")
+        return None
+
+
 def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
     """Initialize yadm dotfiles for a user if configured.
 
@@ -292,7 +321,8 @@ def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
         yadm_service.apply_yadm_bootstrap(linux_username, user_home)
 
         # Decrypt encrypted files if any
-        yadm_service.yadm_decrypt(linux_username, user_home)
+        decrypt_password = _get_global_decrypt_password()
+        yadm_service.yadm_decrypt(linux_username, user_home, passphrase=decrypt_password)
 
         log.info(
             "Successfully initialized yadm for user %s from %s",

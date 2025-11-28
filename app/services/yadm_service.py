@@ -302,12 +302,14 @@ def apply_yadm_bootstrap(
 def yadm_decrypt(
     linux_username: str,
     user_home: str,
+    passphrase: Optional[str] = None,
 ) -> None:
     """Decrypt yadm-encrypted files after bootstrap.
 
     Args:
         linux_username: Linux username (for sudo execution)
         user_home: User's home directory
+        passphrase: Optional passphrase for decrypting encrypted files
 
     Raises:
         YadmServiceError: If decryption fails
@@ -316,10 +318,17 @@ def yadm_decrypt(
         cmd = ["yadm", "decrypt"]
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+
+        # Prepare stdin if passphrase is provided
+        stdin_data = None
+        if passphrase:
+            stdin_data = f"{passphrase}\n"
+
         result = subprocess.run(
             sudo_cmd,
             capture_output=True,
             text=True,
+            input=stdin_data,
             timeout=60,
             cwd=user_home,
         )

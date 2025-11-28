@@ -577,6 +577,11 @@
             Encrypted ({{ yadm_status.files.encrypted|length }})
           </button>
         {% endif %}
+        {% if yadm_status.encryption.encrypted_patterns %}
+          <button type="button" class="tab-button" onclick="switchTab('encryption-patterns')">
+            Encryption Patterns ({{ yadm_status.encryption.encrypted_patterns|length }})
+          </button>
+        {% endif %}
         {% if yadm_status.files.modified %}
           <button type="button" class="tab-button" onclick="switchTab('modified')">
             Modified ({{ yadm_status.files.modified|length }})
@@ -639,6 +644,25 @@
             {% if yadm_status.files.modified|length > 50 %}
               <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
                 <span class="text-muted">+{{ yadm_status.files.modified|length - 50 }} more files</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Encryption Patterns Tab -->
+      {% if yadm_status.encryption.encrypted_patterns %}
+        <div id="encryption-patterns" class="tab-content">
+          <div class="file-search">
+            <input type="text" id="encryption-patterns-search" placeholder="Search patterns..." onkeyup="filterFiles('encryption-patterns')">
+          </div>
+          <div class="file-list" id="encryption-patterns-list">
+            {% for pattern in yadm_status.encryption.encrypted_patterns[:50] %}
+              <div class="file-item">{{ pattern }}</div>
+            {% endfor %}
+            {% if yadm_status.encryption.encrypted_patterns|length > 50 %}
+              <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
+                <span class="text-muted">+{{ yadm_status.encryption.encrypted_patterns|length - 50 }} more patterns</span>
               </div>
             {% endif %}
           </div>

@@ -890,6 +890,7 @@ def get_yadm_encryption_status(
         result = {
             "has_encrypt_patterns": False,
             "encrypted_file_count": 0,
+            "encrypted_patterns": [],
             "gpg_key_configured": False,
             "gpg_key_id": None,
             "gpg_key_imported": False,
@@ -902,10 +903,10 @@ def get_yadm_encryption_status(
             result["has_encrypt_patterns"] = True
             try:
                 patterns = encrypt_file.read_text().splitlines()
-                # Count non-empty patterns
-                result["encrypted_file_count"] = len(
-                    [p for p in patterns if p.strip()]
-                )
+                # Get non-empty patterns
+                non_empty_patterns = [p.strip() for p in patterns if p.strip()]
+                result["encrypted_file_count"] = len(non_empty_patterns)
+                result["encrypted_patterns"] = non_empty_patterns
             except Exception as e:
                 logger.warning(
                     f"Failed to read encrypt patterns for {linux_username}: {e}"
@@ -941,6 +942,7 @@ def get_yadm_encryption_status(
         return {
             "has_encrypt_patterns": False,
             "encrypted_file_count": 0,
+            "encrypted_patterns": [],
             "gpg_key_configured": False,
             "gpg_key_id": None,
             "gpg_key_imported": False,

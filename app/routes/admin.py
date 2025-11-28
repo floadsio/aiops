@@ -1093,6 +1093,40 @@ def _build_ai_tool_cards() -> list[dict[str, Any]]:
     return cards
 
 
+@admin_bp.route("/cleanup-closed-pinned", methods=["POST"])
+@login_required
+def cleanup_closed_pinned():
+    """Remove all closed pinned issues for the current user."""
+    from ..models import PinnedIssue, ExternalIssue
+
+    # Find all closed pinned issues for current user
+    closed_pinned = (
+        db.session.query(PinnedIssue)
+        .join(ExternalIssue)
+        .filter(
+            PinnedIssue.user_id == current_user.model.id,
+            ExternalIssue.status == "closed",
+        )
+        .all()
+    )
+
+    count = len(closed_pinned)
+    for pinned in closed_pinned:
+        db.session.delete(pinned)
+
+    db.session.commit()
+
+    if count > 0:
+        flash(
+            f"Cleaned up {count} closed pinned issue{'s' if count != 1 else ''}.",
+            "success",
+        )
+    else:
+        flash("No closed pinned issues to clean up.", "info")
+
+    return redirect(url_for("admin.dashboard"))
+
+
 @admin_bp.route("/settings", methods=["GET", "POST"])
 @admin_required
 def manage_settings():

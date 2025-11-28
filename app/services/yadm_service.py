@@ -876,40 +876,58 @@ def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
 
     Returns:
         Tuple of (yadm_config_dir, yadm_data_dir) or (None, None) if not found.
-        Prioritizes non-empty directories with actual configuration.
+        Handles hybrid setups where config and data may be in different locations.
         For standard yadm: (~/.yadm, ~/.local/share/yadm)
         For custom yadm: (~/.config/yadm-floads, ~/.local/share/yadm-floads)
+        For hybrid: (~/.config/yadm-floads config, ~/.local/share/yadm data)
     """
-    candidates = []
+    # First, find which data directory has the actual repo.git
+    share_dir = Path(user_home) / ".local" / "share"
+    repo_data_dir = None
 
-    # Check standard location first
-    standard_yadm_config = Path(user_home) / ".yadm"
-    standard_yadm_data = Path(user_home) / ".local" / "share" / "yadm"
-    if standard_yadm_config.exists() and (
-        standard_yadm_config.is_dir() and any(standard_yadm_config.iterdir())
-    ):
-        candidates.append((str(standard_yadm_config), str(standard_yadm_data)))
+    if share_dir.exists():
+        # Check all yadm* directories in ~/.local/share for repo.git
+        for item in sorted(share_dir.iterdir()):
+            if item.is_dir() and item.name.startswith("yadm"):
+                repo_path = item / "repo.git"
+                if repo_path.exists():
+                    repo_data_dir = item
+                    break  # Found it, stop searching
 
-    # Check for custom yadm directories in ~/.config (e.g., yadm-floads)
+    if not repo_data_dir:
+        # No initialized yadm found
+        return (None, None)
+
+    # Now find the matching config directory
+    # Prefer config with same yadm variant name AND content, fallback to any non-empty variant
+    repo_variant = repo_data_dir.name  # e.g., "yadm" or "yadm-floads"
+
     config_dir = Path(user_home) / ".config"
     if config_dir.exists():
-        for item in sorted(config_dir.iterdir()):  # Sort for consistent order
-            if item.is_dir() and item.name.startswith("yadm") and any(
-                item.iterdir()
-            ):
-                # Found custom yadm config with content
-                yadm_variant = item.name  # e.g., "yadm-floads"
-                yadm_data = Path(user_home) / ".local" / "share" / yadm_variant
-                candidates.append((str(item), str(yadm_data)))
+        # Look for matching config: ~/.config/yadm or ~/.config/yadm-floads
+        matching_config = config_dir / repo_variant
+        if (
+            matching_config.exists()
+            and matching_config.is_dir()
+            and any(matching_config.iterdir())
+        ):
+            # Found matching config with content for this repo
+            return (str(matching_config), str(repo_data_dir))
 
-    # Return first candidate (prioritizes non-empty dirs)
-    # Also prioritize yadm-* over plain yadm if both exist
-    if candidates:
-        # Sort: plain yadm last, variants first
-        candidates.sort(key=lambda x: (Path(x[0]).name == "yadm", x[0]))
-        return candidates[0]
+        # If repo is at standard location but no matching config with content,
+        # try to find any yadm* config directory with content (for hybrid setups)
+        if repo_variant == "yadm":
+            for item in sorted(config_dir.iterdir()):
+                if (
+                    item.is_dir()
+                    and item.name.startswith("yadm")
+                    and any(item.iterdir())
+                ):
+                    return (str(item), str(repo_data_dir))
 
-    return (None, None)
+    # Return repo location with standard config location
+    standard_config = Path(user_home) / ".yadm"
+    return (str(standard_config), str(repo_data_dir))
 
 
 def get_yadm_encryption_status(
@@ -962,40 +980,53 @@ def get_yadm_encryption_status(
                 )
 
         # Check for archive and try to list encrypted files
-        archive_path = Path(yadm_data_dir) / "archive"
-        if archive_path.exists():
-            result["archive_exists"] = True
-            try:
-                # Try to use yadm decrypt -l to list files
-                # Note: This requires yadm to be configured for the standard location
-                cmd = ["yadm", "decrypt", "-l"]
-                sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
-                res = subprocess.run(
-                    sudo_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    cwd=user_home,
-                )
-                if res.returncode == 0 and res.stdout:
-                    # Parse the output to get file list
-                    encrypted_files = [
-                        line.strip()
-                        for line in res.stdout.splitlines()
-                        if line.strip()
-                    ]
-                    result["encrypted_files"] = encrypted_files
-                else:
-                    # If yadm decrypt fails, log but don't treat as error
-                    # Archive exists but may be in non-standard location or encrypted
-                    logger.debug(
-                        f"Could not list archive files for {linux_username} "
-                        f"(may be in custom location or require decryption): {res.stderr}"
+        # For hybrid setups, also check variant directories (e.g., yadm-floads)
+        archive_paths = [Path(yadm_data_dir) / "archive"]
+
+        # If config is a variant (e.g., yadm-floads), also check its data directory
+        config_name = Path(yadm_config_dir).name if yadm_config_dir else None
+        if config_name and config_name.startswith("yadm") and config_name != "yadm":
+            variant_data_dir = Path(user_home) / ".local" / "share" / config_name
+            if variant_data_dir.exists():
+                variant_archive = variant_data_dir / "archive"
+                if variant_archive not in archive_paths:
+                    archive_paths.append(variant_archive)
+
+        for archive_path in archive_paths:
+            if archive_path.exists():
+                result["archive_exists"] = True
+                try:
+                    # Try to use yadm decrypt -l to list files
+                    # Note: This requires yadm to be configured for the standard location
+                    cmd = ["yadm", "decrypt", "-l"]
+                    sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+                    res = subprocess.run(
+                        sudo_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=user_home,
                     )
-            except Exception as e:
-                logger.debug(
-                    f"Could not list archive files for {linux_username}: {e}"
-                )
+                    if res.returncode == 0 and res.stdout:
+                        # Parse the output to get file list
+                        encrypted_files = [
+                            line.strip()
+                            for line in res.stdout.splitlines()
+                            if line.strip()
+                        ]
+                        result["encrypted_files"] = encrypted_files
+                        break  # Got files, stop checking other archives
+                    else:
+                        # If yadm decrypt fails, log but don't treat as error
+                        # Archive exists but may be in non-standard location or encrypted
+                        logger.debug(
+                            f"Could not list archive files for {linux_username} "
+                            f"(may be in custom location or require decryption): {res.stderr}"
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Could not list archive files for {linux_username}: {e}"
+                    )
 
         # Check for GPG key in database
         if user:

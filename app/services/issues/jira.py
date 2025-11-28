@@ -189,7 +189,6 @@ def create_issue(
     *,
     assignee_account_id: str | None = None,
     creator_user_id: int | None = None,
-    creator_username: str | None = None,
 ) -> IssuePayload:
     base_url = integration.base_url  # type: ignore[assignment]
     if not base_url:
@@ -257,21 +256,6 @@ def create_issue(
             timeout=timeout,
         )
         created_issue = client.create_issue(fields=fields)
-
-        # Add attribution comment if creator information is provided
-        # This helps track who actually requested the issue creation when using shared credentials
-        if creator_username:
-            try:
-                # Jira uses accountId for @mentions, but we'll use the account ID from UserIdentityMap
-                # Format: _Created via aiops by [~accountId]_
-                attribution = f"_Created via aiops by [~{creator_username}]_"
-                client.add_comment(created_issue.key, attribution)
-            except Exception as exc:  # noqa: BLE001
-                # Don't fail the whole operation if commenting fails
-                from flask import current_app
-                current_app.logger.warning(
-                    f"Failed to add attribution comment to issue {created_issue.key}: {exc}"
-                )
 
         issue_data = getattr(created_issue, "raw", None)
         if not isinstance(issue_data, dict) or "fields" not in issue_data:

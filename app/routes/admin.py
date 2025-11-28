@@ -968,11 +968,23 @@ def dashboard():
             selectinload(PinnedIssue.issue)
             .selectinload(ExternalIssue.project_integration)
             .selectinload(ProjectIntegration.project)
+            .selectinload(Project.tenant)
         )
         .order_by(PinnedIssue.pinned_at.desc())
         .limit(10)
         .all()
     )
+
+    # Group pinned issues by tenant
+    from collections import defaultdict
+    pinned_by_tenant = defaultdict(list)
+    for pinned in pinned_issues:
+        tenant = pinned.issue.project_integration.project.tenant
+        tenant_name = tenant.name if tenant else "No Tenant"
+        pinned_by_tenant[tenant_name].append(pinned)
+
+    # Convert to sorted list of (tenant_name, issues) tuples
+    pinned_issues_grouped = sorted(pinned_by_tenant.items())
 
     return render_template(
         "admin/dashboard.html",
@@ -993,6 +1005,7 @@ def dashboard():
         tenant_filter_label=tenant_filter_label,
         tenant_filter_value=tenant_filter_raw,
         pinned_issues=pinned_issues,
+        pinned_issues_grouped=pinned_issues_grouped,
     )
 
 

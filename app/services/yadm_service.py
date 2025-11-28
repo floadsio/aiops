@@ -352,45 +352,117 @@ def yadm_decrypt(
                     )
                     if passphrase:
                         try:
-                            # Decrypt and extract the archive manually
-                            # openssl enc -d -aes-256-cbc -in archive | tar -xzf -
+                            # Decrypt archive manually using modern OpenSSL syntax
+                            # Use -pass stdin for secure passphrase handling
                             decrypt_cmd = [
                                 "openssl", "enc", "-d", "-aes-256-cbc",
                                 "-in", str(variant_archive),
-                                "-k", passphrase
+                                "-pass", "stdin"
                             ]
 
                             tar_cmd = ["tar", "-xzf", "-"]
 
-                            # Decrypt the archive
+                            # Prepare passphrase for stdin (newline-terminated)
+                            passphrase_stdin = f"{passphrase}\n"
+
+                            # Decrypt via openssl, passing passphrase to stdin
                             decrypt_result = subprocess.run(
                                 decrypt_cmd,
+                                input=passphrase_stdin.encode(),
                                 capture_output=True,
                                 timeout=60,
                                 cwd=user_home,
                             )
 
                             if decrypt_result.returncode == 0:
+                                logger.info(
+                                    f"OpenSSL decryption successful for "
+                                    f"{linux_username}"
+                                )
                                 # Extract the tar archive
                                 tar_result = subprocess.run(
-                                    ["sudo", "-u", linux_username, "-H"] + tar_cmd,
+                                    ["sudo", "-u", linux_username, "-H"]
+                                    + tar_cmd,
                                     input=decrypt_result.stdout,
                                     capture_output=True,
                                     timeout=60,
                                     cwd=user_home,
                                 )
                                 if tar_result.returncode != 0:
-                                    logger.warning(
-                                        f"Manual tar extraction failed: {tar_result.stderr.decode('utf-8', errors='ignore')}"
+                                    stderr_text = tar_result.stderr.decode(
+                                        'utf-8', errors='ignore'
                                     )
-                                logger.info(f"Manually extracted archive for {linux_username}")
+                                    logger.warning(
+                                        f"Manual tar extraction failed: "
+                                        f"{stderr_text}"
+                                    )
+                                else:
+                                    logger.info(
+                                        f"Manually extracted archive for "
+                                        f"{linux_username}"
+                                    )
                                 return
                             else:
-                                logger.warning(
-                                    f"OpenSSL decrypt failed: {decrypt_result.stderr.decode('utf-8', errors='ignore')}"
+                                stderr_text = (
+                                    decrypt_result.stderr.decode(
+                                        'utf-8', errors='ignore'
+                                    )
                                 )
+                                logger.warning(
+                                    f"OpenSSL decrypt failed for "
+                                    f"{linux_username}: {stderr_text}"
+                                )
+                                # Try with -iter for PBKDF2 key derivation
+                                logger.info(
+                                    "Retrying with -iter for modern "
+                                    "key derivation..."
+                                )
+                                decrypt_cmd_iter = [
+                                    "openssl", "enc", "-d",
+                                    "-aes-256-cbc", "-iter", "1",
+                                    "-in", str(variant_archive),
+                                    "-pass", "stdin"
+                                ]
+                                decrypt_result = subprocess.run(
+                                    decrypt_cmd_iter,
+                                    input=passphrase_stdin.encode(),
+                                    capture_output=True,
+                                    timeout=60,
+                                    cwd=user_home,
+                                )
+                                if decrypt_result.returncode == 0:
+                                    logger.info(
+                                        "OpenSSL decryption successful "
+                                        "with -iter flag"
+                                    )
+                                    tar_result = subprocess.run(
+                                        ["sudo", "-u", linux_username, "-H"]
+                                        + tar_cmd,
+                                        input=decrypt_result.stdout,
+                                        capture_output=True,
+                                        timeout=60,
+                                        cwd=user_home,
+                                    )
+                                    if tar_result.returncode == 0:
+                                        logger.info(
+                                            f"Manually extracted archive "
+                                            f"for {linux_username}"
+                                        )
+                                    return
+                                else:
+                                    stderr_text = (
+                                        decrypt_result.stderr.decode(
+                                            'utf-8', errors='ignore'
+                                        )
+                                    )
+                                    logger.warning(
+                                        f"OpenSSL decrypt with -iter also "
+                                        f"failed: {stderr_text}"
+                                    )
                         except Exception as e:
-                            logger.warning(f"Manual archive extraction failed: {e}")
+                            logger.warning(
+                                f"Manual archive extraction failed: {e}"
+                            )
                         # Fall through to try regular yadm decrypt
 
         cmd = ["yadm", "decrypt"]

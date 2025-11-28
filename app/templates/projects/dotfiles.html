@@ -659,12 +659,12 @@
       </div>
 
       <!-- Tracked Tab -->
-      <div id="tracked" class="tab-content active">
+      <div id="tracked" class="tab-content active" style="display: block !important;">
         {% if yadm_status.files.tracked %}
           <div class="file-search">
             <input type="text" id="tracked-search" placeholder="Search files..." onkeyup="filterFiles('tracked')">
           </div>
-          <div class="file-list" id="tracked-list">
+          <div class="file-list" id="tracked-list" style="display: block !important;">
             {% for file in yadm_status.files.tracked[:50] %}
               <div class="file-item">{{ file }}</div>
             {% endfor %}

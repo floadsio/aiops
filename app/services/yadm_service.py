@@ -965,8 +965,9 @@ def get_full_yadm_status(user: User) -> dict[str, Any]:
 
     try:
         # Check if yadm is initialized
-        yadm_dir = Path(user_home) / ".yadm"
-        is_initialized = yadm_dir.exists()
+        # yadm stores its git repo at ~/.local/share/yadm/repo.git
+        yadm_repo_dir = Path(user_home) / ".local" / "share" / "yadm" / "repo.git"
+        is_initialized = yadm_repo_dir.exists()
 
         result = {
             "user_email": user.email,

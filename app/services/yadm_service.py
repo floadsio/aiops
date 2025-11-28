@@ -337,6 +337,62 @@ def yadm_decrypt(
         if config_name != "yadm" and yadm_config_dir:
             env["YADM_DIR"] = yadm_config_dir
 
+            # For hybrid setups, check if archive is in variant data directory
+            # and decrypt manually if yadm decrypt won't find it
+            variant_data_dir = Path(user_home) / ".local" / "share" / config_name
+            if variant_data_dir.exists():
+                variant_archive = variant_data_dir / "archive"
+                standard_archive = Path(yadm_data_dir) / "archive"
+
+                # If archive exists in variant location but not standard location
+                if variant_archive.exists() and not standard_archive.exists():
+                    logger.info(
+                        f"Detected hybrid setup: archive in {variant_archive}, "
+                        f"attempting manual decryption"
+                    )
+                    if passphrase:
+                        try:
+                            # Decrypt and extract the archive manually
+                            # openssl enc -d -aes-256-cbc -in archive | tar -xzf -
+                            decrypt_cmd = [
+                                "openssl", "enc", "-d", "-aes-256-cbc",
+                                "-in", str(variant_archive),
+                                "-k", passphrase
+                            ]
+
+                            tar_cmd = ["tar", "-xzf", "-"]
+
+                            # Decrypt the archive
+                            decrypt_result = subprocess.run(
+                                decrypt_cmd,
+                                capture_output=True,
+                                timeout=60,
+                                cwd=user_home,
+                            )
+
+                            if decrypt_result.returncode == 0:
+                                # Extract the tar archive
+                                tar_result = subprocess.run(
+                                    ["sudo", "-u", linux_username, "-H"] + tar_cmd,
+                                    input=decrypt_result.stdout,
+                                    capture_output=True,
+                                    timeout=60,
+                                    cwd=user_home,
+                                )
+                                if tar_result.returncode != 0:
+                                    logger.warning(
+                                        f"Manual tar extraction failed: {tar_result.stderr.decode('utf-8', errors='ignore')}"
+                                    )
+                                logger.info(f"Manually extracted archive for {linux_username}")
+                                return
+                            else:
+                                logger.warning(
+                                    f"OpenSSL decrypt failed: {decrypt_result.stderr.decode('utf-8', errors='ignore')}"
+                                )
+                        except Exception as e:
+                            logger.warning(f"Manual archive extraction failed: {e}")
+                        # Fall through to try regular yadm decrypt
+
         cmd = ["yadm", "decrypt"]
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd

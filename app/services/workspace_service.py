@@ -16,7 +16,6 @@ from typing import Any, Optional
 from .git_service import resolve_project_ssh_key_path
 from .linux_users import get_user_home_directory, resolve_linux_username
 from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
-from . import yadm_service
 
 log = logging.getLogger(__name__)
 
@@ -212,140 +211,6 @@ def _get_global_dotfile_settings() -> tuple[Optional[str], str]:
     return repo_url, branch
 
 
-def _get_global_decrypt_password() -> Optional[str]:
-    """Get the global decrypt password from database.
-
-    Returns:
-        Decrypted password string, or None if not configured
-    """
-    from ..models import SystemConfig
-    from .yadm_service import YadmKeyEncryption
-
-    decrypt_config = SystemConfig.query.filter_by(
-        key="dotfile_decrypt_password"
-    ).first()
-
-    if not decrypt_config or not decrypt_config.value:
-        return None
-
-    encrypted_password = decrypt_config.value.get("password")
-    if not encrypted_password:
-        return None
-
-    try:
-        # Decrypt the password
-        decrypted = YadmKeyEncryption.decrypt_gpg_key(encrypted_password.encode())
-        return decrypted.decode()
-    except Exception as exc:
-        log.warning(f"Failed to decrypt yadm password from database: {exc}")
-        return None
-
-
-def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
-    """Initialize yadm dotfiles for a user if configured.
-
-    This function:
-    1. Checks if global dotfile repo is configured in database
-    2. Gets the dotfile repo URL (user personal override or global)
-    3. Imports GPG key if available
-    4. Clones and bootstraps the yadm repo
-    5. Decrypts encrypted files
-
-    Errors in yadm setup are logged as warnings but don't fail workspace initialization.
-
-    Args:
-        project: Project model instance
-        user: User model instance
-        linux_username: Linux username for the user
-    """
-    # Get global dotfile repo URL from database
-    global_dotfile_repo_url, default_branch = _get_global_dotfile_settings()
-    if not global_dotfile_repo_url:
-        return  # yadm not configured globally
-
-    # Skip if yadm is not installed on the system
-    if not yadm_service.check_yadm_installed():
-        log.warning(
-            "yadm is not installed on the system. "
-            "Install it with: sudo apt-get install yadm"
-        )
-        return
-
-    # Determine which dotfile repo to use (user personal takes precedence over global)
-    dotfile_repo_url = getattr(user, "personal_dotfile_repo_url", None)
-    dotfile_branch = getattr(user, "personal_dotfile_branch", None)
-
-    if not dotfile_repo_url:
-        dotfile_repo_url = global_dotfile_repo_url
-        dotfile_branch = default_branch or "main"
-
-    user_home = get_user_home_directory(linux_username)
-    if not user_home:
-        log.warning(
-            "Could not determine home directory for user %s. Skipping yadm setup.",
-            linux_username,
-        )
-        return
-
-    try:
-        # Import GPG key if available for this user
-        gpg_key_data = getattr(user, "gpg_private_key_encrypted", None)
-        gpg_key_id = getattr(user, "gpg_key_id", None)
-
-        if gpg_key_data and gpg_key_id:
-            try:
-                decrypted_key = yadm_service.get_gpg_key_decrypted(user)
-                if decrypted_key:
-                    yadm_service.import_gpg_key(
-                        linux_username, user_home, decrypted_key, gpg_key_id
-                    )
-                    log.info(
-                        "Imported GPG key %s for user %s dotfile decryption",
-                        gpg_key_id,
-                        linux_username,
-                    )
-            except yadm_service.YadmServiceError as exc:
-                log.warning(
-                    "Failed to import GPG key for user %s: %s. "
-                    "Continuing without GPG key.",
-                    linux_username,
-                    exc,
-                )
-
-        # Initialize yadm repo
-        yadm_service.initialize_yadm_repo(
-            linux_username, user_home, dotfile_repo_url, dotfile_branch or "main"
-        )
-
-        # Apply bootstrap script
-        yadm_service.apply_yadm_bootstrap(linux_username, user_home)
-
-        # Decrypt encrypted files if any
-        decrypt_password = _get_global_decrypt_password()
-        yadm_service.yadm_decrypt(linux_username, user_home, passphrase=decrypt_password)
-
-        log.info(
-            "Successfully initialized yadm for user %s from %s",
-            linux_username,
-            dotfile_repo_url,
-        )
-
-    except yadm_service.YadmServiceError as exc:
-        log.warning(
-            "Failed to initialize yadm for user %s (project %s): %s. "
-            "Workspace is still functional without dotfiles.",
-            linux_username,
-            getattr(project, "name", project.id),
-            exc,
-        )
-    except Exception as exc:
-        log.error(
-            "Unexpected error initializing yadm for user %s: %s",
-            linux_username,
-            exc,
-        )
-
-
 def initialize_workspace(project, user) -> Path:
     """Initialize a workspace by cloning the project repository.
 
@@ -424,9 +289,6 @@ def initialize_workspace(project, user) -> Path:
             getattr(user, "email", user.id),
             workspace_path,
         )
-
-        # Initialize yadm dotfiles if configured for this project
-        _initialize_yadm_for_user(project, user, linux_username)
 
         return workspace_path
     except WorkspaceError:

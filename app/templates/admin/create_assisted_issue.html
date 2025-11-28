@@ -204,6 +204,15 @@
         </div>
       </div>
 
+      <div class="form-grid">
+        <div class="form-section">
+          <label for="{{ form.creator_user_id.id }}">
+            <h3>Created By</h3>
+          </label>
+          {{ form.creator_user_id(required=True) }}
+        </div>
+      </div>
+
       <div class="form-actions">
         <button type="submit" class="primary" id="submit-btn">
           <span class="submit-text">Generate Issue Preview</span>

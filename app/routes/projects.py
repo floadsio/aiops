@@ -1557,11 +1557,11 @@ def manage_dotfiles():
     if user.is_admin:
         try:
             system_config = SystemConfig.query.filter_by(
-                key_name="dotfile_repo_url"
+                key="dotfile_repo_url"
             ).first()
             if system_config:
                 branch_config = SystemConfig.query.filter_by(
-                    key_name="dotfile_repo_branch"
+                    key="dotfile_repo_branch"
                 ).first()
                 global_config = {
                     "repo_url": system_config.value,

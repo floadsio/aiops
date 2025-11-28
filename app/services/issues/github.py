@@ -132,7 +132,6 @@ def create_issue(
     *,
     assignee: str | None = None,
     creator_user_id: int | None = None,
-    creator_username: str | None = None,
 ) -> IssuePayload:
     repo_path = project_integration.external_identifier
     if not repo_path:
@@ -165,19 +164,6 @@ def create_issue(
             milestone=milestone,
             assignees=assignees,
         )
-
-        # Add attribution comment if creator information is provided
-        # This helps track who actually requested the issue creation when using shared credentials
-        if creator_username:
-            try:
-                attribution = f"_Created via aiops by @{creator_username}_"
-                issue.create_comment(attribution)
-            except Exception as exc:  # noqa: BLE001
-                # Don't fail the whole operation if commenting fails
-                from flask import current_app
-                current_app.logger.warning(
-                    f"Failed to add attribution comment to issue #{issue.number}: {exc}"
-                )
     except GithubAPIException as exc:
         raise IssueSyncError(_format_github_error(exc)) from exc
     except Exception as exc:  # noqa: BLE001

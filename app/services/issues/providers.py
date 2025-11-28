@@ -75,21 +75,12 @@ class GitHubIssueProvider(BaseIssueProvider):
             self.integration, project_integration, user_id
         )
 
-        # Get creator username for attribution
-        creator_username = None
-        if user_id:
-            from ...models import UserIdentityMap
-            identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
-            if identity_map and identity_map.github_username:
-                creator_username = identity_map.github_username
-
         payload = github_provider.create_issue(
             effective_integration,
             project_integration,
             request,
             assignee=assignee,
             creator_user_id=user_id,
-            creator_username=creator_username,
         )
         return _payload_to_dict(payload)
 
@@ -332,21 +323,12 @@ class GitLabIssueProvider(BaseIssueProvider):
             self.integration, project_integration, user_id
         )
 
-        # Get creator username for attribution
-        creator_username = None
-        if user_id:
-            from ...models import UserIdentityMap
-            identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
-            if identity_map and identity_map.gitlab_username:
-                creator_username = identity_map.gitlab_username
-
         payload = gitlab_provider.create_issue(
             effective_integration,
             project_integration,
             request,
             assignee=assignee,
             creator_user_id=user_id,
-            creator_username=creator_username,
         )
         return _payload_to_dict(payload)
 
@@ -520,32 +502,12 @@ class JiraIssueProvider(BaseIssueProvider):
             self.integration, project_integration, user_id
         )
 
-        # Get creator Jira account ID for attribution
-        # Priority: UserIntegrationCredential.settings (per-integration) > UserIdentityMap (global)
-        creator_account_id = None
-        if user_id:
-            from ...models import UserIdentityMap, UserIntegrationCredential
-
-            # First, check for per-integration Jira account ID in UserIntegrationCredential.settings
-            user_cred = UserIntegrationCredential.query.filter_by(
-                user_id=user_id, integration_id=self.integration.id
-            ).first()
-            if user_cred and user_cred.settings:
-                creator_account_id = user_cred.settings.get('jira_account_id')
-
-            # Fallback to global UserIdentityMap if not found per-integration
-            if not creator_account_id:
-                identity_map = UserIdentityMap.query.filter_by(user_id=user_id).first()
-                if identity_map and identity_map.jira_account_id:
-                    creator_account_id = identity_map.jira_account_id
-
         payload = jira_provider.create_issue(
             effective_integration,
             project_integration,
             request,
             assignee_account_id=assignee,
             creator_user_id=user_id,
-            creator_username=creator_account_id,
         )
         return _payload_to_dict(payload)
 

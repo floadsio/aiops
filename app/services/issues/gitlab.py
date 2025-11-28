@@ -145,7 +145,6 @@ def create_issue(
     *,
     assignee: str | None = None,
     creator_user_id: int | None = None,
-    creator_username: str | None = None,
 ) -> IssuePayload:
     project_ref = project_integration.external_identifier
     if not project_ref:
@@ -185,19 +184,6 @@ def create_issue(
                 # If user lookup fails, skip assignee
                 pass
         issue = project.issues.create(payload)
-
-        # Add attribution comment if creator information is provided
-        # This helps track who actually requested the issue creation when using shared credentials
-        if creator_username:
-            try:
-                attribution = f"_Created via aiops by @{creator_username}_"
-                issue.notes.create({"body": attribution})
-            except Exception as exc:  # noqa: BLE001
-                # Don't fail the whole operation if commenting fails
-                from flask import current_app
-                current_app.logger.warning(
-                    f"Failed to add attribution comment to issue #{issue.iid}: {exc}"
-                )
     except (gitlab_exc.GitlabAuthenticationError, gitlab_exc.GitlabCreateError) as exc:
         status = getattr(exc, "response_code", "unknown")
         raise IssueSyncError(f"GitLab API error: {status}") from exc

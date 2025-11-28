@@ -612,6 +612,16 @@ def get_yadm_managed_files(
             "error": None,
         }
 
+        # Detect yadm configuration directory for custom setups
+        yadm_config_dir, yadm_data_dir = _find_yadm_dir(user_home, linux_username)
+        config_name = Path(yadm_config_dir).name if yadm_config_dir else "yadm"
+
+        # Build environment with YADM_DIR for custom setups
+        env = os.environ.copy()
+        env["HOME"] = user_home
+        if config_name != "yadm" and yadm_config_dir:
+            env["YADM_DIR"] = yadm_config_dir
+
         # Get tracked files: yadm list -a
         cmd = ["yadm", "list", "-a"]
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
@@ -621,13 +631,14 @@ def get_yadm_managed_files(
             text=True,
             timeout=10,
             cwd=user_home,
+            env=env,
         )
 
         if res.returncode == 0:
             result["tracked"] = [f.strip() for f in res.stdout.splitlines() if f.strip()]
 
-        # Get encrypted patterns from .yadm/encrypt
-        encrypt_patterns_file = Path(user_home) / ".yadm" / "encrypt"
+        # Get encrypted patterns from config directory
+        encrypt_patterns_file = Path(yadm_config_dir) / "encrypt" if yadm_config_dir else Path(user_home) / ".yadm" / "encrypt"
         encrypted_files = []
         if encrypt_patterns_file.exists():
             try:
@@ -639,6 +650,29 @@ def get_yadm_managed_files(
                             if fnmatch.fnmatch(tracked_file, pattern.strip()):
                                 if tracked_file not in encrypted_files:
                                     encrypted_files.append(tracked_file)
+            except PermissionError:
+                # Try via sudo
+                try:
+                    cmd = ["cat", str(encrypt_patterns_file)]
+                    sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+                    res = subprocess.run(
+                        sudo_cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if res.returncode == 0:
+                        patterns = res.stdout.splitlines()
+                        for pattern in patterns:
+                            if pattern.strip():
+                                for tracked_file in result["tracked"]:
+                                    if fnmatch.fnmatch(tracked_file, pattern.strip()):
+                                        if tracked_file not in encrypted_files:
+                                            encrypted_files.append(tracked_file)
+                except Exception as e:
+                    logger.debug(
+                        f"Failed to read encrypt patterns via sudo for {linux_username}: {e}"
+                    )
             except Exception as e:
                 logger.warning(
                     f"Failed to parse encrypt patterns for {linux_username}: {e}"
@@ -656,6 +690,7 @@ def get_yadm_managed_files(
                 text=True,
                 timeout=10,
                 cwd=user_home,
+                env=env,
             )
 
             if res.returncode == 0:

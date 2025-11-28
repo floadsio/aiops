@@ -222,13 +222,74 @@
       font-size: 0.9rem;
     }
   }
+  .settings-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1rem 0;
+    margin: -1rem -1rem 1.5rem -1rem;
+    padding: 1rem 1rem;
+  }
+  [data-theme="dark"] .settings-nav {
+    background: rgba(26, 29, 35, 0.95);
+  }
+  .settings-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .settings-nav a {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background: rgba(94, 108, 117, 0.2);
+    color: inherit;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  .settings-nav a:hover {
+    background: rgba(94, 108, 117, 0.4);
+  }
+  [data-theme="dark"] .settings-nav a:hover {
+    background: rgba(148, 163, 184, 0.3);
+  }
+  @media (max-width: 768px) {
+    .settings-nav ul {
+      gap: 0.25rem;
+    }
+    .settings-nav a {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+  }
 </style>
 {% endblock %}
 {% block content %}
 <h1>Admin Settings</h1>
 
+<nav class="settings-nav">
+  <ul>
+    <li><a href="#system-operations">🔧 System</a></li>
+    <li><a href="#session-maintenance">🧹 Sessions</a></li>
+    <li><a href="#ai-tools">🤖 AI Tools</a></li>
+    <li><a href="#user-management">👥 Users</a></li>
+    <li><a href="#api-keys">🔐 API Keys</a></li>
+    <li><a href="#personal-tokens">🎫 Tokens</a></li>
+    <li><a href="#global-agent">🧠 Agent Context</a></li>
+    <li><a href="#system-logs">📋 Logs</a></li>
+    <li><a href="#dotfiles">🗂️ Dotfiles</a></li>
+  </ul>
+</nav>
+
 <div class="settings-container">
-  <section class="settings-category">
+  <section class="settings-category" id="system-operations">
     <h2>System Operations</h2>
     <div class="settings-grid-3">
   <article class="settings-card">
@@ -382,7 +443,7 @@
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="session-maintenance">
     <h2>Session Maintenance</h2>
     <div class="settings-grid-1">
       <article class="settings-card">
@@ -402,7 +463,7 @@
   </section>
 
   {% if ai_tool_cards %}
-  <section class="settings-category">
+  <section class="settings-category" id="ai-tools">
     <h2>AI Tool Maintenance</h2>
     <div class="settings-grid-3">
       {% for card in ai_tool_cards %}
@@ -455,7 +516,7 @@
   </section>
   {% endif %}
 
-    <section class="settings-category">
+    <section class="settings-category" id="user-management">
     <h2>User Management</h2>
     <div class="settings-grid">
   <article class="settings-card settings-card-full">
@@ -593,7 +654,7 @@
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="api-keys">
     <h2>API Keys</h2>
     <div class="settings-grid">
       <article class="settings-card settings-card-full">
@@ -713,7 +774,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="personal-tokens">
     <h2>Personal Integration Credentials</h2>
     <div class="settings-grid">
       <article class="settings-card settings-card-full">
@@ -825,7 +886,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
   </section>
 
   <!-- Global Agent Context -->
-  <section>
+  <section class="settings-category" id="global-agent">
     <div>
       <article>
         <header>
@@ -891,7 +952,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="system-logs">
     <h2>System Logs</h2>
     <div class="settings-grid">
   <article class="settings-card settings-card-full">
@@ -915,7 +976,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
   </section>
 
   <!-- Yadm / Dotfiles Configuration -->
-  <section>
+  <section class="settings-category" id="dotfiles">
     <div class="settings-section">
       <h2>🗂️ Dotfiles Management</h2>
       <article>

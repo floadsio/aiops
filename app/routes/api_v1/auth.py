@@ -372,23 +372,27 @@ def initialize_yadm():
             return jsonify({"error": f"User '{target_user_email}' not found"}), 404
 
         # Find dotfiles project for the user's tenant
-        # Infer tenant from user's projects
-        user_project = Project.query.filter_by(owner_id=target_user.id).first()
-        if not user_project:
+        # Look across all tenants the user has projects in
+        user_projects = Project.query.filter_by(owner_id=target_user.id).all()
+        if not user_projects:
             return jsonify({
                 "error": "User has no associated projects"
             }), 400
 
-        tenant_id = user_project.tenant_id
-
-        # Find dotfiles project
-        dotfiles_project = Project.query.filter_by(
-            name="dotfiles", tenant_id=tenant_id
-        ).first()
+        # Try to find a dotfiles project in any of the user's tenants
+        dotfiles_project = None
+        for proj in user_projects:
+            dotfiles = Project.query.filter_by(
+                name="dotfiles", tenant_id=proj.tenant_id
+            ).first()
+            if dotfiles:
+                dotfiles_project = dotfiles
+                break
 
         if not dotfiles_project:
+            tenant_ids = [p.tenant_id for p in user_projects]
             return jsonify({
-                "error": f"No dotfiles project found for tenant {tenant_id}"
+                "error": f"No dotfiles project found in any of user's tenants: {tenant_ids}"
             }), 400
 
         # Initialize yadm for the user

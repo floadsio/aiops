@@ -1010,6 +1010,23 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
             {% endif %}
           </div>
 
+          <div class="form-group">
+            {{ yadm_form.decrypt_password.label(class="form-label") }}
+            {{ yadm_form.decrypt_password(class="form-control" if yadm_form.decrypt_password.errors else "", placeholder="Leave empty if using GPG encryption instead") }}
+            {% if yadm_form.decrypt_password.errors %}
+              <small class="form-error">
+                {% for error in yadm_form.decrypt_password.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </small>
+            {% endif %}
+            {% if yadm_password_configured %}
+              <small class="text-muted">✓ Decryption password is currently configured</small>
+            {% else %}
+              <small class="text-muted">Password field is optional - only needed if dotfiles are encrypted with a passphrase</small>
+            {% endif %}
+          </div>
+
           <div class="settings-actions">
             {{ yadm_form.submit(class="primary") }}
           </div>

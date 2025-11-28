@@ -920,6 +920,7 @@
     const btn = document.getElementById('decrypt-btn');
     const status = document.getElementById('decrypt-status');
     const message = document.getElementById('decrypt-message');
+    const spinner = status ? status.querySelector('.spinner') : null;
 
     if (!btn || !status || !message) return;
 
@@ -943,15 +944,18 @@
       if (response.ok) {
         message.textContent = '✓ Decryption complete!';
         message.style.color = '#3fb950';
+        if (spinner) spinner.style.display = 'none';
         btn.disabled = false;
       } else {
         message.textContent = '✗ Error: ' + (data.error || 'Unknown error');
         message.style.color = '#d05544';
+        if (spinner) spinner.style.display = 'none';
         btn.disabled = false;
       }
     } catch (error) {
       message.textContent = '✗ Error: ' + error.message;
       message.style.color = '#d05544';
+      if (spinner) spinner.style.display = 'none';
       btn.disabled = false;
     }
   }

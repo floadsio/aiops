@@ -16,6 +16,7 @@ from typing import Any, Optional
 from .git_service import resolve_project_ssh_key_path
 from .linux_users import get_user_home_directory, resolve_linux_username
 from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
+from . import yadm_service
 
 log = logging.getLogger(__name__)
 
@@ -194,6 +195,118 @@ def workspace_exists(project, user) -> bool:
         return exists and has_git
 
 
+def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
+    """Initialize yadm dotfiles for a user if configured.
+
+    This function:
+    1. Checks if yadm is enabled for the project
+    2. Gets the dotfile repo URL (project-level or user personal)
+    3. Imports GPG key if available
+    4. Clones and bootstraps the yadm repo
+    5. Decrypts encrypted files
+
+    Errors in yadm setup are logged as warnings but don't fail workspace initialization.
+
+    Args:
+        project: Project model instance
+        user: User model instance
+        linux_username: Linux username for the user
+    """
+    # Check if yadm is enabled for this project
+    if not getattr(project, "dotfile_enabled", False):
+        return
+
+    # Skip if yadm is not installed on the system
+    if not yadm_service.check_yadm_installed():
+        log.warning(
+            "yadm is not installed on the system. "
+            "Install it with: sudo apt-get install yadm"
+        )
+        return
+
+    # Determine which dotfile repo to use (user personal takes precedence)
+    dotfile_repo_url = getattr(user, "personal_dotfile_repo_url", None)
+    dotfile_branch = getattr(user, "personal_dotfile_branch", None)
+
+    if not dotfile_repo_url:
+        dotfile_repo_url = getattr(project, "dotfile_repo_url", None)
+        dotfile_branch = getattr(project, "dotfile_branch", "main")
+
+    if not dotfile_repo_url:
+        log.warning(
+            "No dotfile repository configured for project %s, user %s. "
+            "Set project.dotfile_repo_url or user.personal_dotfile_repo_url.",
+            getattr(project, "name", project.id),
+            getattr(user, "email", user.id),
+        )
+        return
+
+    user_home = get_user_home_directory(linux_username)
+    if not user_home:
+        log.warning(
+            "Could not determine home directory for user %s. Skipping yadm setup.",
+            linux_username,
+        )
+        return
+
+    try:
+        # Import GPG key if available for this user
+        gpg_key_data = getattr(user, "gpg_private_key_encrypted", None)
+        gpg_key_id = getattr(user, "gpg_key_id", None)
+
+        if gpg_key_data and gpg_key_id:
+            try:
+                decrypted_key = yadm_service.get_gpg_key_decrypted(user)
+                if decrypted_key:
+                    yadm_service.import_gpg_key(
+                        linux_username, user_home, decrypted_key, gpg_key_id
+                    )
+                    log.info(
+                        "Imported GPG key %s for user %s dotfile decryption",
+                        gpg_key_id,
+                        linux_username,
+                    )
+            except yadm_service.YadmServiceError as exc:
+                log.warning(
+                    "Failed to import GPG key for user %s: %s. "
+                    "Continuing without GPG key.",
+                    linux_username,
+                    exc,
+                )
+
+        # Initialize yadm repo
+        yadm_service.initialize_yadm_repo(
+            linux_username, user_home, dotfile_repo_url, dotfile_branch or "main"
+        )
+
+        # Apply bootstrap script
+        yadm_service.apply_yadm_bootstrap(linux_username, user_home)
+
+        # Decrypt encrypted files if any
+        yadm_service.yadm_decrypt(linux_username, user_home)
+
+        log.info(
+            "Successfully initialized yadm for user %s from %s",
+            linux_username,
+            dotfile_repo_url,
+        )
+
+    except yadm_service.YadmServiceError as exc:
+        log.warning(
+            "Failed to initialize yadm for user %s (project %s): %s. "
+            "Workspace is still functional without dotfiles.",
+            linux_username,
+            getattr(project, "name", project.id),
+            exc,
+        )
+    except Exception as exc:
+        log.error(
+            "Unexpected error initializing yadm for user %s: %s",
+            linux_username,
+            exc,
+        )
+
+
 def initialize_workspace(project, user) -> Path:
     """Initialize a workspace by cloning the project repository.
 
@@ -272,6 +385,10 @@ def initialize_workspace(project, user) -> Path:
             getattr(user, "email", user.id),
             workspace_path,
         )
+
+        # Initialize yadm dotfiles if configured for this project
+        _initialize_yadm_for_user(project, user, linux_username)
+
         return workspace_path
     except WorkspaceError:
         # Clean up on failure using sudo

@@ -31,14 +31,12 @@ class YadmServiceError(Exception):
 def _build_yadm_cmd(
     base_cmd: list[str],
     yadm_config_dir: Optional[str] = None,
-    yadm_data_dir: Optional[str] = None,
 ) -> list[str]:
     """Build yadm command with proper directory flags for custom setups.
 
     Args:
         base_cmd: Base yadm command (e.g., ["decrypt"], ["list", "-a"])
         yadm_config_dir: Path to yadm config directory
-        yadm_data_dir: Path to yadm data directory
 
     Returns:
         Complete yadm command with proper flags
@@ -48,12 +46,12 @@ def _build_yadm_cmd(
         Path(yadm_config_dir).name if yadm_config_dir else "yadm"
     )
 
-    if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
-        # Use both --yadm-dir and --yadm-data for custom setups
+    if config_name != "yadm" and yadm_config_dir:
+        # Use --yadm-dir for custom config location only
+        # Let yadm use its default data location (~/.local/share/yadm)
         return [
             "yadm",
             "--yadm-dir", yadm_config_dir,
-            "--yadm-data", yadm_data_dir,
         ] + base_cmd
     else:
         # Standard yadm command
@@ -498,16 +496,7 @@ def yadm_decrypt(
                         # Fall through to try regular yadm decrypt
 
         # Build yadm command with proper directory flags for custom setups
-        if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
-            # Use both --yadm-dir and --yadm-data for hybrid setups
-            cmd = [
-                "yadm",
-                "--yadm-dir", yadm_config_dir,
-                "--yadm-data", yadm_data_dir,
-                "decrypt"
-            ]
-        else:
-            cmd = ["yadm", "decrypt"]
+        cmd = _build_yadm_cmd(["decrypt"], yadm_config_dir)
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
 
@@ -820,7 +809,7 @@ def get_yadm_managed_files(
             cmd = [
                 "yadm",
                 "--yadm-dir", yadm_config_dir,
-                "--yadm-data", yadm_data_dir,
+                "--yadm-data"
                 "list", "-a"
             ]
         else:
@@ -887,7 +876,7 @@ def get_yadm_managed_files(
                 cmd = [
                     "yadm",
                     "--yadm-dir", yadm_config_dir,
-                    "--yadm-data", yadm_data_dir,
+                    "--yadm-data"
                     "status", "-s"
                 ]
             else:
@@ -962,7 +951,6 @@ def get_yadm_git_status(
         cmd = _build_yadm_cmd(
             ["rev-parse", "--abbrev-ref", "HEAD"],
             yadm_config_dir,
-            yadm_data_dir,
         )
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
@@ -979,7 +967,6 @@ def get_yadm_git_status(
         cmd = _build_yadm_cmd(
             ["remote", "get-url", "origin"],
             yadm_config_dir,
-            yadm_data_dir,
         )
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
@@ -997,7 +984,6 @@ def get_yadm_git_status(
             cmd = _build_yadm_cmd(
                 ["rev-list", "--left-right", "--count", "@{u}...HEAD"],
                 yadm_config_dir,
-                yadm_data_dir,
             )
             sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
             res = subprocess.run(
@@ -1019,7 +1005,6 @@ def get_yadm_git_status(
         cmd = _build_yadm_cmd(
             ["status", "--porcelain"],
             yadm_config_dir,
-            yadm_data_dir,
         )
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
@@ -1047,7 +1032,6 @@ def get_yadm_git_status(
             cmd = _build_yadm_cmd(
                 ["reflog", "-1", "--format=%ai"],
                 yadm_config_dir,
-                yadm_data_dir,
             )
             sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
             res = subprocess.run(

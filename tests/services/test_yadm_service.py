@@ -288,6 +288,42 @@ class TestYadmDecrypt:
 
         assert mock_run.called
 
+    @patch("app.services.yadm_service._find_yadm_dir")
+    @patch("app.services.yadm_service.subprocess.run")
+    def test_yadm_decrypt_passphrase_uses_stdin(self, mock_run, mock_find_dir):
+        """Test that yadm_decrypt passes passphrase via stdin, not cli args."""
+        # Mock custom yadm directory detection
+        mock_find_dir.return_value = (
+            "/home/testuser/.config/yadm",
+            "/home/testuser/.local/share/yadm"
+        )
+        # Regular yadm call succeeds
+        mock_run.return_value = Mock(
+            returncode=0, stdout="", stderr=""
+        )
+
+        passphrase = "test_password_123"
+        yadm_service.yadm_decrypt(
+            "testuser", "/home/testuser", passphrase=passphrase
+        )
+
+        # Verify subprocess.run was called
+        assert mock_run.called
+        # Get the yadm decrypt call (second call after _find_yadm_dir)
+        calls = [c for c in mock_run.call_args_list]
+        # Should have been called with yadm decrypt
+        assert any("yadm" in str(c) and "decrypt" in str(c) for c in calls)
+
+        # Check the passphrase was passed via stdin (input parameter)
+        # not on the command line
+        for c in calls:
+            cmd_args = c[0][0] if c[0] else []
+            # Passphrase should NOT be in command arguments
+            assert not any("test_password_123" in str(arg) for arg in cmd_args)
+            # But it should be passed via input parameter (stdin)
+            if "input" in c[1]:
+                assert "test_password_123" in c[1]["input"]
+
 
 class TestVerifyYadmSetup:
     """Tests for verify_yadm_setup function."""

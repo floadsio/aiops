@@ -334,3 +334,79 @@ def delete_user_credential(credential_id: int):
     db.session.delete(credential)
     db.session.commit()
     return ("", 204)
+
+
+@api_v1_bp.post("/auth/yadm/init")
+@require_api_auth()
+@audit_api_request
+def initialize_yadm():
+    """Initialize yadm for the current user's home directory.
+
+    Clones the organization's dotfiles repository and sets up yadm.
+
+    Request body:
+        user_email (optional): Email of user to initialize for (current user if not provided)
+
+    Returns:
+        200: Yadm initialized successfully
+        400: Bad request or initialization failed
+        401: Unauthorized
+    """
+    from ...models import User, Project, Tenant
+    from ...services.yadm_service import initialize_yadm_for_user, YadmServiceError
+
+    user = g.api_user
+    data = request.get_json() or {}
+
+    try:
+        # Optionally allow specifying a different user (for admin operations)
+        target_user_email = data.get("user_email", user.email)
+        if target_user_email != user.email and not user.is_admin:
+            return jsonify({
+                "error": "Only admins can initialize yadm for other users"
+            }), 403
+
+        # Get the target user
+        target_user = User.query.filter_by(email=target_user_email).first()
+        if not target_user:
+            return jsonify({"error": f"User '{target_user_email}' not found"}), 404
+
+        # Find dotfiles project for the user's tenant
+        # Infer tenant from user's projects
+        user_project = Project.query.filter_by(owner_id=target_user.id).first()
+        if not user_project:
+            return jsonify({
+                "error": "User has no associated projects"
+            }), 400
+
+        tenant_id = user_project.tenant_id
+
+        # Find dotfiles project
+        dotfiles_project = Project.query.filter_by(
+            name="dotfiles", tenant_id=tenant_id
+        ).first()
+
+        if not dotfiles_project:
+            return jsonify({
+                "error": f"No dotfiles project found for tenant {tenant_id}"
+            }), 400
+
+        # Initialize yadm for the user
+        result = initialize_yadm_for_user(
+            target_user,
+            repo_url=dotfiles_project.repo_url,
+            repo_branch=dotfiles_project.default_branch or "main"
+        )
+
+        return jsonify(result), 200
+
+    except YadmServiceError as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "failed"
+        }), 400
+    except Exception as exc:
+        return jsonify({
+            "error": f"Unexpected error: {exc}",
+            "status": "failed"
+        }), 500

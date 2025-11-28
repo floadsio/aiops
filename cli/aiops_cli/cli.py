@@ -3988,6 +3988,76 @@ def activity_list(
         sys.exit(1)
 
 
+# YADM COMMANDS
+# ============================================================================
+
+
+@cli.group()
+def yadm() -> None:
+    """Manage dotfiles with yadm (Yet Another Dotfiles Manager)."""
+    pass
+
+
+@yadm.command(name="init")
+@click.pass_context
+def yadm_init(ctx: click.Context) -> None:
+    """Initialize yadm for the current user's home directory.
+
+    This command:
+    1. Clones the organization's dotfiles repository to ~/.yadm/
+    2. Runs the bootstrap script to apply configurations
+    3. Decrypts encrypted files using the configured passphrase
+
+    Example:
+        aiops yadm init
+    """
+    client = get_client(ctx)
+
+    try:
+        # Get current user's info from the API
+        user_info = client.get("/api/v1/auth/user")
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            console=console,
+        ) as progress:
+            task = progress.add_task("Initializing yadm...", total=None)
+
+            # Make the API call to initialize yadm
+            result = client.post(
+                "/api/v1/auth/yadm/init",
+                json={"user_email": user_info.get("email")},
+            )
+
+            progress.stop_task(task)
+
+        # Show success message
+        if result.get("status") == "success":
+            console.print(f"[green]✓[/green] {result.get('message')}")
+
+            if result.get("yadm_dir"):
+                console.print(
+                    f"\n[dim]Dotfiles directory:[/dim] {result.get('yadm_dir')}"
+                )
+            if result.get("home"):
+                console.print(f"[dim]Home directory:[/dim] {result.get('home')}")
+
+            # List dotfiles
+            home = result.get("home")
+            if home:
+                console.print(
+                    f"\n[dim]Your dotfiles are now available in:[/dim]"
+                )
+                console.print(f"  {home}/")
+        else:
+            console.print(f"[yellow]⚠[/yellow] {result.get('message', 'Unknown status')}")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     cli(obj={})

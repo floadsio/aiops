@@ -228,7 +228,6 @@ def initialize_yadm_repo(
             "yadm",
             "clone",
             "--bootstrap",
-            "--no-prompt",
             "-b",
             branch,
             repo_url,
@@ -407,3 +406,85 @@ def check_yadm_installed() -> bool:
         return result.returncode == 0
     except Exception:
         return False
+
+
+def initialize_yadm_for_user(
+    user: User, repo_url: str, repo_branch: str = "main"
+) -> dict[str, str]:
+    """Initialize yadm for a user's home directory.
+
+    This function:
+    1. Clones the dotfiles repo to ~/.yadm/
+    2. Runs yadm bootstrap
+    3. Runs yadm decrypt (if encrypted files exist)
+
+    Args:
+        user: User model instance
+        repo_url: Dotfiles repository URL (e.g., git@gitlab.com:floads/dotfiles.git)
+        repo_branch: Branch to clone (default: "main")
+
+    Returns:
+        Dictionary with status and messages
+
+    Raises:
+        YadmServiceError: If initialization fails
+    """
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    try:
+        # 1. Clone dotfiles to ~/.yadm
+        logger.info(f"Initializing yadm for user {user.email}")
+
+        clone_cmd = [
+            "yadm", "clone",
+            f"--branch={repo_branch}",
+            repo_url
+        ]
+        sudo_cmd = ["sudo", "-E", "-u", linux_username, "-H"] + clone_cmd
+
+        result = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,  # 5 minutes for clone
+            cwd=user_home,
+        )
+
+        if result.returncode != 0:
+            raise YadmServiceError(
+                f"yadm clone failed: {result.stderr or result.stdout}"
+            )
+
+        logger.info(f"Successfully cloned dotfiles for {user.email}")
+
+        # 2. Run yadm bootstrap
+        try:
+            apply_yadm_bootstrap(linux_username, user_home)
+            logger.info(f"yadm bootstrap completed for {user.email}")
+        except YadmServiceError as e:
+            # Bootstrap is non-critical
+            logger.warning(f"yadm bootstrap had issues: {e}")
+
+        # 3. Run yadm decrypt
+        try:
+            yadm_decrypt(linux_username, user_home)
+            logger.info(f"yadm decrypt completed for {user.email}")
+        except YadmServiceError as e:
+            # Decrypt is non-critical if no encrypted files
+            logger.warning(f"yadm decrypt had issues: {e}")
+
+        return {
+            "status": "success",
+            "message": f"yadm initialized successfully for {user.email}",
+            "home": user_home,
+            "yadm_dir": f"{user_home}/.yadm",
+        }
+
+    except YadmServiceError:
+        raise
+    except Exception as exc:
+        logger.exception(f"Unexpected error initializing yadm for {user.email}")
+        raise YadmServiceError(
+            f"Failed to initialize yadm for {user.email}: {exc}"
+        ) from exc

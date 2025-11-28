@@ -804,16 +804,7 @@ def get_yadm_managed_files(
             env["YADM_DIR"] = yadm_config_dir
 
         # Get tracked files: yadm list -a
-        # Use both --yadm-dir and --yadm-data for custom setups
-        if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
-            cmd = [
-                "yadm",
-                "--yadm-dir", yadm_config_dir,
-                "--yadm-data"
-                "list", "-a"
-            ]
-        else:
-            cmd = ["yadm", "list", "-a"]
+        cmd = _build_yadm_cmd(["list", "-a"], yadm_config_dir)
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
         res = subprocess.run(
@@ -871,16 +862,7 @@ def get_yadm_managed_files(
 
         # Get modified files from git status
         try:
-            # Use both --yadm-dir and --yadm-data for custom setups
-            if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
-                cmd = [
-                    "yadm",
-                    "--yadm-dir", yadm_config_dir,
-                    "--yadm-data"
-                    "status", "-s"
-                ]
-            else:
-                cmd = ["yadm", "status", "-s"]
+            cmd = _build_yadm_cmd(["status", "-s"], yadm_config_dir)
 
             sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
             res = subprocess.run(

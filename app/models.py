@@ -143,12 +143,6 @@ class Project(BaseModel, TimestampMixin):
     )
     local_path: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
-    # yadm/dotfile configuration
-    dotfile_repo_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
-    dotfile_branch: Mapped[Optional[str]] = mapped_column(
-        String(128), default="main", nullable=True
-    )
-    dotfile_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)

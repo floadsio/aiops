@@ -383,36 +383,16 @@ def version_command() -> None:
 @click.command("init-workspace")
 @click.option("--user-email", required=True, help="Email of the user")
 @click.option("--project-id", required=True, type=int, help="ID of the project")
-@click.option(
-    "--dotfile-repo",
-    default=None,
-    help="Optional: Git URL for dotfiles repository (will override project setting)",
-)
-@click.option(
-    "--dotfile-branch",
-    default="main",
-    help="Optional: Git branch for dotfiles repository (default: main)",
-)
-@click.option(
-    "--enable-dotfiles",
-    is_flag=True,
-    default=False,
-    help="Enable yadm dotfiles initialization for this workspace",
-)
 @with_appcontext
 def init_workspace_command(
     user_email: str,
     project_id: int,
-    dotfile_repo: Optional[str] = None,
-    dotfile_branch: str = "main",
-    enable_dotfiles: bool = False,
 ) -> None:
     """Initialize a workspace for a user and project.
 
-    Optionally configure dotfiles (yadm) management:
-    - If --enable-dotfiles is set, initialize yadm for this workspace
-    - If --dotfile-repo is provided, use that repository URL
-    - Otherwise uses project or user configuration
+    Dotfiles (yadm) support is automatically enabled if DOTFILE_REPO_URL
+    environment variable is configured. Users can override with their personal
+    dotfile repository by setting personal_dotfile_repo_url in the database.
     """
     from .services.workspace_service import WorkspaceError, initialize_workspace
 
@@ -424,22 +404,10 @@ def init_workspace_command(
     if not project:
         raise click.ClickException(f"Project with ID {project_id} not found.")
 
-    # Override dotfile configuration if provided via CLI
-    if enable_dotfiles:
-        project.dotfile_enabled = True
-        if dotfile_repo:
-            project.personal_dotfile_repo_url = dotfile_repo
-            project.personal_dotfile_branch = dotfile_branch
-            click.echo(
-                f"Using custom dotfile repo: {dotfile_repo} (branch: {dotfile_branch})"
-            )
-
     click.echo(f"Initializing workspace for {user.email} and project {project.name}...")
     try:
         workspace_path = initialize_workspace(project, user)
         click.echo(f"Workspace initialized at: {workspace_path}")
-        if project.dotfile_enabled:
-            click.echo("Dotfiles (yadm) initialization enabled for this workspace")
     except WorkspaceError as exc:
         raise click.ClickException(str(exc)) from exc
 

@@ -308,35 +308,35 @@ Check installation: `which yadm` or `yadm --version`
 
 ### Configuration
 
-#### Per-Project Configuration
+#### Global Configuration (Recommended)
 
-Set dotfile repository at the project level (Admin UI or API):
+Configure the organization dotfile repository in `.env`:
 
-```python
-project.dotfile_enabled = True  # Enable yadm for this project
-project.dotfile_repo_url = "git@github.com:floads/dotfiles.git"
-project.dotfile_branch = "main"
+```bash
+DOTFILE_REPO_URL=https://gitlab.com/floads/dotfiles
+DOTFILE_REPO_BRANCH=main
 ```
 
-#### Per-User Override
+Dotfiles will be automatically initialized for all workspaces when these variables are set.
 
-Users can override project settings with personal dotfiles:
+#### Per-User Override (Optional)
+
+Users can override the global settings with personal dotfiles:
 
 ```python
-user.personal_dotfile_repo_url = "git@github.com:yourname/dotfiles.git"
+user.personal_dotfile_repo_url = "https://github.com/yourname/dotfiles.git"
 user.personal_dotfile_branch = "main"
 ```
 
 #### CLI Usage
 
-Initialize workspace with dotfiles:
+Initialize workspace:
 
 ```bash
-flask init-workspace --user-email user@example.com --project-id 6 \
-  --enable-dotfiles \
-  --dotfile-repo git@github.com:floads/dotfiles.git \
-  --dotfile-branch main
+flask init-workspace --user-email user@example.com --project-id 6
 ```
+
+Dotfiles will be automatically set up if `DOTFILE_REPO_URL` is configured in the environment.
 
 ### GPG Key Management
 
@@ -373,7 +373,7 @@ Key functions:
 
 When `initialize_workspace()` is called:
 1. Project repository is cloned
-2. If `dotfile_enabled = True`, yadm is initialized:
+2. If `DOTFILE_REPO_URL` environment variable is set, yadm is initialized:
    - GPG key imported to user's keyring (if configured)
    - Dotfiles repository cloned to `~/.yadm/`
    - Bootstrap script runs automatically
@@ -383,10 +383,9 @@ When `initialize_workspace()` is called:
 ### Configuration Priority
 
 When initializing dotfiles:
-1. **User personal config** (highest priority)
-2. **Project team config** (medium priority)
-3. **Global defaults** from environment
-4. **Skip** if not configured (logged as info)
+1. **User personal config** (highest priority) - `personal_dotfile_repo_url`
+2. **Global config** from environment - `DOTFILE_REPO_URL` and `DOTFILE_REPO_BRANCH`
+3. **Skip** if `DOTFILE_REPO_URL` not configured
 
 ### Example Dotfiles Repository Structure
 

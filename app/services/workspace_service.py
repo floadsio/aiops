@@ -199,8 +199,8 @@ def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
     """Initialize yadm dotfiles for a user if configured.
 
     This function:
-    1. Checks if yadm is enabled for the project
-    2. Gets the dotfile repo URL (project-level or user personal)
+    1. Checks if global DOTFILE_REPO_URL is configured
+    2. Gets the dotfile repo URL (user personal override or global)
     3. Imports GPG key if available
     4. Clones and bootstraps the yadm repo
     5. Decrypts encrypted files
@@ -212,9 +212,12 @@ def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
         user: User model instance
         linux_username: Linux username for the user
     """
-    # Check if yadm is enabled for this project
-    if not getattr(project, "dotfile_enabled", False):
-        return
+    import os
+
+    # Get global dotfile repo URL from environment
+    global_dotfile_repo_url = os.getenv("DOTFILE_REPO_URL")
+    if not global_dotfile_repo_url:
+        return  # yadm not configured globally
 
     # Skip if yadm is not installed on the system
     if not yadm_service.check_yadm_installed():
@@ -224,22 +227,13 @@ def _initialize_yadm_for_user(project, user, linux_username: str) -> None:
         )
         return
 
-    # Determine which dotfile repo to use (user personal takes precedence)
+    # Determine which dotfile repo to use (user personal takes precedence over global)
     dotfile_repo_url = getattr(user, "personal_dotfile_repo_url", None)
     dotfile_branch = getattr(user, "personal_dotfile_branch", None)
 
     if not dotfile_repo_url:
-        dotfile_repo_url = getattr(project, "dotfile_repo_url", None)
-        dotfile_branch = getattr(project, "dotfile_branch", "main")
-
-    if not dotfile_repo_url:
-        log.warning(
-            "No dotfile repository configured for project %s, user %s. "
-            "Set project.dotfile_repo_url or user.personal_dotfile_repo_url.",
-            getattr(project, "name", project.id),
-            getattr(user, "email", user.id),
-        )
-        return
+        dotfile_repo_url = global_dotfile_repo_url
+        dotfile_branch = os.getenv("DOTFILE_REPO_BRANCH", "main")
 
     user_home = get_user_home_directory(linux_username)
     if not user_home:

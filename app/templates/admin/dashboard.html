@@ -938,20 +938,51 @@
     align-items: center;
     gap: 0.75rem;
     margin: 1.5rem 0 1rem;
-    padding-bottom: 0.5rem;
+    padding: 0.75rem;
     border-bottom: 2px solid #e2e8f0;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: all 0.2s ease;
+  }
+  .tenant-group-header:hover {
+    background: rgba(15, 23, 42, 0.04);
+    border-radius: 0.5rem;
   }
   .tenant-group-header:first-child {
     margin-top: 0;
   }
+  [data-theme="dark"] .tenant-group-header:hover {
+    background: rgba(148, 163, 184, 0.08);
+  }
   [data-theme="dark"] .tenant-group-header {
     border-color: #334155;
+  }
+  .tenant-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    transition: transform 0.2s ease;
+    color: #64748b;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+  [data-theme="dark"] .tenant-group-toggle {
+    color: #94a3b8;
+  }
+  .tenant-group-header[data-collapsed="true"] .tenant-group-toggle {
+    transform: rotate(-90deg);
   }
   .tenant-group-title {
     font-size: 1.1rem;
     font-weight: 600;
     color: #0f172a;
     margin: 0;
+    flex: 1;
   }
   [data-theme="dark"] .tenant-group-title {
     color: #e2e8f0;
@@ -963,6 +994,14 @@
   }
   [data-theme="dark"] .tenant-group-count {
     color: #94a3b8;
+  }
+  .tenant-group-issues {
+    max-height: 5000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  .tenant-group-issues[data-collapsed="true"] {
+    max-height: 0;
   }
 </style>
 <section class="dashboard-section">
@@ -980,11 +1019,13 @@
   </header>
   <div class="issue-list" style="margin-top:0;">
     {% for tenant_name, tenant_issues in pinned_issues_grouped %}
-      <div class="tenant-group-header">
+      <button type="button" class="tenant-group-header" data-collapsed="true" data-tenant="{{ tenant_name }}">
+        <span class="tenant-group-toggle">▼</span>
         <h3 class="tenant-group-title">{{ tenant_name }}</h3>
         <span class="tenant-group-count">({{ tenant_issues|length }} issue{{ 's' if tenant_issues|length != 1 else '' }})</span>
-      </div>
-      {% for pinned in tenant_issues %}
+      </button>
+      <div class="tenant-group-issues" data-collapsed="true" data-tenant="{{ tenant_name }}">
+        {% for pinned in tenant_issues %}
         {% set issue = pinned.issue %}
         {% set integration = issue.project_integration %}
         {% set project = integration.project if integration else none %}
@@ -1077,10 +1118,28 @@
           {% endif %}
         </div>
       </article>
-      {% endfor %}  <!-- End issues loop -->
+        {% endfor %}  <!-- End issues loop -->
+      </div>  <!-- End tenant-group-issues -->
     {% endfor %}  <!-- End tenant loop -->
   </div>
 </section>
+
+<script>
+// Handle tenant group collapse/expand
+document.querySelectorAll('.tenant-group-header').forEach(header => {
+  header.addEventListener('click', function(e) {
+    e.preventDefault();
+    const tenantName = this.dataset.tenant;
+    const issuesContainer = document.querySelector(`.tenant-group-issues[data-tenant="${tenantName}"]`);
+    const isCollapsed = this.dataset.collapsed === 'true';
+
+    // Toggle the state
+    this.dataset.collapsed = !isCollapsed;
+    issuesContainer.dataset.collapsed = !isCollapsed;
+  });
+});
+</script>
+
 {% endif %}
 
 <section class="dashboard-section">

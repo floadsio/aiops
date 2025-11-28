@@ -43,6 +43,18 @@ class User(BaseModel, TimestampMixin):
     linux_username: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     aiops_cli_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     aiops_cli_api_key: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    # yadm/dotfile configuration
+    personal_dotfile_repo_url: Mapped[Optional[str]] = mapped_column(
+        String(512), nullable=True
+    )
+    personal_dotfile_branch: Mapped[Optional[str]] = mapped_column(
+        String(128), nullable=True
+    )
+    # GPG key for yadm decryption (encrypted with Fernet)
+    gpg_private_key_encrypted: Mapped[Optional[bytes]] = mapped_column(
+        db.LargeBinary, nullable=True
+    )
+    gpg_key_id: Mapped[Optional[str]] = mapped_column(String(16), nullable=True)
 
     ssh_keys: Mapped[list["SSHKey"]] = relationship(
         "SSHKey", back_populates="user", cascade="all, delete-orphan"
@@ -131,6 +143,12 @@ class Project(BaseModel, TimestampMixin):
     )
     local_path: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
+    # yadm/dotfile configuration
+    dotfile_repo_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    dotfile_branch: Mapped[Optional[str]] = mapped_column(
+        String(128), default="main", nullable=True
+    )
+    dotfile_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)

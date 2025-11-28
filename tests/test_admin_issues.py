@@ -437,6 +437,7 @@ def test_ai_assisted_issue_uses_structured_content(
             "description": "build structured issue",
             "ai_tool": "claude",
             "issue_type": "feature",
+            "creator_user_id": user_id,
         },
         follow_redirects=False,
     )

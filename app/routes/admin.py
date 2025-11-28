@@ -2284,6 +2284,13 @@ def create_assisted_issue():
     form = AIAssistedIssueForm()
     form.project_id.choices = project_choices
 
+    # Populate creator_user_id choices with all users
+    users = User.query.order_by(User.name).all()
+    form.creator_user_id.choices = [(u.id, u.name) for u in users]
+    # Set default to current user
+    if users and not request.form.get('creator_user_id'):
+        form.creator_user_id.data = current_user.id
+
     # Populate integration_id choices based on selected project
     # This is needed for form validation to work on both GET and POST
     if request.method == 'POST' and request.form.get('project_id'):
@@ -2349,6 +2356,7 @@ def create_assisted_issue():
             generation_time = time.time() - generation_start
 
             # Step 2: Store preview in session and show preview page
+            creator_user_id = form.creator_user_id.data
             preview_token = str(uuid.uuid4())
             flask_session[f"issue_preview_{preview_token}"] = {
                 "project_id": project_id,
@@ -2357,6 +2365,7 @@ def create_assisted_issue():
                 "ai_tool": ai_tool,
                 "issue_type": issue_type,
                 "description": description,
+                "creator_user_id": creator_user_id,
             }
             flask_session.permanent = True
 
@@ -2414,6 +2423,7 @@ def confirm_assisted_issue():
     issue_data = preview_data["issue_data"]
     ai_tool = preview_data["ai_tool"]
     issue_type = preview_data["issue_type"]
+    creator_user_id = preview_data.get("creator_user_id", current_user.id)
 
     # Get integration and project
     integration = ProjectIntegration.query.get(integration_id)
@@ -2438,7 +2448,7 @@ def confirm_assisted_issue():
             labels=labels,
             issue_type=issue_type or None,
             assignee_user_id=current_user.id,
-            creator_user_id=current_user.id,
+            creator_user_id=creator_user_id,
         )
 
         # Create ExternalIssue record in database

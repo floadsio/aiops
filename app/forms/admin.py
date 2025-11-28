@@ -618,4 +618,10 @@ class AIAssistedIssueForm(FlaskForm):
         default="",
         validators=[Optional()],
     )
+    creator_user_id = SelectField(
+        "Created By",
+        coerce=int,
+        validators=[DataRequired()],
+        description="Select which user to attribute this issue to",
+    )
     submit = SubmitField("Generate Issue Preview")

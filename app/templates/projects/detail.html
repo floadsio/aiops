@@ -716,7 +716,7 @@
                     </div>
                   </div>
                   <div class="issue-card__meta">
-                    <small class="issue-card__id">{{ issue.external_id }}</small>
+                    <small class="issue-card__id">{{ issue.external_id }} <span class="text-muted">(DB: {{ issue.id }})</span></small>
                     {% if issue.updated_display %}
                       <small class="issue-card__timestamp">Updated {{ issue.updated_display }}</small>
                     {% endif %}

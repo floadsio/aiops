@@ -161,7 +161,7 @@
     </div>
 
     <div class="issue-details">
-      <p><strong>Issue:</strong> <a href="{{ issue.url }}" target="_blank">#{{ issue.external_id }}</a> - {{ issue.title }}</p>
+      <p><strong>Issue:</strong> <a href="{{ issue.url }}" target="_blank">#{{ issue.external_id }}</a> <span style="font-size: 0.9rem; color: #94a3b8;">(DB: {{ issue.id }})</span> - {{ issue.title }}</p>
       <p><strong>Project:</strong> {{ project.tenant.name }} / {{ project.name }}</p>
       <p><strong>AI Tool:</strong> {{ ai_tool }}</p>
       <p><strong>Context:</strong> AGENTS.override.md populated from {{ sources_msg }}</p>

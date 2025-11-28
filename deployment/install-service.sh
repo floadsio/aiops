@@ -48,6 +48,18 @@ if [ ! -f "$INSTALL_DIR/.venv/bin/gunicorn" ]; then
     exit 1
 fi
 
+# Install yadm if not already installed
+echo "Checking for yadm installation..."
+if ! command -v yadm &> /dev/null; then
+    echo "Installing yadm (Yet Another Dotfiles Manager)..."
+    apt-get update
+    apt-get install -y yadm
+    echo "yadm installed successfully"
+else
+    YADM_VERSION=$(yadm --version 2>/dev/null || echo "unknown")
+    echo "yadm is already installed: $YADM_VERSION"
+fi
+
 # Create logs directory if it doesn't exist
 LOGS_DIR="$INSTALL_DIR/logs"
 if [ ! -d "$LOGS_DIR" ]; then

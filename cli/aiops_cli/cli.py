@@ -4014,9 +4014,6 @@ def yadm_init(ctx: click.Context) -> None:
     client = get_client(ctx)
 
     try:
-        # Get current user's info from the API
-        user_info = client.get("/api/v1/auth/user")
-
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -4026,8 +4023,8 @@ def yadm_init(ctx: click.Context) -> None:
 
             # Make the API call to initialize yadm
             result = client.post(
-                "/api/v1/auth/yadm/init",
-                json={"user_email": user_info.get("email")},
+                "auth/yadm/init",
+                json={},
             )
 
             progress.stop_task(task)

@@ -876,24 +876,38 @@ def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
 
     Returns:
         Tuple of (yadm_config_dir, yadm_data_dir) or (None, None) if not found.
+        Prioritizes non-empty directories with actual configuration.
         For standard yadm: (~/.yadm, ~/.local/share/yadm)
         For custom yadm: (~/.config/yadm-floads, ~/.local/share/yadm-floads)
     """
+    candidates = []
+
     # Check standard location first
     standard_yadm_config = Path(user_home) / ".yadm"
     standard_yadm_data = Path(user_home) / ".local" / "share" / "yadm"
-    if standard_yadm_config.exists():
-        return (str(standard_yadm_config), str(standard_yadm_data))
+    if standard_yadm_config.exists() and (
+        standard_yadm_config.is_dir() and any(standard_yadm_config.iterdir())
+    ):
+        candidates.append((str(standard_yadm_config), str(standard_yadm_data)))
 
     # Check for custom yadm directories in ~/.config (e.g., yadm-floads)
     config_dir = Path(user_home) / ".config"
     if config_dir.exists():
-        for item in config_dir.iterdir():
-            if item.is_dir() and item.name.startswith("yadm"):
-                # Found custom yadm config, construct corresponding data dir
+        for item in sorted(config_dir.iterdir()):  # Sort for consistent order
+            if item.is_dir() and item.name.startswith("yadm") and any(
+                item.iterdir()
+            ):
+                # Found custom yadm config with content
                 yadm_variant = item.name  # e.g., "yadm-floads"
                 yadm_data = Path(user_home) / ".local" / "share" / yadm_variant
-                return (str(item), str(yadm_data))
+                candidates.append((str(item), str(yadm_data)))
+
+    # Return first candidate (prioritizes non-empty dirs)
+    # Also prioritize yadm-* over plain yadm if both exist
+    if candidates:
+        # Sort: plain yadm last, variants first
+        candidates.sort(key=lambda x: (Path(x[0]).name == "yadm", x[0]))
+        return candidates[0]
 
     return (None, None)
 

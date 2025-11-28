@@ -885,14 +885,22 @@ def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
     share_dir = Path(user_home) / ".local" / "share"
     repo_data_dir = None
 
-    if share_dir.exists():
-        # Check all yadm* directories in ~/.local/share for repo.git
-        for item in sorted(share_dir.iterdir()):
-            if item.is_dir() and item.name.startswith("yadm"):
-                repo_path = item / "repo.git"
-                if repo_path.exists():
-                    repo_data_dir = item
-                    break  # Found it, stop searching
+    try:
+        if share_dir.exists():
+            # Check all yadm* directories in ~/.local/share for repo.git
+            for item in sorted(share_dir.iterdir()):
+                try:
+                    if item.is_dir() and item.name.startswith("yadm"):
+                        repo_path = item / "repo.git"
+                        if repo_path.exists():
+                            repo_data_dir = item
+                            break  # Found it, stop searching
+                except (PermissionError, OSError):
+                    # Skip directories we can't access
+                    continue
+    except (PermissionError, OSError):
+        # Can't access share directory
+        return (None, None)
 
     if not repo_data_dir:
         # No initialized yadm found
@@ -903,27 +911,43 @@ def _find_yadm_dir(user_home: str) -> tuple[Optional[str], Optional[str]]:
     repo_variant = repo_data_dir.name  # e.g., "yadm" or "yadm-floads"
 
     config_dir = Path(user_home) / ".config"
-    if config_dir.exists():
-        # Look for matching config: ~/.config/yadm or ~/.config/yadm-floads
-        matching_config = config_dir / repo_variant
-        if (
-            matching_config.exists()
-            and matching_config.is_dir()
-            and any(matching_config.iterdir())
-        ):
-            # Found matching config with content for this repo
-            return (str(matching_config), str(repo_data_dir))
-
-        # If repo is at standard location but no matching config with content,
-        # try to find any yadm* config directory with content (for hybrid setups)
-        if repo_variant == "yadm":
-            for item in sorted(config_dir.iterdir()):
+    try:
+        if config_dir.exists():
+            # Look for matching config: ~/.config/yadm or ~/.config/yadm-floads
+            matching_config = config_dir / repo_variant
+            try:
                 if (
-                    item.is_dir()
-                    and item.name.startswith("yadm")
-                    and any(item.iterdir())
+                    matching_config.exists()
+                    and matching_config.is_dir()
+                    and any(matching_config.iterdir())
                 ):
-                    return (str(item), str(repo_data_dir))
+                    # Found matching config with content for this repo
+                    return (str(matching_config), str(repo_data_dir))
+            except (PermissionError, OSError):
+                # Can't access matching config, skip to variant search
+                pass
+
+            # If repo is at standard location but no matching config with content,
+            # try to find any yadm* config directory with content (for hybrid setups)
+            if repo_variant == "yadm":
+                try:
+                    for item in sorted(config_dir.iterdir()):
+                        try:
+                            if (
+                                item.is_dir()
+                                and item.name.startswith("yadm")
+                                and any(item.iterdir())
+                            ):
+                                return (str(item), str(repo_data_dir))
+                        except (PermissionError, OSError):
+                            # Skip directories we can't access
+                            continue
+                except (PermissionError, OSError):
+                    # Can't enumerate config directory
+                    pass
+    except (PermissionError, OSError):
+        # Can't access config directory at all
+        pass
 
     # Return repo location with standard config location
     standard_config = Path(user_home) / ".yadm"

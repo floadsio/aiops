@@ -1058,17 +1058,61 @@ def get_yadm_encryption_status(
 
         # Check for encrypt patterns
         encrypt_file = Path(yadm_config_dir) / "encrypt"
-        if encrypt_file.exists():
-            result["has_encrypt_patterns"] = True
+        try:
+            # Try direct access first
+            if encrypt_file.exists():
+                result["has_encrypt_patterns"] = True
+                try:
+                    patterns = encrypt_file.read_text().splitlines()
+                    # Get non-empty patterns
+                    non_empty_patterns = [p.strip() for p in patterns if p.strip()]
+                    result["encrypted_file_count"] = len(non_empty_patterns)
+                    result["encrypted_patterns"] = non_empty_patterns
+                except PermissionError:
+                    # Can't read directly, try via sudo
+                    try:
+                        cmd = ["cat", str(encrypt_file)]
+                        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+                        res = subprocess.run(
+                            sudo_cmd,
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if res.returncode == 0:
+                            patterns = res.stdout.splitlines()
+                            non_empty_patterns = [p.strip() for p in patterns if p.strip()]
+                            result["encrypted_file_count"] = len(non_empty_patterns)
+                            result["encrypted_patterns"] = non_empty_patterns
+                    except Exception as e:
+                        logger.debug(
+                            f"Failed to read encrypt patterns via sudo for {linux_username}: {e}"
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to read encrypt patterns for {linux_username}: {e}"
+                    )
+        except (PermissionError, OSError):
+            # Can't even check if encrypt file exists, try via sudo
             try:
-                patterns = encrypt_file.read_text().splitlines()
-                # Get non-empty patterns
-                non_empty_patterns = [p.strip() for p in patterns if p.strip()]
-                result["encrypted_file_count"] = len(non_empty_patterns)
-                result["encrypted_patterns"] = non_empty_patterns
+                encrypt_path_str = str(encrypt_file)
+                cmd = ["test", "-f", encrypt_path_str, "&&", "cat", encrypt_path_str]
+                sudo_cmd = ["sudo", "-u", linux_username, "-H", "sh", "-c", " ".join(cmd)]
+                res = subprocess.run(
+                    sudo_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if res.returncode == 0 and res.stdout:
+                    result["has_encrypt_patterns"] = True
+                    patterns = res.stdout.splitlines()
+                    non_empty_patterns = [p.strip() for p in patterns if p.strip()]
+                    result["encrypted_file_count"] = len(non_empty_patterns)
+                    result["encrypted_patterns"] = non_empty_patterns
             except Exception as e:
-                logger.warning(
-                    f"Failed to read encrypt patterns for {linux_username}: {e}"
+                logger.debug(
+                    f"Failed to detect encrypt file for {linux_username}: {e}"
                 )
 
         # Check for archive and try to list encrypted files

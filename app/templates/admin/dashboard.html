@@ -749,7 +749,7 @@
   </form>
 </section>
 
-{% if pinned_issues %}
+{% if pinned_issues_grouped %}
 <style>
   /* Pinned issues styling with dark mode support */
   .pinned-issues-subtitle {
@@ -931,6 +931,39 @@
       font-size: 0.85rem;
     }
   }
+
+  /* Tenant group headers */
+  .tenant-group-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .tenant-group-header:first-child {
+    margin-top: 0;
+  }
+  [data-theme="dark"] .tenant-group-header {
+    border-color: #334155;
+  }
+  .tenant-group-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0;
+  }
+  [data-theme="dark"] .tenant-group-title {
+    color: #e2e8f0;
+  }
+  .tenant-group-count {
+    font-size: 0.85rem;
+    color: #64748b;
+    font-weight: 400;
+  }
+  [data-theme="dark"] .tenant-group-count {
+    color: #94a3b8;
+  }
 </style>
 <section class="dashboard-section">
   <header>
@@ -938,18 +971,24 @@
       <h2>
         Pinned Issues
         <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
-          <strong style="margin:0;font-size:1rem;">{{ pinned_issues|length }}</strong>
+          {% set total_pinned = pinned_issues_grouped|map(attribute='1')|map('length')|sum %}
+          <strong style="margin:0;font-size:1rem;">{{ total_pinned }}</strong>
         </span>
       </h2>
       <p class="pinned-issues-subtitle">Issues you've pinned for quick access</p>
     </div>
   </header>
   <div class="issue-list" style="margin-top:0;">
-    {% for pinned in pinned_issues %}
-      {% set issue = pinned.issue %}
-      {% set integration = issue.project_integration %}
-      {% set project = integration.project if integration else none %}
-      <article class="issue-row">
+    {% for tenant_name, tenant_issues in pinned_issues_grouped %}
+      <div class="tenant-group-header">
+        <h3 class="tenant-group-title">{{ tenant_name }}</h3>
+        <span class="tenant-group-count">({{ tenant_issues|length }} issue{{ 's' if tenant_issues|length != 1 else '' }})</span>
+      </div>
+      {% for pinned in tenant_issues %}
+        {% set issue = pinned.issue %}
+        {% set integration = issue.project_integration %}
+        {% set project = integration.project if integration else none %}
+        <article class="issue-row">
         <div class="issue-row-header">
           {% if project %}
             <a href="{{ url_for('projects.project_detail', project_id=project.id) }}" class="issue-project-link">
@@ -1038,7 +1077,8 @@
           {% endif %}
         </div>
       </article>
-    {% endfor %}
+      {% endfor %}  <!-- End issues loop -->
+    {% endfor %}  <!-- End tenant loop -->
   </div>
 </section>
 {% endif %}

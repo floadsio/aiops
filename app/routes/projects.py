@@ -1631,14 +1631,34 @@ def pull_and_update_dotfiles_web():
 @login_required
 def decrypt_dotfiles_web():
     """Decrypt dotfiles (web UI endpoint)."""
-    from ..services.yadm_service import yadm_decrypt, YadmServiceError
+    from ..services.yadm_service import yadm_decrypt, YadmServiceError, YadmKeyEncryption
+    from ..models import SystemConfig
+    import logging
+
+    logger = logging.getLogger(__name__)
 
     user = current_user
     linux_username = user.email.split("@")[0]
     user_home = f"/home/{linux_username}"
 
     try:
-        yadm_decrypt(linux_username, user_home)
+        # Get decrypt password from SystemConfig if available
+        passphrase = None
+        decrypt_config = SystemConfig.query.filter_by(
+            key="dotfile_decrypt_password"
+        ).first()
+        if decrypt_config and decrypt_config.value and "password" in decrypt_config.value:
+            try:
+                # Decrypt the stored password
+                encrypted_password = decrypt_config.value["password"]
+                # Convert to bytes if it's a string
+                if isinstance(encrypted_password, str):
+                    encrypted_password = encrypted_password.encode()
+                passphrase = YadmKeyEncryption.decrypt_gpg_key(encrypted_password).decode()
+            except Exception as e:
+                logger.warning(f"Failed to decrypt password from config: {e}")
+
+        yadm_decrypt(linux_username, user_home, passphrase=passphrase)
         return jsonify({
             "status": "success",
             "message": "Dotfiles decrypted successfully"

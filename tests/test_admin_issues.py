@@ -425,11 +425,15 @@ def test_ai_assisted_issue_uses_structured_content(
     with app.app_context():
         project_id = Project.query.first().id
         user_id = User.query.filter_by(email="admin@example.com").one().id
+        # Get the first integration for the project
+        integration_id = ProjectIntegration.query.filter_by(project_id=project_id).first().id
 
+    # Step 1: Submit form to get preview page
     response = client.post(
         "/admin/issues/create-assisted",
         data={
             "project_id": project_id,
+            "integration_id": integration_id,
             "description": "build structured issue",
             "ai_tool": "claude",
             "issue_type": "feature",
@@ -437,8 +441,28 @@ def test_ai_assisted_issue_uses_structured_content(
         follow_redirects=False,
     )
 
-    assert response.status_code == 302
+    assert response.status_code == 200  # Should show preview page
     assert calls["generate"] == ("build structured issue", "claude", "feature", user_id)
+
+    # Step 2: Extract preview token from session and confirm
+    preview_token = None
+    with client.session_transaction() as sess:
+        # Find the preview token in session
+        for key in sess.keys():
+            if key.startswith("issue_preview_"):
+                preview_token = key.replace("issue_preview_", "")
+                break
+
+    assert preview_token, "Preview token not found in session"
+
+    # Step 3: Submit confirmation to create the actual issue
+    response = client.post(
+        "/admin/issues/confirm-assisted",
+        data={"preview_token": preview_token},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 200  # Should show success page
     assert calls["create_issue"]["summary"] == "Structured Issue Title"
     assert calls["create_issue"]["description"] == structured_body
     assert calls["create_issue"]["labels"] == ["ai-generated", "feature"]

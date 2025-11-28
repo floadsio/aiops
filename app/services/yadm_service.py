@@ -640,43 +640,41 @@ def get_yadm_managed_files(
         # Get encrypted patterns from config directory
         encrypt_patterns_file = Path(yadm_config_dir) / "encrypt" if yadm_config_dir else Path(user_home) / ".yadm" / "encrypt"
         encrypted_files = []
-        if encrypt_patterns_file.exists():
+
+        try:
+            # Try direct access first
             try:
-                patterns = encrypt_patterns_file.read_text().splitlines()
-                # Match tracked files against patterns
-                for pattern in patterns:
-                    if pattern.strip():
-                        for tracked_file in result["tracked"]:
-                            if fnmatch.fnmatch(tracked_file, pattern.strip()):
-                                if tracked_file not in encrypted_files:
-                                    encrypted_files.append(tracked_file)
-            except PermissionError:
-                # Try via sudo
-                try:
-                    cmd = ["cat", str(encrypt_patterns_file)]
-                    sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
-                    res = subprocess.run(
-                        sudo_cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    if res.returncode == 0:
-                        patterns = res.stdout.splitlines()
-                        for pattern in patterns:
-                            if pattern.strip():
-                                for tracked_file in result["tracked"]:
-                                    if fnmatch.fnmatch(tracked_file, pattern.strip()):
-                                        if tracked_file not in encrypted_files:
-                                            encrypted_files.append(tracked_file)
-                except Exception as e:
-                    logger.debug(
-                        f"Failed to read encrypt patterns via sudo for {linux_username}: {e}"
-                    )
-            except Exception as e:
-                logger.warning(
-                    f"Failed to parse encrypt patterns for {linux_username}: {e}"
+                if encrypt_patterns_file.exists():
+                    patterns = encrypt_patterns_file.read_text().splitlines()
+                    # Match tracked files against patterns
+                    for pattern in patterns:
+                        if pattern.strip():
+                            for tracked_file in result["tracked"]:
+                                if fnmatch.fnmatch(tracked_file, pattern.strip()):
+                                    if tracked_file not in encrypted_files:
+                                        encrypted_files.append(tracked_file)
+            except (PermissionError, OSError):
+                # Can't access directly (permission denied), try via sudo
+                cmd = ["cat", str(encrypt_patterns_file)]
+                sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
+                res = subprocess.run(
+                    sudo_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
                 )
+                if res.returncode == 0 and res.stdout:
+                    patterns = res.stdout.splitlines()
+                    for pattern in patterns:
+                        if pattern.strip():
+                            for tracked_file in result["tracked"]:
+                                if fnmatch.fnmatch(tracked_file, pattern.strip()):
+                                    if tracked_file not in encrypted_files:
+                                        encrypted_files.append(tracked_file)
+        except Exception as e:
+            logger.debug(
+                f"Failed to get encrypt patterns for {linux_username}: {e}"
+            )
 
         result["encrypted"] = encrypted_files
 

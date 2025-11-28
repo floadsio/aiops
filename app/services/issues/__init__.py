@@ -510,12 +510,11 @@ def create_issue_for_project_integration(
                 request,
                 assignee_account_id=assignee_account_id,
                 creator_user_id=creator_user_id,
-                creator_username=creator_account_id,
             )
         else:  # GitHub or GitLab
             return creator(  # type: ignore[call-arg]
                 effective_integration, project_integration, request, assignee=assignee_username,
-                creator_user_id=creator_user_id, creator_username=creator_username
+                creator_user_id=creator_user_id
             )
     except IssueSyncError:
         raise

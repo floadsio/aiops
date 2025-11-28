@@ -465,7 +465,17 @@ def yadm_decrypt(
                             )
                         # Fall through to try regular yadm decrypt
 
-        cmd = ["yadm", "decrypt"]
+        # Build yadm command with proper directory flags for custom setups
+        if config_name != "yadm" and yadm_config_dir and yadm_data_dir:
+            # Use both --yadm-dir and --yadm-data for hybrid setups
+            cmd = [
+                "yadm",
+                "--yadm-dir", yadm_config_dir,
+                "--yadm-data", yadm_data_dir,
+                "decrypt"
+            ]
+        else:
+            cmd = ["yadm", "decrypt"]
 
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + cmd
 

@@ -1555,17 +1555,21 @@ def manage_dotfiles():
     # Get global config
     global_config = None
     if user.is_admin:
-        system_config = SystemConfig.query.filter_by(
-            key_name="dotfile_repo_url"
-        ).first()
-        if system_config:
-            branch_config = SystemConfig.query.filter_by(
-                key_name="dotfile_repo_branch"
+        try:
+            system_config = SystemConfig.query.filter_by(
+                key_name="dotfile_repo_url"
             ).first()
-            global_config = {
-                "repo_url": system_config.value,
-                "branch": branch_config,
-            }
+            if system_config:
+                branch_config = SystemConfig.query.filter_by(
+                    key_name="dotfile_repo_branch"
+                ).first()
+                global_config = {
+                    "repo_url": system_config.value,
+                    "branch": branch_config,
+                }
+        except Exception as e:
+            current_app.logger.exception("Failed to get global yadm config")
+            # Continue without global config if there's an error
 
     return render_template(
         "projects/dotfiles.html",

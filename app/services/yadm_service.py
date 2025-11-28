@@ -433,30 +433,64 @@ def initialize_yadm_for_user(
     """
     linux_username = user.email.split("@")[0]
     user_home = f"/home/{linux_username}"
+    yadm_repo_dir = f"{user_home}/.local/share/yadm/repo.git"
 
     try:
-        # 1. Clone dotfiles to ~/.yadm
-        logger.info(f"Initializing yadm for user {user.email}")
-
-        clone_cmd = [
-            "yadm", "clone",
-            f"--branch={repo_branch}",
-            repo_url
-        ]
-        sudo_cmd = ["sudo", "-E", "-u", linux_username, "-H"] + clone_cmd
-
-        result = subprocess.run(
-            sudo_cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,  # 5 minutes for clone
-            cwd=user_home,
-        )
-
-        if result.returncode != 0:
-            raise YadmServiceError(
-                f"yadm clone failed: {result.stderr or result.stdout}"
+        # Check if yadm is already initialized
+        if Path(yadm_repo_dir).exists():
+            logger.info(f"yadm already initialized for {user.email}, updating remote and pulling...")
+            # Update the remote URL in case it changed
+            set_remote_cmd = [
+                "yadm", "remote", "set-url", "origin", repo_url
+            ]
+            sudo_cmd = ["sudo", "-E", "-u", linux_username, "-H"] + set_remote_cmd
+            result = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=user_home,
             )
+            if result.returncode != 0:
+                logger.warning(f"Failed to update yadm remote: {result.stderr or result.stdout}")
+
+            # Pull latest changes
+            pull_cmd = [
+                "yadm", "pull", "--ff-only"
+            ]
+            sudo_cmd = ["sudo", "-E", "-u", linux_username, "-H"] + pull_cmd
+            result = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                cwd=user_home,
+            )
+            if result.returncode != 0:
+                logger.warning(f"Failed to pull yadm updates: {result.stderr or result.stdout}")
+        else:
+            # 1. Clone dotfiles to ~/.yadm
+            logger.info(f"Initializing yadm for user {user.email}")
+
+            clone_cmd = [
+                "yadm", "clone",
+                f"--branch={repo_branch}",
+                repo_url
+            ]
+            sudo_cmd = ["sudo", "-E", "-u", linux_username, "-H"] + clone_cmd
+
+            result = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minutes for clone
+                cwd=user_home,
+            )
+
+            if result.returncode != 0:
+                raise YadmServiceError(
+                    f"yadm clone failed: {result.stderr or result.stdout}"
+                )
 
         logger.info(f"Successfully cloned dotfiles for {user.email}")
 

@@ -334,6 +334,69 @@
     margin: 0.5rem 0;
     font-size: 0.85rem;
   }
+
+  .dotfiles-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(26, 29, 35, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1rem 0;
+    margin: -1rem -1rem 1.5rem -1rem;
+    padding: 1rem 1rem;
+  }
+
+  [data-theme="light"] .dotfiles-nav {
+    background: rgba(248, 249, 250, 0.95);
+    border-bottom-color: rgba(209, 213, 219, 0.3);
+  }
+
+  .dotfiles-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .dotfiles-nav a {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background: rgba(94, 108, 117, 0.2);
+    color: inherit;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+
+  .dotfiles-nav a:hover {
+    background: rgba(94, 108, 117, 0.4);
+  }
+
+  [data-theme="dark"] .dotfiles-nav a:hover {
+    background: rgba(148, 163, 184, 0.3);
+  }
+
+  [data-theme="light"] .dotfiles-nav a {
+    background: rgba(209, 213, 219, 0.3);
+  }
+
+  [data-theme="light"] .dotfiles-nav a:hover {
+    background: rgba(209, 213, 219, 0.5);
+  }
+
+  @media (max-width: 768px) {
+    .dotfiles-nav ul {
+      gap: 0.25rem;
+    }
+    .dotfiles-nav a {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -352,6 +415,16 @@
     {% endif %}
   </div>
 
+  <!-- Navigation Menu -->
+  <nav class="dotfiles-nav">
+    <ul>
+      <li><a href="#configuration">⚙️ Configuration</a></li>
+      <li><a href="#status">📊 Status</a></li>
+      <li><a href="#actions">🚀 Actions</a></li>
+      <li><a href="#files">📂 Files</a></li>
+    </ul>
+  </nav>
+
   <!-- Error Messages -->
   {% if yadm_error %}
     <div class="alert error">
@@ -367,7 +440,7 @@
 
   <!-- Configuration Section -->
   {% if yadm_installed %}
-    <section class="config-grid">
+    <section class="config-grid" id="configuration">
       <!-- Global Configuration Card (Admin Only) -->
       {% if is_admin and global_config %}
         <div class="config-card">
@@ -427,7 +500,7 @@
 
   <!-- Status Overview -->
   {% if yadm_status and yadm_status.is_initialized %}
-    <section class="status-grid">
+    <section class="status-grid" id="status">
       <!-- Managed Files Card -->
       <div class="status-card">
         <h3>📁 Managed Files</h3>
@@ -531,7 +604,7 @@
     </section>
 
     <!-- Action Buttons -->
-    <section class="action-section">
+    <section class="action-section" id="actions">
       <h2>Actions</h2>
       <div class="action-buttons">
         <!-- Pull & Update -->
@@ -565,7 +638,7 @@
     </section>
 
     <!-- File Lists -->
-    <section class="file-tabs">
+    <section class="file-tabs" id="files">
       <h2>Tracked Files</h2>
 
       <div class="tab-nav">

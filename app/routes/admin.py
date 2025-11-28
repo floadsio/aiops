@@ -1284,6 +1284,9 @@ def manage_settings():
     dotfile_repo_branch_config = SystemConfig.query.filter_by(
         key="dotfile_repo_branch"
     ).first()
+    dotfile_decrypt_password_config = SystemConfig.query.filter_by(
+        key="dotfile_decrypt_password"
+    ).first()
 
     if dotfile_repo_url_config and dotfile_repo_url_config.value:
         yadm_form.dotfile_repo_url.data = dotfile_repo_url_config.value.get("url", "")
@@ -1291,6 +1294,8 @@ def manage_settings():
         yadm_form.dotfile_repo_branch.data = dotfile_repo_branch_config.value.get(
             "branch", "main"
         )
+
+    yadm_password_configured = bool(dotfile_decrypt_password_config)
 
     return render_template(
         "admin/settings.html",
@@ -2375,10 +2380,12 @@ def create_assisted_issue():
                 )
             generation_time = time.time() - generation_start
 
-            # Step 2: Store preview in session and show preview page
+            # Step 2: Encode preview data and show preview page
             creator_user_id = form.creator_user_id.data
-            preview_token = str(uuid.uuid4())
-            flask_session[f"issue_preview_{preview_token}"] = {
+
+            # Encode all preview data as JSON to pass through form
+            # This avoids session persistence issues
+            preview_data = {
                 "project_id": project_id,
                 "integration_id": integration.id,
                 "issue_data": issue_data,
@@ -2387,12 +2394,12 @@ def create_assisted_issue():
                 "description": description,
                 "creator_user_id": creator_user_id,
             }
-            flask_session.permanent = True
+            preview_json = json.dumps(preview_data)
 
             return render_template(
                 "admin/preview_assisted_issue.html",
                 issue_data=issue_data,
-                preview_token=preview_token,
+                preview_json=preview_json,
                 project=project,
                 integration=integration.integration,
                 current_user=current_user,
@@ -2423,20 +2430,18 @@ def confirm_assisted_issue():
     )
     from datetime import datetime, timezone
 
-    # Get preview token from form
-    preview_token = request.form.get("preview_token")
-    if not preview_token:
-        flash("Preview token missing", "error")
+    # Get preview data from form
+    preview_json = request.form.get("preview_data")
+    if not preview_json:
+        flash("Preview data missing", "error")
         return redirect(url_for("admin.create_assisted_issue"))
 
-    # Retrieve preview from session
-    preview_key = f"issue_preview_{preview_token}"
-    if preview_key not in flask_session:
-        flash("Preview expired or invalid. Please try again.", "error")
+    # Decode preview data from JSON
+    try:
+        preview_data = json.loads(preview_json)
+    except (json.JSONDecodeError, ValueError):
+        flash("Preview data is invalid. Please try again.", "error")
         return redirect(url_for("admin.create_assisted_issue"))
-
-    preview_data = flask_session.pop(preview_key)
-    flask_session.permanent = True
 
     project_id = preview_data["project_id"]
     integration_id = preview_data["integration_id"]
@@ -4254,6 +4259,28 @@ def save_yadm_settings():
                 db.session.add(repo_branch_config)
             repo_branch_config.value = {"branch": form.dotfile_repo_branch.data}
 
+            # Save or update decrypt password (encrypted)
+            if form.decrypt_password.data:
+                from ..services.yadm_service import YadmKeyEncryption
+
+                encrypted_password = YadmKeyEncryption.encrypt_gpg_key(
+                    form.decrypt_password.data.encode()
+                )
+                decrypt_config = SystemConfig.query.filter_by(
+                    key="dotfile_decrypt_password"
+                ).first()
+                if not decrypt_config:
+                    decrypt_config = SystemConfig(key="dotfile_decrypt_password")
+                    db.session.add(decrypt_config)
+                decrypt_config.value = {"password": encrypted_password.decode()}
+            else:
+                # Clear password if empty
+                decrypt_config = SystemConfig.query.filter_by(
+                    key="dotfile_decrypt_password"
+                ).first()
+                if decrypt_config:
+                    db.session.delete(decrypt_config)
+
             db.session.commit()
             flash(
                 f"Dotfiles configuration saved: {form.dotfile_repo_url.data}",
@@ -4269,6 +4296,76 @@ def save_yadm_settings():
                 flash(f"{field}: {error}", "warning")
 
     return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/yadm/init", methods=["POST"])
+@admin_required
+@login_required
+def initialize_yadm_web():
+    """Initialize yadm for the current user via web UI.
+
+    Returns:
+        JSON response with status, message, and paths
+    """
+    from ..models import User, Project
+    from ..services.yadm_service import initialize_yadm_for_user, YadmServiceError
+
+    try:
+        # Use current_user
+        user = current_user
+        if not user:
+            return jsonify({
+                "status": "failed",
+                "message": "User not authenticated"
+            }), 401
+
+        # Find dotfiles project for the user's tenant
+        # Look across all tenants the user has projects in
+        user_projects = Project.query.filter_by(owner_id=user.id).all()
+        if not user_projects:
+            return jsonify({
+                "status": "failed",
+                "message": "You have no associated projects"
+            }), 400
+
+        # Try to find a dotfiles project in any of the user's tenants
+        dotfiles_project = None
+        for proj in user_projects:
+            dotfiles = Project.query.filter_by(
+                name="dotfiles", tenant_id=proj.tenant_id
+            ).first()
+            if dotfiles:
+                dotfiles_project = dotfiles
+                break
+
+        if not dotfiles_project:
+            tenant_ids = [p.tenant_id for p in user_projects]
+            return jsonify({
+                "status": "failed",
+                "message": f"No dotfiles project found in any of your tenants"
+            }), 400
+
+        # Initialize yadm for the user
+        result = initialize_yadm_for_user(
+            user,
+            repo_url=dotfiles_project.repo_url,
+            repo_branch=dotfiles_project.default_branch or "main"
+        )
+
+        return jsonify(result), 200
+
+    except YadmServiceError as exc:
+        current_app.logger.warning(f"Yadm initialization failed for {current_user.email}: {exc}")
+        return jsonify({
+            "status": "failed",
+            "message": str(exc)
+        }), 400
+    except Exception as exc:
+        current_app.logger.exception(f"Unexpected error initializing yadm for {current_user.email}")
+        return jsonify({
+            "status": "failed",
+            "message": f"Unexpected error: {exc}"
+        }), 500
 
 
 @admin_bp.route("/activity", methods=["GET"])

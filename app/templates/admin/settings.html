@@ -222,13 +222,74 @@
       font-size: 0.9rem;
     }
   }
+  .settings-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 1rem 0;
+    margin: -1rem -1rem 1.5rem -1rem;
+    padding: 1rem 1rem;
+  }
+  [data-theme="dark"] .settings-nav {
+    background: rgba(26, 29, 35, 0.95);
+  }
+  .settings-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .settings-nav a {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    background: rgba(94, 108, 117, 0.2);
+    color: inherit;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  .settings-nav a:hover {
+    background: rgba(94, 108, 117, 0.4);
+  }
+  [data-theme="dark"] .settings-nav a:hover {
+    background: rgba(148, 163, 184, 0.3);
+  }
+  @media (max-width: 768px) {
+    .settings-nav ul {
+      gap: 0.25rem;
+    }
+    .settings-nav a {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+    }
+  }
 </style>
 {% endblock %}
 {% block content %}
 <h1>Admin Settings</h1>
 
+<nav class="settings-nav">
+  <ul>
+    <li><a href="#system-operations">🔧 System</a></li>
+    <li><a href="#session-maintenance">🧹 Sessions</a></li>
+    <li><a href="#ai-tools">🤖 AI Tools</a></li>
+    <li><a href="#user-management">👥 Users</a></li>
+    <li><a href="#api-keys">🔐 API Keys</a></li>
+    <li><a href="#personal-tokens">🎫 Tokens</a></li>
+    <li><a href="#global-agent">🧠 Agent Context</a></li>
+    <li><a href="#system-logs">📋 Logs</a></li>
+    <li><a href="#dotfiles">🗂️ Dotfiles</a></li>
+  </ul>
+</nav>
+
 <div class="settings-container">
-  <section class="settings-category">
+  <section class="settings-category" id="system-operations">
     <h2>System Operations</h2>
     <div class="settings-grid-3">
   <article class="settings-card">
@@ -382,7 +443,7 @@
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="session-maintenance">
     <h2>Session Maintenance</h2>
     <div class="settings-grid-1">
       <article class="settings-card">
@@ -402,7 +463,7 @@
   </section>
 
   {% if ai_tool_cards %}
-  <section class="settings-category">
+  <section class="settings-category" id="ai-tools">
     <h2>AI Tool Maintenance</h2>
     <div class="settings-grid-3">
       {% for card in ai_tool_cards %}
@@ -455,7 +516,7 @@
   </section>
   {% endif %}
 
-    <section class="settings-category">
+    <section class="settings-category" id="user-management">
     <h2>User Management</h2>
     <div class="settings-grid">
   <article class="settings-card settings-card-full">
@@ -593,7 +654,7 @@
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="api-keys">
     <h2>API Keys</h2>
     <div class="settings-grid">
       <article class="settings-card settings-card-full">
@@ -713,7 +774,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="personal-tokens">
     <h2>Personal Integration Credentials</h2>
     <div class="settings-grid">
       <article class="settings-card settings-card-full">
@@ -825,7 +886,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
   </section>
 
   <!-- Global Agent Context -->
-  <section>
+  <section class="settings-category" id="global-agent">
     <div>
       <article>
         <header>
@@ -891,7 +952,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
-  <section class="settings-category">
+  <section class="settings-category" id="system-logs">
     <h2>System Logs</h2>
     <div class="settings-grid">
   <article class="settings-card settings-card-full">
@@ -915,7 +976,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
   </section>
 
   <!-- Yadm / Dotfiles Configuration -->
-  <section>
+  <section class="settings-category" id="dotfiles">
     <div class="settings-section">
       <h2>🗂️ Dotfiles Management</h2>
       <article>
@@ -949,6 +1010,23 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
             {% endif %}
           </div>
 
+          <div class="form-group">
+            {{ yadm_form.decrypt_password.label(class="form-label") }}
+            {{ yadm_form.decrypt_password(class="form-control" if yadm_form.decrypt_password.errors else "", placeholder="Leave empty if using GPG encryption instead") }}
+            {% if yadm_form.decrypt_password.errors %}
+              <small class="form-error">
+                {% for error in yadm_form.decrypt_password.errors %}
+                  <p>{{ error }}</p>
+                {% endfor %}
+              </small>
+            {% endif %}
+            {% if yadm_password_configured %}
+              <small class="text-muted">✓ Decryption password is currently configured</small>
+            {% else %}
+              <small class="text-muted">Password field is optional - only needed if dotfiles are encrypted with a passphrase</small>
+            {% endif %}
+          </div>
+
           <div class="settings-actions">
             {{ yadm_form.submit(class="primary") }}
           </div>
@@ -958,6 +1036,27 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
           <summary><strong>Per-User Overrides</strong></summary>
           <p>Individual users can override the global dotfiles configuration with their personal repository. Set <code>personal_dotfile_repo_url</code> and <code>personal_dotfile_branch</code> on the user account to use their own dotfiles instead of the organization-wide ones.</p>
         </details>
+      </article>
+
+      <!-- Initialize Dotfiles for Current User -->
+      <article class="settings-card">
+        <h3>🚀 Initialize Dotfiles in Home Directory</h3>
+        <p>Clone and setup your personal dotfiles in <code>~/.yadm/</code>. This will apply your organization's configuration files to your home directory.</p>
+
+        <div id="yadm-init-status" style="display: none; margin-bottom: 1rem;">
+          <small id="yadm-init-message" class="text-muted"></small>
+        </div>
+
+        <div class="settings-actions">
+          <button
+            type="button"
+            class="primary"
+            id="yadm-init-btn"
+            onclick="initializeYadmForUser()">
+            <span id="yadm-init-text">🗂️ Initialize Dotfiles</span>
+            <span id="yadm-init-spinner" class="spinner loading" style="display: none; margin-left: 0.5rem;"></span>
+          </button>
+        </div>
       </article>
     </div>
   </section>
@@ -1000,6 +1099,62 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     // Load logs on demand instead of automatically for better page load performance
     output.textContent = 'Click "Refresh Logs" to load application logs';
   })();
+
+  // Initialize Dotfiles for User
+  async function initializeYadmForUser() {
+    const btn = document.getElementById('yadm-init-btn');
+    const text = document.getElementById('yadm-init-text');
+    const spinner = document.getElementById('yadm-init-spinner');
+    const statusDiv = document.getElementById('yadm-init-status');
+    const statusMsg = document.getElementById('yadm-init-message');
+
+    // Disable button and show spinner
+    btn.disabled = true;
+    text.style.display = 'none';
+    spinner.style.display = 'inline-block';
+    statusDiv.style.display = 'none';
+
+    try {
+      const response = await fetch('/admin/yadm/init', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': document.querySelector('input[name="csrf_token"]').value
+        },
+        credentials: 'same-origin'
+      });
+
+      const data = await response.json();
+
+      // Hide spinner
+      spinner.style.display = 'none';
+      text.style.display = 'inline';
+      statusDiv.style.display = 'block';
+
+      if (response.ok && data.status === 'success') {
+        // Success
+        statusMsg.style.color = '#10b981';
+        statusMsg.innerHTML = `
+          ✓ <strong>${data.message}</strong><br>
+          <small>Home: ${data.home || 'N/A'}</small>
+        `;
+      } else {
+        // Error
+        statusMsg.style.color = '#ef4444';
+        statusMsg.textContent = data.message || 'Failed to initialize yadm';
+      }
+    } catch (error) {
+      // Network error
+      spinner.style.display = 'none';
+      text.style.display = 'inline';
+      statusDiv.style.display = 'block';
+      statusMsg.style.color = '#ef4444';
+      statusMsg.textContent = `Error: ${error.message}`;
+    } finally {
+      // Re-enable button
+      btn.disabled = false;
+    }
+  }
 
 </script>
 {% endblock %}

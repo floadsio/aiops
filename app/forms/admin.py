@@ -13,7 +13,7 @@ from wtforms import (
     TextAreaField,
     URLField,
 )
-from wtforms.validators import URL, DataRequired, Length, Optional, ValidationError
+from wtforms.validators import URL, DataRequired, Length, Optional
 
 from ..constants import DEFAULT_TENANT_COLOR, TENANT_COLOR_CHOICES
 
@@ -651,6 +651,14 @@ class YadmSettingsForm(FlaskForm):
         render_kw={
             "placeholder": "main",
             "aria-description": "Git branch to clone from (default: main)",
+        },
+    )
+    decrypt_password = PasswordField(
+        "Decryption Password (Optional)",
+        validators=[Optional(), Length(min=1, max=512)],
+        render_kw={
+            "placeholder": "Leave empty if using GPG encryption instead",
+            "aria-description": "Password for decrypting yadm-encrypted files. Only required if files are encrypted with a passphrase (not GPG).",
         },
     )
     submit = SubmitField("Save Dotfiles Configuration")

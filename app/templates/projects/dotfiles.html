@@ -926,6 +926,7 @@
     btn.disabled = true;
     status.style.display = 'block';
     message.textContent = 'Decrypting...';
+    message.style.color = '';
 
     try {
       const response = await fetch('/projects/dotfiles/decrypt', {
@@ -942,14 +943,15 @@
       if (response.ok) {
         message.textContent = '✓ Decryption complete!';
         message.style.color = '#3fb950';
+        btn.disabled = false;
       } else {
         message.textContent = '✗ Error: ' + (data.error || 'Unknown error');
         message.style.color = '#d05544';
+        btn.disabled = false;
       }
     } catch (error) {
       message.textContent = '✗ Error: ' + error.message;
       message.style.color = '#d05544';
-    } finally {
       btn.disabled = false;
     }
   }

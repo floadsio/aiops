@@ -656,6 +656,11 @@
             Modified ({{ yadm_status.files.modified|length }})
           </button>
         {% endif %}
+        {% if yadm_status.files.archive_files %}
+          <button type="button" class="tab-button" onclick="switchTab('archive')">
+            🔓 Decrypted ({{ yadm_status.files.archive_files|length }})
+          </button>
+        {% endif %}
       </div>
 
       <!-- Tracked Tab -->
@@ -735,6 +740,28 @@
             {% if yadm_status.encryption.encrypted_files|length > 50 %}
               <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
                 <span class="text-muted">+{{ yadm_status.encryption.encrypted_files|length - 50 }} more patterns</span>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Archive/Decrypted Files Tab -->
+      {% if yadm_status.files.archive_files %}
+        <div id="archive" class="tab-content">
+          <p style="font-size: 0.9rem; color: rgba(230, 237, 243, 0.7); margin-bottom: 1rem;">
+            Files stored in the encrypted archive. These files are extracted to your home directory when you click "Decrypt Files".
+          </p>
+          <div class="file-search">
+            <input type="text" id="archive-search" placeholder="Search files..." onkeyup="filterFiles('archive')">
+          </div>
+          <div class="file-list" id="archive-list" style="max-height: 500px; overflow-y: auto; border: 1px solid #444; padding: 0.75rem; border-radius: 0.5rem;">
+            {% for file in yadm_status.files.archive_files[:100] %}
+              <div class="file-item" style="background: rgba(63, 185, 80, 0.1); color: #e6edf3; padding: 0.5rem 0.75rem; margin: 0.25rem 0; border-radius: 4px; font-family: monospace; font-size: 0.85rem;">{{ file }}</div>
+            {% endfor %}
+            {% if yadm_status.files.archive_files|length > 100 %}
+              <div class="status-item" style="padding: 0.5rem 0; text-align: center;">
+                <span class="text-muted">+{{ yadm_status.files.archive_files|length - 100 }} more files</span>
               </div>
             {% endif %}
           </div>

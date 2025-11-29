@@ -870,6 +870,69 @@ def get_yadm_managed_files(
 
         result["encrypted"] = encrypted_files
 
+        # Get files from encrypted archive (if exists)
+        result["archive_files"] = []
+        try:
+            # Check for archive in variant data directory for hybrid setups
+            variant_data_dir = Path(user_home) / ".local" / "share" / config_name
+            archive_path = variant_data_dir / "archive" if variant_data_dir.exists() else None
+
+            # Fall back to standard location
+            if not archive_path or not archive_path.exists():
+                standard_archive = Path(yadm_data_dir) / "archive" if yadm_data_dir else None
+                if standard_archive and standard_archive.exists():
+                    archive_path = standard_archive
+
+            if archive_path and archive_path.exists():
+                # Try to get decrypt password from SystemConfig
+                from app.models import SystemConfig
+                decrypt_config = SystemConfig.query.filter_by(
+                    key="dotfile_decrypt_password"
+                ).first()
+
+                if decrypt_config and decrypt_config.value and "password" in decrypt_config.value:
+                    try:
+                        encrypted_password = decrypt_config.value["password"]
+                        if isinstance(encrypted_password, str):
+                            encrypted_password = encrypted_password.encode()
+                        passphrase = YadmKeyEncryption.decrypt_gpg_key(encrypted_password).decode()
+
+                        # List archive contents using modern yadm OpenSSL options
+                        decrypt_cmd = [
+                            "sudo", "-u", linux_username, "-H",
+                            "openssl", "enc", "-d", "-aes-256-cbc",
+                            "-pbkdf2", "-iter", "100000", "-md", "sha512",
+                            "-in", str(archive_path),
+                            "-pass", "stdin"
+                        ]
+
+                        decrypt_result = subprocess.run(
+                            decrypt_cmd,
+                            input=f"{passphrase}\n".encode(),
+                            capture_output=True,
+                            timeout=30,
+                            cwd=user_home,
+                        )
+
+                        if decrypt_result.returncode == 0:
+                            # List tar contents
+                            tar_result = subprocess.run(
+                                ["tar", "-tf", "-"],
+                                input=decrypt_result.stdout,
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                            )
+                            if tar_result.returncode == 0:
+                                result["archive_files"] = [
+                                    f.strip() for f in tar_result.stdout.splitlines()
+                                    if f.strip() and not f.strip().endswith("/")
+                                ]
+                    except Exception as e:
+                        logger.debug(f"Failed to list archive contents: {e}")
+        except Exception as e:
+            logger.debug(f"Failed to get archive files for {linux_username}: {e}")
+
         # Get modified files from git status
         try:
             cmd = _build_yadm_cmd(["status", "-s"], yadm_config_dir)
@@ -904,6 +967,7 @@ def get_yadm_managed_files(
             "tracked": [],
             "untracked": [],
             "encrypted": [],
+            "archive_files": [],
             "modified": [],
             "error": str(exc),
         }

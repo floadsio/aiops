@@ -1504,7 +1504,11 @@ def project_ansible_console(project_id: int):
 def manage_dotfiles():
     """Display and manage user's dotfiles configuration."""
     from ..forms.admin import YadmPersonalConfigForm
-    from ..services.yadm_service import get_full_yadm_status, check_yadm_installed
+    from ..services.yadm_service import (
+        get_full_yadm_status,
+        check_yadm_installed,
+        get_cached_yadm_files,
+    )
     from ..models import SystemConfig
 
     user = current_user
@@ -1571,6 +1575,9 @@ def manage_dotfiles():
             current_app.logger.exception("Failed to get global yadm config")
             # Continue without global config if there's an error
 
+    # Get cached file categories
+    file_cache = get_cached_yadm_files()
+
     return render_template(
         "projects/dotfiles.html",
         form=form,
@@ -1579,6 +1586,7 @@ def manage_dotfiles():
         global_config=global_config,
         yadm_installed=check_yadm_installed(),
         is_admin=user.is_admin,
+        file_cache=file_cache,
     )
 
 

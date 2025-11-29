@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 
-from ..models import User
+from ..models import SystemConfig, User
 
 logger = logging.getLogger(__name__)
 
@@ -437,6 +437,10 @@ def yadm_decrypt(
                                         f"Manually extracted archive for "
                                         f"{linux_username}"
                                     )
+                                    # Update cache after successful decrypt
+                                    update_yadm_files_cache(
+                                        linux_username, user_home
+                                    )
                                 return
                             else:
                                 stderr_text = (
@@ -488,6 +492,10 @@ def yadm_decrypt(
                                             f"Manually extracted archive "
                                             f"for {linux_username}"
                                         )
+                                        # Update cache after successful decrypt
+                                        update_yadm_files_cache(
+                                            linux_username, user_home
+                                        )
                                     return
                                 else:
                                     stderr_text = (
@@ -533,6 +541,9 @@ def yadm_decrypt(
             # Don't raise error - may not have encrypted files
 
         logger.info(f"Decrypted yadm files for user {linux_username}")
+
+        # Update cache after successful decrypt
+        update_yadm_files_cache(linux_username, user_home)
 
     except subprocess.TimeoutExpired as exc:
         raise YadmServiceError(f"yadm decrypt timed out: {exc}") from exc
@@ -1550,3 +1561,198 @@ def get_full_yadm_status(user: User) -> dict[str, Any]:
             "encryption": {},
             "error": str(exc),
         }
+
+
+# =============================================================================
+# Yadm Files Cache Functions
+# =============================================================================
+
+# Cache key for SystemConfig
+YADM_FILES_CACHE_KEY = "yadm_files_cache"
+
+# File categorization patterns (glob-style)
+FILE_CATEGORIES: dict[str, list[str]] = {
+    "ssh_keys": [
+        ".ssh/id_*",
+        ".ssh/keep/*",
+        ".ssh/*.pub",
+    ],
+    "kubeconfigs": [
+        ".kube/config",
+        ".kube/kubeconfig/*",
+        ".kube/*.config",
+    ],
+    "git_configs": [
+        ".gitconfig",
+        ".config/git/*",
+    ],
+    "shell_configs": [
+        ".bashrc",
+        ".bash_profile",
+        ".zshrc",
+        ".profile",
+        ".config/fish/*",
+    ],
+    "tmux_configs": [
+        ".tmux.conf",
+        ".config/tmux/*",
+    ],
+    "vim_configs": [
+        ".vimrc",
+        ".config/nvim/*",
+    ],
+}
+
+
+def categorize_yadm_files(
+    tracked: list[str],
+    archive: list[str],
+) -> dict[str, list[str]]:
+    """Categorize yadm files into groups using glob patterns.
+
+    Args:
+        tracked: List of tracked file paths
+        archive: List of archive file paths
+
+    Returns:
+        Dictionary mapping category names to file lists
+    """
+    all_files = list(set(tracked + archive))
+    categories: dict[str, list[str]] = {cat: [] for cat in FILE_CATEGORIES}
+    categories["other"] = []
+
+    categorized = set()
+
+    for file_path in all_files:
+        matched = False
+        for category, patterns in FILE_CATEGORIES.items():
+            for pattern in patterns:
+                if fnmatch.fnmatch(file_path, pattern):
+                    categories[category].append(file_path)
+                    categorized.add(file_path)
+                    matched = True
+                    break
+            if matched:
+                break
+
+        if not matched:
+            categories["other"].append(file_path)
+
+    # Sort files within each category
+    for category in categories:
+        categories[category].sort()
+
+    return categories
+
+
+def update_yadm_files_cache(
+    linux_username: str,
+    user_home: str,
+) -> dict[str, Any]:
+    """Refresh the global yadm files cache in SystemConfig.
+
+    Called after decrypt/pull operations to update the cached file list.
+
+    Args:
+        linux_username: Linux username to run yadm commands as
+        user_home: User's home directory
+
+    Returns:
+        The updated cache dictionary
+    """
+    from .. import db
+
+    try:
+        # Get fresh file list
+        files = get_yadm_managed_files(linux_username, user_home)
+
+        tracked = files.get("tracked", [])
+        archive = files.get("archive_files", [])
+        encrypted_patterns = files.get("encrypted", [])
+
+        # Categorize files
+        categories = categorize_yadm_files(tracked, archive)
+
+        # Get repo URL from environment
+        source_repo = os.getenv("DOTFILE_REPO_URL", "")
+
+        cache_value = {
+            "tracked_files": tracked,
+            "archive_files": archive,
+            "encrypted_patterns": encrypted_patterns,
+            "categories": categories,
+            "cached_at": datetime.utcnow().isoformat(),
+            "source_repo": source_repo,
+            "total_tracked": len(tracked),
+            "total_archive": len(archive),
+        }
+
+        # Update or create SystemConfig entry
+        config = SystemConfig.query.filter_by(key=YADM_FILES_CACHE_KEY).first()
+        if config:
+            config.value = cache_value
+        else:
+            config = SystemConfig(key=YADM_FILES_CACHE_KEY, value=cache_value)
+            db.session.add(config)
+
+        db.session.commit()
+        logger.info(
+            f"Updated yadm files cache: {len(tracked)} tracked, "
+            f"{len(archive)} archive files"
+        )
+
+        return cache_value
+
+    except Exception as exc:
+        logger.error(f"Failed to update yadm files cache: {exc}")
+        return {}
+
+
+def get_cached_yadm_files() -> Optional[dict[str, Any]]:
+    """Get cached yadm files from SystemConfig.
+
+    Returns:
+        Cached file data dictionary, or None if cache doesn't exist
+    """
+    try:
+        config = SystemConfig.query.filter_by(key=YADM_FILES_CACHE_KEY).first()
+        if config and config.value:
+            return config.value
+        return None
+    except Exception as exc:
+        logger.error(f"Failed to get cached yadm files: {exc}")
+        return None
+
+
+def find_yadm_files_by_category(category: str) -> list[str]:
+    """Quick lookup: get all files in a category from cache.
+
+    Args:
+        category: Category name (ssh_keys, kubeconfigs, git_configs, etc.)
+
+    Returns:
+        List of file paths in that category, or empty list if not found
+    """
+    cache = get_cached_yadm_files()
+    if cache and "categories" in cache:
+        return cache["categories"].get(category, [])
+    return []
+
+
+def search_yadm_files(pattern: str) -> list[str]:
+    """Search cached yadm files by glob pattern.
+
+    Args:
+        pattern: Glob pattern to match (e.g., "*.config", ".ssh/*")
+
+    Returns:
+        List of matching file paths
+    """
+    cache = get_cached_yadm_files()
+    if not cache:
+        return []
+
+    all_files = cache.get("tracked_files", []) + cache.get("archive_files", [])
+    all_files = list(set(all_files))  # Remove duplicates
+
+    return sorted([f for f in all_files if fnmatch.fnmatch(f, pattern)])

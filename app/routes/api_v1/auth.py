@@ -526,3 +526,75 @@ def dotfiles_status():
             "error": str(exc),
             "status": "error"
         }), 400
+
+
+@api_v1_bp.get("/dotfiles/files")
+@require_api_auth()
+@audit_api_request
+def dotfiles_files():
+    """Get cached yadm files with optional filtering by category or search pattern.
+
+    Query parameters:
+        category: Filter by category (ssh_keys, kubeconfigs, git_configs, etc.)
+        search: Glob pattern to search files (e.g., "*.config", ".ssh/*")
+
+    Returns:
+        200: Files retrieved successfully
+        400: Invalid parameters
+        404: No cache available
+    """
+    from ...services.yadm_service import (
+        get_cached_yadm_files,
+        find_yadm_files_by_category,
+        search_yadm_files,
+        FILE_CATEGORIES,
+    )
+
+    category = request.args.get("category")
+    search_pattern = request.args.get("search")
+
+    try:
+        # If category filter is specified
+        if category:
+            if category not in FILE_CATEGORIES and category != "other":
+                return jsonify({
+                    "error": f"Invalid category. Valid categories: {list(FILE_CATEGORIES.keys()) + ['other']}"
+                }), 400
+
+            files = find_yadm_files_by_category(category)
+            return jsonify({
+                "files": files,
+                "category": category,
+                "total": len(files)
+            }), 200
+
+        # If search pattern is specified
+        if search_pattern:
+            files = search_yadm_files(search_pattern)
+            return jsonify({
+                "files": files,
+                "search": search_pattern,
+                "total": len(files)
+            }), 200
+
+        # Return full cache
+        cache = get_cached_yadm_files()
+        if not cache:
+            return jsonify({
+                "error": "No cache available. Run decrypt or pull to populate."
+            }), 404
+
+        return jsonify({
+            "tracked_files": cache.get("tracked_files", []),
+            "archive_files": cache.get("archive_files", []),
+            "categories": cache.get("categories", {}),
+            "cached_at": cache.get("cached_at"),
+            "total_tracked": cache.get("total_tracked", 0),
+            "total_archive": cache.get("total_archive", 0)
+        }), 200
+
+    except Exception as exc:
+        return jsonify({
+            "error": str(exc),
+            "status": "error"
+        }), 400

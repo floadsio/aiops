@@ -142,8 +142,9 @@ def _get_server(linux_username: Optional[str] = None):
 
     try:
         if linux_username:
-            socket_path = _get_socket_path(linux_username)
-            return libtmux.Server(socket_name=socket_path)
+            socket = _get_socket_path(linux_username)
+            # Use socket_path (not socket_name) for absolute paths
+            return libtmux.Server(socket_path=socket)
         else:
             # Fallback to default server for syseng/system operations
             return libtmux.Server()

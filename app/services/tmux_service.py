@@ -196,6 +196,20 @@ def _ensure_server_running(linux_username: str) -> None:
             current_app.logger.warning(
                 "Failed to set socket permissions for %s: %s", socket_path, chmod_exc
             )
+        # Grant access to syseng user for tmux server-access (required for tmux 3.3+)
+        # This allows the Flask app (running as syseng) to connect to the user's tmux server
+        try:
+            run_as_user(
+                linux_username,
+                ["tmux", "-S", socket_path, "server-access", "-a", "syseng"],
+                timeout=5.0,
+            )
+        except Exception as access_exc:
+            current_app.logger.warning(
+                "Failed to grant syseng access to tmux server %s: %s",
+                socket_path,
+                access_exc,
+            )
         current_app.logger.info(
             "Started tmux server for user %s at %s", linux_username, socket_path
         )

@@ -72,7 +72,6 @@
 
   .status-label {
     color: rgba(230, 237, 243, 0.6);
-    display: block;
     margin-bottom: 0.2rem;
   }
 
@@ -163,11 +162,11 @@
   }
 
   .tab-content {
-    display: none;
+    display: none !important;
   }
 
   .tab-content.active {
-    display: block;
+    display: block !important;
   }
 
   .file-list {
@@ -239,7 +238,6 @@
   }
 
   .form-group label {
-    display: block;
     margin-bottom: 0.5rem;
     font-weight: 500;
     font-size: 0.95rem;
@@ -318,7 +316,7 @@
   }
 
   .details-content {
-    display: none;
+    
     margin-top: 1rem;
     padding: 1rem;
     background: rgba(148, 163, 184, 0.05);
@@ -327,7 +325,6 @@
   }
 
   .details-content.open {
-    display: block;
   }
 
   .details-item {
@@ -664,7 +661,7 @@
       </div>
 
       <!-- Tracked Tab -->
-      <div id="tracked" class="tab-content active" style="display: block !important;">
+      <div id="tracked" class="tab-content active">
         {% if yadm_status.files.tracked %}
           <div class="file-search">
             <input type="text" id="tracked-search" placeholder="Search files..." onkeyup="filterFiles('tracked')">
@@ -688,7 +685,7 @@
 
       <!-- Encrypted Tab -->
       {% if yadm_status.files.encrypted %}
-        <div id="encrypted" class="tab-content">
+        <div id="encrypted" class="tab-content" style="display: none;">
           <div class="file-search">
             <input type="text" id="encrypted-search" placeholder="Search files..." onkeyup="filterFiles('encrypted')">
           </div>
@@ -707,7 +704,7 @@
 
       <!-- Modified Tab -->
       {% if yadm_status.files.modified %}
-        <div id="modified" class="tab-content">
+        <div id="modified" class="tab-content" style="display: none;">
           <div class="file-search">
             <input type="text" id="modified-search" placeholder="Search files..." onkeyup="filterFiles('modified')">
           </div>
@@ -726,7 +723,7 @@
 
       <!-- Encryption Rules from Archive Tab -->
       {% if yadm_status.encryption.encrypted_files %}
-        <div id="encryption-patterns" class="tab-content">
+        <div id="encryption-patterns" class="tab-content" style="display: none;">
           <p style="font-size: 0.9rem; color: rgba(230, 237, 243, 0.7); margin-bottom: 1rem;">
             Glob patterns that define which files are encrypted. Files matching these patterns will be encrypted in the archive when you run <code>yadm encrypt</code>.
           </p>
@@ -748,7 +745,7 @@
 
       <!-- Archive/Decrypted Files Tab -->
       {% if yadm_status.files.archive_files %}
-        <div id="archive" class="tab-content">
+        <div id="archive" class="tab-content" style="display: none;">
           <p style="font-size: 0.9rem; color: rgba(230, 237, 243, 0.7); margin-bottom: 1rem;">
             Files stored in the encrypted archive. These files are extracted to your home directory when you click "Decrypt Files".
           </p>
@@ -826,6 +823,7 @@
     // Hide all tabs
     document.querySelectorAll('.tab-content').forEach(el => {
       el.classList.remove('active');
+      el.style.display = 'none';
     });
 
     // Remove active from all buttons
@@ -837,6 +835,7 @@
     const tab = document.getElementById(tabName);
     if (tab) {
       tab.classList.add('active');
+      tab.style.display = 'block';
       event.target.classList.add('active');
     }
   }

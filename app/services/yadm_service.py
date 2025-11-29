@@ -914,18 +914,17 @@ def get_yadm_managed_files(
                             cwd=user_home,
                         )
 
-                        if decrypt_result.returncode == 0:
-                            # List tar contents
+                        if decrypt_result.returncode == 0 and decrypt_result.stdout:
+                            # List tar contents - don't use text=True with bytes input
                             tar_result = subprocess.run(
                                 ["tar", "-tf", "-"],
                                 input=decrypt_result.stdout,
                                 capture_output=True,
-                                text=True,
                                 timeout=10,
                             )
                             if tar_result.returncode == 0:
                                 result["archive_files"] = [
-                                    f.strip() for f in tar_result.stdout.splitlines()
+                                    f.strip() for f in tar_result.stdout.decode().splitlines()
                                     if f.strip() and not f.strip().endswith("/")
                                 ]
                     except Exception as e:

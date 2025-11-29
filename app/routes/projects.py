@@ -1676,3 +1676,71 @@ def decrypt_dotfiles_web():
             "error": str(exc),
             "status": "failed"
         }), 400
+
+
+@projects_bp.route("/kubernetes", methods=["GET"])
+@login_required
+def kubernetes_clusters():
+    """Display available Kubernetes clusters from yadm kubeconfigs."""
+    from ..services.kubernetes_service import (
+        discover_kubernetes_clusters,
+        get_kubernetes_summary,
+    )
+
+    user = current_user
+    linux_username = user.email.split("@")[0]
+    user_home = f"/home/{linux_username}"
+
+    # Discover clusters without connectivity check (done via API)
+    clusters = discover_kubernetes_clusters(
+        user_home,
+        check_connectivity=False,
+        linux_username=linux_username,
+    )
+
+    summary = get_kubernetes_summary(clusters)
+
+    return render_template(
+        "projects/kubernetes.html",
+        clusters=clusters,
+        summary=summary,
+        linux_username=linux_username,
+    )
+
+
+@projects_bp.route("/kubernetes/check", methods=["POST"])
+@login_required
+def check_kubernetes_cluster():
+    """Check connectivity to a specific Kubernetes cluster."""
+    from ..services.kubernetes_service import (
+        parse_kubeconfig,
+        check_cluster_connectivity,
+    )
+
+    user = current_user
+    linux_username = user.email.split("@")[0]
+
+    config_file = request.json.get("config_file")
+    if not config_file:
+        return jsonify({"error": "config_file required"}), 400
+
+    # Security: ensure the config file is under user's home
+    user_home = f"/home/{linux_username}"
+    if not config_file.startswith(user_home):
+        return jsonify({"error": "Invalid config path"}), 403
+
+    # Parse and check connectivity
+    clusters = parse_kubeconfig(config_file, linux_username=linux_username)
+    if not clusters:
+        return jsonify({"error": "No clusters found in config"}), 404
+
+    cluster = clusters[0]
+    check_cluster_connectivity(cluster, timeout=10, linux_username=linux_username)
+
+    return jsonify({
+        "name": cluster.name,
+        "server": cluster.server,
+        "reachable": cluster.reachable,
+        "error": cluster.error,
+        "version": cluster.version,
+    })

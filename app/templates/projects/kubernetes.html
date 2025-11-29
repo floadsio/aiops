@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% block title %}Kubernetes Clusters | aiops Control Panel{% endblock %}
+{% block extra_head %}
+<style>
+  .k8s-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .controls-bar {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+
+  .summary-header {
+    margin-bottom: 2rem;
+  }
+
+  .summary-header article {
+    margin-bottom: 0;
+  }
+
+  .summary-icon {
+    font-size: 2rem;
+    margin-right: 1rem;
+  }
+
+  .summary-info h2 {
+    margin: 0;
+  }
+
+  .summary-info p {
+    margin: 0.5rem 0 0 0;
+    color: var(--pico-muted-color);
+    font-size: 0.9rem;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .summary-item {
+    text-align: center;
+    padding: 0.75rem;
+  }
+
+  .summary-item strong {
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .summary-item small {
+    color: var(--pico-muted-color);
+  }
+
+  .cluster-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+  }
+
+  .cluster-card {
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .cluster-card article {
+    margin-bottom: 0;
+    height: 100%;
+  }
+
+  .cluster-card.reachable article {
+    border-left: 4px solid var(--pico-ins-color);
+  }
+
+  .cluster-card.unreachable article {
+    border-left: 4px solid var(--pico-del-color);
+  }
+
+  .cluster-card.checking article {
+    border-left: 4px solid var(--pico-primary);
+  }
+
+  .cluster-card.unchecked article {
+    border-left: 4px solid var(--pico-muted-color);
+  }
+
+  .cluster-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+  }
+
+  .cluster-name {
+    font-weight: 600;
+    font-size: 1rem;
+    margin: 0;
+    word-break: break-word;
+  }
+
+  .cluster-status {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+  }
+
+  .cluster-details {
+    font-size: 0.85rem;
+    color: var(--pico-muted-color);
+  }
+
+  .cluster-details .detail-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+    align-items: flex-start;
+  }
+
+  .cluster-details .detail-label {
+    font-weight: 500;
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+
+  .cluster-details .detail-value {
+    word-break: break-all;
+    color: var(--pico-color);
+  }
+
+  .cluster-error {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(var(--pico-del-color-rgb, 255, 0, 0), 0.1);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--pico-del-color);
+  }
+
+  .cluster-version {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(var(--pico-ins-color-rgb, 0, 255, 0), 0.1);
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: var(--pico-ins-color);
+  }
+
+  .cluster-actions {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--pico-muted-border-color);
+  }
+
+  .cluster-actions button {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.75rem;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .spinning {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+  }
+
+  .check-all-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--pico-muted-color);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="k8s-container">
+  <h1>☸️ Kubernetes Clusters</h1>
+
+  <div class="controls-bar">
+    <button onclick="checkAllClusters()" id="check-all-btn">
+      <span id="check-all-icon">🔍</span>
+      Check All Connectivity
+    </button>
+    <div class="check-all-progress" id="progress-info" style="display: none;">
+      <span id="progress-text">Checking...</span>
+    </div>
+  </div>
+
+  <div class="summary-header">
+    <article>
+      <div style="display: flex; align-items: center;">
+        <span class="summary-icon">☸️</span>
+        <div class="summary-info">
+          <h2>{{ summary.total }} Kubernetes Clusters Available</h2>
+          <p>Kubeconfigs discovered from yadm dotfiles for {{ linux_username }}</p>
+        </div>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-item">
+          <strong id="reachable-count">-</strong>
+          <small>Reachable</small>
+        </div>
+        <div class="summary-item">
+          <strong id="unreachable-count">-</strong>
+          <small>Unreachable</small>
+        </div>
+        <div class="summary-item">
+          <strong id="unchecked-count">{{ summary.total }}</strong>
+          <small>Unchecked</small>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  {% if clusters %}
+  <div class="cluster-grid" id="cluster-grid">
+    {% for cluster in clusters %}
+    <div class="cluster-card unchecked" id="cluster-{{ loop.index }}" data-config="{{ cluster.config_file }}">
+      <article>
+        <div class="cluster-header">
+          <h3 class="cluster-name">{{ cluster.name }}</h3>
+          <span class="cluster-status" id="status-{{ loop.index }}">⏳</span>
+        </div>
+        <div class="cluster-details">
+          <div class="detail-row">
+            <span class="detail-label">Server:</span>
+            <span class="detail-value">{{ cluster.server }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Context:</span>
+            <span class="detail-value">{{ cluster.context }}</span>
+          </div>
+          {% if cluster.namespace %}
+          <div class="detail-row">
+            <span class="detail-label">Namespace:</span>
+            <span class="detail-value">{{ cluster.namespace }}</span>
+          </div>
+          {% endif %}
+          <div class="detail-row">
+            <span class="detail-label">Config:</span>
+            <span class="detail-value">{{ cluster.config_file | basename }}</span>
+          </div>
+        </div>
+        <div class="cluster-version" id="version-{{ loop.index }}" style="display: none;"></div>
+        <div class="cluster-error" id="error-{{ loop.index }}" style="display: none;"></div>
+        <div class="cluster-actions">
+          <button onclick="checkCluster({{ loop.index }}, '{{ cluster.config_file }}')" id="check-btn-{{ loop.index }}">
+            Check Connection
+          </button>
+        </div>
+      </article>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <article>
+    <p>No kubeconfig files found. Make sure you have:</p>
+    <ol>
+      <li>Decrypted your dotfiles (if kubeconfigs are encrypted)</li>
+      <li>Kubeconfig files in <code>~/.kube/</code> or <code>~/.kube/kubeconfig/</code></li>
+    </ol>
+    <p><a href="{{ url_for('projects.manage_dotfiles') }}">Go to Dotfiles Management →</a></p>
+  </article>
+  {% endif %}
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token() }}';
+let checkingAll = false;
+let reachableCount = 0;
+let unreachableCount = 0;
+let uncheckedCount = {{ summary.total }};
+
+function updateSummary() {
+  document.getElementById('reachable-count').textContent = reachableCount;
+  document.getElementById('unreachable-count').textContent = unreachableCount;
+  document.getElementById('unchecked-count').textContent = uncheckedCount;
+}
+
+async function checkCluster(index, configFile) {
+  const card = document.getElementById(`cluster-${index}`);
+  const statusEl = document.getElementById(`status-${index}`);
+  const versionEl = document.getElementById(`version-${index}`);
+  const errorEl = document.getElementById(`error-${index}`);
+  const checkBtn = document.getElementById(`check-btn-${index}`);
+
+  // Update UI to checking state
+  card.className = 'cluster-card checking';
+  statusEl.innerHTML = '<span class="spinning">⏳</span>';
+  checkBtn.disabled = true;
+  versionEl.style.display = 'none';
+  errorEl.style.display = 'none';
+
+  // Was unchecked before
+  if (!card.dataset.checked) {
+    uncheckedCount--;
+    card.dataset.checked = 'true';
+  } else {
+    // Was already checked - remove from previous count
+    if (card.dataset.reachable === 'true') {
+      reachableCount--;
+    } else {
+      unreachableCount--;
+    }
+  }
+
+  try {
+    const response = await fetch('/projects/kubernetes/check', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({ config_file: configFile })
+    });
+
+    const data = await response.json();
+
+    if (data.reachable) {
+      card.className = 'cluster-card reachable';
+      card.dataset.reachable = 'true';
+      statusEl.textContent = '✅';
+      reachableCount++;
+
+      if (data.version) {
+        versionEl.textContent = `Server: ${data.version}`;
+        versionEl.style.display = 'block';
+      }
+    } else {
+      card.className = 'cluster-card unreachable';
+      card.dataset.reachable = 'false';
+      statusEl.textContent = '❌';
+      unreachableCount++;
+
+      if (data.error) {
+        errorEl.textContent = data.error;
+        errorEl.style.display = 'block';
+      }
+    }
+  } catch (error) {
+    card.className = 'cluster-card unreachable';
+    card.dataset.reachable = 'false';
+    statusEl.textContent = '❌';
+    unreachableCount++;
+    errorEl.textContent = 'Request failed: ' + error.message;
+    errorEl.style.display = 'block';
+  }
+
+  checkBtn.disabled = false;
+  updateSummary();
+}
+
+async function checkAllClusters() {
+  if (checkingAll) return;
+
+  checkingAll = true;
+  const checkAllBtn = document.getElementById('check-all-btn');
+  const checkAllIcon = document.getElementById('check-all-icon');
+  const progressInfo = document.getElementById('progress-info');
+  const progressText = document.getElementById('progress-text');
+
+  checkAllBtn.disabled = true;
+  checkAllIcon.innerHTML = '<span class="spinning">⏳</span>';
+  progressInfo.style.display = 'flex';
+
+  const cards = document.querySelectorAll('.cluster-card');
+  const total = cards.length;
+
+  for (let i = 0; i < cards.length; i++) {
+    progressText.textContent = `Checking ${i + 1} of ${total}...`;
+    const card = cards[i];
+    const index = card.id.replace('cluster-', '');
+    const configFile = card.dataset.config;
+
+    await checkCluster(parseInt(index), configFile);
+
+    // Small delay between checks to avoid overwhelming
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  checkAllBtn.disabled = false;
+  checkAllIcon.textContent = '🔍';
+  progressInfo.style.display = 'none';
+  checkingAll = false;
+}
+</script>
+{% endblock %}

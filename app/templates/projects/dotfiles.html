@@ -661,12 +661,15 @@
       <!-- Tracked Tab -->
       <div id="tracked" class="tab-content active" style="display: block !important;">
         {% if yadm_status.files.tracked %}
+          <div style="background: #3fb950; color: white; padding: 1rem; margin-bottom: 1rem; font-weight: bold;">
+            DEBUG: Found {{ yadm_status.files.tracked|length }} tracked files. First file: {{ yadm_status.files.tracked[0] }}
+          </div>
           <div class="file-search">
             <input type="text" id="tracked-search" placeholder="Search files..." onkeyup="filterFiles('tracked')">
           </div>
           <div class="file-list" id="tracked-list" style="display: block !important;">
             {% for file in yadm_status.files.tracked[:50] %}
-              <div class="file-item">{{ file }}</div>
+              <div class="file-item" style="background: #22272e; padding: 0.5rem; margin: 0.25rem 0; border-radius: 4px;">{{ file }}</div>
             {% endfor %}
             {% if yadm_status.files.tracked|length > 50 %}
               <div class="status-item" style="padding: 0.5rem 0; text-align: center;">

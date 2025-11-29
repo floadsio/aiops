@@ -1546,9 +1546,6 @@ def manage_dotfiles():
     if check_yadm_installed():
         try:
             yadm_status = get_full_yadm_status(user)
-            # Debug logging to trace tracked files
-            tracked_count = len(yadm_status.get("files", {}).get("tracked", []))
-            current_app.logger.info(f"[DEBUG] User {user.email} - Tracked files: {tracked_count}")
         except Exception as e:
             current_app.logger.exception("Failed to get yadm status")
             yadm_error = str(e)

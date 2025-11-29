@@ -185,9 +185,17 @@ def _ensure_server_running(linux_username: str) -> None:
             ["tmux", "-S", socket_path, "new-session", "-d", "-s", "main"],
             timeout=10.0,
         )
-        # Set socket permissions for group access
-        if os.path.exists(socket_path):
-            os.chmod(socket_path, 0o770)
+        # Set socket permissions for group access (run as target user since they own the socket)
+        try:
+            run_as_user(
+                linux_username,
+                ["chmod", "770", socket_path],
+                timeout=5.0,
+            )
+        except Exception as chmod_exc:
+            current_app.logger.warning(
+                "Failed to set socket permissions for %s: %s", socket_path, chmod_exc
+            )
         current_app.logger.info(
             "Started tmux server for user %s at %s", linux_username, socket_path
         )

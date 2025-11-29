@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import os
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable, List, Optional, Sequence
 
 from flask import current_app
+
+# Shared tmux socket directory - created by install-service.sh with group perms
+TMUX_SOCKET_DIR = "/var/run/tmux-aiops"
 
 
 @dataclass(frozen=True)
@@ -112,18 +118,95 @@ def _project_window_name(project) -> str:
     return f"project{suffix}"
 
 
+def _get_socket_path(linux_username: str) -> str:
+    """Get the socket path for a user's tmux server."""
+    return f"{TMUX_SOCKET_DIR}/{linux_username}.sock"
+
+
 def _get_server(linux_username: Optional[str] = None):
+    """Get tmux server for a specific Linux user.
+
+    Each user has their own tmux server with socket in shared directory.
+    This enables sessions to run as the target user without sudo wrapping.
+
+    Args:
+        linux_username: Linux username for the tmux server. If None, uses default server.
+
+    Returns:
+        libtmux.Server instance for the user's tmux server
+    """
     try:
         import libtmux
     except ImportError as exc:  # pragma: no cover - dependency missing
         raise TmuxServiceError("libtmux is required for tmux integrations.") from exc
 
-    # tmux server always runs as the Flask app user (syseng), not as the target Linux user
-    # Commands executed inside tmux panes will use sudo to run as the target user
     try:
-        return libtmux.Server()
+        if linux_username:
+            socket_path = _get_socket_path(linux_username)
+            return libtmux.Server(socket_name=socket_path)
+        else:
+            # Fallback to default server for syseng/system operations
+            return libtmux.Server()
     except Exception as exc:  # pragma: no cover - backend error
         raise TmuxServiceError(f"Unable to initialize tmux server: {exc}") from exc
+
+
+def _ensure_server_running(linux_username: str) -> None:
+    """Ensure user's tmux server is running, start if needed.
+
+    Creates a new tmux server for the user if one isn't already running.
+    The server runs as the target user via sudo, with socket in shared directory.
+
+    Args:
+        linux_username: Linux username to run tmux as
+    """
+    from .sudo_service import run_as_user
+
+    socket_path = _get_socket_path(linux_username)
+
+    # Check if server is already running by trying to list sessions
+    try:
+        result = subprocess.run(
+            ["tmux", "-S", socket_path, "list-sessions"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode == 0:
+            return  # Server already running
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Start new server as the target user
+    try:
+        run_as_user(
+            linux_username,
+            ["tmux", "-S", socket_path, "new-session", "-d", "-s", "main"],
+            timeout=10.0,
+        )
+        # Set socket permissions for group access
+        if os.path.exists(socket_path):
+            os.chmod(socket_path, 0o770)
+        current_app.logger.info(
+            "Started tmux server for user %s at %s", linux_username, socket_path
+        )
+    except Exception as exc:
+        raise TmuxServiceError(
+            f"Unable to start tmux server for {linux_username}: {exc}"
+        ) from exc
+
+
+def get_user_socket_path(linux_username: str) -> str:
+    """Get the socket path for a user's tmux server (public API).
+
+    Args:
+        linux_username: Linux username
+
+    Returns:
+        Path to the user's tmux socket
+    """
+    return _get_socket_path(linux_username)
 
 
 def _ensure_session(
@@ -132,6 +215,10 @@ def _ensure_session(
     create: bool = True,
     linux_username: Optional[str] = None,
 ):
+    # Ensure user's tmux server is running before trying to connect
+    if linux_username:
+        _ensure_server_running(linux_username)
+
     server = _get_server(linux_username=linux_username)
     resolved_name = _normalize_session_name(session_name)
     session = next(
@@ -413,16 +500,17 @@ def is_pane_dead(target: str, linux_username: str | None = None) -> bool:
 
     Args:
         target: Tmux target (session:window or session:window.pane format)
-        linux_username: Linux username to run tmux as (None for current user)
+        linux_username: Linux username for per-user tmux server (uses socket path)
 
     Returns:
         True if the pane is dead, False if it's alive or doesn't exist
     """
-    import subprocess
-
-    cmd = ["tmux", "list-panes", "-t", target, "-F", "#{pane_dead}"]
+    # Use socket path for per-user servers
     if linux_username:
-        cmd = ["sudo", "-u", linux_username] + cmd
+        socket_path = _get_socket_path(linux_username)
+        cmd = ["tmux", "-S", socket_path, "list-panes", "-t", target, "-F", "#{pane_dead}"]
+    else:
+        cmd = ["tmux", "list-panes", "-t", target, "-F", "#{pane_dead}"]
 
     try:
         result = subprocess.run(
@@ -450,18 +538,20 @@ def respawn_pane(
     Args:
         target: Tmux target (session:window or session:window.pane format)
         command: Optional new command to run (None = use original command)
-        linux_username: Linux username to run tmux as (None for current user)
+        linux_username: Linux username for per-user tmux server (uses socket path)
 
     Raises:
         TmuxServiceError: If respawn fails
     """
-    import subprocess
+    # Use socket path for per-user servers
+    if linux_username:
+        socket_path = _get_socket_path(linux_username)
+        cmd = ["tmux", "-S", socket_path, "respawn-pane", "-k", "-t", target]
+    else:
+        cmd = ["tmux", "respawn-pane", "-k", "-t", target]
 
-    cmd = ["tmux", "respawn-pane", "-k", "-t", target]
     if command:
         cmd.append(command)
-    if linux_username:
-        cmd = ["sudo", "-u", linux_username] + cmd
 
     try:
         subprocess.run(
@@ -479,9 +569,45 @@ def respawn_pane(
         raise TmuxServiceError(f"Timeout respawning pane {target}") from exc
 
 
+def list_all_user_sessions() -> list[dict]:
+    """List sessions from all user tmux servers in the shared socket directory.
+
+    Scans the shared socket directory for user socket files and lists
+    all sessions across all running user tmux servers.
+
+    Returns:
+        List of dicts with owner, session, windows count, and socket path
+    """
+    import libtmux
+
+    sessions = []
+    socket_dir = Path(TMUX_SOCKET_DIR)
+
+    if not socket_dir.exists():
+        return sessions
+
+    for socket_file in socket_dir.glob("*.sock"):
+        username = socket_file.stem
+        try:
+            server = libtmux.Server(socket_name=str(socket_file))
+            for session in server.sessions:
+                sessions.append({
+                    "owner": username,
+                    "session": session.get("session_name"),
+                    "windows": len(session.windows),
+                    "socket": str(socket_file),
+                })
+        except Exception:
+            # Server not running or socket stale
+            continue
+
+    return sessions
+
+
 __all__ = [
     "TmuxWindow",
     "TmuxServiceError",
+    "TMUX_SOCKET_DIR",
     "ensure_project_window",
     "get_or_create_window_for_project",
     "find_window_for_project",
@@ -492,4 +618,6 @@ __all__ = [
     "close_tmux_target",
     "is_pane_dead",
     "respawn_pane",
+    "list_all_user_sessions",
+    "get_user_socket_path",
 ]

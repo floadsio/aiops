@@ -29,7 +29,7 @@ from .services.codex_config_service import (
 from .services.git_service import build_project_git_env
 from .services.cli_git_service import supports_cli_git
 from .services.tmux_metadata import record_tmux_tool
-from .services.tmux_service import ensure_project_window
+from .services.tmux_service import ensure_project_window, get_user_socket_path
 
 
 def _backslash_quote(value: str) -> str:
@@ -139,6 +139,7 @@ class AISession:
         fd: int,
         tmux_target: str | None = None,
         issue_id: int | None = None,
+        linux_username: str | None = None,
     ):
         import time
         self.id = session_id
@@ -150,6 +151,7 @@ class AISession:
         self.fd = fd
         self.tmux_target = tmux_target
         self.issue_id = issue_id
+        self.linux_username = linux_username
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
         self.is_persistent = False
@@ -189,6 +191,7 @@ class PersistentAISession:
         tmux_target: str,
         pipe_file: str,
         issue_id: int | None = None,
+        linux_username: str | None = None,
     ):
         import time
         self.id = session_id
@@ -199,6 +202,7 @@ class PersistentAISession:
         self.tmux_target = tmux_target
         self.pipe_file = pipe_file
         self.issue_id = issue_id
+        self.linux_username = linux_username
         self.queue: Queue[bytes | None] = Queue()
         self.stop_event = threading.Event()
         self.is_persistent = True
@@ -315,7 +319,12 @@ def _is_ai_tool(tool: str | None) -> bool:
     return tool.lower() not in ("shell", "bash", "sh", "zsh")
 
 
-def _send_initial_context_prompt(tmux_target: str, workspace_path: str, tool: str) -> None:
+def _send_initial_context_prompt(
+    tmux_target: str,
+    workspace_path: str,
+    tool: str,
+    linux_username: str | None = None,
+) -> None:
     """Send initial prompt to AI tool to read AGENTS.override.md.
 
     Uses tmux send-keys to instruct the AI tool to read the context file
@@ -325,6 +334,7 @@ def _send_initial_context_prompt(tmux_target: str, workspace_path: str, tool: st
         tmux_target: Full tmux target (session:window format)
         workspace_path: Path to the workspace directory
         tool: The AI tool being used (claude, codex, etc.)
+        linux_username: Linux username for per-user tmux socket
     """
     import time
 
@@ -352,9 +362,16 @@ def _send_initial_context_prompt(tmux_target: str, workspace_path: str, tool: st
     # Send prompt to read the file
     prompt = f"read {agents_file_path}"
 
+    # Build tmux command with socket path for per-user sessions
+    if linux_username and linux_username != "syseng":
+        socket_path = get_user_socket_path(linux_username)
+        cmd = ["tmux", "-S", socket_path, "send-keys", "-t", tmux_target, prompt, "Enter"]
+    else:
+        cmd = ["tmux", "send-keys", "-t", tmux_target, prompt, "Enter"]
+
     try:
         subprocess.run(
-            ["tmux", "send-keys", "-t", tmux_target, prompt, "Enter"],
+            cmd,
             check=True,
             capture_output=True,
             timeout=5,
@@ -720,8 +737,14 @@ def create_session(
         if workspace_path is not None:
             start_dir = str(workspace_path)
 
-    # Build tmux attach command (runs as syseng, the Flask app user)
-    exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
+    # Build tmux attach command
+    # For per-user sessions, use user's socket so session runs as that user
+    # For syseng sessions, use default tmux server
+    if linux_username_for_session and linux_username_for_session != "syseng":
+        socket_path = get_user_socket_path(linux_username_for_session)
+        exec_args = [tmux_path, "-S", socket_path, "attach-session", "-t", f"{session_name}:{window_name}"]
+    else:
+        exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
 
     session_id = uuid.uuid4().hex
 
@@ -737,8 +760,8 @@ def create_session(
         if rows and cols:
             _set_winsize(1, rows, cols)
 
-        # tmux attach runs as the Flask app user (syseng)
-        # Commands inside the tmux pane will use sudo to run as the target Linux user
+        # For per-user sessions, tmux attach uses the user's socket
+        # The session runs as that user, no sudo needed inside
         try:
             os.execvp(exec_args[0], exec_args)
         except FileNotFoundError:
@@ -755,104 +778,58 @@ def create_session(
         fd,
         f"{session_name}:{window_name}",
         issue_id=issue_id,
+        linux_username=linux_username_for_session,
     )
     if rows and cols:
         _set_winsize(fd, rows, cols)
     _register_session(session_record)
 
-    # Always bootstrap (use sudo) for per-user sessions, even when reusing windows
-    # This ensures commands run with the correct user UID
-    should_bootstrap = created or tmux_target is None or (
-        linux_username_for_session and linux_username_for_session != "syseng"
-    )
+    # Bootstrap session with environment setup
+    # Per-user sessions run in user's tmux server, so no sudo needed
+    should_bootstrap = created or tmux_target is None or linux_username_for_session
     if should_bootstrap:
-        # When running as a different Linux user, start an interactive login shell
-        # so user configs (.bashrc, .profile) are loaded
+        # For per-user sessions, the tmux session runs as the user
+        # No sudo wrapping needed - commands run directly
         if linux_username_for_session and linux_username_for_session != "syseng":
-            use_login_shell = current_app.config.get("USE_LOGIN_SHELL", True)
-            shell_cmd = "bash -l" if use_login_shell else "bash"
+            # Build setup commands to send to the pane
+            # Since session runs as user, we just send commands directly
+            setup_commands = []
 
-            # Check if this is an interactive tool that needs stdin connected to TTY
-            is_interactive = _is_interactive_tool(command_str, tool)
+            # Change to workspace directory
+            setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
 
-            if is_interactive:
-                # For interactive tools (claude, codex, gemini), use bash -c to preserve stdin
-                # For plain shells (bash, zsh), exec the shell directly after setup
-                is_plain_shell = command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
+            # Export environment variables
+            if ssh_command:
+                setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
+            for export_cmd in git_author_exports:
+                setup_commands.append(export_cmd)
+            for export_cmd in codex_env_exports:
+                setup_commands.append(export_cmd)
+            for export_cmd in claude_env_exports:
+                setup_commands.append(export_cmd)
+            for export_cmd in aiops_env_exports:
+                setup_commands.append(export_cmd)
+            for export_cmd in cli_git_env_exports:
+                setup_commands.append(export_cmd)
 
-                setup_commands = []
+            # Clear screen
+            setup_commands.append("clear")
 
-                # Change to workspace directory
-                setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
-
-                # Export environment variables
-                if ssh_command:
-                    setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
-                for export_cmd in git_author_exports:
-                    setup_commands.append(export_cmd)
-                for export_cmd in codex_env_exports:
-                    setup_commands.append(export_cmd)
-                for export_cmd in claude_env_exports:
-                    setup_commands.append(export_cmd)
-                for export_cmd in aiops_env_exports:
-                    setup_commands.append(export_cmd)
-                for export_cmd in cli_git_env_exports:
-                    setup_commands.append(export_cmd)
-
-                # Clear screen
-                setup_commands.append("clear")
-
-                # For plain shells, exec the shell to replace the process
-                # For AI tools, just run the command
-                if is_plain_shell:
-                    setup_commands.append(f"exec {command_str}")
-                else:
-                    setup_commands.append(command_str)
-
-                # Join commands with && and quote for bash -c
-                command_chain = " && ".join(setup_commands)
-                final_command = f"sudo -u {linux_username_for_session} {shell_cmd} -c {shlex.quote(command_chain)}"
-
-                current_app.logger.info(
-                    "Starting interactive tool as user %s in %s (preserving stdin)",
-                    linux_username_for_session,
-                    start_dir,
-                )
+            # Add the command to run
+            is_plain_shell = command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
+            if is_plain_shell:
+                setup_commands.append(f"exec {command_str}")
             else:
-                # For non-interactive commands, use heredoc (original behavior)
-                script_lines = []
+                setup_commands.append(command_str)
 
-                # Change to workspace directory
-                script_lines.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+            # Send as a single command chain (no sudo needed)
+            final_command = " && ".join(setup_commands)
 
-                # Export environment variables
-                if ssh_command:
-                    script_lines.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
-                for export_cmd in git_author_exports:
-                    script_lines.append(export_cmd)
-                for export_cmd in codex_env_exports:
-                    script_lines.append(export_cmd)
-                for export_cmd in claude_env_exports:
-                    script_lines.append(export_cmd)
-                for export_cmd in cli_git_env_exports:
-                    script_lines.append(export_cmd)
-
-                # Clear and run the command
-                script_lines.append("clear")
-                script_lines.append(command_str)
-
-                # Create the sudo command with a heredoc
-                script_body = "\n".join(script_lines)
-                final_command = (
-                    f"sudo -u {linux_username_for_session} {shell_cmd} <<'AIOPS_EOF'\n"
-                    f"{script_body}\n"
-                    f"AIOPS_EOF"
-                )
-                current_app.logger.info(
-                    "Starting login shell as user %s in %s",
-                    linux_username_for_session,
-                    start_dir,
-                )
+            current_app.logger.info(
+                "Starting session as user %s in %s (user-owned tmux)",
+                linux_username_for_session,
+                start_dir,
+            )
         else:
             # Running as syseng - use the original approach
             if ssh_command:
@@ -1024,10 +1001,17 @@ def create_persistent_session(
     # Set up tmux pipe-pane for output capture
     tmux_target_full = f"{session_name}:{window_name}"
 
+    # Build tmux command prefix for per-user sessions
+    if linux_username_for_session and linux_username_for_session != "syseng":
+        socket_path = get_user_socket_path(linux_username_for_session)
+        tmux_cmd_prefix = ["tmux", "-S", socket_path]
+    else:
+        tmux_cmd_prefix = ["tmux"]
+
     # Enable remain-on-exit so pane stays alive even if shell exits
     try:
         subprocess.run(
-            ["tmux", "set-option", "-t", tmux_target_full, "remain-on-exit", "on"],
+            tmux_cmd_prefix + ["set-option", "-t", tmux_target_full, "remain-on-exit", "on"],
             check=True,
             capture_output=True,
             timeout=5,
@@ -1038,7 +1022,7 @@ def create_persistent_session(
 
     try:
         subprocess.run(
-            ["tmux", "pipe-pane", "-t", tmux_target_full, "-o", f"cat >> {shlex.quote(pipe_file)}"],
+            tmux_cmd_prefix + ["pipe-pane", "-t", tmux_target_full, "-o", f"cat >> {shlex.quote(pipe_file)}"],
             check=True,
             capture_output=True,
             timeout=5,
@@ -1048,14 +1032,11 @@ def create_persistent_session(
         current_app.logger.warning("Failed to set up pipe-pane: %s", exc)
 
     # Build and send the command
-    should_bootstrap = created or tmux_target is None or (
-        linux_username_for_session and linux_username_for_session != "syseng"
-    )
+    should_bootstrap = created or tmux_target is None or linux_username_for_session
 
     if should_bootstrap:
         if linux_username_for_session and linux_username_for_session != "syseng":
-            use_login_shell = current_app.config.get("USE_LOGIN_SHELL", True)
-            shell_cmd = "bash -l" if use_login_shell else "bash"
+            # Per-user sessions run in user's tmux server - no sudo needed
             is_plain_shell = command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
 
             setup_commands = []
@@ -1071,8 +1052,8 @@ def create_persistent_session(
             else:
                 setup_commands.append(command_str)
 
-            command_chain = " && ".join(setup_commands)
-            final_command = f"sudo -u {linux_username_for_session} {shell_cmd} -c {shlex.quote(command_chain)}"
+            # Send directly without sudo since session runs as user
+            final_command = " && ".join(setup_commands)
         else:
             # Running as syseng
             if ssh_command:
@@ -1108,6 +1089,7 @@ def create_persistent_session(
         tmux_target_full,
         pipe_file,
         issue_id=issue_id,
+        linux_username=linux_username_for_session,
     )
     _register_session(session_record)
 
@@ -1140,7 +1122,7 @@ def create_persistent_session(
     if tool and _is_ai_tool(tool) and should_bootstrap:
         threading.Thread(
             target=_send_initial_context_prompt,
-            args=(tmux_target_full, start_dir, tool),
+            args=(tmux_target_full, start_dir, tool, linux_username_for_session),
             daemon=True,
         ).start()
 
@@ -1153,10 +1135,16 @@ def write_to_session(session: AISession | PersistentAISession, data: str) -> Non
 
     if isinstance(session, PersistentAISession):
         # Use tmux send-keys for persistent sessions
+        # Use socket path for per-user sessions
+        if session.linux_username and session.linux_username != "syseng":
+            socket_path = get_user_socket_path(session.linux_username)
+            cmd = ["tmux", "-S", socket_path, "send-keys", "-t", session.tmux_target, "-l", data]
+        else:
+            cmd = ["tmux", "send-keys", "-t", session.tmux_target, "-l", data]
+
         try:
-            # Send keys without adding newline (user controls when to press enter)
             subprocess.run(
-                ["tmux", "send-keys", "-t", session.tmux_target, "-l", data],
+                cmd,
                 check=False,
                 capture_output=True,
                 timeout=1,

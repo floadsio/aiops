@@ -60,6 +60,28 @@ else
     echo "yadm is already installed: $YADM_VERSION"
 fi
 
+# Create aiops group for shared tmux socket access
+AIOPS_GROUP="aiops"
+echo "Setting up aiops group for shared tmux sockets..."
+if ! getent group "$AIOPS_GROUP" > /dev/null 2>&1; then
+    echo "Creating group: $AIOPS_GROUP"
+    groupadd "$AIOPS_GROUP"
+fi
+
+# Add service user to aiops group
+if ! id -nG "$SERVICE_USER" | grep -qw "$AIOPS_GROUP"; then
+    echo "Adding $SERVICE_USER to $AIOPS_GROUP group"
+    usermod -aG "$AIOPS_GROUP" "$SERVICE_USER"
+fi
+
+# Create shared tmux socket directory
+TMUX_SOCKET_DIR="/var/run/tmux-aiops"
+echo "Creating shared tmux socket directory: $TMUX_SOCKET_DIR"
+mkdir -p "$TMUX_SOCKET_DIR"
+chgrp "$AIOPS_GROUP" "$TMUX_SOCKET_DIR"
+chmod 2770 "$TMUX_SOCKET_DIR"  # setgid so new sockets inherit group
+echo "Tmux socket directory configured with group permissions"
+
 # Create logs directory if it doesn't exist
 LOGS_DIR="$INSTALL_DIR/logs"
 if [ ! -d "$LOGS_DIR" ]; then

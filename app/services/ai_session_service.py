@@ -200,14 +200,24 @@ def get_session_summary(session: AISession) -> dict:
 
     # Check if pane is dead
     pane_dead = False
+    linux_username = user.linux_username if user else None
     if session.tmux_target and session.is_active:
         from ..services.tmux_service import is_pane_dead
-        linux_username = user.linux_username if user else None
         pane_dead = is_pane_dead(session.tmux_target, linux_username=linux_username)
 
-    # Get tmux server owner - always the Flask process user
-    import pwd
-    tmux_server_user = pwd.getpwuid(os.getuid()).pw_name
+    # Get tmux server owner and socket path
+    # Per-user sessions run in user's own tmux server
+    from ..services.tmux_service import get_user_socket_path
+
+    if linux_username and linux_username != "syseng":
+        tmux_server_user = linux_username
+        socket_path = get_user_socket_path(linux_username)
+        attach_command = f"tmux -S {socket_path} attach -t {session.tmux_target}"
+    else:
+        import pwd
+        tmux_server_user = pwd.getpwuid(os.getuid()).pw_name
+        socket_path = None
+        attach_command = f"tmux attach -t {session.tmux_target}" if session.tmux_target else None
 
     return {
         "id": session.id,
@@ -218,8 +228,10 @@ def get_session_summary(session: AISession) -> dict:
         "tenant_name": project.tenant.name if project and project.tenant else "Unknown",
         "user_id": session.user_id,
         "user_name": user.name if user else "Unknown",
-        "linux_username": user.linux_username if user else None,
+        "linux_username": linux_username,
         "tmux_server_user": tmux_server_user,
+        "socket_path": socket_path,
+        "attach_command": attach_command,
         "issue_id": session.issue_id,
         "description": session.description,
         "command": session.command,

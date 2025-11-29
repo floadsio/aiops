@@ -93,7 +93,7 @@ def test_create_session_uses_shared_tmux_window(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,
@@ -162,10 +162,10 @@ def test_create_session_respects_explicit_tmux_target(monkeypatch, tmp_path):
 
         captured: dict[str, str] = {}
 
-        def fake_ensure(project, window_name=None, session_name=None):
-            captured["window_name"] = window_name
+        def fake_ensure(project, **kwargs):
+            captured["window_name"] = kwargs.get("window_name")
             pane = FakePane()
-            window = FakeWindow(window_name or "demo-project-p2")
+            window = FakeWindow(kwargs.get("window_name") or "demo-project-p2")
             window._pane = pane
             return session_obj, window, True
 
@@ -225,7 +225,7 @@ def test_reuse_existing_tmux_window_does_not_restart_command(monkeypatch, tmp_pa
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 False,
@@ -286,7 +286,7 @@ def test_create_session_exports_codex_auth(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,
@@ -359,7 +359,7 @@ def test_create_session_exports_claude_key(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,
@@ -438,7 +438,7 @@ def test_per_user_session_injects_tenant_key_via_ssh_agent(monkeypatch, tmp_path
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,
@@ -516,7 +516,7 @@ def test_per_user_session_ssh_agent_script_for_non_interactive(monkeypatch, tmp_
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,
@@ -595,7 +595,7 @@ def test_create_session_with_linux_user_switching(monkeypatch, tmp_path):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,
@@ -693,7 +693,7 @@ def test_create_session_logs_user_switch_failure(monkeypatch, tmp_path, capsys):
 
         monkeypatch.setattr(
             "app.ai_sessions.ensure_project_window",
-            lambda project, window_name=None, session_name=None: (
+            lambda project, **kwargs: (
                 session_obj,
                 window,
                 True,

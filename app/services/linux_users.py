@@ -209,3 +209,63 @@ def get_available_linux_users() -> list[str]:
         current_app.logger.warning("Failed to get available Linux users: %s", e)
 
     return sorted(available_users)
+
+
+AIOPS_GROUP = "aiops"
+
+
+def ensure_user_in_aiops_group(linux_username: str) -> bool:
+    """Ensure a Linux user is a member of the aiops group.
+
+    The aiops group is used for shared tmux socket access, allowing
+    Flask (running as syseng) and other users to access each other's
+    tmux sessions via socket files in /var/run/tmux-aiops.
+
+    Args:
+        linux_username: Linux username to add to the group
+
+    Returns:
+        True if user is now in the group, False on error
+    """
+    import grp
+    import subprocess
+
+    # Check if group exists
+    try:
+        grp.getgrnam(AIOPS_GROUP)
+    except KeyError:
+        current_app.logger.warning(
+            "aiops group does not exist. Run install-service.sh to create it."
+        )
+        return False
+
+    # Check if user is already in the group
+    try:
+        group_info = grp.getgrnam(AIOPS_GROUP)
+        if linux_username in group_info.gr_mem:
+            return True
+    except KeyError:
+        pass
+
+    # Add user to group
+    try:
+        subprocess.run(
+            ["sudo", "-n", "usermod", "-aG", AIOPS_GROUP, linux_username],
+            check=True,
+            capture_output=True,
+            timeout=10,
+        )
+        current_app.logger.info(
+            "Added user %s to %s group for tmux socket access",
+            linux_username,
+            AIOPS_GROUP,
+        )
+        return True
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        current_app.logger.warning(
+            "Failed to add user %s to %s group: %s",
+            linux_username,
+            AIOPS_GROUP,
+            exc,
+        )
+        return False

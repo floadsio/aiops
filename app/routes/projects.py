@@ -1685,6 +1685,7 @@ def kubernetes_clusters():
     from ..services.kubernetes_service import (
         discover_kubernetes_clusters,
         get_kubernetes_summary,
+        apply_cached_status,
     )
 
     user = current_user
@@ -1698,6 +1699,9 @@ def kubernetes_clusters():
         linux_username=linux_username,
     )
 
+    # Apply cached connectivity status
+    cache_timestamp = apply_cached_status(clusters)
+
     summary = get_kubernetes_summary(clusters)
 
     return render_template(
@@ -1705,6 +1709,7 @@ def kubernetes_clusters():
         clusters=clusters,
         summary=summary,
         linux_username=linux_username,
+        cache_timestamp=cache_timestamp,
     )
 
 
@@ -1715,6 +1720,7 @@ def check_kubernetes_cluster():
     from ..services.kubernetes_service import (
         parse_kubeconfig,
         check_cluster_connectivity,
+        update_connectivity_cache,
     )
 
     user = current_user
@@ -1736,6 +1742,9 @@ def check_kubernetes_cluster():
 
     cluster = clusters[0]
     check_cluster_connectivity(cluster, timeout=10, linux_username=linux_username)
+
+    # Cache the result
+    update_connectivity_cache(cluster)
 
     return jsonify({
         "name": cluster.name,

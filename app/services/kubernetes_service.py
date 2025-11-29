@@ -4,20 +4,26 @@ This service uses kubeconfigs from yadm to:
 - Discover available Kubernetes clusters
 - Check connectivity to each cluster
 - Provide cluster metadata (server URL, context name, etc.)
+- Cache connectivity results in the database
 """
 
+import json
 import logging
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import yaml
 
 from .yadm_service import find_yadm_files_by_category
 
 logger = logging.getLogger(__name__)
+
+# Cache key for SystemConfig
+K8S_CONNECTIVITY_CACHE_KEY = "kubernetes_connectivity_cache"
 
 
 @dataclass
@@ -276,3 +282,80 @@ def get_kubernetes_summary(clusters: list[KubeCluster]) -> dict:
         "unreachable": unreachable,
         "unchecked": unchecked,
     }
+
+
+def get_cached_connectivity() -> Optional[dict[str, Any]]:
+    """Get cached Kubernetes connectivity results from SystemConfig.
+
+    Returns:
+        Cache dict with cluster results and metadata, or None if no cache
+    """
+    from ..models import SystemConfig
+
+    config = SystemConfig.query.filter_by(key=K8S_CONNECTIVITY_CACHE_KEY).first()
+    if config and config.value:
+        return config.value
+    return None
+
+
+def update_connectivity_cache(cluster: KubeCluster) -> None:
+    """Update the connectivity cache for a single cluster.
+
+    Args:
+        cluster: KubeCluster with connectivity check results
+    """
+    from ..extensions import db
+    from ..models import SystemConfig
+
+    # Get or create cache
+    config = SystemConfig.query.filter_by(key=K8S_CONNECTIVITY_CACHE_KEY).first()
+    if not config:
+        config = SystemConfig(key=K8S_CONNECTIVITY_CACHE_KEY, value={
+            "clusters": {},
+            "last_updated": datetime.utcnow().isoformat(),
+        })
+        db.session.add(config)
+
+    # Use config_file as unique key
+    cache_key = cluster.config_file
+    config.value["clusters"][cache_key] = {
+        "name": cluster.name,
+        "server": cluster.server,
+        "context": cluster.context,
+        "reachable": cluster.reachable,
+        "error": cluster.error,
+        "version": cluster.version,
+        "checked_at": datetime.utcnow().isoformat(),
+    }
+    config.value["last_updated"] = datetime.utcnow().isoformat()
+
+    # Mark as modified for SQLAlchemy to detect change
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(config, "value")
+
+    db.session.commit()
+
+
+def apply_cached_status(clusters: list[KubeCluster]) -> str | None:
+    """Apply cached connectivity status to cluster list.
+
+    Args:
+        clusters: List of KubeCluster objects to update
+
+    Returns:
+        Last updated timestamp or None if no cache
+    """
+    cache = get_cached_connectivity()
+    if not cache:
+        return None
+
+    cached_clusters = cache.get("clusters", {})
+
+    for cluster in clusters:
+        cached = cached_clusters.get(cluster.config_file)
+        if cached:
+            cluster.reachable = cached.get("reachable")
+            cluster.error = cached.get("error")
+            cluster.version = cached.get("version")
+
+    return cache.get("last_updated")

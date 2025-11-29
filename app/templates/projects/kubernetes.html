@@ -203,20 +203,24 @@
         <span class="summary-icon">☸️</span>
         <div class="summary-info">
           <h2>{{ summary.total }} Kubernetes Clusters Available</h2>
-          <p>Kubeconfigs discovered from yadm dotfiles for {{ linux_username }}</p>
+          <p>Kubeconfigs discovered from yadm dotfiles for {{ linux_username }}
+          {% if cache_timestamp %}
+          <br><small style="color: var(--pico-muted-color);">Last checked: {{ cache_timestamp }}</small>
+          {% endif %}
+          </p>
         </div>
       </div>
       <div class="summary-grid">
         <div class="summary-item">
-          <strong id="reachable-count">-</strong>
+          <strong id="reachable-count">{{ summary.reachable }}</strong>
           <small>Reachable</small>
         </div>
         <div class="summary-item">
-          <strong id="unreachable-count">-</strong>
+          <strong id="unreachable-count">{{ summary.unreachable }}</strong>
           <small>Unreachable</small>
         </div>
         <div class="summary-item">
-          <strong id="unchecked-count">{{ summary.total }}</strong>
+          <strong id="unchecked-count">{{ summary.unchecked }}</strong>
           <small>Unchecked</small>
         </div>
       </div>
@@ -226,11 +230,11 @@
   {% if clusters %}
   <div class="cluster-grid" id="cluster-grid">
     {% for cluster in clusters %}
-    <div class="cluster-card unchecked" id="cluster-{{ loop.index }}" data-config="{{ cluster.config_file }}">
+    <div class="cluster-card {% if cluster.reachable == true %}reachable{% elif cluster.reachable == false %}unreachable{% else %}unchecked{% endif %}" id="cluster-{{ loop.index }}" data-config="{{ cluster.config_file }}" data-checked="{{ 'true' if cluster.reachable is not none else 'false' }}" data-reachable="{{ 'true' if cluster.reachable else 'false' }}">
       <article>
         <div class="cluster-header">
           <h3 class="cluster-name">{{ cluster.name }}</h3>
-          <span class="cluster-status" id="status-{{ loop.index }}">⏳</span>
+          <span class="cluster-status" id="status-{{ loop.index }}">{% if cluster.reachable == true %}✅{% elif cluster.reachable == false %}❌{% else %}⏳{% endif %}</span>
         </div>
         <div class="cluster-details">
           <div class="detail-row">
@@ -252,8 +256,8 @@
             <span class="detail-value">{{ cluster.config_file | basename }}</span>
           </div>
         </div>
-        <div class="cluster-version" id="version-{{ loop.index }}" style="display: none;"></div>
-        <div class="cluster-error" id="error-{{ loop.index }}" style="display: none;"></div>
+        <div class="cluster-version" id="version-{{ loop.index }}" {% if not cluster.version %}style="display: none;"{% endif %}>{% if cluster.version %}Server: {{ cluster.version }}{% endif %}</div>
+        <div class="cluster-error" id="error-{{ loop.index }}" {% if not cluster.error %}style="display: none;"{% endif %}>{% if cluster.error %}{{ cluster.error }}{% endif %}</div>
         <div class="cluster-actions">
           <button onclick="checkCluster({{ loop.index }}, '{{ cluster.config_file }}')" id="check-btn-{{ loop.index }}">
             Check Connection
@@ -278,9 +282,9 @@
 <script>
 const csrfToken = '{{ csrf_token() }}';
 let checkingAll = false;
-let reachableCount = 0;
-let unreachableCount = 0;
-let uncheckedCount = {{ summary.total }};
+let reachableCount = {{ summary.reachable }};
+let unreachableCount = {{ summary.unreachable }};
+let uncheckedCount = {{ summary.unchecked }};
 
 function updateSummary() {
   document.getElementById('reachable-count').textContent = reachableCount;
@@ -302,8 +306,9 @@ async function checkCluster(index, configFile) {
   versionEl.style.display = 'none';
   errorEl.style.display = 'none';
 
-  // Was unchecked before
-  if (!card.dataset.checked) {
+  // Update counters based on previous state
+  if (card.dataset.checked !== 'true') {
+    // Was unchecked before
     uncheckedCount--;
     card.dataset.checked = 'true';
   } else {

@@ -744,13 +744,29 @@ def create_session(
             start_dir = str(workspace_path)
 
     # Build tmux attach command
-    # Sessions run in user's default tmux server (TMUX_USE_DEFAULT_SOCKET=true by default)
+    # Sessions run in users default tmux server (TMUX_USE_DEFAULT_SOCKET=true by default)
     # Legacy mode uses custom socket in /var/run/tmux-aiops/
-    exec_args = [tmux_path]
+    exec_args = []
+    current_user = os.environ.get("USER", "")
+
     if linux_username_for_session and linux_username_for_session != "syseng":
         socket_path = get_user_socket_path(linux_username_for_session)
         if socket_path:
-            exec_args.extend(["-S", socket_path])
+            # Legacy mode: use custom socket path
+            exec_args = [tmux_path, "-S", socket_path]
+        elif current_user != linux_username_for_session:
+            # Default socket mode: need sudo to access users tmux server
+            # The users tmux socket is at /tmp/tmux-{uid}/default and only accessible by them
+            exec_args = [
+                "sudo", "-u", linux_username_for_session,
+                "--", tmux_path,
+            ]
+        else:
+            # Same user, use tmux directly
+            exec_args = [tmux_path]
+    else:
+        exec_args = [tmux_path]
+
     exec_args.extend(["attach-session", "-t", f"{session_name}:{window_name}"])
 
     session_id = uuid.uuid4().hex

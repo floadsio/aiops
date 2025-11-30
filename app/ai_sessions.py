@@ -736,11 +736,20 @@ def create_session(
     # Generate unique tmux_target if not provided
     if not tmux_target:
         if issue_id:
-            # Reusable window per issue (e.g., i713)
-            tmux_target = f"{tmux_session_name}:i{issue_id}"
+            # Window named after issue (e.g., #164-tmux-sessions)
+            from .models import ExternalIssue
+            issue = ExternalIssue.query.get(issue_id)
+            if issue:
+                ext_num = issue.external_id or issue_id
+                title_slug = (issue.title or "").lower().replace(" ", "-")[:30]
+                title_slug = "".join(c for c in title_slug if c.isalnum() or c == "-").strip("-")
+                window_name = f"#{ext_num}-{title_slug}" if title_slug else f"#{ext_num}"
+            else:
+                window_name = f"issue-{issue_id}"
+            tmux_target = f"{tmux_session_name}:{window_name}"
         else:
-            # Unique window per session (e.g., a1b2c3)
-            tmux_target = f"{tmux_session_name}:{uuid.uuid4().hex[:6]}"
+            # Generic session (e.g., session-a1b2c3)
+            tmux_target = f"{tmux_session_name}:session-{uuid.uuid4().hex[:6]}"
 
     session, window, created = _resolve_tmux_window(
         project,
@@ -1026,11 +1035,20 @@ def create_persistent_session(
     # Generate unique tmux_target if not provided
     if not tmux_target:
         if issue_id:
-            # Reusable window per issue (e.g., i713)
-            tmux_target = f"{tmux_session_name}:i{issue_id}"
+            # Window named after issue (e.g., #164-tmux-sessions)
+            from .models import ExternalIssue
+            issue = ExternalIssue.query.get(issue_id)
+            if issue:
+                ext_num = issue.external_id or issue_id
+                title_slug = (issue.title or "").lower().replace(" ", "-")[:30]
+                title_slug = "".join(c for c in title_slug if c.isalnum() or c == "-").strip("-")
+                window_name = f"#{ext_num}-{title_slug}" if title_slug else f"#{ext_num}"
+            else:
+                window_name = f"issue-{issue_id}"
+            tmux_target = f"{tmux_session_name}:{window_name}"
         else:
-            # Unique window per session (e.g., a1b2c3)
-            tmux_target = f"{tmux_session_name}:{uuid.uuid4().hex[:6]}"
+            # Generic session (e.g., session-a1b2c3)
+            tmux_target = f"{tmux_session_name}:session-{uuid.uuid4().hex[:6]}"
 
     # Ensure tmux window exists
     session, window, created = _resolve_tmux_window(

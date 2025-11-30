@@ -38,13 +38,21 @@ def _slugify(value: str) -> str:
 def _generate_tmux_target(session_name: str, project: Project, tool: str | None, issue_id: int | None) -> str:
     """Generate a tmux target for a project or issue.
 
-    - With issue_id: reusable window per issue (e.g., i713)
-    - Without issue_id: unique window per session (e.g., a1b2c3)
+    - With issue_id: window named after issue (e.g., #164-tmux-sessions)
+    - Without issue_id: generic session name (e.g., session-a1b2c3)
     """
     if issue_id:
-        window_name = f"i{issue_id}"
+        from ...models import ExternalIssue
+        issue = ExternalIssue.query.get(issue_id)
+        if issue:
+            # Use external issue number and slugified title
+            ext_num = issue.external_id or issue_id
+            title_slug = _slugify(issue.title or "")[:30]  # Limit length
+            window_name = f"#{ext_num}-{title_slug}" if title_slug else f"#{ext_num}"
+        else:
+            window_name = f"issue-{issue_id}"
     else:
-        window_name = uuid.uuid4().hex[:6]
+        window_name = f"session-{uuid.uuid4().hex[:6]}"
     return f"{session_name}:{window_name}"
 
 

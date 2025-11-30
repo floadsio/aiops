@@ -746,7 +746,7 @@ def create_session(
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
-        force_new=True,  # Always create a new unique window for each session
+        force_new=False,  # Reuse existing window for the same project
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")
@@ -754,9 +754,8 @@ def create_session(
     if pane is None:
         raise RuntimeError("Unable to access tmux pane for project window.")
 
-    # For per-user sessions, don't inject project SSH keys - let users use their own
-    # For system sessions (syseng), use project SSH keys
-    use_project_ssh_keys = linux_username_for_session is None
+    # Always inject project SSH keys for git operations
+    use_project_ssh_keys = True
 
     git_env = build_project_git_env(project)
     for key, value in git_env.items():
@@ -1029,7 +1028,7 @@ def create_persistent_session(
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
-        force_new=True,  # Always create a new unique window for each session
+        force_new=False,  # Reuse existing window for the same project
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")
@@ -1037,7 +1036,8 @@ def create_persistent_session(
     if pane is None:
         raise RuntimeError("Unable to access tmux pane for project window.")
 
-    use_project_ssh_keys = linux_username_for_session is None
+    # Always inject project SSH keys for git operations
+    use_project_ssh_keys = True
     git_env = build_project_git_env(project)
     ssh_command = git_env.get("GIT_SSH_COMMAND") if use_project_ssh_keys else None
 

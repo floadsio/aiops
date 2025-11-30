@@ -36,14 +36,14 @@ def _slugify(value: str) -> str:
 
 
 def _generate_tmux_target(session_name: str, project: Project, tool: str | None, issue_id: int | None) -> str:
-    base = _slugify(getattr(project, "name", "") or f"project-{getattr(project, 'id', '')}")
-    parts: list[str] = [base]
-    if issue_id:
-        parts.append(f"issue{issue_id}")
-    if tool:
-        parts.append(_slugify(tool))
-    parts.append(uuid.uuid4().hex[:6])
-    window_name = "-".join(part for part in parts if part)
+    """Generate a consistent tmux target for a project.
+
+    Uses project name and ID only, so sessions reuse the same window.
+    """
+    project_name = _slugify(getattr(project, "name", "") or "")
+    project_id = getattr(project, "id", None)
+    suffix = f"-p{project_id}" if project_id is not None else ""
+    window_name = f"{project_name}{suffix}" if project_name else f"project{suffix}"
     return f"{session_name}:{window_name}"
 
 

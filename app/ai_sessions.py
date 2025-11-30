@@ -430,14 +430,7 @@ def _resolve_tmux_window(
             user=user,
             force_new=should_force_new,
         )
-    try:
-        window.select_window()
-    except Exception:  # noqa: BLE001 - best effort
-        current_app.logger.debug(
-            "Unable to select tmux window %s:%s",
-            session.get("session_name"),
-            window.get("window_name"),
-        )
+    # Don't auto-select window - let user stay in their current window
     return session, window, created
 
 

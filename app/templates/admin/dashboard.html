@@ -1164,54 +1164,76 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
 <!-- Pinned Comments Section -->
 {% if pinned_comments %}
 <section class="dashboard-section pinned-comments-section">
-  <h2 class="pinned-issues-subtitle">
-    Pinned Comments
-    <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
-      <strong style="margin:0;font-size:1rem;">{{ pinned_comments|length }}</strong>
-    </span>
-  </h2>
-
-  <div class="pinned-comments-list">
-    {% for pinned in pinned_comments %}
-      {% set issue = pinned.issue %}
-      {% set project = pinned.project %}
-      {% set comment = pinned.comment %}
-      <article class="pinned-comment-row" data-comment-id="{{ pinned.comment_id }}" data-issue-id="{{ pinned.issue_id }}">
-        <div class="pinned-comment-header">
-          <a href="{{ url_for('admin.manage_issues', status='all') }}?issue_id={{ issue.id }}#comment-{{ pinned.comment_id }}" class="pinned-comment-issue-link">
-            {% if project %}{{ project.name }} &rsaquo;{% endif %} #{{ issue.external_id }}: {{ issue.title|truncate(50) }}
-          </a>
-          <span class="pinned-comment-meta">
-            {% if comment %}
-              <strong>{{ comment.author or 'Unknown' }}</strong>
-              &middot;
-              {{ comment.created_at[:10] if comment.created_at else 'Unknown date' }}
+  <header>
+    <div class="dashboard-section-heading">
+      <h2>
+        Pinned Comments
+        <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
+          <strong style="margin:0;font-size:1rem;">{{ pinned_comments|length }}</strong>
+        </span>
+      </h2>
+      <p class="pinned-issues-subtitle">Comments you've pinned for follow-up</p>
+    </div>
+  </header>
+  <div class="issue-list" style="margin-top:0;">
+    <button type="button" class="pinned-comments-group-header" data-collapsed="true">
+      <span class="tenant-group-toggle">▼</span>
+      <h3 class="tenant-group-title">Pinned Comments</h3>
+      <span class="tenant-group-count">({{ pinned_comments|length }} comment{{ 's' if pinned_comments|length != 1 else '' }})</span>
+    </button>
+    <div class="pinned-comments-group-content" data-collapsed="true">
+      {% for pinned in pinned_comments %}
+        {% set issue = pinned.issue %}
+        {% set project = pinned.project %}
+        {% set comment = pinned.comment %}
+        <article class="issue-row pinned-comment-row" data-comment-id="{{ pinned.comment_id }}" data-issue-id="{{ pinned.issue_id }}">
+          <div class="issue-row-header">
+            {% if project %}
+              <a href="{{ url_for('projects.project_detail', project_id=project.id) }}" class="issue-project-link">
+                {{ project.name }}
+              </a>
+              <span class="separator">·</span>
             {% endif %}
-          </span>
-        </div>
-        {% if comment %}
-          <div class="pinned-comment-body">
-            {{ (comment.body or '')|truncate(200) }}
+            <span class="issue-id">#{{ issue.external_id }}</span>
           </div>
-        {% else %}
-          <div class="pinned-comment-body text-muted">
-            <em>Comment no longer available</em>
+          <h3 class="issue-title">
+            <a href="{{ url_for('admin.manage_issues', status='all') }}?issue_id={{ issue.id }}#comment-{{ pinned.comment_id }}" class="issue-title-link">
+              {{ issue.title|truncate(50) }}
+            </a>
+          </h3>
+          <div class="pinned-comment-content">
+            <div class="pinned-comment-meta">
+              {% if comment %}
+                <strong>{{ comment.author or 'Unknown' }}</strong>
+                &middot;
+                {{ comment.created_at[:10] if comment.created_at else 'Unknown date' }}
+              {% endif %}
+            </div>
+            {% if comment %}
+              <div class="pinned-comment-body">
+                {{ (comment.body or '')|truncate(200) }}
+              </div>
+            {% else %}
+              <div class="pinned-comment-body text-muted">
+                <em>Comment no longer available</em>
+              </div>
+            {% endif %}
+            {% if pinned.note %}
+              <div class="pinned-comment-note">
+                <strong>Note:</strong> {{ pinned.note }}
+              </div>
+            {% endif %}
           </div>
-        {% endif %}
-        {% if pinned.note %}
-          <div class="pinned-comment-note">
-            <strong>Note:</strong> {{ pinned.note }}
+          <div class="issue-row-actions">
+            <button type="button" class="secondary outline unpin-comment-btn"
+                    data-issue-id="{{ pinned.issue_id }}"
+                    data-comment-id="{{ pinned.comment_id }}">
+              Unpin
+            </button>
           </div>
-        {% endif %}
-        <div class="pinned-comment-actions">
-          <button type="button" class="secondary outline unpin-comment-btn"
-                  data-issue-id="{{ pinned.issue_id }}"
-                  data-comment-id="{{ pinned.comment_id }}">
-            Unpin
-          </button>
-        </div>
-      </article>
-    {% endfor %}
+        </article>
+      {% endfor %}
+    </div>
   </div>
 </section>
 
@@ -1219,36 +1241,43 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
 .pinned-comments-section {
   margin-top: 1.5rem;
 }
-.pinned-comments-list {
+.pinned-comments-group-header {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.pinned-comment-row {
-  background: rgba(26, 29, 35, 0.5);
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: rgba(26, 29, 35, 0.3);
   border: 1px solid rgba(88, 166, 255, 0.15);
   border-radius: 8px;
-  padding: 0.75rem 1rem;
-}
-.pinned-comment-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  cursor: pointer;
+  text-align: left;
+  color: var(--pico-color);
   margin-bottom: 0.5rem;
 }
-.pinned-comment-issue-link {
-  color: var(--pico-primary);
-  text-decoration: none;
-  font-weight: 500;
+.pinned-comments-group-header:hover {
+  background: rgba(26, 29, 35, 0.5);
 }
-.pinned-comment-issue-link:hover {
-  text-decoration: underline;
+.pinned-comments-group-header[data-collapsed="true"] .tenant-group-toggle {
+  transform: rotate(-90deg);
+}
+.pinned-comments-group-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  max-height: 2000px;
+  opacity: 1;
+}
+.pinned-comments-group-content[data-collapsed="true"] {
+  max-height: 0;
+  opacity: 0;
+}
+.pinned-comment-content {
+  margin: 0.5rem 0;
 }
 .pinned-comment-meta {
   color: var(--pico-muted-color);
   font-size: 0.85rem;
+  margin-bottom: 0.25rem;
 }
 .pinned-comment-body {
   color: var(--pico-color);
@@ -1256,25 +1285,30 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
   line-height: 1.4;
   white-space: pre-wrap;
   word-break: break-word;
-  margin-bottom: 0.5rem;
 }
 .pinned-comment-note {
   background: rgba(88, 166, 255, 0.1);
   border-left: 3px solid var(--pico-primary);
   padding: 0.4rem 0.6rem;
   font-size: 0.85rem;
-  margin-bottom: 0.5rem;
-}
-.pinned-comment-actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-.pinned-comment-actions button {
-  padding: 0.3rem 0.6rem;
-  font-size: 0.8rem;
+  margin-top: 0.5rem;
 }
 </style>
+
+<script>
+// Handle pinned comments group collapse/expand
+document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
+  header.addEventListener('click', function(e) {
+    e.preventDefault();
+    const content = document.querySelector('.pinned-comments-group-content');
+    const isCollapsed = this.dataset.collapsed === 'true';
+
+    // Toggle the state
+    this.dataset.collapsed = !isCollapsed;
+    content.dataset.collapsed = !isCollapsed;
+  });
+});
+</script>
 {% endif %}
 
 <section class="dashboard-section">

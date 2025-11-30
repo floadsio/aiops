@@ -393,6 +393,7 @@ def _resolve_tmux_window(
     *,
     session_name: Optional[str] = None,
     linux_username: Optional[str] = None,
+    force_new: bool = False,
 ):
     window_name = None
     if tmux_target:
@@ -402,6 +403,10 @@ def _resolve_tmux_window(
         else:
             window_name = tmux_target
 
+    # If a specific tmux_target is provided, don't force new (user wants that specific window)
+    # Only force new when no target is specified (starting a fresh session)
+    should_force_new = force_new and not tmux_target
+
     try:
         session, window, created = ensure_project_window(
             project,
@@ -409,6 +414,7 @@ def _resolve_tmux_window(
             session_name=session_name,
             linux_username=linux_username,
             user=user,
+            force_new=should_force_new,
         )
     except ValueError as exc:
         current_app.logger.warning(
@@ -422,6 +428,7 @@ def _resolve_tmux_window(
             session_name=session_name,
             linux_username=linux_username,
             user=user,
+            force_new=should_force_new,
         )
     try:
         window.select_window()
@@ -450,7 +457,8 @@ def session_exists(tmux_target: str) -> bool:
 
     Args:
         tmux_target: The tmux target (session:window format or session name)
-                     Format is typically "username:window-name"
+                     Format is typically "username:window-name" for per-user sessions
+                     or "session:window" for system sessions
 
     Returns:
         True if the tmux session exists, False otherwise
@@ -458,13 +466,36 @@ def session_exists(tmux_target: str) -> bool:
     import subprocess
 
     try:
-        # Build tmux command - use default socket (TMUX_USE_DEFAULT_SOCKET=true)
-        # Sessions are now in the user's default tmux server
-        tmux_cmd = ["tmux"]
+        # Extract username from tmux_target if it's in "username:window" format
+        # Per-user sessions use the username as the tmux session name
+        linux_username = None
+        if ":" in tmux_target:
+            session_part = tmux_target.split(":")[0]
+            # Check if the session part looks like a username (not "aiops" or similar)
+            # Per-user sessions have format "username:project-window"
+            # System sessions have format "aiops:window"
+            if session_part != "aiops":
+                # Verify this is actually a valid Linux user
+                import pwd
+                try:
+                    pwd.getpwnam(session_part)
+                    linux_username = session_part
+                except KeyError:
+                    pass  # Not a valid user, treat as system session
 
-        # Use tmux has-session to check if target exists
+        # For per-user sessions, use sudo to check the user's tmux server
+        if linux_username:
+            from .services.sudo_service import run_as_user
+            result = run_as_user(
+                linux_username,
+                ["tmux", "has-session", "-t", tmux_target],
+                timeout=5.0,
+            )
+            return result.returncode == 0
+
+        # For system sessions, check directly
         result = subprocess.run(
-            tmux_cmd + ["has-session", "-t", tmux_target],
+            ["tmux", "has-session", "-t", tmux_target],
             capture_output=True,
             timeout=5,
         )
@@ -715,6 +746,7 @@ def create_session(
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
+        force_new=True,  # Always create a new unique window for each session
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")
@@ -997,6 +1029,7 @@ def create_persistent_session(
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
+        force_new=True,  # Always create a new unique window for each session
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")

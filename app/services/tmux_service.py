@@ -636,16 +636,27 @@ def ensure_project_window(
     session_name: Optional[str] = None,
     linux_username: Optional[str] = None,
     user: Optional[object] = None,
+    force_new: bool = False,
 ):
     session = _ensure_session(session_name=session_name, linux_username=linux_username)
     if session is None:
         raise TmuxServiceError("Unable to create shared tmux session.")
-    window_name = window_name or _project_window_name(project)
+    base_window_name = window_name or _project_window_name(project)
+    window_name = base_window_name
     created = False
-    window = next(
-        (item for item in session.windows if item.get("window_name") == window_name),
-        None,
-    )
+
+    # If force_new is True, always create a new window with a unique suffix
+    if force_new:
+        import uuid
+        suffix = uuid.uuid4().hex[:6]
+        window_name = f"{base_window_name}-{suffix}"
+        window = None  # Force creation
+    else:
+        window = next(
+            (item for item in session.windows if item.get("window_name") == window_name),
+            None,
+        )
+
     if window is None:
         # Use workspace path if user is provided, otherwise fall back to instance path
         start_directory = current_app.instance_path

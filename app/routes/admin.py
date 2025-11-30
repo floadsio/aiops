@@ -2827,7 +2827,7 @@ def manage_issues():
                 if project
                 else None,
                 "codex_target": url_for(
-                    "projects.project_ai_console", project_id=project.id
+                    "projects.project_ai_console", project_id=project.id, issue_id=issue.id
                 )
                 if project
                 else None,

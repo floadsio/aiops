@@ -1482,6 +1482,7 @@
               tool: data.tool || payload.tool,
               autoStart: true,
               tmuxTarget: data.tmux_target || null,
+              issueId: issueId,
             });
           })
           .catch(() => {
@@ -1491,6 +1492,7 @@
               tool: payload.tool,
               autoStart: payload.autoStart,
               tmuxTarget: payload.tmuxTarget || null,
+              issueId: issueId,
             });
           });
       });

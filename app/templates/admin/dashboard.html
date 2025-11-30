@@ -1211,7 +1211,7 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
             </div>
             {% if comment %}
               <div class="pinned-comment-body">
-                {{ (comment.body or '')|truncate(200) }}
+                {{ (comment.body or '')|render_issue_content|striptags|truncate(200) }}
               </div>
             {% else %}
               <div class="pinned-comment-body text-muted">

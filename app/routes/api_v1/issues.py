@@ -1288,3 +1288,148 @@ def remap_issue(issue_id: int):
         "issue": _issue_to_dict(issue),
         "message": f"Issue #{issue.external_id} remapped to project {target_project.name}"
     }), 200
+
+
+# --- Pinned Comments Endpoints ---
+
+@api_v1_bp.post("/issues/<int:issue_id>/comments/<comment_id>/pin")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def pin_comment(issue_id: int, comment_id: str):
+    """Pin a comment to the user's dashboard for follow-up.
+
+    Args:
+        issue_id: Issue ID
+        comment_id: Comment ID to pin
+
+    Request body (optional):
+        note (str): Optional reminder note
+
+    Returns:
+        201: Comment pinned successfully
+        400: Comment already pinned or invalid
+        404: Issue not found
+    """
+    from ...models import PinnedComment
+
+    issue = ExternalIssue.query.get_or_404(issue_id)
+    user = g.api_user
+
+    # Verify comment exists in issue
+    comments = issue.comments or []
+    comment_exists = any(str(c.get("id")) == str(comment_id) for c in comments)
+    if not comment_exists:
+        return jsonify({"error": f"Comment {comment_id} not found in issue"}), 404
+
+    # Check if already pinned
+    existing = PinnedComment.query.filter_by(
+        user_id=user.id, issue_id=issue_id, comment_id=str(comment_id)
+    ).first()
+    if existing:
+        return jsonify({"error": "Comment already pinned"}), 400
+
+    data = request.get_json(silent=True) or {}
+    note = (data.get("note") or "").strip()[:256] or None
+
+    pinned = PinnedComment(
+        user_id=user.id,
+        issue_id=issue_id,
+        comment_id=str(comment_id),
+        note=note,
+    )
+    db.session.add(pinned)
+    db.session.commit()
+
+    return jsonify({
+        "message": "Comment pinned successfully",
+        "pinned_comment": {
+            "id": pinned.id,
+            "issue_id": pinned.issue_id,
+            "comment_id": pinned.comment_id,
+            "pinned_at": _serialize_timestamp(pinned.pinned_at),
+            "note": pinned.note,
+        },
+    }), 201
+
+
+@api_v1_bp.delete("/issues/<int:issue_id>/comments/<comment_id>/pin")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def unpin_comment(issue_id: int, comment_id: str):
+    """Unpin a comment from the user's dashboard.
+
+    Args:
+        issue_id: Issue ID
+        comment_id: Comment ID to unpin
+
+    Returns:
+        200: Comment unpinned successfully
+        404: Pinned comment not found
+    """
+    from ...models import PinnedComment
+
+    user = g.api_user
+
+    pinned = PinnedComment.query.filter_by(
+        user_id=user.id, issue_id=issue_id, comment_id=str(comment_id)
+    ).first()
+    if not pinned:
+        return jsonify({"error": "Pinned comment not found"}), 404
+
+    db.session.delete(pinned)
+    db.session.commit()
+
+    return jsonify({"message": "Comment unpinned successfully"}), 200
+
+
+@api_v1_bp.get("/comments/pinned")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def list_pinned_comments():
+    """List all pinned comments for the authenticated user.
+
+    Query params:
+        limit (int): Maximum results (default 20, max 100)
+
+    Returns:
+        200: List of pinned comments
+    """
+    from ...models import PinnedComment
+
+    user = g.api_user
+    limit = min(int(request.args.get("limit", 20)), 100)
+
+    pinned_comments = (
+        PinnedComment.query.filter_by(user_id=user.id)
+        .options(selectinload(PinnedComment.issue))
+        .order_by(PinnedComment.pinned_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    result = []
+    for pinned in pinned_comments:
+        issue = pinned.issue
+        # Find the comment in the issue's comments
+        comment_data = None
+        for c in (issue.comments or []):
+            if str(c.get("id")) == str(pinned.comment_id):
+                comment_data = c
+                break
+
+        result.append({
+            "id": pinned.id,
+            "issue_id": pinned.issue_id,
+            "comment_id": pinned.comment_id,
+            "pinned_at": _serialize_timestamp(pinned.pinned_at),
+            "note": pinned.note,
+            "issue": {
+                "id": issue.id,
+                "external_id": issue.external_id,
+                "title": issue.title,
+                "status": issue.status,
+            },
+            "comment": comment_data,
+        })
+
+    return jsonify({"pinned_comments": result})

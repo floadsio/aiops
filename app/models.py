@@ -295,6 +295,31 @@ class PinnedIssue(BaseModel):
     issue: Mapped["ExternalIssue"] = relationship("ExternalIssue")
 
 
+class PinnedComment(BaseModel):
+    """Pinned comment for follow-up tracking on dashboard."""
+
+    __tablename__ = "pinned_comments"
+    __table_args__ = (
+        UniqueConstraint("user_id", "issue_id", "comment_id", name="uq_user_issue_comment"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    issue_id: Mapped[int] = mapped_column(
+        ForeignKey("external_issues.id", ondelete="CASCADE"), nullable=False
+    )
+    comment_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    pinned_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )
+    note: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+
+    user: Mapped["User"] = relationship("User")
+    issue: Mapped["ExternalIssue"] = relationship("ExternalIssue")
+
+
 class UserIntegrationCredential(BaseModel, TimestampMixin):
     """User-specific credentials for issue integrations.
 

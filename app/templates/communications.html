@@ -1302,6 +1302,9 @@ function renderThread(thread) {
           <button onclick="toggleCommentReplyForm(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;">
             Reply
           </button>
+          <button onclick="pinComment(event, ${thread.issue_id}, '${comment.id}')" class="pin-comment-btn" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;">
+            📌 Pin
+          </button>
         </div>
         <!-- Reply form for this comment -->
         <div class="comment-reply-form collapsed" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(26, 29, 35, 0.05); border-radius: 0.3rem; display: none;" data-theme-dark-bg="rgba(26, 29, 35, 0.15)">
@@ -1653,6 +1656,44 @@ function updateProjectsForTenant() {
 
   // Reset project selection
   projectSelect.value = '';
+}
+
+// Pin a comment to dashboard
+async function pinComment(event, issueId, commentId) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const button = event.currentTarget;
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+  try {
+    const response = await fetch(`/api/v1/issues/${issueId}/comments/${commentId}/pin`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify({}),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      button.textContent = '✓ Pinned';
+      button.disabled = true;
+      button.style.color = '#22c55e';
+      setTimeout(() => {
+        button.textContent = '📌 Pin';
+        button.disabled = false;
+        button.style.color = '';
+      }, 2000);
+    } else {
+      alert(data.error || 'Failed to pin comment');
+    }
+  } catch (err) {
+    console.error('Pin comment error:', err);
+    alert('Failed to pin comment');
+  }
 }
 
 // Toggle comment reply form (Reddit-style per-comment replies)

@@ -1059,7 +1059,7 @@
           <span class="issue-id">#{{ issue.external_id }} <span class="text-muted" style="font-size: 0.85rem;">(DB: {{ issue.id }})</span></span>
         </div>
         <h3 class="issue-title">
-          <a href="{{ url_for('admin.manage_issues') }}?issue_id={{ issue.id }}" class="issue-title-link">
+          <a href="{{ url_for('admin.manage_issues', status='all') }}?issue_id={{ issue.id }}" class="issue-title-link">
             {{ issue.title }}
           </a>
         </h3>
@@ -1159,6 +1159,122 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
 });
 </script>
 
+{% endif %}
+
+<!-- Pinned Comments Section -->
+{% if pinned_comments %}
+<section class="dashboard-section pinned-comments-section">
+  <h2 class="pinned-issues-subtitle">
+    Pinned Comments
+    <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
+      <strong style="margin:0;font-size:1rem;">{{ pinned_comments|length }}</strong>
+    </span>
+  </h2>
+
+  <div class="pinned-comments-list">
+    {% for pinned in pinned_comments %}
+      {% set issue = pinned.issue %}
+      {% set project = pinned.project %}
+      {% set comment = pinned.comment %}
+      <article class="pinned-comment-row" data-comment-id="{{ pinned.comment_id }}" data-issue-id="{{ pinned.issue_id }}">
+        <div class="pinned-comment-header">
+          <a href="{{ url_for('admin.manage_issues', status='all') }}?issue_id={{ issue.id }}#comment-{{ pinned.comment_id }}" class="pinned-comment-issue-link">
+            {% if project %}{{ project.name }} &rsaquo;{% endif %} #{{ issue.external_id }}: {{ issue.title|truncate(50) }}
+          </a>
+          <span class="pinned-comment-meta">
+            {% if comment %}
+              <strong>{{ comment.author or 'Unknown' }}</strong>
+              &middot;
+              {{ comment.created_at[:10] if comment.created_at else 'Unknown date' }}
+            {% endif %}
+          </span>
+        </div>
+        {% if comment %}
+          <div class="pinned-comment-body">
+            {{ (comment.body or '')|truncate(200) }}
+          </div>
+        {% else %}
+          <div class="pinned-comment-body text-muted">
+            <em>Comment no longer available</em>
+          </div>
+        {% endif %}
+        {% if pinned.note %}
+          <div class="pinned-comment-note">
+            <strong>Note:</strong> {{ pinned.note }}
+          </div>
+        {% endif %}
+        <div class="pinned-comment-actions">
+          <button type="button" class="secondary outline unpin-comment-btn"
+                  data-issue-id="{{ pinned.issue_id }}"
+                  data-comment-id="{{ pinned.comment_id }}">
+            Unpin
+          </button>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+
+<style>
+.pinned-comments-section {
+  margin-top: 1.5rem;
+}
+.pinned-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.pinned-comment-row {
+  background: rgba(26, 29, 35, 0.5);
+  border: 1px solid rgba(88, 166, 255, 0.15);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+.pinned-comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.pinned-comment-issue-link {
+  color: var(--pico-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+.pinned-comment-issue-link:hover {
+  text-decoration: underline;
+}
+.pinned-comment-meta {
+  color: var(--pico-muted-color);
+  font-size: 0.85rem;
+}
+.pinned-comment-body {
+  color: var(--pico-color);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 0.5rem;
+}
+.pinned-comment-note {
+  background: rgba(88, 166, 255, 0.1);
+  border-left: 3px solid var(--pico-primary);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+.pinned-comment-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.pinned-comment-actions button {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+</style>
 {% endif %}
 
 <section class="dashboard-section">
@@ -1910,6 +2026,70 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
           button.disabled = false;
           button.textContent = originalLabel;
         });
+      });
+    });
+  })();
+
+  // Unpin comment handler
+  (function() {
+    const unpinButtons = document.querySelectorAll('.unpin-comment-btn');
+    if (!unpinButtons.length) return;
+
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
+    unpinButtons.forEach(button => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const issueId = button.dataset.issueId;
+        const commentId = button.dataset.commentId;
+
+        if (!confirm('Unpin this comment from your dashboard?')) {
+          return;
+        }
+
+        button.disabled = true;
+        const originalLabel = button.textContent;
+        button.textContent = 'Unpinning...';
+
+        try {
+          const response = await fetch(`/api/v1/issues/${issueId}/comments/${commentId}/pin`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfToken,
+            },
+          });
+
+          if (response.ok) {
+            // Remove the pinned comment row
+            const row = button.closest('.pinned-comment-row');
+            if (row) {
+              row.style.transition = 'opacity 0.3s, transform 0.3s';
+              row.style.opacity = '0';
+              row.style.transform = 'translateX(-20px)';
+              setTimeout(() => {
+                row.remove();
+                // Check if there are any remaining pinned comments
+                const remainingComments = document.querySelectorAll('.pinned-comment-row').length;
+                if (remainingComments === 0) {
+                  const section = document.querySelector('.pinned-comments-section');
+                  if (section) section.remove();
+                }
+              }, 300);
+            }
+          } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to unpin comment');
+            button.disabled = false;
+            button.textContent = originalLabel;
+          }
+        } catch (err) {
+          console.error('Unpin error:', err);
+          alert('Failed to unpin comment');
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
       });
     });
   })();

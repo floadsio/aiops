@@ -958,7 +958,7 @@ def dashboard():
     pending_tasks = sum(p for p in [0])  # placeholder for task count
     prune_tmux_tools(tracked_tmux_targets)
 
-    from ..models import PinnedIssue
+    from ..models import PinnedIssue, PinnedComment
 
     pinned_issues = (
         PinnedIssue.query.filter_by(user_id=_current_user_obj().id)
@@ -986,6 +986,41 @@ def dashboard():
     # Convert to sorted list of (tenant_name, issues) tuples
     pinned_issues_grouped = sorted(pinned_by_tenant.items())
 
+    # Load pinned comments for dashboard
+    pinned_comments_raw = (
+        PinnedComment.query.filter_by(user_id=_current_user_obj().id)
+        .join(ExternalIssue)
+        .options(
+            selectinload(PinnedComment.issue)
+            .selectinload(ExternalIssue.project_integration)
+            .selectinload(ProjectIntegration.project)
+        )
+        .order_by(PinnedComment.pinned_at.desc())
+        .limit(10)
+        .all()
+    )
+
+    # Enrich pinned comments with actual comment data
+    pinned_comments = []
+    for pinned in pinned_comments_raw:
+        issue = pinned.issue
+        comment_data = None
+        for c in (issue.comments or []):
+            if str(c.get("id")) == str(pinned.comment_id):
+                comment_data = c
+                break
+        project = issue.project_integration.project if issue.project_integration else None
+        pinned_comments.append({
+            "id": pinned.id,
+            "issue_id": pinned.issue_id,
+            "comment_id": pinned.comment_id,
+            "pinned_at": pinned.pinned_at,
+            "note": pinned.note,
+            "issue": issue,
+            "project": project,
+            "comment": comment_data,
+        })
+
     return render_template(
         "admin/dashboard.html",
         tenants=tenants,
@@ -1006,6 +1041,7 @@ def dashboard():
         tenant_filter_value=tenant_filter_raw,
         pinned_issues=pinned_issues,
         pinned_issues_grouped=pinned_issues_grouped,
+        pinned_comments=pinned_comments,
     )
 
 
@@ -2283,8 +2319,6 @@ def manage_tenants():
 def create_assisted_issue():
     """Create an issue with AI assistance (Step 1: Generate preview)."""
     import json
-    import uuid
-    from flask import session as flask_session
     from ..forms.admin import AIAssistedIssueForm
     from ..models import ProjectIntegration
     from ..services.ai_issue_generator import (
@@ -2422,7 +2456,6 @@ def create_assisted_issue():
 @admin_required
 def confirm_assisted_issue():
     """Create an issue with AI assistance (Step 2: Confirm and create)."""
-    from flask import session as flask_session
     from ..models import ProjectIntegration, ExternalIssue
     from ..services.issues import (
         create_issue_for_project_integration,
@@ -4307,7 +4340,7 @@ def initialize_yadm_web():
     Returns:
         JSON response with status, message, and paths
     """
-    from ..models import User, Project
+    from ..models import Project
     from ..services.yadm_service import initialize_yadm_for_user, YadmServiceError
 
     try:
@@ -4342,7 +4375,7 @@ def initialize_yadm_web():
             tenant_ids = [p.tenant_id for p in user_projects]
             return jsonify({
                 "status": "failed",
-                "message": f"No dotfiles project found in any of your tenants"
+                "message": "No dotfiles project found in any of your tenants"
             }), 400
 
         # Initialize yadm for the user

@@ -1160,11 +1160,18 @@
             <div class="issue-comments" style="margin-top: 1rem;">
               <strong>Comments ({{ issue.comment_count }})</strong>
               {% for comment in issue.comments %}
-                <div class="issue-comment" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.4rem;">
-                  <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem;">
-                    <strong>{{ comment.author or 'Unknown' }}</strong>
-                    {% if comment.created_display %} · {{ comment.created_display }}{% endif %}
-                    {% if comment.url %} · <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>{% endif %}
+                <div class="issue-comment" id="comment-{{ comment.id }}" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.4rem;">
+                  <div style="font-size: 0.85rem; color: #64748b; margin-bottom: 0.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.25rem;">
+                    <span>
+                      <strong>{{ comment.author or 'Unknown' }}</strong>
+                      {% if comment.created_display %} · {{ comment.created_display }}{% endif %}
+                      {% if comment.url %} · <a href="{{ comment.url }}" target="_blank" rel="noopener">View</a>{% endif %}
+                    </span>
+                    <button type="button" class="pin-comment-btn tertiary outline" style="padding: 0.15rem 0.4rem; font-size: 0.75rem;"
+                            data-issue-id="{{ issue.id }}"
+                            data-comment-id="{{ comment.id }}">
+                      📌 Pin
+                    </button>
                   </div>
                   <div class="comment-body">
                     {% if comment.body_html %}
@@ -1315,9 +1322,67 @@
         // Scroll to the issue with smooth behavior
         setTimeout(() => {
           targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // After expanding, check for comment hash and scroll to it
+          if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+            const commentId = window.location.hash.substring(1);
+            const commentElement = document.getElementById(commentId);
+            if (commentElement) {
+              setTimeout(() => {
+                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Add highlight effect
+                commentElement.style.transition = 'background-color 0.3s';
+                commentElement.style.backgroundColor = 'rgba(88, 166, 255, 0.2)';
+                setTimeout(() => {
+                  commentElement.style.backgroundColor = '';
+                }, 3000);
+              }, 200);
+            }
+          }
         }, 100);
       }
     }
+
+    // Pin comment button handler
+    document.querySelectorAll('.pin-comment-btn').forEach(button => {
+      button.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const issueId = button.dataset.issueId;
+        const commentId = button.dataset.commentId;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+        try {
+          const response = await fetch(`/api/v1/issues/${issueId}/comments/${commentId}/pin`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfToken,
+            },
+            body: JSON.stringify({}),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            button.textContent = '✓ Pinned';
+            button.disabled = true;
+            button.style.color = '#22c55e';
+            setTimeout(() => {
+              button.textContent = '📌 Pin';
+              button.disabled = false;
+              button.style.color = '';
+            }, 2000);
+          } else {
+            alert(data.error || 'Failed to pin comment');
+          }
+        } catch (err) {
+          console.error('Pin comment error:', err);
+          alert('Failed to pin comment');
+        }
+      });
+    });
 
     const codexButtons = document.querySelectorAll('.issues-start-codex');
     const populateButtons = document.querySelectorAll('.issues-populate-agents');

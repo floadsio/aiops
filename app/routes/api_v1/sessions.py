@@ -36,10 +36,10 @@ def _slugify(value: str) -> str:
 
 
 def _generate_tmux_target(session_name: str, project: Project, tool: str | None, issue_id: int | None) -> str:
-    """Generate a consistent tmux target for a project or issue.
+    """Generate a tmux target for a project or issue.
 
-    - With issue_id: creates window per issue (e.g., aiops-p6-i713)
-    - Without issue_id: creates single window per project (e.g., aiops-p6)
+    - With issue_id: reusable window per issue (e.g., aiops-p6-i713)
+    - Without issue_id: unique window per session (e.g., aiops-p6-a1b2c3)
     """
     project_name = _slugify(getattr(project, "name", "") or "")
     project_id = getattr(project, "id", None)
@@ -47,6 +47,9 @@ def _generate_tmux_target(session_name: str, project: Project, tool: str | None,
     window_name = f"{project_name}{suffix}" if project_name else f"project{suffix}"
     if issue_id:
         window_name = f"{window_name}-i{issue_id}"
+    else:
+        # No issue - create unique window for each session
+        window_name = f"{window_name}-{uuid.uuid4().hex[:6]}"
     return f"{session_name}:{window_name}"
 
 

@@ -146,12 +146,43 @@ def _get_socket_path(linux_username: str) -> Optional[str]:
     return f"{TMUX_SOCKET_DIR}/{linux_username}.sock"
 
 
+def _run_tmux_as_user(
+    linux_username: str, tmux_args: List[str], timeout: float = 5.0
+) -> subprocess.CompletedProcess:
+    """Run a tmux command as a specific user.
+
+    Used when TMUX_USE_DEFAULT_SOCKET is True and we need to interact with
+    another user's tmux server. The socket is in /tmp/tmux-{uid}/ and only
+    accessible by that user.
+
+    Args:
+        linux_username: Linux username to run command as
+        tmux_args: Arguments to pass to tmux (e.g., ["list-sessions"])
+        timeout: Command timeout in seconds
+
+    Returns:
+        CompletedProcess result
+
+    Raises:
+        TmuxServiceError: If the command fails
+    """
+    from .sudo_service import run_as_user
+
+    cmd = ["tmux"] + tmux_args
+    try:
+        return run_as_user(linux_username, cmd, timeout=timeout)
+    except Exception as exc:
+        raise TmuxServiceError(f"tmux command failed for user {linux_username}: {exc}") from exc
+
+
 def _get_server(linux_username: Optional[str] = None):
     """Get tmux server for a specific Linux user.
 
     When TMUX_USE_DEFAULT_SOCKET is True (default):
         Uses the user's default tmux server (visible in `tmux ls`).
-        Must run tmux commands as target user via sudo.
+        NOTE: When linux_username differs from current user, libtmux cannot
+        directly access the user's socket. Use _run_tmux_as_user() for operations
+        that need to interact with another user's tmux server.
 
     When TMUX_USE_DEFAULT_SOCKET is False:
         Each user has their own tmux server with socket in shared directory.
@@ -175,8 +206,17 @@ def _get_server(linux_username: Optional[str] = None):
                 # Use custom socket path for legacy mode
                 return libtmux.Server(socket_path=socket)
             else:
-                # Default socket mode - use user's default tmux server
-                # libtmux will connect to default socket
+                # Default socket mode - we can only use libtmux for current user
+                # For other users, operations must use _run_tmux_as_user()
+                current_user = os.environ.get("USER", "")
+                if current_user and current_user != linux_username:
+                    # Return a dummy server - callers should use _run_tmux_as_user() instead
+                    # We still need to return something for backward compatibility
+                    current_app.logger.debug(
+                        "libtmux Server for user %s requested by %s - use _run_tmux_as_user() for operations",
+                        linux_username,
+                        current_user,
+                    )
                 return libtmux.Server()
         else:
             # Fallback to default server for syseng/system operations
@@ -315,37 +355,278 @@ def _ensure_session(
     create: bool = True,
     linux_username: Optional[str] = None,
 ):
+    """Ensure a tmux session exists, optionally creating it.
+
+    When linux_username is provided and using default sockets, this function
+    uses subprocess calls via sudo to interact with the user's tmux server.
+    """
     # Ensure user's tmux server is running before trying to connect
     if linux_username:
         _ensure_server_running(linux_username)
 
-    server = _get_server(linux_username=linux_username)
     resolved_name = _normalize_session_name(session_name)
-    session = next(
-        (item for item in server.sessions if item.get("session_name") == resolved_name),
-        None,
+
+    # Check if we're running as a different user than the target in default socket mode
+    current_user = os.environ.get("USER", "")
+    use_subprocess = (
+        linux_username
+        and _use_default_socket()
+        and current_user
+        and current_user != linux_username
     )
-    if session is None and create:
-        start_directory = current_app.config.get("TMUX_SHARED_SESSION_DIR")
-        if not start_directory:
-            start_directory = current_app.instance_path
+
+    if use_subprocess:
+        # Use subprocess to interact with user's tmux server
+        # Check if session exists
         try:
-            session = server.new_session(
-                session_name=resolved_name,
-                start_directory=start_directory,
-                attach=False,
+            result = _run_tmux_as_user(
+                linux_username,
+                ["has-session", "-t", resolved_name],
+                timeout=5.0,
             )
-        except Exception as exc:
+            session_exists = result.returncode == 0
+        except TmuxServiceError:
+            session_exists = False
+
+        if not session_exists and create:
+            # Create the session
+            start_directory = current_app.config.get("TMUX_SHARED_SESSION_DIR")
+            if not start_directory:
+                start_directory = current_app.instance_path
+            try:
+                _run_tmux_as_user(
+                    linux_username,
+                    ["new-session", "-d", "-s", resolved_name, "-c", start_directory],
+                    timeout=10.0,
+                )
+                # Disable mouse for cleaner operation
+                try:
+                    _run_tmux_as_user(
+                        linux_username,
+                        ["set-option", "-t", resolved_name, "mouse", "off"],
+                        timeout=5.0,
+                    )
+                except TmuxServiceError:
+                    pass  # Best effort
+            except TmuxServiceError as exc:
+                raise TmuxServiceError(
+                    f"Unable to create tmux session {resolved_name!r}: {exc}"
+                ) from exc
+            session_exists = True
+
+        if session_exists:
+            # Return a proxy object that has the methods we need
+            return _TmuxSessionProxy(resolved_name, linux_username)
+        return None
+    else:
+        # Use libtmux for same-user or legacy mode
+        server = _get_server(linux_username=linux_username)
+        session = next(
+            (item for item in server.sessions if item.get("session_name") == resolved_name),
+            None,
+        )
+        if session is None and create:
+            start_directory = current_app.config.get("TMUX_SHARED_SESSION_DIR")
+            if not start_directory:
+                start_directory = current_app.instance_path
+            try:
+                session = server.new_session(
+                    session_name=resolved_name,
+                    start_directory=start_directory,
+                    attach=False,
+                )
+            except Exception as exc:
+                raise TmuxServiceError(
+                    f"Unable to create tmux session {resolved_name!r}: {exc}"
+                ) from exc
+            try:
+                session.set_option("mouse", "off")
+            except Exception:  # noqa: BLE001 - best effort
+                current_app.logger.debug(
+                    "Unable to set tmux session options for %s", resolved_name
+                )
+        return session
+
+
+class _TmuxSessionProxy:
+    """Proxy for tmux session operations when using subprocess for other users."""
+
+    def __init__(self, session_name: str, linux_username: str):
+        self._session_name = session_name
+        self._linux_username = linux_username
+        self._windows_cache: Optional[List["_TmuxWindowProxy"]] = None
+
+    def get(self, key: str, default=None):
+        if key == "session_name":
+            return self._session_name
+        return default
+
+    @property
+    def windows(self) -> List["_TmuxWindowProxy"]:
+        """List windows in this session."""
+        if self._windows_cache is not None:
+            return self._windows_cache
+
+        try:
+            result = _run_tmux_as_user(
+                self._linux_username,
+                ["list-windows", "-t", self._session_name, "-F", "#{window_name}:#{window_id}:#{pane_id}"],
+                timeout=5.0,
+            )
+            windows = []
+            for line in result.stdout.strip().split("\n"):
+                if line:
+                    parts = line.split(":")
+                    if len(parts) >= 3:
+                        window_name = parts[0]
+                        window_id = parts[1]
+                        pane_id = parts[2]
+                        windows.append(
+                            _TmuxWindowProxy(
+                                self._session_name,
+                                window_name,
+                                window_id,
+                                pane_id,
+                                self._linux_username,
+                            )
+                        )
+            self._windows_cache = windows
+            return windows
+        except TmuxServiceError:
+            return []
+
+    def new_window(
+        self,
+        window_name: Optional[str] = None,
+        attach: bool = False,
+        start_directory: Optional[str] = None,
+    ) -> "_TmuxWindowProxy":
+        """Create a new window in this session."""
+        cmd = ["new-window", "-t", self._session_name]
+        if window_name:
+            cmd.extend(["-n", window_name])
+        if not attach:
+            cmd.append("-d")
+        if start_directory:
+            cmd.extend(["-c", start_directory])
+
+        try:
+            _run_tmux_as_user(self._linux_username, cmd, timeout=10.0)
+            # Invalidate cache
+            self._windows_cache = None
+            # Get the window info
+            result = _run_tmux_as_user(
+                self._linux_username,
+                ["list-windows", "-t", self._session_name, "-F", "#{window_name}:#{window_id}:#{pane_id}"],
+                timeout=5.0,
+            )
+            for line in result.stdout.strip().split("\n"):
+                if line:
+                    parts = line.split(":")
+                    if len(parts) >= 3 and parts[0] == window_name:
+                        return _TmuxWindowProxy(
+                            self._session_name,
+                            parts[0],
+                            parts[1],
+                            parts[2],
+                            self._linux_username,
+                        )
+            # If we can't find by name, return the last window
+            if result.stdout.strip():
+                lines = result.stdout.strip().split("\n")
+                last_line = lines[-1]
+                parts = last_line.split(":")
+                if len(parts) >= 3:
+                    return _TmuxWindowProxy(
+                        self._session_name,
+                        parts[0],
+                        parts[1],
+                        parts[2],
+                        self._linux_username,
+                    )
+        except TmuxServiceError as exc:
             raise TmuxServiceError(
-                f"Unable to create tmux session {resolved_name!r}: {exc}"
+                f"Unable to create window {window_name!r}: {exc}"
             ) from exc
+
+        raise TmuxServiceError(f"Unable to create window {window_name!r}")
+
+
+class _TmuxWindowProxy:
+    """Proxy for tmux window operations when using subprocess for other users."""
+
+    def __init__(
+        self,
+        session_name: str,
+        window_name: str,
+        window_id: str,
+        pane_id: str,
+        linux_username: str,
+    ):
+        self._session_name = session_name
+        self._window_name = window_name
+        self._window_id = window_id
+        self._pane_id = pane_id
+        self._linux_username = linux_username
+
+    def get(self, key: str, default=None):
+        if key == "window_name":
+            return self._window_name
+        if key == "window_id":
+            return self._window_id
+        return default
+
+    @property
+    def panes(self) -> List["_TmuxPaneProxy"]:
+        """List panes in this window."""
+        return [_TmuxPaneProxy(self._target, self._pane_id, self._linux_username)]
+
+    @property
+    def attached_pane(self) -> Optional["_TmuxPaneProxy"]:
+        """Get the active pane."""
+        return _TmuxPaneProxy(self._target, self._pane_id, self._linux_username)
+
+    @property
+    def _target(self) -> str:
+        return f"{self._session_name}:{self._window_name}"
+
+    def select_window(self) -> None:
+        """Select this window."""
         try:
-            session.set_option("mouse", "off")
-        except Exception:  # noqa: BLE001 - best effort
-            current_app.logger.debug(
-                "Unable to set tmux session options for %s", resolved_name
+            _run_tmux_as_user(
+                self._linux_username,
+                ["select-window", "-t", self._target],
+                timeout=5.0,
             )
-    return session
+        except TmuxServiceError:
+            pass  # Best effort
+
+    def kill_window(self) -> None:
+        """Kill this window."""
+        _run_tmux_as_user(
+            self._linux_username,
+            ["kill-window", "-t", self._target],
+            timeout=5.0,
+        )
+
+
+class _TmuxPaneProxy:
+    """Proxy for tmux pane operations when using subprocess for other users."""
+
+    def __init__(self, target: str, pane_id: str, linux_username: str):
+        self._target = target
+        self._pane_id = pane_id
+        self._linux_username = linux_username
+
+    def send_keys(self, keys: str, enter: bool = True) -> None:
+        """Send keys to this pane."""
+        cmd = ["send-keys", "-t", self._target, keys]
+        if enter:
+            cmd.append("Enter")
+        try:
+            _run_tmux_as_user(self._linux_username, cmd, timeout=5.0)
+        except TmuxServiceError as exc:
+            current_app.logger.warning("Failed to send keys to %s: %s", self._target, exc)
 
 
 def ensure_project_window(
@@ -397,7 +678,11 @@ def ensure_project_window(
 
 def _window_info(session, window) -> TmuxWindow:
     window_name = window.get("window_name")
-    panes = len(window.panes)
+    # Handle both libtmux Window objects and our proxy
+    if hasattr(window, "panes"):
+        panes = len(window.panes)
+    else:
+        panes = 1
     created_raw = window.get("window_created")
     created: Optional[datetime] = None
     if created_raw:
@@ -574,25 +859,45 @@ def close_tmux_target(target: str, *, linux_username: Optional[str] = None) -> N
     if not target or ":" not in target:
         raise TmuxServiceError("Invalid tmux target.")
     session_name, _, window_name = target.partition(":")
-    server = _get_server(linux_username=linux_username)
-    session = next(
-        (item for item in server.sessions if item.get("session_name") == session_name),
-        None,
+
+    # Check if we need to use subprocess for another user
+    current_user = os.environ.get("USER", "")
+    use_subprocess = (
+        linux_username
+        and _use_default_socket()
+        and current_user
+        and current_user != linux_username
     )
-    if session is None:
-        raise TmuxServiceError(f"Session {session_name!r} not found.")
-    window = next(
-        (item for item in session.windows if item.get("window_name") == window_name),
-        None,
-    )
-    if window is None:
-        raise TmuxServiceError(
-            f"Window {window_name!r} not found in session {session_name!r}."
+
+    if use_subprocess:
+        try:
+            _run_tmux_as_user(
+                linux_username,
+                ["kill-window", "-t", target],
+                timeout=5.0,
+            )
+        except TmuxServiceError as exc:
+            raise TmuxServiceError(f"Unable to close tmux window {target}: {exc}") from exc
+    else:
+        server = _get_server(linux_username=linux_username)
+        session = next(
+            (item for item in server.sessions if item.get("session_name") == session_name),
+            None,
         )
-    try:
-        window.kill_window()
-    except Exception as exc:  # noqa: BLE001 - best effort
-        raise TmuxServiceError(f"Unable to close tmux window {target}: {exc}") from exc
+        if session is None:
+            raise TmuxServiceError(f"Session {session_name!r} not found.")
+        window = next(
+            (item for item in session.windows if item.get("window_name") == window_name),
+            None,
+        )
+        if window is None:
+            raise TmuxServiceError(
+                f"Window {window_name!r} not found in session {session_name!r}."
+            )
+        try:
+            window.kill_window()
+        except Exception as exc:  # noqa: BLE001 - best effort
+            raise TmuxServiceError(f"Unable to close tmux window {target}: {exc}") from exc
 
 
 def is_pane_dead(target: str, linux_username: str | None = None) -> bool:
@@ -605,6 +910,28 @@ def is_pane_dead(target: str, linux_username: str | None = None) -> bool:
     Returns:
         True if the pane is dead, False if it's alive or doesn't exist
     """
+    # Check if we need to use subprocess for another user
+    current_user = os.environ.get("USER", "")
+    use_subprocess = (
+        linux_username
+        and _use_default_socket()
+        and current_user
+        and current_user != linux_username
+    )
+
+    if use_subprocess:
+        try:
+            result = _run_tmux_as_user(
+                linux_username,
+                ["list-panes", "-t", target, "-F", "#{pane_dead}"],
+                timeout=5.0,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip() == "1"
+        except TmuxServiceError:
+            pass
+        return False
+
     # Use socket path for per-user servers (only if not using default socket)
     cmd = ["tmux"]
     if linux_username:
@@ -644,6 +971,26 @@ def respawn_pane(
     Raises:
         TmuxServiceError: If respawn fails
     """
+    # Check if we need to use subprocess for another user
+    current_user = os.environ.get("USER", "")
+    use_subprocess = (
+        linux_username
+        and _use_default_socket()
+        and current_user
+        and current_user != linux_username
+    )
+
+    if use_subprocess:
+        tmux_args = ["respawn-pane", "-k", "-t", target]
+        if command:
+            tmux_args.append(command)
+        try:
+            _run_tmux_as_user(linux_username, tmux_args, timeout=10.0)
+            current_app.logger.info("Respawned pane %s", target)
+        except TmuxServiceError as exc:
+            raise TmuxServiceError(f"Failed to respawn pane {target}: {exc}") from exc
+        return
+
     # Use socket path for per-user servers (only if not using default socket)
     cmd = ["tmux"]
     if linux_username:

@@ -1060,24 +1060,49 @@ def create_persistent_session(
 
     if should_bootstrap:
         if linux_username_for_session and linux_username_for_session != "syseng":
-            # Per-user sessions run in user's tmux server - no sudo needed
-            is_plain_shell = command_str.strip() in ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
+            # Per-user sessions: write setup to temp script to avoid command display
+            # This prevents the long command chain from being visible in the terminal
+            plain_shells = ("/bin/bash", "/bin/zsh", "/bin/sh", "bash", "zsh", "sh")
+            is_plain_shell = command_str.strip() in plain_shells
 
-            setup_commands = []
-            setup_commands.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
+            # Create temp script directory
+            script_dir = Path("/tmp/aiops-sessions")
+            script_dir.mkdir(parents=True, exist_ok=True)
+            script_path = script_dir / f"setup-{session_id}.sh"
+
+            # Build script content
+            script_lines = ["#!/bin/bash"]
+            script_lines.append(f"cd {shlex.quote(start_dir)} 2>/dev/null || true")
             if ssh_command:
-                setup_commands.append(f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}")
-            for export_cmd in git_author_exports + codex_env_exports + claude_env_exports + aiops_env_exports:
-                setup_commands.append(export_cmd)
-            setup_commands.append("clear")
+                ssh_export = f"export GIT_SSH_COMMAND={shlex.quote(ssh_command)}"
+                script_lines.append(ssh_export)
+            all_exports = (
+                git_author_exports + codex_env_exports +
+                claude_env_exports + aiops_env_exports
+            )
+            for export_cmd in all_exports:
+                script_lines.append(export_cmd)
+            script_lines.append("clear")
+            script_lines.append(f'rm -f "{script_path}"')  # Self-delete
 
             if is_plain_shell:
-                setup_commands.append(f"exec {command_str}")
+                script_lines.append(f"exec {command_str}")
             else:
-                setup_commands.append(command_str)
+                script_lines.append(f"exec {command_str}")
 
-            # Send directly without sudo since session runs as user
-            final_command = " && ".join(setup_commands)
+            # Write script with proper ownership
+            script_path.write_text("\n".join(script_lines) + "\n")
+            script_path.chmod(0o755)
+
+            # Make script owned by target user so they can execute it
+            import pwd
+            try:
+                pw = pwd.getpwnam(linux_username_for_session)
+                os.chown(script_path, pw.pw_uid, pw.pw_gid)
+            except (KeyError, OSError):
+                pass
+
+            final_command = f"bash {shlex.quote(str(script_path))}"
         else:
             # Running as syseng
             if ssh_command:

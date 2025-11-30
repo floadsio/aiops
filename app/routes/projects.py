@@ -858,11 +858,7 @@ def prepare_issue_context(project_id: int, issue_id: int):
             "command": command,
             "tool": selected_tool or "",
             "agent_path": str(agents_path) if agents_path else None,
-            "tmux_target": get_or_create_window_for_project(
-                project,
-                session_name=tmux_session_name,
-                linux_username=linux_username,
-            ).target,
+            "tmux_target": None,  # Let session creation generate the window name
         }
     )
 

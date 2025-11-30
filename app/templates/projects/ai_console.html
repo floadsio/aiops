@@ -196,6 +196,7 @@
   let resizeTimer = null;
   let pendingResize = null;
   let pendingFit = false;
+  let visibilityHandler = null;
 
   const aiForm = document.getElementById('ai-control');
   const tmuxTargetInput = document.getElementById('tmux_target');
@@ -645,6 +646,11 @@
       dataDisposable.dispose();
       dataDisposable = null;
     }
+    // Clean up visibility handler before closing eventSource
+    if (visibilityHandler) {
+      document.removeEventListener('visibilitychange', visibilityHandler);
+      visibilityHandler = null;
+    }
     if (eventSource) {
       eventSource.close();
       eventSource = null;
@@ -752,28 +758,90 @@
         const label = selectedTmuxTarget ? `tmux:${selectedTmuxTarget}` : (tool ? tool : (command || 'shell'));
         term.write(`\n[Connected to ${label}]\n`);
 
-        eventSource = new EventSource(`/projects/${projectId}/ai/session/${sessionId}/stream`);
-        eventSource.addEventListener('ready', () => {
-          term.write('\n[Session ready]\n');
-          queueResizeUpdate();
-          scheduleFit();
-          if (pendingPrompt && plannedPrompt) {
-            term.write(`[Submitting prompt]\n${plannedPrompt}\n`);
-            queueInput(`${plannedPrompt}\n`);
-            pendingPrompt = false;
+        // Setup EventSource connection with reconnection support
+        function connectEventSource() {
+          if (eventSource) {
+            eventSource.close();
           }
-        });
-        eventSource.addEventListener('chunk', (evt) => {
-          writeChunk(evt.data);
-        });
-        eventSource.addEventListener('close', () => {
-          term.write(flushDecoder());
-          stopSession('[Session closed]');
-        });
-        eventSource.onerror = () => {
-          term.write(flushDecoder());
-          stopSession('[Session closed]');
+
+          eventSource = new EventSource(`/projects/${projectId}/ai/session/${sessionId}/stream`);
+
+          eventSource.addEventListener('ready', () => {
+            term.write('\n[Session ready]\n');
+            queueResizeUpdate();
+            scheduleFit();
+            if (pendingPrompt && plannedPrompt) {
+              term.write(`[Submitting prompt]\n${plannedPrompt}\n`);
+              queueInput(`${plannedPrompt}\n`);
+              pendingPrompt = false;
+            }
+          });
+
+          eventSource.addEventListener('chunk', (evt) => {
+            writeChunk(evt.data);
+          });
+
+          eventSource.addEventListener('close', () => {
+            term.write(flushDecoder());
+            stopSession('[Session closed]');
+          });
+
+          eventSource.onerror = () => {
+            // Check if session is still valid (server may have closed it)
+            if (!sessionId) {
+              return;
+            }
+
+            // If tab is hidden, don't react - we'll reconnect when visible
+            if (document.hidden) {
+              console.log('EventSource error while tab hidden - will reconnect when visible');
+              return;
+            }
+
+            // Check connection state - if CLOSED, session truly ended
+            if (eventSource.readyState === EventSource.CLOSED) {
+              console.log('EventSource CLOSED - checking if session still active');
+              // Verify with server if session is still alive
+              fetch(`/projects/${projectId}/ai/session/${sessionId}/status`, {
+                method: 'GET',
+                headers: csrfHeaders,
+                credentials: 'same-origin'
+              }).then(response => {
+                if (response.ok) {
+                  console.log('Session still active, reconnecting...');
+                  connectEventSource();
+                } else {
+                  console.log('Session no longer active, closing');
+                  term.write(flushDecoder());
+                  stopSession('[Session closed]');
+                }
+              }).catch(() => {
+                // Network error - try reconnecting
+                console.log('Network error checking status, attempting reconnect');
+                setTimeout(connectEventSource, 1000);
+              });
+              return;
+            }
+
+            // CONNECTING state - browser is trying to reconnect, let it
+            console.log('EventSource error, readyState:', eventSource.readyState);
+          };
+        }
+
+        // Handle tab visibility changes - assign to module-level variable for cleanup
+        visibilityHandler = () => {
+          if (!document.hidden && sessionId) {
+            // Tab became visible and we have a session
+            if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+              console.log('Tab visible, reconnecting EventSource...');
+              term.write('\n[Reconnecting...]\n');
+              connectEventSource();
+            }
+          }
         };
+        document.addEventListener('visibilitychange', visibilityHandler);
+
+        connectEventSource();
 
         dataDisposable = term.onData(dataChunk => {
           if (sessionId) {

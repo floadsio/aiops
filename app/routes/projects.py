@@ -1176,8 +1176,12 @@ def stream_ai_session(project_id: int, session_id: str):
         yield from stream_session(session)
 
     response = Response(stream_with_context(generate()), mimetype="text/event-stream")
-    response.headers["Cache-Control"] = "no-cache"
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     response.headers["X-Accel-Buffering"] = "no"
+    response.headers["Connection"] = "keep-alive"
+    response.headers["Keep-Alive"] = "timeout=86400"
     return response
 
 
@@ -1212,6 +1216,27 @@ def stop_ai_session(project_id: int, session_id: str):
     session = _get_authorized_session(project_id, session_id)
     close_session(session)
     return ("", 204)
+
+
+@projects_bp.route("/<int:project_id>/ai/session/<session_id>/status", methods=["GET"])
+@login_required
+def ai_session_status(project_id: int, session_id: str):
+    """Check if an AI session is still active (for SSE reconnection)."""
+    session = get_session(session_id)
+    if session is None:
+        return jsonify({"active": False}), 404
+
+    # Verify authorization
+    Project.query.get_or_404(project_id)
+    user_id = current_user.get_id()
+    if session.user_id != user_id:
+        return jsonify({"error": "Access denied"}), 403
+
+    # Check if the session's stop_event is set (session closed)
+    if session.stop_event.is_set():
+        return jsonify({"active": False}), 404
+
+    return jsonify({"active": True, "session_id": session_id})
 
 
 @projects_bp.route("/<int:project_id>/ai/sessions/resumable", methods=["GET"])

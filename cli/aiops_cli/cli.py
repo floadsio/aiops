@@ -157,21 +157,32 @@ def attach_to_tmux_session(
 
     ssh_target = f"{ssh_user}@{ssh_host}" if ssh_user else ssh_host
 
+    # Extract username from tmux target (format: "username:window-name")
+    # Use per-user tmux socket at /var/run/tmux-aiops/<user>.sock
+    tmux_cmd = ["tmux"]
+    if ":" in attach_target:
+        username = attach_target.split(":")[0]
+        socket_path = f"/var/run/tmux-aiops/{username}.sock"
+        tmux_cmd = ["tmux", "-S", socket_path]
+        manual_cmd = f"tmux -S {socket_path} attach -t {attach_target}"
+    else:
+        manual_cmd = f"tmux attach -t {attach_target}"
+
     try:
         subprocess.run(
-            ["ssh", "-t", ssh_target, "tmux", "attach-session", "-t", attach_target],
+            ["ssh", "-t", ssh_target] + tmux_cmd + ["attach-session", "-t", attach_target],
             check=True,
         )
     except subprocess.CalledProcessError as exc:
         error_console.print(f"[red]Error attaching to tmux:[/red] {exc}")
         error_console.print(
-            f"[yellow]You can manually attach with:[/yellow] ssh {ssh_target} -t tmux attach -t {attach_target}",
+            f"[yellow]You can manually attach with:[/yellow] ssh {ssh_target} -t {manual_cmd}",
         )
         sys.exit(1)
     except FileNotFoundError:
         error_console.print("[red]Error:[/red] ssh not found. Please install OpenSSH to attach.")
         error_console.print(
-            f"[yellow]Session is running. You can attach manually with:[/yellow] tmux attach -t {attach_target}",
+            f"[yellow]Session is running. You can attach manually with:[/yellow] {manual_cmd}",
         )
         sys.exit(1)
 

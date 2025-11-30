@@ -1059,7 +1059,7 @@
           <span class="issue-id">#{{ issue.external_id }} <span class="text-muted" style="font-size: 0.85rem;">(DB: {{ issue.id }})</span></span>
         </div>
         <h3 class="issue-title">
-          <a href="{{ url_for('admin.manage_issues', status='all') }}?issue_id={{ issue.id }}" class="issue-title-link">
+          <a href="{{ url_for('admin.manage_issues', status='all', issue_id=issue.id) }}" class="issue-title-link">
             {{ issue.title }}
           </a>
         </h3>
@@ -1197,7 +1197,7 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
             <span class="issue-id">#{{ issue.external_id }}</span>
           </div>
           <h3 class="issue-title">
-            <a href="{{ url_for('admin.manage_issues', status='all') }}?issue_id={{ issue.id }}#comment-{{ pinned.comment_id }}" class="issue-title-link">
+            <a href="{{ url_for('admin.manage_issues', status='all', issue_id=issue.id) }}#comment-{{ pinned.comment_id }}" class="issue-title-link">
               {{ issue.title|truncate(50) }}
             </a>
           </h3>

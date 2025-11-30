@@ -733,13 +733,27 @@ def create_session(
             "tmux binary not found. Install tmux or disable tmux integration."
         )
 
+    # Generate unique tmux_target if not provided
+    if not tmux_target:
+        project_name = getattr(project, "name", "") or ""
+        project_slug = project_name.lower().replace(" ", "-")
+        project_id = getattr(project, "id", None)
+        suffix = f"-p{project_id}" if project_id is not None else ""
+        base_name = f"{project_slug}{suffix}" if project_slug else f"project{suffix}"
+        if issue_id:
+            # Reusable window per issue
+            tmux_target = f"{tmux_session_name}:{base_name}-i{issue_id}"
+        else:
+            # Unique window per session
+            tmux_target = f"{tmux_session_name}:{base_name}-{uuid.uuid4().hex[:6]}"
+
     session, window, created = _resolve_tmux_window(
         project,
         user,
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
-        force_new=False,  # Reuse existing window for the same project
+        force_new=False,
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")
@@ -1014,6 +1028,20 @@ def create_persistent_session(
                 f"export AIOPS_API_KEY={shlex.quote(user.aiops_cli_api_key)}"
             )
 
+    # Generate unique tmux_target if not provided
+    if not tmux_target:
+        project_name = getattr(project, "name", "") or ""
+        project_slug = project_name.lower().replace(" ", "-")
+        project_id = getattr(project, "id", None)
+        suffix = f"-p{project_id}" if project_id is not None else ""
+        base_name = f"{project_slug}{suffix}" if project_slug else f"project{suffix}"
+        if issue_id:
+            # Reusable window per issue
+            tmux_target = f"{tmux_session_name}:{base_name}-i{issue_id}"
+        else:
+            # Unique window per session
+            tmux_target = f"{tmux_session_name}:{base_name}-{uuid.uuid4().hex[:6]}"
+
     # Ensure tmux window exists
     session, window, created = _resolve_tmux_window(
         project,
@@ -1021,7 +1049,7 @@ def create_persistent_session(
         tmux_target,
         session_name=tmux_session_name,
         linux_username=linux_username_for_session,
-        force_new=False,  # Reuse existing window for the same project
+        force_new=False,
     )
     session_name = session.get("session_name")
     window_name = window.get("window_name")

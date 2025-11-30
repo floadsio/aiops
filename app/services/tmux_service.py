@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -359,11 +360,11 @@ def _ensure_session(
 
     When linux_username is provided and using default sockets, this function
     uses subprocess calls via sudo to interact with the user's tmux server.
-    """
-    # Ensure user's tmux server is running before trying to connect
-    if linux_username:
-        _ensure_server_running(linux_username)
 
+    Returns:
+        Tuple of (session, session_was_just_created) where session_was_just_created
+        is True if we just created the session (so the caller can reuse the default window).
+    """
     resolved_name = _normalize_session_name(session_name)
 
     # Check if we're running as a different user than the target in default socket mode
@@ -378,6 +379,7 @@ def _ensure_session(
     if use_subprocess:
         # Use subprocess to interact with user's tmux server
         # Check if session exists
+        session_exists = False
         try:
             result = _run_tmux_as_user(
                 linux_username,
@@ -386,8 +388,9 @@ def _ensure_session(
             )
             session_exists = result.returncode == 0
         except TmuxServiceError:
-            session_exists = False
+            pass  # Session doesn't exist
 
+        session_just_created = False
         if not session_exists and create:
             # Create the session
             start_directory = current_app.config.get("TMUX_SHARED_SESSION_DIR")
@@ -413,11 +416,12 @@ def _ensure_session(
                     f"Unable to create tmux session {resolved_name!r}: {exc}"
                 ) from exc
             session_exists = True
+            session_just_created = True
 
         if session_exists:
             # Return a proxy object that has the methods we need
-            return _TmuxSessionProxy(resolved_name, linux_username)
-        return None
+            return _TmuxSessionProxy(resolved_name, linux_username), session_just_created
+        return None, False
     else:
         # Use libtmux for same-user or legacy mode
         server = _get_server(linux_username=linux_username)
@@ -425,6 +429,7 @@ def _ensure_session(
             (item for item in server.sessions if item.get("session_name") == resolved_name),
             None,
         )
+        session_just_created = False
         if session is None and create:
             start_directory = current_app.config.get("TMUX_SHARED_SESSION_DIR")
             if not start_directory:
@@ -445,7 +450,8 @@ def _ensure_session(
                 current_app.logger.debug(
                     "Unable to set tmux session options for %s", resolved_name
                 )
-        return session
+            session_just_created = True
+        return session, session_just_created
 
 
 class _TmuxSessionProxy:
@@ -551,6 +557,78 @@ class _TmuxSessionProxy:
 
         raise TmuxServiceError(f"Unable to create window {window_name!r}")
 
+    def rename_first_window(
+        self,
+        new_name: str,
+        start_directory: Optional[str] = None,
+    ) -> "_TmuxWindowProxy":
+        """Rename the first (default) window in this session and optionally change its directory.
+
+        This is used when a session is first created to repurpose the default window
+        instead of creating a new one.
+        """
+        # Get the first window
+        windows = self.windows
+        if not windows:
+            raise TmuxServiceError("No windows in session to rename")
+
+        first_window = windows[0]
+        old_name = first_window.get("window_name")
+
+        # Rename the window
+        try:
+            _run_tmux_as_user(
+                self._linux_username,
+                ["rename-window", "-t", f"{self._session_name}:{old_name}", new_name],
+                timeout=5.0,
+            )
+        except TmuxServiceError as exc:
+            raise TmuxServiceError(f"Unable to rename window: {exc}") from exc
+
+        # Change directory if specified
+        if start_directory:
+            try:
+                _run_tmux_as_user(
+                    self._linux_username,
+                    ["send-keys", "-t", f"{self._session_name}:{new_name}", f"cd {shlex.quote(start_directory)}", "Enter"],
+                    timeout=5.0,
+                )
+            except TmuxServiceError:
+                pass  # Best effort
+
+        # Invalidate cache and return updated window proxy
+        self._windows_cache = None
+
+        # Get updated window info
+        try:
+            result = _run_tmux_as_user(
+                self._linux_username,
+                ["list-windows", "-t", self._session_name, "-F", "#{window_name}:#{window_id}:#{pane_id}"],
+                timeout=5.0,
+            )
+            for line in result.stdout.strip().split("\n"):
+                if line:
+                    parts = line.split(":")
+                    if len(parts) >= 3 and parts[0] == new_name:
+                        return _TmuxWindowProxy(
+                            self._session_name,
+                            parts[0],
+                            parts[1],
+                            parts[2],
+                            self._linux_username,
+                        )
+        except TmuxServiceError:
+            pass
+
+        # Fallback: return proxy with the new name
+        return _TmuxWindowProxy(
+            self._session_name,
+            new_name,
+            first_window.get("window_id", ""),
+            first_window.get("pane_id", ""),
+            self._linux_username,
+        )
+
 
 class _TmuxWindowProxy:
     """Proxy for tmux window operations when using subprocess for other users."""
@@ -609,6 +687,15 @@ class _TmuxWindowProxy:
             timeout=5.0,
         )
 
+    def rename_window(self, new_name: str) -> None:
+        """Rename this window."""
+        _run_tmux_as_user(
+            self._linux_username,
+            ["rename-window", "-t", self._target, new_name],
+            timeout=5.0,
+        )
+        self._window_name = new_name
+
 
 class _TmuxPaneProxy:
     """Proxy for tmux pane operations when using subprocess for other users."""
@@ -629,6 +716,34 @@ class _TmuxPaneProxy:
             current_app.logger.warning("Failed to send keys to %s: %s", self._target, exc)
 
 
+def _rename_first_window(session, new_name: str, start_directory: Optional[str] = None):
+    """Rename the first window in a session.
+
+    Works with both our proxy objects and libtmux Session objects.
+    Returns the renamed window or None if renaming failed.
+    """
+    # For our proxy class
+    if hasattr(session, "rename_first_window"):
+        return session.rename_first_window(new_name, start_directory)
+
+    # For libtmux Session objects
+    windows = session.windows
+    if not windows:
+        return None
+
+    first_window = windows[0]
+    try:
+        first_window.rename_window(new_name)
+        # Change directory if specified - send cd command to the pane
+        if start_directory and hasattr(first_window, "attached_pane"):
+            pane = first_window.attached_pane
+            if pane:
+                pane.send_keys(f"cd {shlex.quote(start_directory)}", enter=True)
+        return first_window
+    except Exception:
+        return None
+
+
 def ensure_project_window(
     project,
     *,
@@ -638,18 +753,47 @@ def ensure_project_window(
     user: Optional[object] = None,
     force_new: bool = False,
 ):
-    session = _ensure_session(session_name=session_name, linux_username=linux_username)
+    session, session_just_created = _ensure_session(
+        session_name=session_name, linux_username=linux_username
+    )
     if session is None:
         raise TmuxServiceError("Unable to create shared tmux session.")
     base_window_name = window_name or _project_window_name(project)
     window_name = base_window_name
     created = False
 
+    # Determine the start directory
+    start_directory = current_app.instance_path
+    if user is not None:
+        from .workspace_service import get_workspace_path
+
+        workspace_path = get_workspace_path(project, user)
+        if workspace_path is not None:
+            start_directory = str(workspace_path)
+            # Create workspace directory if it doesn't exist
+            try:
+                workspace_path.mkdir(parents=True, exist_ok=True)
+            except OSError:
+                current_app.logger.warning(
+                    "Unable to create workspace directory %s", workspace_path
+                )
+
     # If force_new is True, always create a new window with a unique suffix
     if force_new:
         import uuid
         suffix = uuid.uuid4().hex[:6]
         window_name = f"{base_window_name}-{suffix}"
+
+        # If session was just created, rename the default window instead of creating new
+        if session_just_created:
+            try:
+                window = _rename_first_window(session, window_name, start_directory)
+                if window is not None:
+                    created = True
+                    return session, window, created
+            except Exception:
+                pass  # Fall through to create new window
+
         window = None  # Force creation
     else:
         window = next(
@@ -657,22 +801,18 @@ def ensure_project_window(
             None,
         )
 
-    if window is None:
-        # Use workspace path if user is provided, otherwise fall back to instance path
-        start_directory = current_app.instance_path
-        if user is not None:
-            from .workspace_service import get_workspace_path
+        # If session was just created and we're looking for a specific window name,
+        # rename the default window to that name
+        if window is None and session_just_created:
+            try:
+                window = _rename_first_window(session, window_name, start_directory)
+                if window is not None:
+                    created = True
+                    return session, window, created
+            except Exception:
+                pass  # Fall through to create new window
 
-            workspace_path = get_workspace_path(project, user)
-            if workspace_path is not None:
-                start_directory = str(workspace_path)
-                # Create workspace directory if it doesn't exist
-                try:
-                    workspace_path.mkdir(parents=True, exist_ok=True)
-                except OSError:
-                    current_app.logger.warning(
-                        "Unable to create workspace directory %s", workspace_path
-                    )
+    if window is None:
         try:
             window = session.new_window(
                 window_name=window_name,
@@ -723,7 +863,7 @@ def list_windows_for_aliases(
         server = _get_server(linux_username=linux_username)
         sessions = list(server.sessions)
     else:
-        session = _ensure_session(
+        session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username
         )
         if session is None:
@@ -778,7 +918,7 @@ def find_window_for_project(
     session_name: Optional[str] = None,
     linux_username: Optional[str] = None,
 ) -> Optional[TmuxWindow]:
-    session = _ensure_session(
+    session, _ = _ensure_session(
         session_name=session_name, create=False, linux_username=linux_username
     )
     if session is None:
@@ -819,7 +959,7 @@ def sync_project_windows(
     Ensure every project has a tmux window and prune orphaned project windows.
     """
 
-    session = _ensure_session(session_name=session_name, linux_username=linux_username)
+    session, _ = _ensure_session(session_name=session_name, linux_username=linux_username)
     existing = {window.get("window_name"): window for window in session.windows}
 
     desired_names: set[str] = set()

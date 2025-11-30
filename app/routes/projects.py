@@ -67,7 +67,6 @@ from ..services.issues.utils import normalize_issue_status
 from ..services.tmux_service import (
     TmuxServiceError,
     close_tmux_target,
-    get_or_create_window_for_project,
     list_windows_for_aliases,
     session_name_for_user,
 )
@@ -703,36 +702,15 @@ def project_ai_console(project_id: int):
     tenant_name = tenant.name if tenant else ""
     linux_username = _current_linux_username()
     try:
-        # Ensure a window exists for this project so users can attach immediately
-        project_window = get_or_create_window_for_project(
-            project, session_name=tmux_session_name, linux_username=linux_username
-        )
-        created_display = (
-            project_window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
-            if project_window.created
-            else None
-        )
-        tmux_windows.append(
-            {
-                "session": project_window.session_name,
-                "window": project_window.window_name,
-                "target": project_window.target,
-                "panes": project_window.panes,
-                "created": project_window.created,
-                "created_display": created_display,
-            }
-        )
-
-        extra_windows = list_windows_for_aliases(
+        # List existing windows - don't pre-create any
+        existing_windows = list_windows_for_aliases(
             tenant_name,
             project_local_path=project.local_path,
             extra_aliases=(project.name, getattr(project, "slug", None)),
             session_name=tmux_session_name,
             linux_username=linux_username,
         )
-        for window in extra_windows:
-            if window.target == project_window.target:
-                continue
+        for window in existing_windows:
             created_display = (
                 window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
                 if window.created

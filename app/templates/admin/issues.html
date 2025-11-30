@@ -1310,6 +1310,23 @@
     // Auto-expand issue if issue_id is in URL query parameters
     const urlParams = new URLSearchParams(window.location.search);
     const targetIssueId = urlParams.get('issue_id');
+
+    // Function to scroll to and highlight a comment
+    function scrollToComment(commentId) {
+      const commentElement = document.getElementById(commentId);
+      if (commentElement) {
+        commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Add highlight effect
+        commentElement.style.transition = 'background-color 0.3s';
+        commentElement.style.backgroundColor = 'rgba(88, 166, 255, 0.2)';
+        setTimeout(() => {
+          commentElement.style.backgroundColor = '';
+        }, 3000);
+        return true;
+      }
+      return false;
+    }
+
     if (targetIssueId) {
       const targetButton = document.querySelector(`.issue-detail-toggle[data-issue-id="${targetIssueId}"]`);
       const targetDetailRow = document.getElementById(`issue-detail-${targetIssueId}`);
@@ -1326,21 +1343,24 @@
           // After expanding, check for comment hash and scroll to it
           if (window.location.hash && window.location.hash.startsWith('#comment-')) {
             const commentId = window.location.hash.substring(1);
-            const commentElement = document.getElementById(commentId);
-            if (commentElement) {
-              setTimeout(() => {
-                commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                // Add highlight effect
-                commentElement.style.transition = 'background-color 0.3s';
-                commentElement.style.backgroundColor = 'rgba(88, 166, 255, 0.2)';
-                setTimeout(() => {
-                  commentElement.style.backgroundColor = '';
-                }, 3000);
-              }, 200);
-            }
+            setTimeout(() => scrollToComment(commentId), 200);
           }
         }, 100);
+      } else {
+        // Issue not found on this page - might be filtered out or on different page
+        console.warn(`Issue ${targetIssueId} not found on page. Check status filter.`);
       }
+    }
+
+    // Also handle direct comment hash navigation (without issue_id param)
+    if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+      const commentId = window.location.hash.substring(1);
+      // Try to scroll to comment after a short delay (in case issue needs to load)
+      setTimeout(() => {
+        if (!scrollToComment(commentId)) {
+          console.warn(`Comment element ${commentId} not found. Issue may need to be expanded first.`);
+        }
+      }, 300);
     }
 
     // Pin comment button handler

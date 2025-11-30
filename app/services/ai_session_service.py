@@ -212,7 +212,12 @@ def get_session_summary(session: AISession) -> dict:
     if linux_username and linux_username != "syseng":
         tmux_server_user = linux_username
         socket_path = get_user_socket_path(linux_username)
-        attach_command = f"tmux -S {socket_path} attach -t {session.tmux_target}"
+        # socket_path is None when using default socket (TMUX_USE_DEFAULT_SOCKET=true)
+        if socket_path:
+            attach_command = f"tmux -S {socket_path} attach -t {session.tmux_target}"
+        else:
+            # Default socket mode - sessions visible in plain tmux ls
+            attach_command = f"tmux attach -t {session.tmux_target}" if session.tmux_target else None
     else:
         import pwd
         tmux_server_user = pwd.getpwuid(os.getuid()).pw_name

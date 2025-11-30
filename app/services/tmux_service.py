@@ -9,8 +9,25 @@ from typing import Iterable, List, Optional, Sequence
 
 from flask import current_app
 
-# Shared tmux socket directory - created by install-service.sh with group perms
+# Legacy shared tmux socket directory - kept for backwards compatibility
+# Set TMUX_USE_DEFAULT_SOCKET=false in .env to use this instead of default socket
 TMUX_SOCKET_DIR = "/var/run/tmux-aiops"
+
+
+def _use_default_socket() -> bool:
+    """Check if we should use the default tmux socket location.
+
+    When True (default), sessions appear in standard `tmux list-sessions`.
+    When False, uses custom socket in TMUX_SOCKET_DIR for isolation.
+    """
+    try:
+        config_value = current_app.config.get("TMUX_USE_DEFAULT_SOCKET", True)
+        if isinstance(config_value, str):
+            return config_value.lower() not in ("false", "0", "no")
+        return bool(config_value)
+    except RuntimeError:
+        # Outside app context, default to True
+        return True
 
 
 @dataclass(frozen=True)
@@ -118,16 +135,27 @@ def _project_window_name(project) -> str:
     return f"project{suffix}"
 
 
-def _get_socket_path(linux_username: str) -> str:
-    """Get the socket path for a user's tmux server."""
+def _get_socket_path(linux_username: str) -> Optional[str]:
+    """Get the socket path for a user's tmux server.
+
+    Returns None when using default socket (sessions visible in `tmux ls`).
+    Returns custom path when TMUX_USE_DEFAULT_SOCKET is False.
+    """
+    if _use_default_socket():
+        return None  # Use default tmux socket
     return f"{TMUX_SOCKET_DIR}/{linux_username}.sock"
 
 
 def _get_server(linux_username: Optional[str] = None):
     """Get tmux server for a specific Linux user.
 
-    Each user has their own tmux server with socket in shared directory.
-    This enables sessions to run as the target user without sudo wrapping.
+    When TMUX_USE_DEFAULT_SOCKET is True (default):
+        Uses the user's default tmux server (visible in `tmux ls`).
+        Must run tmux commands as target user via sudo.
+
+    When TMUX_USE_DEFAULT_SOCKET is False:
+        Each user has their own tmux server with socket in shared directory.
+        This enables sessions to run as the target user without sudo wrapping.
 
     Args:
         linux_username: Linux username for the tmux server. If None, uses default server.
@@ -143,8 +171,13 @@ def _get_server(linux_username: Optional[str] = None):
     try:
         if linux_username:
             socket = _get_socket_path(linux_username)
-            # Use socket_path (not socket_name) for absolute paths
-            return libtmux.Server(socket_path=socket)
+            if socket:
+                # Use custom socket path for legacy mode
+                return libtmux.Server(socket_path=socket)
+            else:
+                # Default socket mode - use user's default tmux server
+                # libtmux will connect to default socket
+                return libtmux.Server()
         else:
             # Fallback to default server for syseng/system operations
             return libtmux.Server()
@@ -155,8 +188,13 @@ def _get_server(linux_username: Optional[str] = None):
 def _ensure_server_running(linux_username: str) -> None:
     """Ensure user's tmux server is running, start if needed.
 
-    Creates a new tmux server for the user if one isn't already running.
-    The server runs as the target user via sudo, with socket in shared directory.
+    When TMUX_USE_DEFAULT_SOCKET is True (default):
+        Uses the user's default tmux server. Sessions visible in `tmux ls`.
+        Commands run as target user via sudo.
+
+    When TMUX_USE_DEFAULT_SOCKET is False:
+        Creates a new tmux server for the user if one isn't already running.
+        The server runs as the target user via sudo, with socket in shared directory.
 
     Args:
         linux_username: Linux username to run tmux as
@@ -165,6 +203,35 @@ def _ensure_server_running(linux_username: str) -> None:
 
     socket_path = _get_socket_path(linux_username)
 
+    if socket_path is None:
+        # Default socket mode - check if user's default tmux server is running
+        try:
+            run_as_user(
+                linux_username,
+                ["tmux", "list-sessions"],
+                timeout=5.0,
+            )
+            return  # Server already running
+        except Exception:
+            pass  # Server not running
+
+        # Start new default tmux server as the target user
+        try:
+            run_as_user(
+                linux_username,
+                ["tmux", "new-session", "-d", "-s", "main"],
+                timeout=10.0,
+            )
+            current_app.logger.info(
+                "Started default tmux server for user %s", linux_username
+            )
+        except Exception as exc:
+            raise TmuxServiceError(
+                f"Unable to start tmux server for {linux_username}: {exc}"
+            ) from exc
+        return
+
+    # Legacy custom socket mode
     # Check if server is already running by trying to list sessions
     # Must run as target user since syseng may not have access to the socket yet
     try:
@@ -230,14 +297,14 @@ def _ensure_server_running(linux_username: str) -> None:
         ) from exc
 
 
-def get_user_socket_path(linux_username: str) -> str:
+def get_user_socket_path(linux_username: str) -> Optional[str]:
     """Get the socket path for a user's tmux server (public API).
 
     Args:
         linux_username: Linux username
 
     Returns:
-        Path to the user's tmux socket
+        Path to the user's tmux socket, or None if using default socket
     """
     return _get_socket_path(linux_username)
 
@@ -538,12 +605,13 @@ def is_pane_dead(target: str, linux_username: str | None = None) -> bool:
     Returns:
         True if the pane is dead, False if it's alive or doesn't exist
     """
-    # Use socket path for per-user servers
+    # Use socket path for per-user servers (only if not using default socket)
+    cmd = ["tmux"]
     if linux_username:
         socket_path = _get_socket_path(linux_username)
-        cmd = ["tmux", "-S", socket_path, "list-panes", "-t", target, "-F", "#{pane_dead}"]
-    else:
-        cmd = ["tmux", "list-panes", "-t", target, "-F", "#{pane_dead}"]
+        if socket_path:
+            cmd.extend(["-S", socket_path])
+    cmd.extend(["list-panes", "-t", target, "-F", "#{pane_dead}"])
 
     try:
         result = subprocess.run(
@@ -576,12 +644,13 @@ def respawn_pane(
     Raises:
         TmuxServiceError: If respawn fails
     """
-    # Use socket path for per-user servers
+    # Use socket path for per-user servers (only if not using default socket)
+    cmd = ["tmux"]
     if linux_username:
         socket_path = _get_socket_path(linux_username)
-        cmd = ["tmux", "-S", socket_path, "respawn-pane", "-k", "-t", target]
-    else:
-        cmd = ["tmux", "respawn-pane", "-k", "-t", target]
+        if socket_path:
+            cmd.extend(["-S", socket_path])
+    cmd.extend(["respawn-pane", "-k", "-t", target])
 
     if command:
         cmd.append(command)
@@ -603,10 +672,15 @@ def respawn_pane(
 
 
 def list_all_user_sessions() -> list[dict]:
-    """List sessions from all user tmux servers in the shared socket directory.
+    """List sessions from all user tmux servers.
 
-    Scans the shared socket directory for user socket files and lists
-    all sessions across all running user tmux servers.
+    When TMUX_USE_DEFAULT_SOCKET is True (default):
+        Lists sessions from the default tmux server (current user only).
+        For multi-user listing, callers should enumerate users and query each.
+
+    When TMUX_USE_DEFAULT_SOCKET is False:
+        Scans the shared socket directory for user socket files and lists
+        all sessions across all running user tmux servers.
 
     Returns:
         List of dicts with owner, session, windows count, and socket path
@@ -614,6 +688,23 @@ def list_all_user_sessions() -> list[dict]:
     import libtmux
 
     sessions = []
+
+    if _use_default_socket():
+        # Default socket mode - list from default tmux server
+        try:
+            server = libtmux.Server()
+            for session in server.sessions:
+                sessions.append({
+                    "owner": os.environ.get("USER", "unknown"),
+                    "session": session.get("session_name"),
+                    "windows": len(session.windows),
+                    "socket": "default",
+                })
+        except Exception:
+            pass
+        return sessions
+
+    # Legacy mode - scan shared socket directory
     socket_dir = Path(TMUX_SOCKET_DIR)
 
     if not socket_dir.exists():

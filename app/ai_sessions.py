@@ -362,12 +362,13 @@ def _send_initial_context_prompt(
     # Send prompt to read the file
     prompt = f"read {agents_file_path}"
 
-    # Build tmux command with socket path for per-user sessions
+    # Build tmux command with socket path for per-user sessions (legacy mode only)
+    cmd = ["tmux"]
     if linux_username and linux_username != "syseng":
         socket_path = get_user_socket_path(linux_username)
-        cmd = ["tmux", "-S", socket_path, "send-keys", "-t", tmux_target, prompt, "Enter"]
-    else:
-        cmd = ["tmux", "send-keys", "-t", tmux_target, prompt, "Enter"]
+        if socket_path:
+            cmd.extend(["-S", socket_path])
+    cmd.extend(["send-keys", "-t", tmux_target, prompt, "Enter"])
 
     try:
         subprocess.run(
@@ -457,12 +458,9 @@ def session_exists(tmux_target: str) -> bool:
     import subprocess
 
     try:
-        # Build tmux command - use per-user socket if target includes username
+        # Build tmux command - use default socket (TMUX_USE_DEFAULT_SOCKET=true)
+        # Sessions are now in the user's default tmux server
         tmux_cmd = ["tmux"]
-        if ":" in tmux_target:
-            username = tmux_target.split(":")[0]
-            socket_path = f"/var/run/tmux-aiops/{username}.sock"
-            tmux_cmd = ["tmux", "-S", socket_path]
 
         # Use tmux has-session to check if target exists
         result = subprocess.run(
@@ -746,13 +744,14 @@ def create_session(
             start_dir = str(workspace_path)
 
     # Build tmux attach command
-    # For per-user sessions, use user's socket so session runs as that user
-    # For syseng sessions, use default tmux server
+    # Sessions run in user's default tmux server (TMUX_USE_DEFAULT_SOCKET=true by default)
+    # Legacy mode uses custom socket in /var/run/tmux-aiops/
+    exec_args = [tmux_path]
     if linux_username_for_session and linux_username_for_session != "syseng":
         socket_path = get_user_socket_path(linux_username_for_session)
-        exec_args = [tmux_path, "-S", socket_path, "attach-session", "-t", f"{session_name}:{window_name}"]
-    else:
-        exec_args = [tmux_path, "attach-session", "-t", f"{session_name}:{window_name}"]
+        if socket_path:
+            exec_args.extend(["-S", socket_path])
+    exec_args.extend(["attach-session", "-t", f"{session_name}:{window_name}"])
 
     session_id = uuid.uuid4().hex
 
@@ -1010,11 +1009,12 @@ def create_persistent_session(
     tmux_target_full = f"{session_name}:{window_name}"
 
     # Build tmux command prefix for per-user sessions
+    # Default socket mode (TMUX_USE_DEFAULT_SOCKET=true) uses plain tmux commands
+    tmux_cmd_prefix = ["tmux"]
     if linux_username_for_session and linux_username_for_session != "syseng":
         socket_path = get_user_socket_path(linux_username_for_session)
-        tmux_cmd_prefix = ["tmux", "-S", socket_path]
-    else:
-        tmux_cmd_prefix = ["tmux"]
+        if socket_path:
+            tmux_cmd_prefix = ["tmux", "-S", socket_path]
 
     # Enable remain-on-exit so pane stays alive even if shell exits
     try:
@@ -1143,12 +1143,13 @@ def write_to_session(session: AISession | PersistentAISession, data: str) -> Non
 
     if isinstance(session, PersistentAISession):
         # Use tmux send-keys for persistent sessions
-        # Use socket path for per-user sessions
+        # Default socket mode uses plain tmux commands
+        cmd = ["tmux"]
         if session.linux_username and session.linux_username != "syseng":
             socket_path = get_user_socket_path(session.linux_username)
-            cmd = ["tmux", "-S", socket_path, "send-keys", "-t", session.tmux_target, "-l", data]
-        else:
-            cmd = ["tmux", "send-keys", "-t", session.tmux_target, "-l", data]
+            if socket_path:
+                cmd.extend(["-S", socket_path])
+        cmd.extend(["send-keys", "-t", session.tmux_target, "-l", data])
 
         try:
             subprocess.run(

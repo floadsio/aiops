@@ -157,16 +157,10 @@ def attach_to_tmux_session(
 
     ssh_target = f"{ssh_user}@{ssh_host}" if ssh_user else ssh_host
 
-    # Extract username from tmux target (format: "username:window-name")
-    # Use per-user tmux socket at /var/run/tmux-aiops/<user>.sock
+    # Use default tmux socket - sessions now appear in plain `tmux ls`
+    # Legacy socket path (/var/run/tmux-aiops) is no longer used by default
     tmux_cmd = ["tmux"]
-    if ":" in attach_target:
-        username = attach_target.split(":")[0]
-        socket_path = f"/var/run/tmux-aiops/{username}.sock"
-        tmux_cmd = ["tmux", "-S", socket_path]
-        manual_cmd = f"tmux -S {socket_path} attach -t {attach_target}"
-    else:
-        manual_cmd = f"tmux attach -t {attach_target}"
+    manual_cmd = f"tmux attach -t {attach_target}"
 
     try:
         subprocess.run(

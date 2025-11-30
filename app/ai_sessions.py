@@ -735,17 +735,12 @@ def create_session(
 
     # Generate unique tmux_target if not provided
     if not tmux_target:
-        project_name = getattr(project, "name", "") or ""
-        project_slug = project_name.lower().replace(" ", "-")
-        project_id = getattr(project, "id", None)
-        suffix = f"-p{project_id}" if project_id is not None else ""
-        base_name = f"{project_slug}{suffix}" if project_slug else f"project{suffix}"
         if issue_id:
-            # Reusable window per issue
-            tmux_target = f"{tmux_session_name}:{base_name}-i{issue_id}"
+            # Reusable window per issue (e.g., i713)
+            tmux_target = f"{tmux_session_name}:i{issue_id}"
         else:
-            # Unique window per session
-            tmux_target = f"{tmux_session_name}:{base_name}-{uuid.uuid4().hex[:6]}"
+            # Unique window per session (e.g., a1b2c3)
+            tmux_target = f"{tmux_session_name}:{uuid.uuid4().hex[:6]}"
 
     session, window, created = _resolve_tmux_window(
         project,
@@ -1030,17 +1025,12 @@ def create_persistent_session(
 
     # Generate unique tmux_target if not provided
     if not tmux_target:
-        project_name = getattr(project, "name", "") or ""
-        project_slug = project_name.lower().replace(" ", "-")
-        project_id = getattr(project, "id", None)
-        suffix = f"-p{project_id}" if project_id is not None else ""
-        base_name = f"{project_slug}{suffix}" if project_slug else f"project{suffix}"
         if issue_id:
-            # Reusable window per issue
-            tmux_target = f"{tmux_session_name}:{base_name}-i{issue_id}"
+            # Reusable window per issue (e.g., i713)
+            tmux_target = f"{tmux_session_name}:i{issue_id}"
         else:
-            # Unique window per session
-            tmux_target = f"{tmux_session_name}:{base_name}-{uuid.uuid4().hex[:6]}"
+            # Unique window per session (e.g., a1b2c3)
+            tmux_target = f"{tmux_session_name}:{uuid.uuid4().hex[:6]}"
 
     # Ensure tmux window exists
     session, window, created = _resolve_tmux_window(

@@ -449,6 +449,7 @@ def session_exists(tmux_target: str) -> bool:
 
     Args:
         tmux_target: The tmux target (session:window format or session name)
+                     Format is typically "username:window-name"
 
     Returns:
         True if the tmux session exists, False otherwise
@@ -456,9 +457,16 @@ def session_exists(tmux_target: str) -> bool:
     import subprocess
 
     try:
+        # Build tmux command - use per-user socket if target includes username
+        tmux_cmd = ["tmux"]
+        if ":" in tmux_target:
+            username = tmux_target.split(":")[0]
+            socket_path = f"/var/run/tmux-aiops/{username}.sock"
+            tmux_cmd = ["tmux", "-S", socket_path]
+
         # Use tmux has-session to check if target exists
         result = subprocess.run(
-            ["tmux", "has-session", "-t", tmux_target],
+            tmux_cmd + ["has-session", "-t", tmux_target],
             capture_output=True,
             timeout=5,
         )

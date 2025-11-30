@@ -741,7 +741,7 @@ def create_session(
             issue = ExternalIssue.query.get(issue_id)
             if issue:
                 ext_num = issue.external_id or issue_id
-                title_slug = (issue.title or "").lower().replace(" ", "-")[:30]
+                title_slug = (issue.title or "").lower().replace(" ", "-")[:15]
                 title_slug = "".join(c for c in title_slug if c.isalnum() or c == "-").strip("-")
                 window_name = f"#{ext_num}-{title_slug}" if title_slug else f"#{ext_num}"
             else:
@@ -1040,7 +1040,7 @@ def create_persistent_session(
             issue = ExternalIssue.query.get(issue_id)
             if issue:
                 ext_num = issue.external_id or issue_id
-                title_slug = (issue.title or "").lower().replace(" ", "-")[:30]
+                title_slug = (issue.title or "").lower().replace(" ", "-")[:15]
                 title_slug = "".join(c for c in title_slug if c.isalnum() or c == "-").strip("-")
                 window_name = f"#{ext_num}-{title_slug}" if title_slug else f"#{ext_num}"
             else:

@@ -47,7 +47,7 @@ def _generate_tmux_target(session_name: str, project: Project, tool: str | None,
         if issue:
             # Use external issue number and slugified title
             ext_num = issue.external_id or issue_id
-            title_slug = _slugify(issue.title or "")[:30]  # Limit length
+            title_slug = _slugify(issue.title or "")[:15]  # Limit length
             window_name = f"#{ext_num}-{title_slug}" if title_slug else f"#{ext_num}"
         else:
             window_name = f"issue-{issue_id}"

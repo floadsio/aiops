@@ -166,18 +166,16 @@ def _ensure_server_running(linux_username: str) -> None:
     socket_path = _get_socket_path(linux_username)
 
     # Check if server is already running by trying to list sessions
+    # Must run as target user since syseng may not have access to the socket yet
     try:
-        result = subprocess.run(
+        run_as_user(
+            linux_username,
             ["tmux", "-S", socket_path, "list-sessions"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
+            timeout=5.0,
         )
-        if result.returncode == 0:
-            return  # Server already running
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        pass
+        return  # Server already running
+    except Exception:
+        pass  # Server not running or socket doesn't exist
 
     # Start new server as the target user
     try:
@@ -186,7 +184,20 @@ def _ensure_server_running(linux_username: str) -> None:
             ["tmux", "-S", socket_path, "new-session", "-d", "-s", "main"],
             timeout=10.0,
         )
-        # Set socket permissions for group access (run as target user since they own the socket)
+        # Set socket group to 'aiops' so syseng (Flask) can access it
+        # Both the user and syseng must be in the 'aiops' group
+        try:
+            subprocess.run(
+                ["sudo", "chown", f"{linux_username}:aiops", socket_path],
+                capture_output=True,
+                timeout=5,
+                check=True,
+            )
+        except Exception as chown_exc:
+            current_app.logger.warning(
+                "Failed to set socket group for %s: %s", socket_path, chown_exc
+            )
+        # Set socket permissions for group access
         try:
             run_as_user(
                 linux_username,
@@ -197,8 +208,7 @@ def _ensure_server_running(linux_username: str) -> None:
             current_app.logger.warning(
                 "Failed to set socket permissions for %s: %s", socket_path, chmod_exc
             )
-        # Grant access to syseng user for tmux server-access (required for tmux 3.3+)
-        # This allows the Flask app (running as syseng) to connect to the user's tmux server
+        # Also grant access via tmux server-access (belt and suspenders for tmux 3.3+)
         try:
             run_as_user(
                 linux_username,

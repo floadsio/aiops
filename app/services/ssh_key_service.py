@@ -230,6 +230,66 @@ def ssh_key_context(encrypted_private_key: bytes):
                 current_app.logger.warning(f"Failed to kill ssh-agent {agent_pid}")
 
 
+@contextmanager
+def ssh_key_file_for_user(encrypted_private_key: bytes, target_username: str):
+    """Context manager for creating a temporary SSH key file accessible to a target user.
+
+    This decrypts the key, writes it to a temporary file with restrictive permissions,
+    changes ownership to the target user, and cleans up afterward.
+
+    Use this when you need to run git as a different user via sudo.
+
+    Args:
+        encrypted_private_key: The encrypted private key from database
+        target_username: Linux username who needs to read the key
+
+    Yields:
+        Path to the temporary key file
+
+    Raises:
+        SSHKeyServiceError: If any step fails
+
+    Example:
+        with ssh_key_file_for_user(ssh_key.encrypted_private_key, "ivo") as key_path:
+            env = {"GIT_SSH_COMMAND": f"ssh -i {key_path} -o IdentitiesOnly=yes"}
+            run_as_user("ivo", ["git", "clone", ...], env=env)
+    """
+    import pwd
+
+    key_path = None
+
+    try:
+        # Get target user's uid/gid
+        try:
+            user_info = pwd.getpwnam(target_username)
+            target_uid = user_info.pw_uid
+            target_gid = user_info.pw_gid
+        except KeyError as exc:
+            raise SSHKeyServiceError(f"Unknown user: {target_username}") from exc
+
+        # Decrypt the private key
+        private_key = decrypt_private_key(encrypted_private_key)
+
+        # Write to temporary file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".key", delete=False) as f:
+            f.write(private_key)
+            key_path = f.name
+
+        # Set restrictive permissions and change ownership to target user
+        os.chmod(key_path, 0o600)
+        os.chown(key_path, target_uid, target_gid)
+
+        yield key_path
+
+    finally:
+        # Clean up temporary key file
+        if key_path:
+            try:
+                os.unlink(key_path)
+            except OSError:
+                pass
+
+
 def migrate_key_to_database(ssh_key_model, private_key_path: str) -> None:
     """Migrate an SSH key from filesystem to database storage.
 

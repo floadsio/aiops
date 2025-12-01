@@ -15,7 +15,7 @@ from typing import Any, Optional
 
 from .git_service import resolve_project_ssh_key_path, resolve_project_ssh_key_reference
 from .linux_users import get_user_home_directory, resolve_linux_username
-from .ssh_key_service import ssh_key_context
+from .ssh_key_service import ssh_key_file_for_user
 from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
 
 log = logging.getLogger(__name__)
@@ -319,12 +319,13 @@ def initialize_workspace(project, user) -> Path:
     # SSH key so users can work with repos that rely on centrally managed access.
     try:
         if use_encrypted_key and key_ref and key_ref.key:
-            # Use ssh_key_context to decrypt key and inject into ssh-agent
-            with ssh_key_context(key_ref.key.encrypted_private_key) as auth_sock:
-                import os
-                env = os.environ.copy()
-                env["SSH_AUTH_SOCK"] = auth_sock
-                env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+            # Create a temporary key file accessible to the target user
+            with ssh_key_file_for_user(
+                key_ref.key.encrypted_private_key, linux_username
+            ) as temp_key_path:
+                env = {
+                    "GIT_SSH_COMMAND": f"ssh -i {temp_key_path} -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+                }
                 return _do_clone(env=env)
         else:
             return _do_clone()

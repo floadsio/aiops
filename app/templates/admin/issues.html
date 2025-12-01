@@ -1841,16 +1841,21 @@
       }
     }
 
+    // Preload projects for all dropdowns on page load
+    const tenantIds = new Set();
+    moveSelects.forEach(select => {
+      tenantIds.add(select.dataset.tenantId);
+    });
+    tenantIds.forEach(tenantId => loadTenantProjects(tenantId));
+
     moveSelects.forEach(select => {
       const tenantId = select.dataset.tenantId;
       const currentProjectId = parseInt(select.dataset.currentProject, 10);
       const issueId = select.dataset.issueId;
-      let loaded = false;
 
-      // Load projects on mousedown so they're ready when dropdown opens
-      async function loadProjects() {
-        if (loaded || select.options.length > 1) return;
-        loaded = true;
+      // Populate options from cache (or wait for preload)
+      async function populateOptions() {
+        if (select.options.length > 1) return;
 
         const projects = await loadTenantProjects(tenantId);
         projects.forEach(project => {
@@ -1863,8 +1868,8 @@
         });
       }
 
-      select.addEventListener('mousedown', loadProjects);
-      select.addEventListener('focus', loadProjects);
+      // Populate immediately (projects should already be loading/loaded)
+      populateOptions();
 
       // Handle move
       select.addEventListener('change', async function() {

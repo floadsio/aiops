@@ -13,8 +13,9 @@ import shlex
 from pathlib import Path
 from typing import Any, Optional
 
-from .git_service import resolve_project_ssh_key_path
+from .git_service import resolve_project_ssh_key_path, resolve_project_ssh_key_reference
 from .linux_users import get_user_home_directory, resolve_linux_username
+from .ssh_key_service import ssh_key_context
 from .sudo_service import SudoError, mkdir, rm_rf, run_as_user, test_path
 
 log = logging.getLogger(__name__)
@@ -260,27 +261,38 @@ def initialize_workspace(project, user) -> Path:
     except SudoError as exc:
         raise WorkspaceError(str(exc)) from exc
 
-    ssh_key_path = resolve_project_ssh_key_path(project)
+    # Check for SSH key - prefer database-stored encrypted keys, then filesystem keys
+    key_ref = resolve_project_ssh_key_reference(project)
     selected_ssh_key = None
-    if ssh_key_path:
-        if _project_key_accessible_to_user(linux_username, ssh_key_path):
-            selected_ssh_key = ssh_key_path
+    use_encrypted_key = False
+
+    if key_ref and key_ref.key and key_ref.key.encrypted_private_key:
+        # Use encrypted key from database via ssh-agent
+        use_encrypted_key = True
+        log.info(
+            "Using encrypted SSH key from database for project %s (source: %s)",
+            project.name,
+            key_ref.source,
+        )
+    elif key_ref and key_ref.path:
+        # Use filesystem key
+        if _project_key_accessible_to_user(linux_username, key_ref.path):
+            selected_ssh_key = key_ref.path
         else:
             log.warning(
                 "Project SSH key at %s is not readable by user %s; falling back to user's own SSH config",
-                ssh_key_path,
+                key_ref.path,
                 linux_username,
             )
 
-    # Clone repository using sudo as the target user. Prefer the project/tenant
-    # SSH key so users can work with repos that rely on centrally managed access.
-    try:
+    def _do_clone(env: dict[str, str] | None = None) -> Path:
+        """Perform the git clone operation."""
         _git_clone_via_sudo(
             linux_username,
             project.repo_url,
             str(workspace_path),
             project.default_branch,
-            env=None,
+            env=env,
             ssh_key_path=selected_ssh_key,
         )
         log.info(
@@ -289,10 +301,10 @@ def initialize_workspace(project, user) -> Path:
             getattr(user, "email", user.id),
             workspace_path,
         )
-
         return workspace_path
-    except WorkspaceError:
-        # Clean up on failure using sudo
+
+    def _cleanup_on_failure() -> None:
+        """Clean up partial clone directory on failure."""
         if test_path(linux_username, str(workspace_path)) and not test_path(
             linux_username, str(workspace_path / ".git")
         ):
@@ -302,6 +314,22 @@ def initialize_workspace(project, user) -> Path:
                 log.warning(
                     "Failed to clean up workspace directory after clone failure"
                 )
+
+    # Clone repository using sudo as the target user. Prefer the project/tenant
+    # SSH key so users can work with repos that rely on centrally managed access.
+    try:
+        if use_encrypted_key and key_ref and key_ref.key:
+            # Use ssh_key_context to decrypt key and inject into ssh-agent
+            with ssh_key_context(key_ref.key.encrypted_private_key) as auth_sock:
+                import os
+                env = os.environ.copy()
+                env["SSH_AUTH_SOCK"] = auth_sock
+                env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new"
+                return _do_clone(env=env)
+        else:
+            return _do_clone()
+    except WorkspaceError:
+        _cleanup_on_failure()
         raise
 
 

@@ -1845,12 +1845,12 @@
       const tenantId = select.dataset.tenantId;
       const currentProjectId = parseInt(select.dataset.currentProject, 10);
       const issueId = select.dataset.issueId;
+      let loaded = false;
 
-      // Load projects on first focus
-      select.addEventListener('focus', async function onFocus() {
-        select.removeEventListener('focus', onFocus);
-
-        if (select.options.length > 1) return; // Already loaded
+      // Load projects on mousedown so they're ready when dropdown opens
+      async function loadProjects() {
+        if (loaded || select.options.length > 1) return;
+        loaded = true;
 
         const projects = await loadTenantProjects(tenantId);
         projects.forEach(project => {
@@ -1861,7 +1861,10 @@
             select.appendChild(option);
           }
         });
-      });
+      }
+
+      select.addEventListener('mousedown', loadProjects);
+      select.addEventListener('focus', loadProjects);
 
       // Handle move
       select.addEventListener('change', async function() {

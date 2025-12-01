@@ -10,6 +10,7 @@ import struct
 import subprocess
 import termios
 import threading
+import time
 import uuid
 from base64 import b64encode
 from pathlib import Path
@@ -1145,7 +1146,7 @@ def create_persistent_session(
             for export_cmd in all_exports:
                 script_lines.append(export_cmd)
             script_lines.append("clear")
-            script_lines.append(f'rm -f "{script_path}"')  # Self-delete
+            # Note: Flask cleans up the script after command starts (see below)
 
             if is_plain_shell:
                 script_lines.append(f"exec {command_str}")
@@ -1182,6 +1183,7 @@ def create_persistent_session(
             except Exception:  # noqa: BLE001
                 pass
             final_command = command_str
+            script_path = None  # No script to clean up for syseng sessions
 
         try:
             pane.send_keys(final_command, enter=True)
@@ -1189,6 +1191,14 @@ def create_persistent_session(
             current_app.logger.warning(
                 "Failed to start command in tmux window %s: %s", window_name, exc
             )
+
+        # Clean up setup script after command starts (Flask owns the file)
+        if script_path is not None:
+            try:
+                time.sleep(0.5)  # Give bash time to read the script
+                script_path.unlink(missing_ok=True)
+            except Exception:  # noqa: BLE001
+                pass  # Best effort cleanup
 
     # Create persistent session object
     session_record = PersistentAISession(

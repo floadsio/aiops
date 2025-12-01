@@ -505,11 +505,6 @@ def list_project_ai_sessions(project_id: int):
     # Import here to avoid circular imports
     from ..ai_sessions import list_active_sessions
 
-    # Sessions run under the Flask app's system user (tmux owner)
-    import pwd
-
-    flask_system_user = pwd.getpwuid(os.getuid()).pw_name
-
     # Check if request wants all users' sessions (admin only)
     show_all_users = request.args.get("all_users", "false").lower() == "true"
 
@@ -534,6 +529,14 @@ def list_project_ai_sessions(project_id: int):
     # Convert to JSON-serializable format
     session_list = []
     for session in sessions:
+        # Determine ssh_user from tmux_target (format: "username:window")
+        if session.tmux_target and ":" in session.tmux_target:
+            ssh_user = session.tmux_target.split(":")[0]
+        else:
+            # Fallback to Flask system user
+            import pwd
+            ssh_user = pwd.getpwuid(os.getuid()).pw_name
+
         session_list.append({
             "session_id": session.id,
             "project_id": session.project_id,
@@ -541,7 +544,7 @@ def list_project_ai_sessions(project_id: int):
             "issue_id": session.issue_id,
             "command": session.command,
             "tmux_target": session.tmux_target,
-            "ssh_user": flask_system_user,
+            "ssh_user": ssh_user,
         })
 
     return jsonify({"sessions": session_list})
@@ -608,11 +611,6 @@ def start_project_ai_session(project_id: int):
             expected_tool=tool,
             expected_command=resolved_command,
         )
-
-    # For SSH attachment, return the system user running the Flask app (e.g., syseng)
-    # This is the user that owns the tmux server process, not the user inside the pane
-    import pwd
-    flask_system_user = pwd.getpwuid(os.getuid()).pw_name
 
     if existing_session:
         # Reuse existing session
@@ -714,10 +712,19 @@ def start_project_ai_session(project_id: int):
     if was_created and isinstance(prompt, str) and prompt.strip():
         write_to_session(session, prompt + "\n")
 
+    # Determine ssh_user from tmux_target (format: "username:window")
+    # The session owner is the user whose tmux server hosts the session
+    import pwd
+    if session.tmux_target and ":" in session.tmux_target:
+        ssh_user = session.tmux_target.split(":")[0]
+    else:
+        # Fallback to Flask system user if we can't determine from tmux_target
+        ssh_user = pwd.getpwuid(os.getuid()).pw_name
+
     response_data = {
         "session_id": session.id,
         "tmux_target": session.tmux_target,  # Actual tmux session:window to attach to
-        "ssh_user": flask_system_user,  # User to SSH as (owns tmux server)
+        "ssh_user": ssh_user,  # User to SSH as (owns tmux server)
         "existing": not was_created,  # Indicate if this is an existing session
         "context_populated": was_created and len(context_sources) > 0,  # Whether AGENTS.override.md was populated
         "context_sources": context_sources if was_created else [],  # List of sources that were merged

@@ -207,10 +207,14 @@ def resolve_project_ssh_key_path(project: Project) -> Optional[str]:
 def resolve_project_ssh_key_reference(
     project: Project,
 ) -> Optional[ProjectSSHKeyReference]:
-    """Return the SSH key reference (model + path) selected for a project."""
+    """Return the SSH key reference (model + path) selected for a project.
+
+    Note: For database-stored encrypted keys, key_path will be None but key_obj
+    will contain the encrypted key data.
+    """
 
     key_path, key_obj, source = _select_project_ssh_key(project)
-    if not key_path:
+    if not key_path and not key_obj:
         return None
     return ProjectSSHKeyReference(key=key_obj, path=key_path, source=source)
 

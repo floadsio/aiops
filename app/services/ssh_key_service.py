@@ -235,7 +235,7 @@ def ssh_key_file_for_user(encrypted_private_key: bytes, target_username: str):
     """Context manager for creating a temporary SSH key file accessible to a target user.
 
     This decrypts the key, writes it to a temporary file with restrictive permissions,
-    changes ownership to the target user, and cleans up afterward.
+    and uses sudo to change ownership to the target user. Cleans up afterward.
 
     Use this when you need to run git as a different user via sudo.
 
@@ -255,15 +255,14 @@ def ssh_key_file_for_user(encrypted_private_key: bytes, target_username: str):
             run_as_user("ivo", ["git", "clone", ...], env=env)
     """
     import pwd
+    import subprocess
 
     key_path = None
 
     try:
-        # Get target user's uid/gid
+        # Verify target user exists
         try:
-            user_info = pwd.getpwnam(target_username)
-            target_uid = user_info.pw_uid
-            target_gid = user_info.pw_gid
+            pwd.getpwnam(target_username)
         except KeyError as exc:
             raise SSHKeyServiceError(f"Unknown user: {target_username}") from exc
 
@@ -275,9 +274,19 @@ def ssh_key_file_for_user(encrypted_private_key: bytes, target_username: str):
             f.write(private_key)
             key_path = f.name
 
-        # Set restrictive permissions and change ownership to target user
+        # Set restrictive permissions
         os.chmod(key_path, 0o600)
-        os.chown(key_path, target_uid, target_gid)
+
+        # Use sudo to change ownership to target user
+        try:
+            subprocess.run(
+                ["sudo", "-n", "chown", f"{target_username}:{target_username}", key_path],
+                capture_output=True,
+                timeout=5,
+                check=True,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise SSHKeyServiceError(f"Failed to chown key file: {exc}") from exc
 
         yield key_path
 
@@ -287,7 +296,16 @@ def ssh_key_file_for_user(encrypted_private_key: bytes, target_username: str):
             try:
                 os.unlink(key_path)
             except OSError:
-                pass
+                # File might have been deleted already or we don't have permission
+                try:
+                    subprocess.run(
+                        ["sudo", "-n", "rm", "-f", key_path],
+                        capture_output=True,
+                        timeout=5,
+                        check=False,
+                    )
+                except subprocess.SubprocessError:
+                    pass
 
 
 def migrate_key_to_database(ssh_key_model, private_key_path: str) -> None:

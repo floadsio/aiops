@@ -685,29 +685,14 @@ def render_issue_rich_text(value: str | None) -> Markup:
     # Convert @username mentions (GitHub/GitLab style)
     with_mentions = _convert_at_mentions(with_mentions)
 
-    # Check if it's HTML first (most explicit format)
-    if _looks_like_html(with_mentions):
-        sanitized = _sanitize_html(with_mentions)
-        if sanitized:
-            # If HTML contains our mention spans + plain text, convert newlines to <br>
-            # This handles the common case of plain text with mentions
-            if '<span class="jira-mention">' in sanitized or '<span class="user-mention">' in sanitized:
-                # Replace newlines with <br> in the sanitized HTML
-                # This preserves the mention spans while adding line breaks
-                sanitized = sanitized.replace("\n", "<br>")
-            return Markup(sanitized)
+    is_html = _looks_like_html(with_mentions)
+    is_markdown = _looks_like_markdown(with_mentions)
+    is_jira = _looks_like_jira_markup(with_mentions)
 
-    # Check if it's Jira markup (before Markdown, as Jira has distinct patterns)
-    if _looks_like_jira_markup(with_mentions):
-        # Convert Jira markup to HTML
-        jira_html = _convert_jira_markup_to_html(with_mentions)
-        # Sanitize the resulting HTML to ensure safety
-        sanitized = _sanitize_html(jira_html)
-        if sanitized:
-            return Markup(sanitized)
-
-    # Check if it's Markdown
-    if _looks_like_markdown(with_mentions):
+    # If text looks like both HTML and Markdown, prefer Markdown.
+    # Code blocks often contain <word> patterns (e.g., kubectl's <none>) that
+    # falsely trigger HTML detection.
+    if is_markdown:
         # Render Markdown to HTML
         markdown_result = _markdown_renderer(with_mentions)
         # Mistune can return str or list depending on renderer, we expect str
@@ -716,6 +701,25 @@ def render_issue_rich_text(value: str | None) -> Markup:
             sanitized = _sanitize_html(markdown_result)
             if sanitized:
                 return Markup(sanitized)
+
+    # Check if it's Jira markup (before raw HTML, as Jira has distinct patterns)
+    if is_jira:
+        # Convert Jira markup to HTML
+        jira_html = _convert_jira_markup_to_html(with_mentions)
+        # Sanitize the resulting HTML to ensure safety
+        sanitized = _sanitize_html(jira_html)
+        if sanitized:
+            return Markup(sanitized)
+
+    # Check if it's HTML (only if not markdown/jira)
+    if is_html:
+        sanitized = _sanitize_html(with_mentions)
+        if sanitized:
+            # If HTML contains our mention spans + plain text, convert newlines to <br>
+            # This handles the common case of plain text with mentions
+            if '<span class="jira-mention">' in sanitized or '<span class="user-mention">' in sanitized:
+                sanitized = sanitized.replace("\n", "<br>")
+            return Markup(sanitized)
 
     # Fall back to treating the text as plain content and preserve newlines.
     escaped = str(escape(with_mentions))

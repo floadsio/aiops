@@ -2884,6 +2884,7 @@ def manage_issues():
     raw_sort = (request.args.get("sort") or "").strip().lower()
     sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
     raw_direction = (request.args.get("direction") or "").strip().lower()
+    target_issue_id = request.args.get("issue_id")
     if raw_direction not in {"asc", "desc"}:
         sort_direction = ISSUE_SORT_META[sort_key]["default_direction"]
     else:
@@ -3185,6 +3186,7 @@ def manage_issues():
         issue_create_capabilities=assignee_capabilities,
         issue_custom_field_values=custom_field_values,
         issue_custom_field_errors=custom_field_errors,
+        target_issue_id=target_issue_id,
     )
 
 

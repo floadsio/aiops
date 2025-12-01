@@ -1307,9 +1307,9 @@
       });
     });
 
-    // Auto-expand issue if issue_id is in URL query parameters
+    // Auto-expand issue if issue_id is in URL query parameters or passed via template
     const urlParams = new URLSearchParams(window.location.search);
-    const targetIssueId = urlParams.get('issue_id');
+    const targetIssueId = urlParams.get('issue_id') || {{ target_issue_id or 'null' }};
 
     // Function to scroll to and highlight a comment
     function scrollToComment(commentId) {

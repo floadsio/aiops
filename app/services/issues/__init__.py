@@ -196,9 +196,39 @@ def sync_project_integration(
         ).all()
     }
 
+    # Get the tenant ID to check for manually assigned issues across projects
+    tenant_id = None
+    if project_integration.project and project_integration.project.tenant:
+        tenant_id = project_integration.project.tenant_id
+
+    # Find issues that exist elsewhere in the tenant and are manually assigned
+    # These should not be synced to this project to avoid duplicates
+    manually_assigned_external_ids: set[str] = set()
+    if tenant_id:
+        manually_assigned_issues = (
+            ExternalIssue.query
+            .join(ProjectIntegration)
+            .join(Project)
+            .filter(
+                Project.tenant_id == tenant_id,
+                ExternalIssue.manually_assigned == True,  # noqa: E712
+                ExternalIssue.project_integration_id != project_integration.id,
+            )
+            .all()
+        )
+        manually_assigned_external_ids = {i.external_id for i in manually_assigned_issues}
+
     now = utcnow()
     updated_issues: List[ExternalIssue] = []
     for payload in payloads:
+        # Skip issues that have been manually assigned to another project
+        if payload.external_id in manually_assigned_external_ids:
+            current_app.logger.debug(
+                "Skipping issue %s - manually assigned to another project",
+                payload.external_id,
+            )
+            continue
+
         issue = existing_issues.get(payload.external_id)
         if issue is None:
             issue = ExternalIssue(
@@ -207,6 +237,11 @@ def sync_project_integration(
             )
             db.session.add(issue)
             existing_issues[payload.external_id] = issue
+        elif issue.manually_assigned:
+            # Don't update issues that are manually assigned to this project
+            # (they should stay here but we might still want to update their data)
+            # For now, we DO update the data but preserve the assignment
+            pass
 
         issue.title = payload.title
         issue.status = payload.status

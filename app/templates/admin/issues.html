@@ -1272,6 +1272,15 @@
                 <button type="submit" class="secondary outline">✕ Close Issue</button>
               </form>
             {% endif %}
+            {% if issue.tenant_id %}
+              <select class="move-to-project-select tertiary outline"
+                      data-issue-id="{{ issue.id }}"
+                      data-current-project="{{ issue.project_id }}"
+                      data-tenant-id="{{ issue.tenant_id }}"
+                      style="padding: 0.25rem 0.5rem; font-size: 0.85rem; min-width: 140px;">
+                <option value="">📦 Move to...</option>
+              </select>
+            {% endif %}
           </div>
         {% endif %}
       </article>
@@ -1800,6 +1809,104 @@
                        meta.includes(searchQuery);
 
         card.style.display = matches ? '' : 'none';
+      });
+    });
+  })();
+
+  // Move issue to different project
+  (function() {
+    const moveSelects = document.querySelectorAll('.move-to-project-select');
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+    // Cache for tenant projects
+    const projectCache = new Map();
+
+    async function loadTenantProjects(tenantId) {
+      if (projectCache.has(tenantId)) {
+        return projectCache.get(tenantId);
+      }
+
+      try {
+        const response = await fetch(`/api/v1/projects?tenant_id=${tenantId}`, {
+          credentials: 'same-origin',
+        });
+        if (!response.ok) throw new Error('Failed to load projects');
+        const data = await response.json();
+        const projects = data.projects || data || [];
+        projectCache.set(tenantId, projects);
+        return projects;
+      } catch (error) {
+        console.error('Failed to load tenant projects:', error);
+        return [];
+      }
+    }
+
+    moveSelects.forEach(select => {
+      const tenantId = select.dataset.tenantId;
+      const currentProjectId = parseInt(select.dataset.currentProject, 10);
+      const issueId = select.dataset.issueId;
+
+      // Load projects on first focus
+      select.addEventListener('focus', async function onFocus() {
+        select.removeEventListener('focus', onFocus);
+
+        if (select.options.length > 1) return; // Already loaded
+
+        const projects = await loadTenantProjects(tenantId);
+        projects.forEach(project => {
+          if (project.id !== currentProjectId) {
+            const option = document.createElement('option');
+            option.value = project.id;
+            option.textContent = project.name;
+            select.appendChild(option);
+          }
+        });
+      });
+
+      // Handle move
+      select.addEventListener('change', async function() {
+        const targetProjectId = this.value;
+        if (!targetProjectId) return;
+
+        const targetProjectName = this.options[this.selectedIndex].text;
+
+        if (!confirm(`Move this issue to "${targetProjectName}"?`)) {
+          this.value = '';
+          return;
+        }
+
+        this.disabled = true;
+        const originalText = this.options[0].text;
+        this.options[0].text = 'Moving...';
+        this.value = '';
+
+        try {
+          const response = await fetch(`/api/v1/issues/${issueId}/move`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+              'X-CSRF-Token': csrfToken,
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ project_id: parseInt(targetProjectId, 10) }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            this.options[0].text = '✓ Moved!';
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } else {
+            throw new Error(data.error || 'Failed to move issue');
+          }
+        } catch (error) {
+          alert('Failed to move issue: ' + error.message);
+          this.options[0].text = originalText;
+          this.disabled = false;
+        }
       });
     });
   })();

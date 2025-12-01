@@ -1438,3 +1438,115 @@ def list_pinned_comments():
         })
 
     return jsonify({"pinned_comments": result})
+
+
+@api_v1_bp.post("/issues/<int:issue_id>/move")
+@require_api_auth(scopes=["write"])
+@audit_api_request
+def move_issue(issue_id: int):
+    """Move an issue to a different project within the same tenant.
+
+    This allows users to reassign issues when multiple projects share
+    the same upstream issue tracker (e.g., multiple projects using
+    the same Jira project).
+
+    Request Body:
+        project_id (int): Target project ID to move the issue to
+
+    Returns:
+        200: Issue moved successfully
+        400: Invalid request (missing project_id, same project, different tenant)
+        404: Issue or project not found
+    """
+    issue = ExternalIssue.query.options(
+        selectinload(ExternalIssue.project_integration)
+        .selectinload(ProjectIntegration.project)
+        .selectinload(Project.tenant)
+    ).get(issue_id)
+
+    if not issue:
+        return jsonify({"error": "Issue not found"}), 404
+
+    data = request.get_json() or {}
+    target_project_id = data.get("project_id")
+
+    if not target_project_id:
+        return jsonify({"error": "project_id is required"}), 400
+
+    # Get source project and tenant
+    source_integration = issue.project_integration
+    source_project = source_integration.project if source_integration else None
+    source_tenant = source_project.tenant if source_project else None
+
+    if not source_tenant:
+        return jsonify({"error": "Cannot determine source tenant"}), 400
+
+    # Get target project
+    target_project = Project.query.options(
+        selectinload(Project.tenant)
+    ).get(target_project_id)
+
+    if not target_project:
+        return jsonify({"error": "Target project not found"}), 404
+
+    # Validate same tenant
+    if target_project.tenant_id != source_tenant.id:
+        return jsonify({
+            "error": "Cannot move issue to a project in a different tenant"
+        }), 400
+
+    # Check if moving to same project
+    if target_project.id == source_project.id:
+        return jsonify({"error": "Issue is already in this project"}), 400
+
+    # Find a suitable project_integration in the target project
+    # Prefer same provider type, but accept any if not available
+    source_provider = source_integration.integration.provider if source_integration.integration else None
+
+    target_integration = None
+
+    # First try to find matching provider
+    if source_provider:
+        target_integration = ProjectIntegration.query.filter(
+            ProjectIntegration.project_id == target_project.id,
+        ).join(TenantIntegration).filter(
+            TenantIntegration.provider == source_provider
+        ).first()
+
+    # If no matching provider, get any integration from target project
+    if not target_integration:
+        target_integration = ProjectIntegration.query.filter(
+            ProjectIntegration.project_id == target_project.id
+        ).first()
+
+    if not target_integration:
+        return jsonify({
+            "error": f"Target project '{target_project.name}' has no integrations configured"
+        }), 400
+
+    # Perform the move
+    old_project_name = source_project.name
+    issue.project_integration_id = target_integration.id
+    issue.manually_assigned = True
+
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        current_app.logger.error("Failed to move issue %s: %s", issue_id, exc)
+        return jsonify({"error": "Failed to move issue"}), 500
+
+    current_app.logger.info(
+        "Issue %s (%s) moved from %s to %s by user %s",
+        issue_id,
+        issue.external_id,
+        old_project_name,
+        target_project.name,
+        getattr(g, "current_user", {}).get("email", "unknown"),
+    )
+
+    return jsonify({
+        "success": True,
+        "message": f"Issue moved to {target_project.name}",
+        "issue": _issue_to_dict(issue),
+    })

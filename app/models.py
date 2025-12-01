@@ -270,6 +270,9 @@ class ExternalIssue(BaseModel, TimestampMixin):
     raw_payload: Mapped[Optional[dict[str, Any]]] = mapped_column(
         db.JSON, nullable=True
     )
+    manually_assigned: Mapped[bool] = mapped_column(
+        db.Boolean, default=False, nullable=False, server_default=db.false()
+    )
 
     project_integration: Mapped["ProjectIntegration"] = relationship(
         "ProjectIntegration", back_populates="issues"

@@ -1346,24 +1346,42 @@ def write_reply_context(
     # Determine output path
     if identity_user:
         linux_username = resolve_linux_username(identity_user)
-        workspace_path = get_workspace_path(linux_username, project)
+        workspace_path = get_workspace_path(project, identity_user)
+        if workspace_path is None:
+            raise RuntimeError(
+                f"Cannot determine workspace path for user {identity_user.email}"
+            )
         output_path = Path(workspace_path) / DEFAULT_CONTEXT_FILENAME
     else:
         output_path = Path(project.local_path) / DEFAULT_CONTEXT_FILENAME
 
-    # Write the file
-    try:
-        if identity_user:
-            linux_username = resolve_linux_username(identity_user)
-            run_as_user(
+    # Write the file (using sudo if needed for user workspace)
+    if identity_user:
+        # User workspace - use sudo to write file via tee
+        try:
+            cmd = [
+                "sudo",
+                "-n",
+                "-u",
                 linux_username,
-                ["tee", str(output_path)],
-                input_data=final_content,
+                "tee",
+                str(output_path),
+            ]
+            subprocess.run(
+                cmd,
+                input=final_content,
                 capture_output=True,
+                text=True,
+                timeout=10.0,
+                check=True,
             )
-        else:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(f"Failed to write reply context: {exc}") from exc
+    else:
+        # Legacy path - direct file write
+        try:
             output_path.write_text(final_content, encoding="utf-8")
-    except (SudoError, OSError) as exc:
-        raise RuntimeError(f"Failed to write reply context: {exc}") from exc
+        except OSError as exc:
+            raise RuntimeError(f"Failed to write reply context: {exc}") from exc
 
     return output_path, sources

@@ -246,23 +246,38 @@ def start_project_ai_session(project_id: int):
         # - With issue: include global + issue-specific context
         # - Without issue: include only global context
         context_sources: list[str] = []
+        current_app.logger.warning(
+            "DEBUG [API]: reply_mode=%s, issue_id=%s, reply_to_comment_id=%s",
+            reply_mode,
+            issue_id,
+            reply_to_comment_id,
+        )
         if reply_mode and issue_id:
             # AI Reply mode: use reply-focused context
             from ...services.agent_context import write_reply_context
             try:
                 issue = ExternalIssue.query.get(issue_id)
+                current_app.logger.warning(
+                    "DEBUG [API]: Found issue=%s for reply mode", issue
+                )
                 if issue:
-                    _, context_sources = write_reply_context(
+                    output_path, context_sources = write_reply_context(
                         project,
                         issue,
                         reply_to_comment_id=reply_to_comment_id,
                         identity_user=session_user,
+                    )
+                    current_app.logger.warning(
+                        "DEBUG [API]: Wrote reply context to %s, sources=%s",
+                        output_path,
+                        context_sources,
                     )
             except Exception as exc:
                 current_app.logger.warning(
                     "Failed to populate reply context for issue %s: %s",
                     issue_id,
                     exc,
+                    exc_info=True,
                 )
         elif issue_id:
             from ...services.agent_context import write_tracked_issue_context

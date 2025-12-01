@@ -38,6 +38,7 @@ def clone_repo(
     target_path: Path,
     *,
     branch: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> None:
     """Clone a repository using the appropriate CLI tool.
 
@@ -45,6 +46,7 @@ def clone_repo(
         project: Project to clone
         target_path: Local path to clone into
         branch: Optional branch to checkout
+        user_id: Optional user ID for personal PAT authentication
 
     Raises:
         CliGitServiceError: If clone fails or provider not supported
@@ -53,12 +55,12 @@ def clone_repo(
 
     if provider == "github":
         try:
-            gh_service.clone_repo(project, target_path, branch=branch)
+            gh_service.clone_repo(project, target_path, branch=branch, user_id=user_id)
         except gh_service.GhServiceError as exc:
             raise CliGitServiceError(f"GitHub clone failed: {exc}") from exc
     elif provider == "gitlab":
         try:
-            glab_service.clone_repo(project, target_path, branch=branch)
+            glab_service.clone_repo(project, target_path, branch=branch, user_id=user_id)
         except glab_service.GlabServiceError as exc:
             raise CliGitServiceError(f"GitLab clone failed: {exc}") from exc
     else:
@@ -67,12 +69,13 @@ def clone_repo(
         )
 
 
-def pull_repo(project: Project, repo_path: Path) -> str:
+def pull_repo(project: Project, repo_path: Path, user_id: Optional[int] = None) -> str:
     """Pull latest changes from repository.
 
     Args:
         project: Project to pull
         repo_path: Local repository path
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Output message from pull operation
@@ -84,12 +87,12 @@ def pull_repo(project: Project, repo_path: Path) -> str:
 
     if provider == "github":
         try:
-            return gh_service.pull_repo(project, repo_path)
+            return gh_service.pull_repo(project, repo_path, user_id=user_id)
         except gh_service.GhServiceError as exc:
             raise CliGitServiceError(f"GitHub pull failed: {exc}") from exc
     elif provider == "gitlab":
         try:
-            return glab_service.pull_repo(project, repo_path)
+            return glab_service.pull_repo(project, repo_path, user_id=user_id)
         except glab_service.GlabServiceError as exc:
             raise CliGitServiceError(f"GitLab pull failed: {exc}") from exc
     else:
@@ -98,13 +101,14 @@ def pull_repo(project: Project, repo_path: Path) -> str:
         )
 
 
-def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -> str:
+def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None, user_id: Optional[int] = None) -> str:
     """Push changes to repository.
 
     Args:
         project: Project to push
         repo_path: Local repository path
         branch: Branch to push (defaults to current branch)
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Output message from push operation
@@ -116,12 +120,12 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
 
     if provider == "github":
         try:
-            return gh_service.push_repo(project, repo_path, branch=branch)
+            return gh_service.push_repo(project, repo_path, branch=branch, user_id=user_id)
         except gh_service.GhServiceError as exc:
             raise CliGitServiceError(f"GitHub push failed: {exc}") from exc
     elif provider == "gitlab":
         try:
-            return glab_service.push_repo(project, repo_path, branch=branch)
+            return glab_service.push_repo(project, repo_path, branch=branch, user_id=user_id)
         except glab_service.GlabServiceError as exc:
             raise CliGitServiceError(f"GitLab push failed: {exc}") from exc
     else:
@@ -130,12 +134,13 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
         )
 
 
-def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
+def get_repo_status(project: Project, repo_path: Path, user_id: Optional[int] = None) -> dict[str, Any]:
     """Get repository status.
 
     Args:
         project: Project to check
         repo_path: Local repository path
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Dictionary with status information
@@ -147,12 +152,12 @@ def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
 
     if provider == "github":
         try:
-            return gh_service.get_repo_status(project, repo_path)
+            return gh_service.get_repo_status(project, repo_path, user_id=user_id)
         except gh_service.GhServiceError as exc:
             raise CliGitServiceError(f"GitHub status failed: {exc}") from exc
     elif provider == "gitlab":
         try:
-            return glab_service.get_repo_status(project, repo_path)
+            return glab_service.get_repo_status(project, repo_path, user_id=user_id)
         except glab_service.GlabServiceError as exc:
             raise CliGitServiceError(f"GitLab status failed: {exc}") from exc
     else:

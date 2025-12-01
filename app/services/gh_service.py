@@ -77,15 +77,32 @@ def _get_github_url(project: Project, integration: TenantIntegration) -> Optiona
     return None
 
 
-def _get_github_token(project: Project, integration: TenantIntegration) -> Optional[str]:
+def _get_github_token(
+    project: Project, integration: TenantIntegration, user_id: Optional[int] = None
+) -> Optional[str]:
     """Get the GitHub PAT for a project.
 
-    Checks project-level override first, then tenant-level token.
+    Checks user-level personal token first, then project-level override, then tenant-level token.
+
+    Args:
+        project: Project to get token for
+        integration: GitHub integration
+        user_id: Optional user ID to check for personal credentials
 
     Returns:
-        Personal Access Token
+        Personal Access Token with precedence: user > project > tenant
     """
-    # Check project-level override first
+    # Check user-level personal credentials first (highest precedence)
+    if user_id:
+        from ..models import UserIntegrationCredential
+
+        user_cred = UserIntegrationCredential.query.filter_by(
+            user_id=user_id, integration_id=integration.id
+        ).first()
+        if user_cred and user_cred.api_token:
+            return user_cred.api_token
+
+    # Check project-level override
     project_integrations = getattr(project, "issue_integrations", [])
     for pi in project_integrations:
         if pi.integration_id == integration.id:
@@ -157,6 +174,7 @@ def clone_repo(
     target_path: Path,
     *,
     branch: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> None:
     """Clone a GitHub repository using gh CLI.
 
@@ -164,6 +182,7 @@ def clone_repo(
         project: Project to clone
         target_path: Local path to clone into
         branch: Optional branch to checkout (defaults to project.default_branch)
+        user_id: Optional user ID for personal PAT authentication
 
     Raises:
         GhServiceError: If clone fails
@@ -172,7 +191,7 @@ def clone_repo(
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = _get_github_token(project, integration)
+    token = _get_github_token(project, integration, user_id)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
 
@@ -229,12 +248,13 @@ def clone_repo(
         raise GhServiceError("Repository clone timed out after 300s") from exc
 
 
-def pull_repo(project: Project, repo_path: Path) -> str:
+def pull_repo(project: Project, repo_path: Path, user_id: Optional[int] = None) -> str:
     """Pull latest changes from GitHub repository.
 
     Args:
         project: Project to pull
         repo_path: Local repository path
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Output message from pull operation
@@ -246,7 +266,7 @@ def pull_repo(project: Project, repo_path: Path) -> str:
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = _get_github_token(project, integration)
+    token = _get_github_token(project, integration, user_id)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
 
@@ -280,13 +300,16 @@ def pull_repo(project: Project, repo_path: Path) -> str:
         raise GhServiceError(f"Failed to pull repository: {stderr.strip()}") from exc
 
 
-def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -> str:
+def push_repo(
+    project: Project, repo_path: Path, branch: Optional[str] = None, user_id: Optional[int] = None
+) -> str:
     """Push changes to GitHub repository.
 
     Args:
         project: Project to push
         repo_path: Local repository path
         branch: Branch to push (defaults to current branch)
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Output message from push operation
@@ -298,7 +321,7 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = _get_github_token(project, integration)
+    token = _get_github_token(project, integration, user_id)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
 
@@ -335,12 +358,13 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
         raise GhServiceError(f"Failed to push repository: {stderr.strip()}") from exc
 
 
-def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
+def get_repo_status(project: Project, repo_path: Path, user_id: Optional[int] = None) -> dict[str, Any]:
     """Get repository status using git commands with GitHub authentication.
 
     Args:
         project: Project to check
         repo_path: Local repository path
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Dictionary with status information
@@ -352,7 +376,7 @@ def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
     if not integration:
         raise GhServiceError(f"Project {project.id} does not have a GitHub integration")
 
-    token = _get_github_token(project, integration)
+    token = _get_github_token(project, integration, user_id)
     if not token:
         raise GhServiceError(f"GitHub integration {integration.id} has no access token")
 

@@ -309,9 +309,10 @@ def ensure_repo_checkout(project: Project, user: Optional[object] = None) -> Rep
             path = _relocate_project_path(project)
 
     # Try CLI tools first if available (GitHub/GitLab with PAT)
+    user_id = getattr(user, "id", None) if user is not None else None
     if cli_git_service.supports_cli_git(project):
         try:
-            cli_git_service.clone_repo(project, path, branch=project.default_branch)
+            cli_git_service.clone_repo(project, path, branch=project.default_branch, user_id=user_id)
             return Repo(path)
         except cli_git_service.CliGitServiceError as err:
             log.warning(
@@ -518,6 +519,36 @@ def _run_git_action_as_user(
         raise RuntimeError("Repository working directory is not available.")
 
     repo_path = Path(workspace_dir)
+
+    # Try CLI tools first with user's personal PAT if available (GitHub/GitLab)
+    user_id = getattr(user, "id", None)
+    if cli_git_service.supports_cli_git(project) and user_id:
+        try:
+            if action == "pull":
+                if clean:
+                    log.info("Performing clean pull for project %s as user %s", project.name, linux_username)
+                    _discard_local_changes(repo)
+                output = cli_git_service.pull_repo(project, repo_path, user_id=user_id)
+                # Add status after pull
+                status = repo.git.status("--short", "--branch").strip()
+                if status:
+                    output += "\nWorking tree status:\n" + status
+                return output
+            elif action == "push":
+                return cli_git_service.push_repo(project, repo_path, branch=ref, user_id=user_id)
+            elif action == "status":
+                status_info = cli_git_service.get_repo_status(project, repo_path, user_id=user_id)
+                return status_info.get("status_summary", "")
+        except cli_git_service.CliGitServiceError as err:
+            log.warning(
+                "CLI git %s failed for user %s on %s, falling back to sudo git: %s",
+                action,
+                linux_username,
+                project.name,
+                err,
+            )
+            # Fall through to sudo-based git operations
+
     env = _build_user_git_env()
 
     def _git(args: list[str], *, timeout: float = 60.0) -> str:
@@ -584,22 +615,23 @@ def run_git_action(
 
     # Try CLI tools first if available (GitHub/GitLab with PAT)
     repo_path = Path(repo.working_tree_dir)
+    # No user_id here since user=None in this code path (user actions go through _run_git_action_as_user)
     if cli_git_service.supports_cli_git(project):
         try:
             if action == "pull":
                 if clean:
                     log.info("Performing clean pull for project %s", project.name)
                     _discard_local_changes(repo)
-                output = cli_git_service.pull_repo(project, repo_path)
+                output = cli_git_service.pull_repo(project, repo_path, user_id=None)
                 # Add status after pull
                 status = repo.git.status("--short", "--branch").strip()
                 if status:
                     output += "\nWorking tree status:\n" + status
                 return output
             elif action == "push":
-                return cli_git_service.push_repo(project, repo_path, branch=ref)
+                return cli_git_service.push_repo(project, repo_path, branch=ref, user_id=None)
             elif action == "status":
-                status_info = cli_git_service.get_repo_status(project, repo_path)
+                status_info = cli_git_service.get_repo_status(project, repo_path, user_id=None)
                 return status_info.get("status_summary", "")
         except cli_git_service.CliGitServiceError as err:
             log.warning(

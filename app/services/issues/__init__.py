@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional
 from flask import current_app
 
 from ...extensions import db
-from ...models import ExternalIssue, ProjectIntegration, TenantIntegration
+from ...models import ExternalIssue, Project, ProjectIntegration, TenantIntegration
 
 if TYPE_CHECKING:
     from .utils import IntegrationLike as IntegrationLike  # noqa: F401

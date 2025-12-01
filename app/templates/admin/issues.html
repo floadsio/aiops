@@ -1272,7 +1272,7 @@
                 <button type="submit" class="secondary outline">✕ Close Issue</button>
               </form>
             {% endif %}
-            {% if issue.tenant_id %}
+            {% if issue.tenant_id and issue.tenant_id in tenants_with_multiple_projects %}
               <select class="move-to-project-select tertiary outline"
                       data-issue-id="{{ issue.id }}"
                       data-current-project="{{ issue.project_id }}"

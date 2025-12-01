@@ -2729,6 +2729,16 @@ def manage_issues():
         pinned.issue_id
         for pinned in PinnedIssue.query.filter_by(user_id=current_user.id).all()
     }
+
+    # Build a set of tenant IDs that have multiple projects (for "Move to..." feature)
+    tenant_project_counts: dict[int, int] = {}
+    for tenant in Tenant.query.all():
+        project_count = Project.query.filter_by(tenant_id=tenant.id).count()
+        tenant_project_counts[tenant.id] = project_count
+    tenants_with_multiple_projects = {
+        tid for tid, count in tenant_project_counts.items() if count > 1
+    }
+
     tenant_counts: Counter[str] = Counter()
     tenant_labels: dict[str, str] = {}
     project_counts: Counter[str] = Counter()
@@ -3187,6 +3197,7 @@ def manage_issues():
         issue_custom_field_values=custom_field_values,
         issue_custom_field_errors=custom_field_errors,
         target_issue_id=target_issue_id,
+        tenants_with_multiple_projects=tenants_with_multiple_projects,
     )
 
 

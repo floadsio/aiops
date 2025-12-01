@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-from ..models import Project, TenantIntegration
+from ..models import Project, ProjectIntegration, TenantIntegration
+from .issues.utils import get_effective_credentials
 
 log = logging.getLogger(__name__)
 
@@ -77,24 +78,34 @@ def _get_gitlab_url(project: Project, integration: TenantIntegration) -> Optiona
     return None
 
 
-def _get_gitlab_token(project: Project, integration: TenantIntegration) -> Optional[str]:
+def _get_gitlab_token(
+    project: Project, integration: TenantIntegration, user_id: Optional[int] = None
+) -> Optional[str]:
     """Get the GitLab PAT for a project.
 
-    Checks project-level override first, then tenant-level token.
+    Uses get_effective_credentials() for consistent user > project > tenant precedence.
+
+    Args:
+        project: Project to get token for
+        integration: GitLab integration
+        user_id: Optional user ID to check for personal credentials
 
     Returns:
-        Personal Access Token
+        Personal Access Token with precedence: user > project > tenant
     """
-    # Check project-level override first
+    # Get project integration if it exists
+    project_integration: Optional[ProjectIntegration] = None
     project_integrations = getattr(project, "issue_integrations", [])
     for pi in project_integrations:
         if pi.integration_id == integration.id:
-            override_token = getattr(pi, "override_api_token", None)
-            if override_token:
-                return override_token
+            project_integration = pi
+            break
 
-    # Fall back to tenant-level token
-    return getattr(integration, "api_token", None) or getattr(integration, "access_token", None)
+    # Use generic helper for consistent credential precedence
+    api_token, _, _ = get_effective_credentials(
+        integration, project_integration=project_integration, user_id=user_id
+    )
+    return api_token
 
 
 def _run_glab_command(
@@ -156,6 +167,7 @@ def clone_repo(
     target_path: Path,
     *,
     branch: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> None:
     """Clone a GitLab repository using glab CLI.
 
@@ -163,6 +175,7 @@ def clone_repo(
         project: Project to clone
         target_path: Local path to clone into
         branch: Optional branch to checkout (defaults to project.default_branch)
+        user_id: Optional user ID for personal PAT authentication
 
     Raises:
         GlabServiceError: If clone fails
@@ -171,7 +184,7 @@ def clone_repo(
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = _get_gitlab_token(project, integration)
+    token = _get_gitlab_token(project, integration, user_id)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
 
@@ -228,12 +241,13 @@ def clone_repo(
         raise GlabServiceError("Repository clone timed out after 300s") from exc
 
 
-def pull_repo(project: Project, repo_path: Path) -> str:
+def pull_repo(project: Project, repo_path: Path, user_id: Optional[int] = None) -> str:
     """Pull latest changes from GitLab repository.
 
     Args:
         project: Project to pull
         repo_path: Local repository path
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Output message from pull operation
@@ -245,7 +259,7 @@ def pull_repo(project: Project, repo_path: Path) -> str:
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = _get_gitlab_token(project, integration)
+    token = _get_gitlab_token(project, integration, user_id)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
 
@@ -278,13 +292,16 @@ def pull_repo(project: Project, repo_path: Path) -> str:
         raise GlabServiceError(f"Failed to pull repository: {stderr.strip()}") from exc
 
 
-def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -> str:
+def push_repo(
+    project: Project, repo_path: Path, branch: Optional[str] = None, user_id: Optional[int] = None
+) -> str:
     """Push changes to GitLab repository.
 
     Args:
         project: Project to push
         repo_path: Local repository path
         branch: Branch to push (defaults to current branch)
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Output message from push operation
@@ -296,7 +313,7 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = _get_gitlab_token(project, integration)
+    token = _get_gitlab_token(project, integration, user_id)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
 
@@ -333,12 +350,13 @@ def push_repo(project: Project, repo_path: Path, branch: Optional[str] = None) -
         raise GlabServiceError(f"Failed to push repository: {stderr.strip()}") from exc
 
 
-def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
+def get_repo_status(project: Project, repo_path: Path, user_id: Optional[int] = None) -> dict[str, Any]:
     """Get repository status using git commands with GitLab authentication.
 
     Args:
         project: Project to check
         repo_path: Local repository path
+        user_id: Optional user ID for personal PAT authentication
 
     Returns:
         Dictionary with status information
@@ -350,7 +368,7 @@ def get_repo_status(project: Project, repo_path: Path) -> dict[str, Any]:
     if not integration:
         raise GlabServiceError(f"Project {project.id} does not have a GitLab integration")
 
-    token = _get_gitlab_token(project, integration)
+    token = _get_gitlab_token(project, integration, user_id)
     if not token:
         raise GlabServiceError(f"GitLab integration {integration.id} has no access token")
 

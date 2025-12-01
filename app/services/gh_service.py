@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-from ..models import Project, TenantIntegration
+from ..models import Project, ProjectIntegration, TenantIntegration
+from .issues.utils import get_effective_credentials
 
 log = logging.getLogger(__name__)
 
@@ -82,7 +83,7 @@ def _get_github_token(
 ) -> Optional[str]:
     """Get the GitHub PAT for a project.
 
-    Checks user-level personal token first, then project-level override, then tenant-level token.
+    Uses get_effective_credentials() for consistent user > project > tenant precedence.
 
     Args:
         project: Project to get token for
@@ -92,26 +93,19 @@ def _get_github_token(
     Returns:
         Personal Access Token with precedence: user > project > tenant
     """
-    # Check user-level personal credentials first (highest precedence)
-    if user_id:
-        from ..models import UserIntegrationCredential
-
-        user_cred = UserIntegrationCredential.query.filter_by(
-            user_id=user_id, integration_id=integration.id
-        ).first()
-        if user_cred and user_cred.api_token:
-            return user_cred.api_token
-
-    # Check project-level override
+    # Get project integration if it exists
+    project_integration: Optional[ProjectIntegration] = None
     project_integrations = getattr(project, "issue_integrations", [])
     for pi in project_integrations:
         if pi.integration_id == integration.id:
-            override_token = getattr(pi, "override_api_token", None)
-            if override_token:
-                return override_token
+            project_integration = pi
+            break
 
-    # Fall back to tenant-level token
-    return getattr(integration, "api_token", None) or getattr(integration, "access_token", None)
+    # Use generic helper for consistent credential precedence
+    api_token, _, _ = get_effective_credentials(
+        integration, project_integration=project_integration, user_id=user_id
+    )
+    return api_token
 
 
 def _run_gh_command(

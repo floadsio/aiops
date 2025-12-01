@@ -1153,3 +1153,217 @@ def _strip_base_instructions(source: str, base_content: str) -> str:
         return remainder.lstrip()
 
     return stripped_source
+
+
+def render_reply_context(
+    project: Project,
+    issue: ExternalIssue,
+    reply_to_comment_id: str | None = None,
+    *,
+    identity_user: User | None = None,
+) -> str:
+    """Build context for AI-assisted reply generation.
+
+    This creates a focused context document that helps an AI assistant
+    draft a reply to an issue or specific comment.
+
+    Args:
+        project: The project containing the issue
+        issue: The issue to reply to
+        reply_to_comment_id: Optional comment ID to highlight as the reply target
+        identity_user: Optional user for git identity info
+
+    Returns:
+        Markdown context document for reply assistance
+    """
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
+    integration = (
+        issue.project_integration.integration if issue.project_integration else None
+    )
+    provider = integration.provider if integration else "unknown"
+
+    # Extract issue description
+    issue_description = _extract_issue_description(issue, provider)
+    details_section = (
+        issue_description.strip() if issue_description else "No description provided."
+    )
+
+    # Format comments with reply target highlighted
+    comments = issue.comments or []
+    comments_section = _format_reply_comments(comments, reply_to_comment_id)
+
+    assignee = issue.assignee or "unassigned"
+    status = issue.status or "unspecified"
+    source_url = issue.url or "N/A"
+
+    # Determine reply target description
+    if reply_to_comment_id:
+        target_comment = next(
+            (c for c in comments if str(c.get("id")) == str(reply_to_comment_id)), None
+        )
+        if target_comment:
+            target_author = target_comment.get("author") or "Unknown"
+            reply_instruction = f"Draft a reply to **{target_author}**'s comment (marked with ⬅️ REPLYING TO THIS below)."
+        else:
+            reply_instruction = "Draft a reply to the conversation thread."
+    else:
+        reply_instruction = "Draft a reply to this issue or continue the conversation."
+
+    content = dedent(
+        f"""
+        # AI Reply Assistant
+
+        _Context generated: {timestamp}_
+
+        You are helping draft a reply to an issue conversation. Read the context below
+        and help formulate a thoughtful, professional response.
+
+        **{reply_instruction}**
+
+        ---
+
+        ## Issue: #{issue.external_id} - {issue.title}
+
+        | Field | Value |
+        |-------|-------|
+        | Provider | {provider} |
+        | Status | {status} |
+        | Assignee | {assignee} |
+        | URL | {source_url} |
+
+        ## Issue Description
+
+        {details_section}
+
+        ## Conversation Thread
+
+        {comments_section if comments_section else "_No comments yet._"}
+
+        ---
+
+        ## Guidelines for Your Reply
+
+        1. **Address the specific points** raised in the conversation
+        2. **Be professional and constructive** in tone
+        3. **Include relevant technical details** if applicable
+        4. **Keep it concise but thorough** - aim for clarity
+        5. **Use proper formatting** (markdown) if helpful
+
+        When you're satisfied with the draft, the user can copy it to post as a comment.
+        """
+    ).strip()
+
+    # Add git identity if available
+    git_identity_section = _render_git_identity_section(identity_user)
+    if git_identity_section:
+        content = f"{content}\n\n{git_identity_section.strip()}"
+
+    return f"{content}\n"
+
+
+def _format_reply_comments(
+    comments: list[dict[str, Any]], reply_to_comment_id: str | None = None
+) -> str:
+    """Format comments for reply context, highlighting the reply target."""
+    if not comments:
+        return ""
+
+    formatted_comments = []
+    for i, comment in enumerate(comments, 1):
+        author = comment.get("author") or "Unknown"
+        body = comment.get("body") or ""
+        created_at = comment.get("created_at") or ""
+        comment_id = str(comment.get("id", ""))
+
+        # Format timestamp
+        if created_at:
+            try:
+                dt = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                date_str = dt.strftime("%Y-%m-%d %H:%M")
+            except (ValueError, TypeError):
+                date_str = created_at[:10] if len(created_at) >= 10 else created_at
+        else:
+            date_str = "Unknown date"
+
+        # Highlight if this is the reply target
+        is_reply_target = (
+            reply_to_comment_id and comment_id == str(reply_to_comment_id)
+        )
+        target_marker = "  ⬅️ REPLYING TO THIS" if is_reply_target else ""
+
+        header = f"### Comment {i} - {author} ({date_str}){target_marker}"
+
+        # Clean up body
+        body_text = body.strip() if body else "_No content_"
+
+        formatted_comments.append(f"{header}\n\n{body_text}")
+
+    return "\n\n---\n\n".join(formatted_comments)
+
+
+def write_reply_context(
+    project: Project,
+    issue: ExternalIssue,
+    reply_to_comment_id: str | None = None,
+    *,
+    identity_user: User | None = None,
+) -> tuple[Path, list[str]]:
+    """Write reply-focused context to AGENTS.override.md in user's workspace.
+
+    Args:
+        project: The project containing the issue
+        issue: The issue to reply to
+        reply_to_comment_id: Optional comment ID to highlight
+        identity_user: User whose workspace to write to
+
+    Returns:
+        tuple[Path, list[str]]: Path to written file and list of sources
+    """
+    # Generate reply context
+    reply_content = render_reply_context(
+        project, issue, reply_to_comment_id, identity_user=identity_user
+    )
+
+    # Get global context if available
+    sources = []
+    global_content = None
+    try:
+        from ..models import GlobalAgentContext
+        global_context = GlobalAgentContext.query.first()
+        if global_context and global_context.content and global_context.content.strip():
+            global_content = global_context.content.strip()
+            sources.append("global context")
+    except RuntimeError:
+        pass  # No app context
+
+    if global_content:
+        final_content = f"{global_content}\n\n---\n\n{reply_content}"
+    else:
+        final_content = reply_content
+
+    sources.append(f"issue #{issue.external_id} (reply mode)")
+
+    # Determine output path
+    if identity_user:
+        linux_username = resolve_linux_username(identity_user)
+        workspace_path = get_workspace_path(linux_username, project)
+        output_path = Path(workspace_path) / DEFAULT_CONTEXT_FILENAME
+    else:
+        output_path = Path(project.local_path) / DEFAULT_CONTEXT_FILENAME
+
+    # Write the file
+    try:
+        if identity_user:
+            linux_username = resolve_linux_username(identity_user)
+            run_as_user(
+                linux_username,
+                ["tee", str(output_path)],
+                input_data=final_content,
+                capture_output=True,
+            )
+        else:
+            output_path.write_text(final_content, encoding="utf-8")
+    except (SudoError, OSError) as exc:
+        raise RuntimeError(f"Failed to write reply context: {exc}") from exc
+
+    return output_path, sources

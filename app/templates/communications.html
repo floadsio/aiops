@@ -1392,6 +1392,9 @@ function renderThread(thread) {
           <button onclick="toggleCommentReplyForm(event, ${thread.issue_id}, '${escapeHtml(comment.author.display_name || comment.author.remote_name)}')" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;">
             Reply
           </button>
+          <button onclick="startAIReply(event, ${thread.issue_id}, ${thread.project_id}, '${comment.id}')" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;" title="Start AI session to help draft a reply">
+            🤖 AI Reply
+          </button>
           <button onclick="pinComment(event, ${thread.issue_id}, '${comment.id}')" class="pin-comment-btn" style="font-size: 0.85rem; padding: 0.35rem 0.7rem; background: transparent; color: var(--md-primary); border: 1px solid rgba(148, 163, 184, 0.3); border-radius: 0.3rem; cursor: pointer;">
             📌 Pin
           </button>
@@ -1786,6 +1789,59 @@ async function pinComment(event, issueId, commentId) {
   } catch (err) {
     console.error('Pin comment error:', err);
     alert('Failed to pin comment');
+  }
+}
+
+// Start AI session to help draft a reply
+async function startAIReply(event, issueId, projectId, commentId = null) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const button = event.currentTarget;
+  const originalText = button.textContent;
+  button.textContent = '⏳ Starting...';
+  button.disabled = true;
+
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+  try {
+    const response = await fetch(`/api/v1/projects/${projectId}/ai/sessions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': csrfToken,
+      },
+      body: JSON.stringify({
+        tool: 'claude',
+        issue_id: issueId,
+        reply_mode: true,
+        reply_to_comment_id: commentId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      button.textContent = '✓ Session Started';
+      button.style.color = '#22c55e';
+
+      // Show attach instructions
+      const tmuxTarget = data.tmux_target || data.session_id;
+      alert(`AI Reply session started!\n\nTo attach:\n  tmux attach -t ${tmuxTarget}\n\nOr use:\n  aiops sessions attach ${tmuxTarget}`);
+
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+        button.style.color = '';
+      }, 3000);
+    } else {
+      throw new Error(data.error || `HTTP ${response.status}`);
+    }
+  } catch (err) {
+    console.error('Start AI reply error:', err);
+    alert('Failed to start AI session: ' + err.message);
+    button.textContent = originalText;
+    button.disabled = false;
   }
 }
 

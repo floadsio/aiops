@@ -169,7 +169,9 @@ def start_project_ai_session(project_id: int):
     tmux_target = (data.get("tmux_target") or "").strip() or None
     issue_id = data.get("issue_id")  # Optional: track which issue this session is for
     requested_user_id = data.get("user_id")  # Optional: admin can start session as another user
-    permission_mode = data.get("permission_mode")  # Optional: override permission mode (e.g., "yolo")
+    permission_mode = data.get("permission_mode")  # Optional: override permission mode
+    reply_mode = data.get("reply_mode", False)  # AI reply assistant mode
+    reply_to_comment_id = data.get("reply_to_comment_id")  # Specific comment to reply to
     resolved_command = None
 
     current_app.logger.warning(f"DEBUG [API]: Received session request - tool={tool}, command={command}, issue_id={issue_id}")
@@ -240,10 +242,29 @@ def start_project_ai_session(project_id: int):
             )
 
         # Populate AGENTS.override.md before starting session
+        # - Reply mode: focused context for drafting replies
         # - With issue: include global + issue-specific context
         # - Without issue: include only global context
         context_sources: list[str] = []
-        if issue_id:
+        if reply_mode and issue_id:
+            # AI Reply mode: use reply-focused context
+            from ...services.agent_context import write_reply_context
+            try:
+                issue = ExternalIssue.query.get(issue_id)
+                if issue:
+                    _, context_sources = write_reply_context(
+                        project,
+                        issue,
+                        reply_to_comment_id=reply_to_comment_id,
+                        identity_user=session_user,
+                    )
+            except Exception as exc:
+                current_app.logger.warning(
+                    "Failed to populate reply context for issue %s: %s",
+                    issue_id,
+                    exc,
+                )
+        elif issue_id:
             from ...services.agent_context import write_tracked_issue_context
             try:
                 # Get the issue with all related data

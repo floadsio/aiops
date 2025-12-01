@@ -339,14 +339,6 @@ def summarize_issue(issue: ExternalIssue, include_url: bool = False) -> str:
     return "; ".join(parts)
 
 
-# Known username to full name mappings
-# This maps lowercase usernames to their full names for consistency across providers
-_USERNAME_TO_FULLNAME_MAP = {
-    "ivomarino": "Ivo Marino",
-    "riccardo": "Riccardo Mengarelli",
-}
-
-
 def normalize_assignee_name(name: str | None) -> str | None:
     """
     Normalize assignee names by removing organizational suffixes and extra whitespace.
@@ -355,8 +347,6 @@ def normalize_assignee_name(name: str | None) -> str | None:
     - "Michael Turko (Floads)" -> "Michael Turko"
     - "John Doe  (Acme Corp)" -> "John Doe"
     - "  Jane Smith  " -> "Jane Smith"
-    - "ivomarino" -> "Ivo Marino" (username to full name mapping)
-    - "riccardo" -> "Riccardo Mengarelli" (username to full name mapping)
 
     Args:
         name: Raw assignee name from provider
@@ -369,11 +359,6 @@ def normalize_assignee_name(name: str | None) -> str | None:
 
     # Strip leading/trailing whitespace
     normalized = name.strip()
-
-    # Check if this is a known username (case-insensitive lookup)
-    lowercase_name = normalized.lower()
-    if lowercase_name in _USERNAME_TO_FULLNAME_MAP:
-        return _USERNAME_TO_FULLNAME_MAP[lowercase_name]
 
     # Remove parenthetical suffixes (e.g., "(Floads)", "(Company Name)")
     # Match pattern: space + opening paren + any chars + closing paren at end

@@ -294,6 +294,7 @@ def get_communication_threads():
         # Get query parameters
         tenant_id = request.args.get("tenant_id", type=int)
         project_id = request.args.get("project_id", type=int)
+        issue_id = request.args.get("issue_id", type=int)
         limit = request.args.get("limit", default=50, type=int)
         offset = request.args.get("offset", default=0, type=int)
 
@@ -321,6 +322,10 @@ def get_communication_threads():
                 query = query.join(Project).filter(Project.tenant_id == tenant_id)
             if project_id:
                 query = query.filter(ProjectIntegration.project_id == project_id)
+
+        # Filter by specific issue ID (for deep linking from pinned comments)
+        if issue_id:
+            query = query.filter(ExternalIssue.id == issue_id)
 
         # Only include issues with comments
         query = query.filter(func.json_array_length(ExternalIssue.comments) > 0)

@@ -165,6 +165,21 @@
       border-bottom-color: rgba(148, 163, 184, 0.2);
     }
 
+    .tree-child-node.highlighted {
+      animation: highlight-pulse 3s ease-out;
+    }
+
+    @keyframes highlight-pulse {
+      0%, 40% {
+        background: rgba(88, 166, 255, 0.2);
+        box-shadow: inset 0 0 0 2px rgba(88, 166, 255, 0.4);
+      }
+      100% {
+        background: transparent;
+        box-shadow: none;
+      }
+    }
+
     .tree-child-header {
       display: flex;
       align-items: baseline;
@@ -1215,6 +1230,81 @@ let totalCount = 0;
 let allTenants = [];
 let allProjects = [];
 let availableProviders = new Set();
+let deepLinkHandled = false;
+
+// Handle deep link to specific issue/comment (from pinned comments)
+async function handleDeepLink() {
+  if (deepLinkHandled) return;
+
+  const params = new URLSearchParams(window.location.search);
+  const issueId = params.get('issue_id');
+  const commentId = params.get('comment_id');
+
+  if (!issueId) return;
+
+  deepLinkHandled = true;
+
+  // First check if thread is already loaded
+  let thread = document.querySelector(`[data-issue-id="${issueId}"]`);
+
+  // If not found, fetch it specifically from API and prepend it
+  if (!thread) {
+    try {
+      const response = await fetch(
+        `${API_BASE}/threads?issue_id=${issueId}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        if (data.threads && data.threads.length > 0) {
+          const container = document.getElementById('threadContainer');
+          // Prepend the thread at the top
+          container.insertAdjacentHTML('afterbegin', renderThread(data.threads[0]));
+          thread = document.querySelector(`[data-issue-id="${issueId}"]`);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load deep-linked thread:', e);
+      return;
+    }
+  }
+
+  if (!thread) return;
+
+  // Expand the thread
+  const header = thread.querySelector('.tree-node-header');
+  if (header) {
+    const toggle = header.querySelector('.tree-node-toggle');
+    if (toggle && toggle.classList.contains('collapsed')) {
+      header.click();
+    }
+  }
+
+  // If comment_id provided, expand and highlight the comment
+  if (commentId) {
+    setTimeout(() => {
+      const comment = thread.querySelector(`[data-comment-id="${commentId}"]`);
+      if (comment) {
+        // Expand the comment if collapsed
+        const commentHeader = comment.querySelector('.tree-child-header');
+        const commentToggle = comment.querySelector('.tree-child-toggle');
+        if (commentToggle && commentToggle.classList.contains('collapsed')) {
+          commentHeader.click();
+        }
+
+        // Scroll and highlight
+        setTimeout(() => {
+          comment.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          comment.classList.add('highlighted');
+          setTimeout(() => comment.classList.remove('highlighted'), 3000);
+        }, 150);
+      }
+    }, 100);
+  } else {
+    // Just scroll to thread
+    thread.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
 
 // Get provider icon
 function getProviderIcon(provider) {
@@ -1282,7 +1372,7 @@ function toggleCommentNode(event) {
 function renderThread(thread) {
   // For Reddit-like view, render comments COLLAPSED by default - users click to expand
   const commentsHtml = thread.comments.map((comment, index) => `
-    <div class="tree-child-node">
+    <div class="tree-child-node" data-comment-id="${comment.id}">
       <div class="tree-child-header" onclick="toggleCommentNode(event)">
         <span class="tree-child-toggle collapsed">▶</span>
         <span class="tree-child-author">
@@ -1323,7 +1413,7 @@ function renderThread(thread) {
   `).join('');
 
   return `
-    <article class="communication-thread">
+    <article class="communication-thread" data-issue-id="${thread.issue_id}">
       <div class="tree-root">
         <div class="tree-node">
           <!-- Issue node header (clickable to expand) -->
@@ -1493,6 +1583,9 @@ async function loadThreads(reset = true) {
 
     // Update pagination
     updatePagination(data.pagination);
+
+    // Handle deep link if present (from pinned comments)
+    handleDeepLink();
 
   } catch (error) {
     console.error('Error loading threads:', error);

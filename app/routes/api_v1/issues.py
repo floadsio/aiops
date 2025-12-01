@@ -544,11 +544,16 @@ def close_issue(issue_id: int):
 
     integration = issue.project_integration.integration
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
     try:
         provider = _get_issue_provider(integration)
         provider.close_issue(
             project_integration=issue.project_integration,
             issue_number=issue.external_id,
+            user_id=user_id,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400

@@ -130,10 +130,11 @@ class GitHubIssueProvider(BaseIssueProvider):
         *,
         project_integration: ProjectIntegration,
         issue_number: str,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        # Use effective integration with project-level credential overrides
+        # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(
-            self.integration, project_integration
+            self.integration, project_integration, user_id
         )
         payload = github_provider.close_issue(
             effective_integration, project_integration, issue_number
@@ -361,10 +362,11 @@ class GitLabIssueProvider(BaseIssueProvider):
         *,
         project_integration: ProjectIntegration,
         issue_number: str,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        # Use effective integration with project-level credential overrides
+        # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(
-            self.integration, project_integration
+            self.integration, project_integration, user_id
         )
         payload = gitlab_provider.close_issue(
             effective_integration, project_integration, issue_number
@@ -540,10 +542,11 @@ class JiraIssueProvider(BaseIssueProvider):
         *,
         project_integration: ProjectIntegration,
         issue_number: str,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
-        # Use effective integration with project-level credential overrides
+        # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(
-            self.integration, project_integration
+            self.integration, project_integration, user_id
         )
         payload = jira_provider.close_issue(
             effective_integration, project_integration, issue_number

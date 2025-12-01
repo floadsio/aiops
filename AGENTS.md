@@ -211,79 +211,70 @@ aiops system backup restore <id>                # Restore from backup (destructi
 - Test coverage target: 90% on core services
 - **Never include AI attribution in commits** - no "Generated with" footers
 
-## AGENTS.md – How to Not Sound Like ChatGPT Wrote Your Shit
-
-### Why this matters
-
+# AGENTS.md – How to Not Sound Like ChatGPT Wrote Your Shit
+## Why this matters
 Your audience smells AI from a mile away. The moment they do, they stop trusting you and scroll past. You're not saving time—you're erasing what makes you different and blending into the same grey noise as everyone else.
-
-### Dead giveaways (kill these immediately)
-
-#### Structure & Rhythm
-- **Binary opposites when you have nothing to say**
-  - Bad: "Success isn't about hard work, it's about working smart."
-  - Good: Just say what you mean. No fake contrasts needed.
-- **Everything in threes**
-  - Bad: "Fast, reliable, and scalable."
-  - Good: Use two points. Or four. Or one. Mix it up.
-- **Infomercial questions**
-  - Bad: "The catch?" / "Want the secret?"
-  - Good: Write like you're talking to a friend at a bar.
-
-#### Language
-- **Corporate zombie verbs**
-  - Bad: highlighting, leveraging, facilitating, optimizing
-  - Good: show, use, help, improve
-- **Throat-clearing hedges**
-  - Bad: "It's worth noting that…" / "You might want to consider…"
-  - Good: Cut the warm-up. Say the thing.
-- **Thesaurus abuse**
-  - utilize → use
-  - execute → do
-  - implement → start
-  - leverage → use
-
-#### Formatting & Style
-- **Arrow spam** → → → Use zero or one. Not a fireworks show.
-- **Emoji confetti** :rocket::bulb::fire: One per section max. Usually none.
-- **Em-dash addiction**—look—I can't stop—see? Use commas and periods like a normal human.
-
-#### Robot Phrase Patterns (instant red flags)
+## Dead giveaways (kill these immediately)
+### Structure & Rhythm
+- Binary opposites when you have nothing to say
+  Bad: "Success isn't about hard work, it's about working smart."
+  Good: Just say what you mean. No fake contrasts needed.
+- Everything in threes
+  Bad: "Fast, reliable, and scalable."
+  Good: Use two points. Or four. Or one. Mix it up.
+- Infomercial questions
+  Bad: "The catch?" / "Want the secret?"
+  Good: Write like you're talking to a friend at a bar.
+### Language
+- Corporate zombie verbs
+  Bad: highlighting, leveraging, facilitating, optimizing
+  Good: show, use, help, improve
+- Throat-clearing hedges
+  Bad: "It's worth noting that…" / "You might want to consider…"
+  Good: Cut the warm-up. Say the thing.
+- Thesaurus abuse
+  utilize → use
+  execute → do
+  implement → start
+  leverage → use
+### Formatting & Style
+- Arrow spam → → →
+  Use zero or one. Not a fireworks show.
+- Emoji confetti :rocket::bulb::fire:
+  One per section max. Usually none.
+- Em-dash addiction—look—I can't stop—see?
+  Use commas and periods like a normal human.
+### Robot Phrase Patterns (instant red flags)
 - "No fluff. No BS. Just results."
 - "Game-changer" / "supercharge" / "this one weird trick"
 - "To your success,"
 - "If you're serious about [goal]…"
 - "Enter: the framework"
 - "The best part?" / "Ready to 10x?"
-
 All of these scream 2023–2025 ChatGPT. Delete on sight.
-
-#### Content Problems
-- **Symbolism overdose** ("This represents a pivotal shift…") Just say what happened.
-- **Fake case studies** about "Sarah Chen, a 34-year-old founder from San Francisco" Use real stories, real names (with permission), real numbers.
-- **Universal transformation claims** ("This one tweak 10x'd my entire business") Be specific or be quiet.
-
-### How to actually write good shit
-
-1. Use AI to think, not to write. Brainstorm, outline, poke holes—then close the tab.
+### Content Problems
+- Symbolism overdose ("This represents a pivotal shift…")
+  Just say what happened.
+- Fake case studies about "Sarah Chen, a 34-year-old founder from San Francisco"
+  Use real stories, real names (with permission), real numbers.
+- Universal transformation claims ("This one tweak 10x'd my entire business")
+  Be specific or be quiet.
+## How to actually write good shit
+1. Use AI to think, not to write.
+   Brainstorm, outline, poke holes—then close the tab.
 2. Write the first draft yourself, in your own voice.
 3. Read it out loud. If you cringe, cut it.
 4. If a sentence could appear in any other creator's newsletter, delete it.
 5. Edit ruthlessly.
-
-### The real cost
-
+## The real cost
 You're not paying $20/month for ChatGPT.
-
 You're paying with your voice, your trust, and your differentiation.
-
 People don't leave because the advice is wrong.
-
 They leave because it's forgettable.
-
-### TL;DR
-
-Write like you talk. Delete anything that sounds like it was generated. Your voice is the only moat you have left. Don't piss it away.
+## TL;DR
+Write like you talk.
+Delete anything that sounds like it was generated.
+Your voice is the only moat you have left. Don't piss it away.
 
 ## Version Management
 

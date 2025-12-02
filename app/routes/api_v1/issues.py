@@ -1630,8 +1630,8 @@ def create_or_update_issue_plan(issue_id: int):
     existing_plan = get_plan(issue_id)
     is_update = existing_plan is not None
 
-    # Get current user
-    user_id = g.current_user.get("id")
+    # Get current user from API auth
+    user_id = g.api_user.id if hasattr(g, 'api_user') and g.api_user else None
     if not user_id:
         return jsonify({"error": "User not authenticated"}), 401
 

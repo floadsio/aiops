@@ -903,10 +903,14 @@ def dashboard():
             include_all_sessions=tmux_scope_show_all,
             skip_alias_filter=True,
         )
-        import sys
-        print(f"DEBUG: all_windows returned {len(all_windows)} windows", file=sys.stderr)
-        for w in all_windows[:3]:
-            print(f"  - {w.session_name}: {w.window_name}", file=sys.stderr)
+        # Debug logging
+        with open("/tmp/aiops_debug.log", "a") as f:
+            f.write(f"\n=== Dashboard Load ===\n")
+            f.write(f"all_windows returned: {len(all_windows)}\n")
+            f.write(f"tmux_scope_show_all: {tmux_scope_show_all}\n")
+            f.write(f"tmux_session_name: {tmux_session_name}\n")
+            for w in all_windows[:5]:
+                f.write(f"  - {w.session_name}: {w.window_name}\n")
 
         all_windows = sorted(
             all_windows,

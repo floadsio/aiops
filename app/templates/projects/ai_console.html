@@ -93,6 +93,9 @@
             <button type="button" class="tertiary copy-command" data-session-name="{{ session.target }}">
               Copy attach command
             </button>
+            <button type="button" class="close-tmux-window" data-project-id="{{ project.id }}" data-tmux-target="{{ session.target }}" data-window-name="{{ session.window }}" title="Close window" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; background: transparent; border: none; color: #64748b; cursor: pointer;">
+              ×
+            </button>
           </div>
         </article>
       {% endfor %}
@@ -891,6 +894,59 @@
     });
   });
 
+  // Close tmux window handler
+  document.querySelectorAll('.close-tmux-window').forEach(button => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      const projectId = button.dataset.projectId;
+      const tmuxTarget = button.dataset.tmuxTarget;
+      const windowName = button.dataset.windowName;
+
+      if (!projectId || !tmuxTarget) {
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to close tmux window ${windowName || tmuxTarget}?`)) {
+        return;
+      }
+
+      const url = `/projects/${projectId}/tmux/close`;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Closing...';
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders,
+        },
+        body: JSON.stringify({
+          tmux_target: tmuxTarget,
+        }),
+      })
+      .then(response => {
+        if (response.ok) {
+          // Remove the tmux card
+          const tmuxCard = button.closest('.tmux-card');
+          if (tmuxCard) {
+            tmuxCard.remove();
+            term.write(`\n[Closed tmux window ${windowName || tmuxTarget}]\n`);
+          }
+        } else {
+          return response.json().then(data => {
+            throw new Error(data.error || 'Failed to close window.');
+          });
+        }
+      })
+      .catch(error => {
+        alert(`Error: ${error.message}`);
+        button.disabled = false;
+        button.textContent = originalLabel;
+      });
+    });
+  });
+
   scheduleFit();
   setTimeout(scheduleFit, 250);
   updateFullscreenButton();
@@ -1204,6 +1260,9 @@
               <button type="button" class="secondary copy-resume-cmd" data-resume-command="${escapeHtml(session.resume_command)}">
                 Copy Command
               </button>
+              <button type="button" class="close-session" data-tmux-target="${escapeHtml(session.tmux_target)}" data-session-id="${session.id}" title="Close session" style="padding: 0.4rem 0.5rem; font-size: 1rem; background: transparent; border: 1px solid rgba(148, 163, 184, 0.35); color: #64748b; border-radius: 0.4rem;">
+                ×
+              </button>
             </div>
           </article>
         `;
@@ -1223,6 +1282,58 @@
             setTimeout(() => {
               button.textContent = 'Copy Command';
             }, 2000);
+          });
+        });
+      });
+
+      // Close session handlers for resumable sessions
+      document.querySelectorAll('.close-session').forEach(btn => {
+        btn.addEventListener('click', function(event) {
+          event.preventDefault();
+          const button = this;
+          const tmuxTarget = button.getAttribute('data-tmux-target');
+          const sessionId = button.getAttribute('data-session-id');
+
+          if (!tmuxTarget) {
+            return;
+          }
+
+          if (!confirm(`Are you sure you want to close this session?`)) {
+            return;
+          }
+
+          const url = `/projects/${projectId}/tmux/close`;
+          const originalLabel = button.textContent;
+          button.disabled = true;
+          button.textContent = 'Closing...';
+
+          fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...csrfHeaders,
+            },
+            body: JSON.stringify({
+              tmux_target: tmuxTarget,
+            }),
+          })
+          .then(response => {
+            if (response.ok) {
+              // Remove the session card
+              const sessionCard = button.closest('.session-card');
+              if (sessionCard) {
+                sessionCard.remove();
+              }
+            } else {
+              return response.json().then(data => {
+                throw new Error(data.error || 'Failed to close session.');
+              });
+            }
+          })
+          .catch(error => {
+            alert(`Error: ${error.message}`);
+            button.disabled = false;
+            button.textContent = originalLabel;
           });
         });
       });

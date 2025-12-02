@@ -897,6 +897,7 @@ def dashboard():
             "",
             session_name=tmux_session_name,
             include_all_sessions=tmux_scope_show_all,
+            skip_alias_filter=True,
         )
         all_windows = sorted(
             all_windows,
@@ -904,8 +905,12 @@ def dashboard():
             or datetime.min.replace(tzinfo=timezone.utc),
             reverse=True,
         )
-        max_windows = current_app.config.get("TMUX_RECENT_WINDOW_LIMIT", 8)
-        for window in all_windows[:max_windows]:
+
+        # Group windows by session to show all windows organized by owner
+        from collections import defaultdict
+        windows_by_session = defaultdict(list)
+
+        for window in all_windows:
             window_name = (getattr(window, "window_name", "") or "").strip()
             if window_name.lower() == "zsh":
                 continue
@@ -919,20 +924,22 @@ def dashboard():
             from ..services.tmux_service import is_pane_dead
             pane_is_dead = is_pane_dead(window.target, linux_username=linux_username)
 
-            recent_tmux_windows.append(
-                {
-                    "session": window.session_name,
-                    "window": window_name,
-                    "target": window.target,
-                    "panes": window.panes,
-                    "created": window.created,
-                    "created_display": created_display,
-                    "tool": get_tmux_tool(window.target),
-                    "ssh_keys": get_tmux_ssh_keys(window.target),
-                    "project": window_project_map.get(window.target),
-                    "pane_dead": pane_is_dead,
-                }
-            )
+            window_entry = {
+                "session": window.session_name,
+                "window": window_name,
+                "target": window.target,
+                "panes": window.panes,
+                "created": window.created,
+                "created_display": created_display,
+                "tool": get_tmux_tool(window.target),
+                "ssh_keys": get_tmux_ssh_keys(window.target),
+                "project": window_project_map.get(window.target),
+                "pane_dead": pane_is_dead,
+            }
+
+            windows_by_session[window.session_name].append(window_entry)
+            recent_tmux_windows.append(window_entry)
+
             if window.target:
                 tracked_tmux_targets.add(window.target)
     except TmuxServiceError as exc:
@@ -1029,6 +1036,7 @@ def dashboard():
         pending_tasks=pending_tasks,
         recent_tmux_windows=recent_tmux_windows,
         recent_tmux_error=recent_tmux_error,
+        windows_by_session=windows_by_session,
         update_form=update_form,
         dashboard_query=search_query,
         tmux_scope_show_all=tmux_scope_show_all,

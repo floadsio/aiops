@@ -857,6 +857,7 @@ def list_windows_for_aliases(
     session_name: Optional[str] = None,
     include_all_sessions: bool = False,
     linux_username: Optional[str] = None,
+    skip_alias_filter: bool = False,
 ) -> List[TmuxWindow]:
     sessions: list = []
     if include_all_sessions:
@@ -871,6 +872,14 @@ def list_windows_for_aliases(
         sessions = [session]
     if not sessions:
         return []
+
+    # If skip_alias_filter is True, return all windows without name filtering
+    if skip_alias_filter:
+        return [
+            _window_info(session, window)
+            for session in sessions
+            for window in session.windows
+        ]
 
     aliases: set[str] = set()
     if tenant_name:

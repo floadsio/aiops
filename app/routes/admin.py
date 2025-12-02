@@ -897,71 +897,102 @@ def dashboard():
     )
 
     try:
-        passed_username = linux_username if not tmux_scope_show_all else None
-        all_windows = list_windows_for_aliases(
-            "",
-            session_name=tmux_session_name,
-            include_all_sessions=tmux_scope_show_all,
-            skip_alias_filter=True,
-            linux_username=passed_username,
-        )
-        with open("/tmp/dashboard_debug.log", "a") as f:
-            f.write(f"[dashboard] scope_show_all={tmux_scope_show_all}, passed_username={passed_username}, got {len(all_windows)} windows\n")
+        from ..services.ai_session_service import get_user_sessions, get_session_summary
 
-        all_windows = sorted(
-            all_windows,
-            key=lambda window: window.created
-            or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
-        )
+        # Get sessions from database based on scope
+        current_user_id = _current_user_id()
+        if tmux_scope_show_all and getattr(current_user, "is_admin", False):
+            # Admin viewing all users' sessions
+            sessions = get_user_sessions(user_id=None, active_only=True)
+        else:
+            # User viewing their own sessions
+            sessions = get_user_sessions(user_id=current_user_id, active_only=True)
 
-        # Populate windows_by_session dict with all windows
-        with open("/tmp/dashboard_debug.log", "a") as f:
-            f.write(f"[dashboard] Processing {len(all_windows)} windows\n")
-        for window in all_windows:
-            window_name = (getattr(window, "window_name", "") or "").strip()
-            if window_name.lower() == "zsh":
-                with open("/tmp/dashboard_debug.log", "a") as f:
-                    f.write(f"[dashboard] Skipping window: {window_name}\n")
+        # Process sessions and group by user/session
+        all_sessions = []
+        for session in sessions:
+            if not session.tmux_target:
                 continue
-            with open("/tmp/dashboard_debug.log", "a") as f:
-                f.write(f"[dashboard] Processing window: {window_name}\n")
-            created_display = (
-                window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
-                if window.created
-                else None
-            )
+
+            # Get session summary (includes tool name, etc)
+            summary = get_session_summary(session)
+
+            # Extract window name from tmux_target (format: "user:session:window" or "session:window")
+            tmux_target = session.tmux_target
+            target_parts = tmux_target.split(":")
+
+            # Determine session name and window name
+            if len(target_parts) >= 2:
+                # Could be "user:session" or "user:session:window" or just "session:window"
+                if "@" in target_parts[0] or len(target_parts) > 2:
+                    # Format: "user:session" or "user:session:window"
+                    session_name = target_parts[1] if len(target_parts) >= 2 else target_parts[0]
+                    window_name = target_parts[2] if len(target_parts) > 2 else target_parts[1]
+                else:
+                    # Format: "session:window"
+                    session_name = target_parts[0]
+                    window_name = target_parts[1]
+            else:
+                # Just session name
+                session_name = target_parts[0]
+                window_name = "default"
+
+            # Skip zsh windows
+            if window_name.lower() == "zsh":
+                continue
 
             # Check if pane is dead
             from ..services.tmux_service import is_pane_dead
-            pane_is_dead = is_pane_dead(window.target, linux_username=linux_username)
+            pane_is_dead = is_pane_dead(tmux_target, linux_username=linux_username)
+
+            created_display = (
+                session.started_at.astimezone().strftime("%b %d, %Y • %H:%M %Z")
+                if session.started_at
+                else None
+            )
+
+            # Get project info if session has a project
+            project_info = None
+            if session.project:
+                tenant = session.project.tenant
+                tenant_name = tenant.name if tenant else "Unassigned"
+                tenant_color = tenant.color if tenant and tenant.color else DEFAULT_TENANT_COLOR
+                project_info = {
+                    "project_id": session.project.id,
+                    "project_name": session.project.name,
+                    "tenant_name": tenant_name,
+                    "tenant_color": tenant_color,
+                    "workspace_path": str(get_workspace_path(session.project, _current_user_obj()))
+                        if get_workspace_path(session.project, _current_user_obj())
+                        else None,
+                }
 
             window_entry = {
-                "session": window.session_name,
+                "session": session_name,
                 "window": window_name,
-                "target": window.target,
-                "panes": window.panes,
-                "created": window.created,
+                "target": tmux_target,
+                "panes": 1,  # AI sessions typically use 1 pane
+                "created": session.started_at,
                 "created_display": created_display,
-                "tool": get_tmux_tool(window.target),
-                "ssh_keys": get_tmux_ssh_keys(window.target),
-                "project": window_project_map.get(window.target),
+                "tool": session.tool or get_tmux_tool(tmux_target),
+                "ssh_keys": get_tmux_ssh_keys(tmux_target),
+                "project": project_info,
                 "pane_dead": pane_is_dead,
             }
 
-            windows_by_session[window.session_name].append(window_entry)
+            all_sessions.append(window_entry)
+            windows_by_session[session_name].append(window_entry)
             recent_tmux_windows.append(window_entry)
 
-            if window.target:
-                tracked_tmux_targets.add(window.target)
-    except TmuxServiceError as exc:
-        recent_tmux_error = str(exc)
-        with open("/tmp/dashboard_debug.log", "a") as f:
-            f.write(f"TmuxServiceError: {exc}\n")
+            if tmux_target:
+                tracked_tmux_targets.add(tmux_target)
+
     except Exception as exc:
-        with open("/tmp/dashboard_debug.log", "a") as f:
-            f.write(f"Unexpected error: {type(exc).__name__}: {exc}\n")
-        raise
+        import traceback
+        recent_tmux_error = f"Failed to load sessions: {str(exc)}"
+        current_app.logger.error(
+            "Error loading AI sessions: %s\n%s", exc, traceback.format_exc()
+        )
 
     if search_query:
 

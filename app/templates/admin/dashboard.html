@@ -1341,7 +1341,12 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
           <h3 style="margin: 0; padding: 0.5rem 0; border-bottom: 2px solid rgba(148, 163, 184, 0.3); font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
             <span class="toggle-icon" style="display: inline-block; width: 1.2rem; text-align: center;">▶</span>
             <span>👤 Session: <code>{{ session_name }}</code></span>
-            <span class="tmux-session-count" style="margin-left: 0.5rem;">{{ windows_list|length }}</span>
+            {% if windows_list and windows_list[0].owner %}
+              <span style="font-size: 0.9rem; background: rgba(148, 163, 184, 0.1); padding: 0.25rem 0.5rem; border-radius: 0.25rem;">
+                Owner: {{ windows_list[0].owner }}
+              </span>
+            {% endif %}
+            <span class="tmux-session-count" style="margin-left: auto;">{{ windows_list|length }}</span>
           </h3>
         </button>
         <div class="tmux-recent-grid" style="display: none;">

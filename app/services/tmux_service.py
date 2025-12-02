@@ -863,6 +863,8 @@ def list_windows_for_aliases(
     if include_all_sessions:
         server = _get_server(linux_username=linux_username)
         sessions = list(server.sessions)
+        with open("/tmp/tmux_service_debug.log", "a") as f:
+            f.write(f"include_all_sessions: got {len(sessions)} sessions: {[s.get('session_name') for s in sessions]}\n")
     else:
         session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username
@@ -875,11 +877,14 @@ def list_windows_for_aliases(
 
     # If skip_alias_filter is True, return all windows without name filtering
     if skip_alias_filter:
-        return [
+        windows_list = [
             _window_info(session, window)
             for session in sessions
             for window in session.windows
         ]
+        with open("/tmp/tmux_service_debug.log", "a") as f:
+            f.write(f"skip_alias_filter: returning {len(windows_list)} windows from {len(sessions)} sessions\n")
+        return windows_list
 
     aliases: set[str] = set()
     if tenant_name:

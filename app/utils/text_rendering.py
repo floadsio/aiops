@@ -131,6 +131,25 @@ def _sanitize_attribute(name: str, value: str) -> str | None:
     return value
 
 
+def _is_broken_image_url(url: str) -> bool:
+    """Check if an image URL is likely to return 404 or is a broken reference.
+
+    Broken image patterns:
+    - /uploads/ paths (common for broken attachment references)
+    - /rest/api/3/attachment/content/ (Jira API paths that often fail)
+    - empty or very short paths
+    """
+    if not url or len(url) < 5:
+        return True
+    url_lower = url.lower()
+    broken_patterns = [
+        '/uploads/',  # Local upload paths that often break
+        '/rest/api/',  # REST API paths that frequently fail
+        'attachment/content/',  # Jira attachment content paths
+    ]
+    return any(pattern in url_lower for pattern in broken_patterns)
+
+
 class _IssueHTMLSanitizer(HTMLParser):
     """Basic HTML sanitizer that preserves a limited set of markup."""
 
@@ -163,6 +182,12 @@ class _IssueHTMLSanitizer(HTMLParser):
             return
         if tag_lower not in _ALLOWED_TAGS:
             return
+        # Skip broken image tags entirely (don't render them)
+        if tag_lower == "img":
+            # Check if this img has a broken src URL
+            for name, value in attrs:
+                if name == "src" and value and _is_broken_image_url(value):
+                    return  # Skip this image entirely
         attr_string = self._serialize_attrs(tag_lower, attrs)
         self._parts.append(f"<{tag_lower}{attr_string}>")
 
@@ -172,6 +197,12 @@ class _IssueHTMLSanitizer(HTMLParser):
             return
         if tag_lower not in _ALLOWED_TAGS:
             return
+        # Skip broken image tags entirely (don't render them)
+        if tag_lower == "img":
+            # Check if this img has a broken src URL
+            for name, value in attrs:
+                if name == "src" and value and _is_broken_image_url(value):
+                    return  # Skip this image entirely
         attr_string = self._serialize_attrs(tag_lower, attrs)
         if tag_lower in _SELF_CLOSING_TAGS:
             self._parts.append(f"<{tag_lower}{attr_string}>")

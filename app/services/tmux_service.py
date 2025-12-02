@@ -857,20 +857,137 @@ def list_windows_for_aliases(
     session_name: Optional[str] = None,
     include_all_sessions: bool = False,
     linux_username: Optional[str] = None,
+    skip_alias_filter: bool = False,
 ) -> List[TmuxWindow]:
     sessions: list = []
     if include_all_sessions:
-        server = _get_server(linux_username=linux_username)
-        sessions = list(server.sessions)
+        if linux_username is None:
+            # When no specific user is specified, query tmux directly via subprocess
+            # This is more reliable than libtmux when syseng needs to access other users' sockets
+            try:
+                import subprocess
+                from pathlib import Path
+
+                # Try to find tmux sockets and query them directly
+                socket_candidates = [
+                    "/tmp/tmux-1004/default",  # michael (UID 1004)
+                    "/tmp/tmux-1000/default",  # admin (if UID 1000)
+                    "/tmp/tmux-1003/default",  # ai-assist (if UID 1003)
+                ]
+                try:
+                    socket_candidates.extend([str(p) for p in Path("/tmp").glob("tmux-*/default")])
+                except Exception:
+                    pass
+
+                # Query each socket via tmux command
+                socket_found = None
+                for socket_path in socket_candidates:
+                    try:
+                        result = subprocess.run(
+                            ["tmux", "-S", socket_path, "list-sessions", "-F", "#{session_name}"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0:
+                            session_names = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
+                            if len(session_names) > 0:
+                                socket_found = socket_path
+                                break
+                    except Exception:
+                        continue
+
+                if socket_found:
+                    # Use libtmux with the found socket
+                    import libtmux
+                    server = libtmux.Server(socket_path=socket_found)
+                    sessions = list(server.sessions)
+                else:
+                    server = _get_server(linux_username=None)
+                    sessions = list(server.sessions)
+
+            except Exception:
+                sessions = []
     else:
-        session, _ = _ensure_session(
-            session_name=session_name, create=False, linux_username=linux_username
-        )
-        if session is None:
-            return []
-        sessions = [session]
+        # Single user specified - query their tmux socket directly
+        # This avoids permission issues with sudo wrapping
+        try:
+            import subprocess
+            from pathlib import Path
+
+            # Determine the socket path for this user
+            if linux_username == "michael":
+                socket_candidates = ["/tmp/tmux-1004/default"]
+            elif linux_username == "admin":
+                socket_candidates = ["/tmp/tmux-1000/default"]
+            elif linux_username == "ai-assist":
+                socket_candidates = ["/tmp/tmux-1003/default"]
+            else:
+                # Try to find socket by username
+                socket_candidates = [str(p) for p in Path("/tmp").glob("tmux-*/default")]
+
+            socket_found = None
+            resolved_name = _normalize_session_name(session_name)
+
+            with open("/tmp/tmux_debug.log", "a") as f:
+                f.write(f"[list_windows_else] include_all_sessions=False: session_name={session_name}, resolved_name={resolved_name}, linux_username={linux_username}\n")
+                f.write(f"[list_windows_else] socket_candidates={socket_candidates}\n")
+
+            for socket_path in socket_candidates:
+                try:
+                    result = subprocess.run(
+                        ["tmux", "-S", socket_path, "has-session", "-t", resolved_name],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    with open("/tmp/tmux_debug.log", "a") as f:
+                        f.write(f"[list_windows_else] Checked socket {socket_path}: returncode={result.returncode}, stderr={result.stderr.strip()}\n")
+                    if result.returncode == 0:
+                        socket_found = socket_path
+                        with open("/tmp/tmux_debug.log", "a") as f:
+                            f.write(f"[list_windows_else] Found session at {socket_path}\n")
+                        break
+                except Exception as e:
+                    with open("/tmp/tmux_debug.log", "a") as f:
+                        f.write(f"[list_windows_else] Exception checking socket {socket_path}: {e}\n")
+                    continue
+
+            if socket_found:
+                # Use libtmux with the found socket
+                import libtmux
+                server = libtmux.Server(socket_path=socket_found)
+                session = next(
+                    (item for item in server.sessions if item.get("session_name") == resolved_name),
+                    None,
+                )
+                with open("/tmp/tmux_debug.log", "a") as f:
+                    f.write(f"[list_windows_else] Found libtmux session: {session}\n")
+                if session is not None:
+                    sessions = [session]
+                else:
+                    sessions = []
+            else:
+                with open("/tmp/tmux_debug.log", "a") as f:
+                    f.write(f"[list_windows_else] No socket found for session {resolved_name}\n")
+                sessions = []
+        except Exception as e:
+            import traceback
+            with open("/tmp/tmux_debug.log", "a") as f:
+                f.write(f"[list_windows_else] Exception: {e}\n")
+                f.write(f"[list_windows_else] Traceback: {traceback.format_exc()}\n")
+            sessions = []
     if not sessions:
         return []
+
+    # If skip_alias_filter is True, return all windows without name filtering
+    if skip_alias_filter:
+        windows_list = [
+            _window_info(session, window)
+            for session in sessions
+            for window in session.windows
+        ]
+        return windows_list
 
     aliases: set[str] = set()
     if tenant_name:

@@ -653,6 +653,10 @@ def dashboard():
     tmux_session_name = _current_tmux_session_name()
     linux_username = _current_linux_username()
 
+    # Initialize windows_by_session at the top level so it's always available
+    from collections import defaultdict
+    windows_by_session = defaultdict(list)
+
     def _status_sort_key(item: tuple[str, str]) -> tuple[int, str]:
         key, label = item
         if key == "open":
@@ -893,50 +897,152 @@ def dashboard():
     )
 
     try:
-        all_windows = list_windows_for_aliases(
-            "",
-            session_name=tmux_session_name,
-            include_all_sessions=tmux_scope_show_all,
+        from ..services.ai_session_service import get_user_sessions, get_session_summary
+
+        # Get sessions from database based on scope
+        user_obj = _current_user_obj()
+        current_user_id = user_obj.id if user_obj and hasattr(user_obj, 'id') else None
+        is_admin = getattr(current_user, "is_admin", False)
+
+        current_app.logger.debug(
+            "[dashboard] Fetching sessions: user_obj=%s, current_user_id=%s, is_admin=%s, tmux_scope_show_all=%s",
+            user_obj, current_user_id, is_admin, tmux_scope_show_all
         )
-        all_windows = sorted(
-            all_windows,
-            key=lambda window: window.created
-            or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
+
+        if tmux_scope_show_all and is_admin:
+            # Admin viewing all users' sessions
+            sessions = get_user_sessions(user_id=None, active_only=True)
+            current_app.logger.debug("[dashboard] Show all sessions: got %d sessions", len(sessions))
+        else:
+            # User viewing their own sessions
+            sessions = get_user_sessions(user_id=current_user_id, active_only=True)
+            current_app.logger.debug("[dashboard] My sessions (user_id=%s): got %d sessions", current_user_id, len(sessions))
+
+    except Exception as exc:
+        import traceback
+        recent_tmux_error = f"Failed to load sessions: {str(exc)}"
+        current_app.logger.error(
+            "Error loading AI sessions: %s\n%s", exc, traceback.format_exc()
         )
-        max_windows = current_app.config.get("TMUX_RECENT_WINDOW_LIMIT", 8)
-        for window in all_windows[:max_windows]:
-            window_name = (getattr(window, "window_name", "") or "").strip()
+        sessions = []
+
+    # Process sessions and group by user/session (outside try block)
+    all_sessions = []
+    for session in sessions:
+        if not session.tmux_target:
+            continue
+
+        try:
+            # Get session summary (includes tool name, etc)
+            summary = get_session_summary(session)
+
+            # Extract window name from tmux_target (format: "user:session:window" or "session:window")
+            tmux_target = session.tmux_target
+            target_parts = tmux_target.split(":")
+
+            # Determine session name and window name
+            if len(target_parts) >= 2:
+                # Could be "user:session" or "user:session:window" or just "session:window"
+                if "@" in target_parts[0] or len(target_parts) > 2:
+                    # Format: "user:session" or "user:session:window"
+                    session_name = target_parts[1] if len(target_parts) >= 2 else target_parts[0]
+                    window_name = target_parts[2] if len(target_parts) > 2 else target_parts[1]
+                else:
+                    # Format: "session:window"
+                    session_name = target_parts[0]
+                    window_name = target_parts[1]
+            else:
+                # Just session name
+                session_name = target_parts[0]
+                window_name = "default"
+
+            # Skip zsh windows
             if window_name.lower() == "zsh":
                 continue
+
+            # Check if pane is dead (with error handling)
+            from ..services.tmux_service import is_pane_dead
+            try:
+                pane_is_dead = is_pane_dead(tmux_target, linux_username=linux_username)
+            except Exception:
+                pane_is_dead = False  # Default to not dead if we can't check
+
             created_display = (
-                window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
-                if window.created
+                session.started_at.astimezone().strftime("%b %d, %Y • %H:%M %Z")
+                if session.started_at
                 else None
             )
 
-            # Check if pane is dead
-            from ..services.tmux_service import is_pane_dead
-            pane_is_dead = is_pane_dead(window.target, linux_username=linux_username)
+            # Get project info if session has a project
+            project_info = None
+            if session.project:
+                tenant = session.project.tenant
+                tenant_name = tenant.name if tenant else "Unassigned"
+                tenant_color = tenant.color if tenant and tenant.color else DEFAULT_TENANT_COLOR
+                workspace_path = None
+                try:
+                    wp = get_workspace_path(session.project, _current_user_obj())
+                    if wp:
+                        workspace_path = str(wp)
+                except Exception:
+                    workspace_path = None
 
-            recent_tmux_windows.append(
-                {
-                    "session": window.session_name,
-                    "window": window_name,
-                    "target": window.target,
-                    "panes": window.panes,
-                    "created": window.created,
-                    "created_display": created_display,
-                    "tool": get_tmux_tool(window.target),
-                    "ssh_keys": get_tmux_ssh_keys(window.target),
-                    "project": window_project_map.get(window.target),
-                    "pane_dead": pane_is_dead,
+                project_info = {
+                    "project_id": session.project.id,
+                    "project_name": session.project.name,
+                    "tenant_name": tenant_name,
+                    "tenant_color": tenant_color,
+                    "workspace_path": workspace_path,
                 }
+
+            # Get user who started the session
+            owner_name = None
+            if session.user:
+                owner_name = (
+                    session.user.name
+                    or session.user.username
+                    or session.user.email
+                    or f"User #{session.user.id}"
+                )
+
+            # Get tool and ssh keys (with error handling)
+            try:
+                tool_label = session.tool or get_tmux_tool(tmux_target)
+            except Exception:
+                tool_label = session.tool or "unknown"
+
+            try:
+                ssh_keys = get_tmux_ssh_keys(tmux_target)
+            except Exception:
+                ssh_keys = []
+
+            window_entry = {
+                "session": session_name,
+                "window": window_name,
+                "target": tmux_target,
+                "panes": 1,  # AI sessions typically use 1 pane
+                "created": session.started_at,
+                "created_display": created_display,
+                "tool": tool_label,
+                "ssh_keys": ssh_keys,
+                "project": project_info,
+                "pane_dead": pane_is_dead,
+                "owner": owner_name,
+            }
+
+            all_sessions.append(window_entry)
+            windows_by_session[session_name].append(window_entry)
+            recent_tmux_windows.append(window_entry)
+
+            if tmux_target:
+                tracked_tmux_targets.add(tmux_target)
+        except Exception as exc:
+            current_app.logger.warning(
+                "Failed to process session %s: %s",
+                getattr(session, 'id', 'unknown'),
+                str(exc)
             )
-            if window.target:
-                tracked_tmux_targets.add(window.target)
-    except TmuxServiceError as exc:
-        recent_tmux_error = str(exc)
+            continue  # Skip this session and continue with the next
 
     if search_query:
 
@@ -955,13 +1061,19 @@ def dashboard():
             entry for entry in recent_tmux_windows if _recent_tmux_matches(entry)
         ]
 
+    # Calculate session count from the grouped sessions (to match what's displayed)
+    session_count = sum(len(windows) for windows in windows_by_session.values())
+
     pending_tasks = sum(p for p in [0])  # placeholder for task count
     prune_tmux_tools(tracked_tmux_targets)
 
     from ..models import PinnedIssue, PinnedComment
 
+    current_user_obj = _current_user_obj()
+    current_user_id = current_user_obj.id if current_user_obj and hasattr(current_user_obj, 'id') else None
+
     pinned_issues = (
-        PinnedIssue.query.filter_by(user_id=_current_user_obj().id)
+        PinnedIssue.query.filter_by(user_id=current_user_id)
         .join(ExternalIssue)
         .join(ProjectIntegration)
         .options(
@@ -988,7 +1100,7 @@ def dashboard():
 
     # Load pinned comments for dashboard
     pinned_comments_raw = (
-        PinnedComment.query.filter_by(user_id=_current_user_obj().id)
+        PinnedComment.query.filter_by(user_id=current_user_id)
         .join(ExternalIssue)
         .options(
             selectinload(PinnedComment.issue)
@@ -1029,6 +1141,8 @@ def dashboard():
         pending_tasks=pending_tasks,
         recent_tmux_windows=recent_tmux_windows,
         recent_tmux_error=recent_tmux_error,
+        windows_by_session=windows_by_session,
+        session_count=session_count,
         update_form=update_form,
         dashboard_query=search_query,
         tmux_scope_show_all=tmux_scope_show_all,
@@ -2905,6 +3019,7 @@ def manage_issues():
     sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
     raw_direction = (request.args.get("direction") or "").strip().lower()
     target_issue_id = request.args.get("issue_id")
+
     if raw_direction not in {"asc", "desc"}:
         sort_direction = ISSUE_SORT_META[sort_key]["default_direction"]
     else:
@@ -2912,7 +3027,11 @@ def manage_issues():
 
     default_filter = "open"
 
-    if raw_filter == "all":
+    # If targeting a specific issue via issue_id parameter, always show all statuses to ensure the issue is found
+    if target_issue_id:
+        status_filter = "all"
+        current_app.logger.info(f"[Issue #158] Pinned issue mode: forcing status_filter='all' to show target issue {target_issue_id}")
+    elif raw_filter == "all":
         status_filter = "all"
     elif raw_filter in status_labels:
         status_filter = raw_filter

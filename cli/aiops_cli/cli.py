@@ -2760,6 +2760,36 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
 
             console.print("[green]✓[/green] Cleanup complete")
 
+            # Stash any unstaged changes before pulling
+            console.print("[dim]Stashing any unstaged changes...[/dim]")
+            try:
+                # Use git stash with --include-untracked to catch everything
+                stash_result = subprocess.run(
+                    ["git", "-C", str(repo_path), "stash", "--include-untracked"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if stash_result.returncode == 0:
+                    if "No local changes to save" not in stash_result.stdout:
+                        console.print("[green]✓[/green] Changes stashed")
+                else:
+                    # If stash fails, try a hard reset as last resort
+                    error_console.print("[yellow]Warning: Stash failed, attempting git reset...[/yellow]")
+                    reset_result = subprocess.run(
+                        ["git", "-C", str(repo_path), "reset", "--hard", "HEAD"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if reset_result.returncode != 0:
+                        error_console.print(f"[red]Could not clean repository:[/red] {reset_result.stderr}")
+                        sys.exit(1)
+                    console.print("[green]✓[/green] Repository reset")
+            except Exception as e:
+                error_console.print(f"[red]Error cleaning repository:[/red] {e}")
+                sys.exit(1)
+
             # Pull latest changes
             console.print("[dim]Pulling latest changes from git...[/dim]")
             try:
@@ -2771,12 +2801,12 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                 )
                 if result.returncode != 0:
                     error_console.print(f"[red]Git pull failed:[/red] {result.stderr}")
-                    error_console.print("[yellow]Continuing with reinstall anyway...[/yellow]")
+                    sys.exit(1)
                 else:
                     console.print("[green]✓[/green] Git pull successful")
             except Exception as e:
-                error_console.print(f"[yellow]Git pull failed:[/yellow] {e}")
-                error_console.print("[yellow]Continuing with reinstall anyway...[/yellow]")
+                error_console.print(f"[red]Git pull failed:[/red] {e}")
+                sys.exit(1)
 
             # Reinstall the CLI package
             console.print("[dim]Reinstalling aiops CLI...[/dim]")

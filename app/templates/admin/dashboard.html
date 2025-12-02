@@ -1317,7 +1317,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
       <h2>
         tmux Sessions
         <span class="metric-card" style="text-transform:none;font-size:0.85rem;margin-left:0.5rem;padding:0.2rem 0.7rem;display:inline-flex;align-items:center;gap:0.4rem;">
-          <strong style="margin:0;font-size:1rem;">{{ recent_tmux_windows|length }}</strong>
+          <strong style="margin:0;font-size:1rem;">{{ session_count }}</strong>
         </span>
       </h2>
     </div>
@@ -1328,86 +1328,103 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
   </header>
   {% if recent_tmux_error %}
     <p class="warning-note">tmux unavailable: {{ recent_tmux_error }}</p>
-  {% elif recent_tmux_windows %}
-            <div class="tmux-recent-grid">
-      {% for window in recent_tmux_windows %}
-        <article class="tmux-recent-card">
-          <div class="tmux-recent-meta">
-            {% if window.project %}
-              <a
-                class="tenant-badge tenant-badge--tiny"
-                style="--tenant-color: {{ window.project.tenant_color or default_tenant_color }}"
-                href="{{ url_for('admin.dashboard', q=window.project.tenant_name) }}"
-                title="Filter for {{ window.project.tenant_name }}"
-              >
-                <span class="tenant-badge__swatch" aria-hidden="true"></span>
-                {{ window.project.tenant_name }}
-              </a>
-            {% endif %}
-            <span class="tmux-meta">
-              <strong>Session:</strong> {{ window.session }}
-            </span>
-            <span class="tmux-chip">{{ window.window }}</span>
-            {% if window.tool %}
-              <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>
-            {% endif %}
-          </div>
-          <div class="tmux-recent-meta">
-            {% if window.project and window.project.workspace_path %}
-              <span class="tmux-meta">
-                <strong>Path:</strong> {{ window.project.workspace_path }}
-              </span>
-            {% endif %}
-            {% if window.ssh_keys %}
-              <span class="tmux-meta">
-                <strong>SSH:</strong>
-                {% for key in window.ssh_keys %}
-                  {{ key.label }}{% if not loop.last %}, {% endif %}
-                {% endfor %}
-              </span>
-            {% else %}
-              <span class="tmux-meta text-muted">
-                SSH: user-provided keys
-              </span>
-            {% endif %}
-            <span class="tmux-meta">
-              {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
-              {% if window.created_display %}
-                • {{ window.created_display }}
-              {% endif %}
-            </span>
-          </div>
-          <div class="tmux-recent-actions">
-            {% if window.project %}
-              {% if window.pane_dead %}
-                <button
-                  type="button"
-                  class="secondary outline respawn-tmux-pane"
-                  data-project-id="{{ window.project.project_id }}"
-                  data-tmux-target="{{ window.target }}"
-                  data-window-name="{{ window.window }}"
-                >🔄 Restart</button>
-              {% else %}
-                <a
-                  role="button"
-                  class="secondary outline"
-                  href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
-                >
-                  🔗 Reattach
-                </a>
-              {% endif %}
-              <button
-                type="button"
-                class="secondary outline close-tmux-window"
-                data-project-id="{{ window.project.project_id }}"
-                data-tmux-target="{{ window.target }}"
-                data-window-name="{{ window.window }}"
-              >✕ Close</button>
-            {% endif %}
-          </div>
-        </article>
-      {% endfor %}
-    </div>
+  {% elif windows_by_session and windows_by_session|length > 0 %}
+    <!-- Group windows by session/owner -->
+    {% for session_name, windows_list in windows_by_session.items() | sort %}
+      <div style="margin-bottom: 2rem;">
+        <button
+          type="button"
+          class="tmux-session-toggle"
+          style="background: none; border: none; padding: 0; cursor: pointer; width: 100%; text-align: left;"
+          onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'; this.querySelector('.toggle-icon').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';"
+        >
+          <h3 style="margin: 0; padding: 0.5rem 0; border-bottom: 2px solid rgba(148, 163, 184, 0.3); font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span class="toggle-icon" style="display: inline-block; width: 1.2rem; text-align: center;">▶</span>
+            <span>👤 Session: <code>{{ session_name }}</code></span>
+            <span class="tmux-session-count" style="margin-left: auto;">{{ windows_list|length }}</span>
+          </h3>
+        </button>
+        <div class="tmux-recent-grid" style="display: none;">
+          {% for window in windows_list %}
+            <article class="tmux-recent-card">
+              <div class="tmux-recent-meta">
+                {% if window.project %}
+                  <a
+                    class="tenant-badge tenant-badge--tiny"
+                    style="--tenant-color: {{ window.project.tenant_color or default_tenant_color }}"
+                    href="{{ url_for('admin.dashboard', q=window.project.tenant_name) }}"
+                    title="Filter for {{ window.project.tenant_name }}"
+                  >
+                    <span class="tenant-badge__swatch" aria-hidden="true"></span>
+                    {{ window.project.tenant_name }}
+                  </a>
+                {% endif %}
+                <span class="tmux-chip">{{ window.window }}</span>
+                {% if window.tool %}
+                  <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>
+                {% endif %}
+                {% if window.owner %}
+                  <span class="tmux-chip" style="cursor: default;" title="Session owner/creator">👤 {{ window.owner }}</span>
+                {% endif %}
+              </div>
+              <div class="tmux-recent-meta">
+                {% if window.project and window.project.workspace_path %}
+                  <span class="tmux-meta">
+                    <strong>Path:</strong> {{ window.project.workspace_path }}
+                  </span>
+                {% endif %}
+                {% if window.ssh_keys %}
+                  <span class="tmux-meta">
+                    <strong>SSH:</strong>
+                    {% for key in window.ssh_keys %}
+                      {{ key.label }}{% if not loop.last %}, {% endif %}
+                    {% endfor %}
+                  </span>
+                {% else %}
+                  <span class="tmux-meta text-muted">
+                    SSH: user-provided keys
+                  </span>
+                {% endif %}
+                <span class="tmux-meta">
+                  {{ window.panes }} pane{{ '' if window.panes == 1 else 's' }}
+                  {% if window.created_display %}
+                    • {{ window.created_display }}
+                  {% endif %}
+                </span>
+              </div>
+              <div class="tmux-recent-actions">
+                {% if window.project %}
+                  {% if window.pane_dead %}
+                    <button
+                      type="button"
+                      class="secondary outline respawn-tmux-pane"
+                      data-project-id="{{ window.project.project_id }}"
+                      data-tmux-target="{{ window.target }}"
+                      data-window-name="{{ window.window }}"
+                    >🔄 Restart</button>
+                  {% else %}
+                    <a
+                      role="button"
+                      class="secondary outline"
+                      href="{{ url_for('projects.project_ai_console', project_id=window.project.project_id, attach=window.target) }}"
+                    >
+                      🔗 Reattach
+                    </a>
+                  {% endif %}
+                  <button
+                    type="button"
+                    class="secondary outline close-tmux-window"
+                    data-project-id="{{ window.project.project_id }}"
+                    data-tmux-target="{{ window.target }}"
+                    data-window-name="{{ window.window }}"
+                  >✕ Close</button>
+                {% endif %}
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
   {% else %}
     <p class="text-muted">No tmux windows detected for this scope.</p>
   {% endif %}
@@ -2190,6 +2207,8 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
             ${session.branch ? `<span class="tmux-meta">Branch: ${session.branch}</span>` : ''}
           </div>
           <div class="tmux-recent-meta" style="font-size: 0.85rem; margin-top: 0.5rem;">
+            <div><strong>Owner:</strong> ${session.user_name || 'Unknown'}</div>
+            <div><strong>Session:</strong> <code>${session.tmux_target || 'N/A'}</code></div>
             <span>Started: ${formatTimestamp(session.started_at)}</span>
             ${session.ended_at ? `<span>Ended: ${formatTimestamp(session.ended_at)}</span>` : ''}
             <span>Duration: ${formatDuration(session.elapsed_seconds)}</span>
@@ -2217,6 +2236,17 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                 title="${session.resume_command}"
               >
                 Copy Command
+              </button>
+            </div>
+            <div class="tmux-action">
+              <button
+                class="secondary outline tmux-action-btn close-ai-session-btn"
+                data-tmux-target="${session.tmux_target}"
+                data-session-id="${session.id}"
+                title="Close session"
+                style="color: #dc2626; border-color: #dc2626;"
+              >
+                × Close
               </button>
             </div>
           </div>
@@ -2284,6 +2314,78 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
             }, 2000);
           }).catch(err => {
             alert('Failed to copy command: ' + err);
+          });
+        });
+      });
+
+      // Add event listeners for close buttons
+      grid.querySelectorAll('.close-ai-session-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const button = this;
+          const tmuxTarget = button.dataset.tmuxTarget;
+          const sessionId = button.dataset.sessionId;
+
+          if (!tmuxTarget) {
+            alert('No session target available');
+            return;
+          }
+
+          if (!confirm(`Are you sure you want to close this session (${tmuxTarget})?`)) {
+            return;
+          }
+
+          const originalText = button.textContent;
+          button.disabled = true;
+          button.textContent = 'Closing...';
+
+          // Find project_id from the card's project name
+          // For now, we need to find which project this session belongs to
+          // We'll use the API endpoint that requires project_id
+          // So we need to determine project from session data
+          fetch(`/api/v1/ai/sessions/${sessionId}`, {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrfToken,
+            },
+          })
+          .then(response => {
+            if (!response.ok) throw new Error('Failed to get session details');
+            return response.json();
+          })
+          .then(data => {
+            const projectId = data.project_id;
+            // Now close the session using the project endpoint
+            return fetch(`/projects/${projectId}/tmux/close`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+              },
+              body: JSON.stringify({
+                tmux_target: tmuxTarget,
+              }),
+            });
+          })
+          .then(response => {
+            if (response.ok) {
+              // Remove the card
+              const card = button.closest('.tmux-recent-card');
+              if (card) {
+                card.remove();
+              }
+              // Reload the sessions list
+              loadSessions();
+            } else {
+              return response.json().then(data => {
+                throw new Error(data.error || 'Failed to close session');
+              });
+            }
+          })
+          .catch(error => {
+            alert(`Error: ${error.message}`);
+            button.disabled = false;
+            button.textContent = originalText;
           });
         });
       });

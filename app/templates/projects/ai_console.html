@@ -93,6 +93,9 @@
             <button type="button" class="tertiary copy-command" data-session-name="{{ session.target }}">
               Copy attach command
             </button>
+            <button type="button" class="close-tmux-window" data-project-id="{{ project.id }}" data-tmux-target="{{ session.target }}" data-window-name="{{ session.window }}" title="Close window" style="padding: 0.2rem 0.35rem; font-size: 0.9rem; background: transparent; border: none; color: #64748b; cursor: pointer;">
+              ×
+            </button>
           </div>
         </article>
       {% endfor %}
@@ -891,6 +894,59 @@
     });
   });
 
+  // Close tmux window handler
+  document.querySelectorAll('.close-tmux-window').forEach(button => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      const projectId = button.dataset.projectId;
+      const tmuxTarget = button.dataset.tmuxTarget;
+      const windowName = button.dataset.windowName;
+
+      if (!projectId || !tmuxTarget) {
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to close tmux window ${windowName || tmuxTarget}?`)) {
+        return;
+      }
+
+      const url = `/projects/${projectId}/tmux/close`;
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Closing...';
+
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...csrfHeaders,
+        },
+        body: JSON.stringify({
+          tmux_target: tmuxTarget,
+        }),
+      })
+      .then(response => {
+        if (response.ok) {
+          // Remove the tmux card
+          const tmuxCard = button.closest('.tmux-card');
+          if (tmuxCard) {
+            tmuxCard.remove();
+            term.write(`\n[Closed tmux window ${windowName || tmuxTarget}]\n`);
+          }
+        } else {
+          return response.json().then(data => {
+            throw new Error(data.error || 'Failed to close window.');
+          });
+        }
+      })
+      .catch(error => {
+        alert(`Error: ${error.message}`);
+        button.disabled = false;
+        button.textContent = originalLabel;
+      });
+    });
+  });
+
   scheduleFit();
   setTimeout(scheduleFit, 250);
   updateFullscreenButton();
@@ -1162,6 +1218,7 @@
     if (!sessionList) return;
 
     try {
+      console.log('Loading resumable sessions from:', `/projects/${projectId}/ai/sessions/resumable`);
       const response = await fetch(`/projects/${projectId}/ai/sessions/resumable`, {
         headers: {
           'Accept': 'application/json',
@@ -1169,11 +1226,13 @@
         }
       });
 
+      console.log('Response status:', response.status, 'Headers:', response.headers);
       const data = await parseJsonResponse(response, {
         errorMessage: 'Failed to load sessions',
         invalidBodyMessage: 'Received an invalid sessions response.',
       });
       const sessions = data.sessions || [];
+      console.log('Loaded sessions:', sessions);
 
       if (sessions.length === 0) {
         sessionList.innerHTML = '<p class="text-muted">No resumable sessions found. Start a new AI session to create one.</p>';
@@ -1193,6 +1252,8 @@
             </div>
             ${session.description ? `<p>${escapeHtml(session.description)}</p>` : ''}
             <div class="session-meta">
+              <div><strong>Owner:</strong> ${escapeHtml(session.user_name || 'Unknown')}</div>
+              <div><strong>Session:</strong> <code>${escapeHtml(session.tmux_target || 'N/A')}</code></div>
               <div>Started: ${startedAt}</div>
               <div>Duration: ${elapsed}</div>
               ${session.branch ? `<div>Branch: <code>${escapeHtml(session.branch)}</code></div>` : ''}
@@ -1204,33 +1265,97 @@
               <button type="button" class="secondary copy-resume-cmd" data-resume-command="${escapeHtml(session.resume_command)}">
                 Copy Command
               </button>
+              <button type="button" class="close-session" data-tmux-target="${escapeHtml(session.tmux_target)}" data-session-id="${session.id}" title="Close session" style="padding: 0.3rem 0.45rem; font-size: 1.1rem; background: #f8f9fa; border: 1px solid #dc2626; color: #dc2626; border-radius: 0.35rem; cursor: pointer; font-weight: bold;">
+                ×
+              </button>
             </div>
           </article>
         `;
       }).join('');
 
       // Attach event handlers
-      document.querySelectorAll('.resume-session').forEach(btn => {
-        btn.addEventListener('click', handleResumeSession);
-      });
-
-      document.querySelectorAll('.copy-resume-cmd').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const button = this;  // Save button reference for promise chain
-          const cmd = button.getAttribute('data-resume-command');
-          navigator.clipboard.writeText(cmd).then(() => {
-            button.textContent = 'Copied!';
-            setTimeout(() => {
-              button.textContent = 'Copy Command';
-            }, 2000);
-          });
-        });
-      });
+      attachSessionEventHandlers();
 
     } catch (error) {
       console.error('Error loading sessions:', error);
       sessionList.innerHTML = '<p class="text-muted">Failed to load resumable sessions.</p>';
     }
+  }
+
+  function attachSessionEventHandlers() {
+    document.querySelectorAll('.resume-session').forEach(btn => {
+      btn.addEventListener('click', handleResumeSession);
+    });
+
+    document.querySelectorAll('.copy-resume-cmd').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const button = this;
+        const cmd = button.getAttribute('data-resume-command');
+        navigator.clipboard.writeText(cmd).then(() => {
+          button.textContent = 'Copied!';
+          setTimeout(() => {
+            button.textContent = 'Copy Command';
+          }, 2000);
+        });
+      });
+    });
+
+    // Close session handlers for resumable sessions
+    document.querySelectorAll('.close-session').forEach(btn => {
+      // Remove any existing listener to avoid duplicates
+      const newBtn = btn.cloneNode(true);
+      btn.parentNode.replaceChild(newBtn, btn);
+
+      newBtn.addEventListener('click', function(event) {
+        event.preventDefault();
+        const button = this;
+        const tmuxTarget = button.getAttribute('data-tmux-target');
+        const sessionId = button.getAttribute('data-session-id');
+
+        if (!tmuxTarget) {
+          console.warn('No tmux_target for session', sessionId);
+          return;
+        }
+
+        if (!confirm(`Are you sure you want to close this session?`)) {
+          return;
+        }
+
+        const url = `/projects/${projectId}/tmux/close`;
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Closing...';
+
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...csrfHeaders,
+          },
+          body: JSON.stringify({
+            tmux_target: tmuxTarget,
+          }),
+        })
+        .then(response => {
+          if (response.ok) {
+            // Remove the session card
+            const sessionCard = button.closest('.session-card');
+            if (sessionCard) {
+              sessionCard.remove();
+            }
+          } else {
+            return response.json().then(data => {
+              throw new Error(data.error || 'Failed to close session.');
+            });
+          }
+        })
+        .catch(error => {
+          alert(`Error: ${error.message}`);
+          button.disabled = false;
+          button.textContent = originalLabel;
+        });
+      });
+    });
   }
 
   async function handleResumeSession(event) {

@@ -1156,7 +1156,7 @@
           {% endif %}
           <span class="text-muted">Updated {{ issue.updated_display or "Unknown" }}</span>
         </div>
-        <details class="issue-card__details">
+        <details class="issue-card__details" data-issue-id="{{ issue.id }}">
           <summary>View details</summary>
           <div class="issue-card__description">
             {% if issue.description_html %}
@@ -1169,8 +1169,8 @@
               <span class="text-muted">{{ issue.description_fallback }}</span>
             {% endif %}
           </div>
-          {% if issue.comments %}
-            <div class="issue-comments" style="margin-top: 1rem;">
+          <div class="issue-comments" style="margin-top: 1rem;">
+            {% if issue.id|string == target_issue_id and issue.comments %}
               <strong>Comments ({{ issue.comment_count }})</strong>
               {% for comment in issue.comments %}
                 <div class="issue-comment" id="comment-{{ comment.id }}" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.4rem;">
@@ -1196,8 +1196,12 @@
                   </div>
                 </div>
               {% endfor %}
-            </div>
-          {% endif %}
+            {% elif not (issue.id|string == target_issue_id) %}
+              <em style="color: #64748b;">{{ issue.comment_count }} comment{{ 's' if issue.comment_count != 1 else '' }}</em>
+            {% else %}
+              <em style="color: #64748b;">No comments</em>
+            {% endif %}
+          </div>
           {% if issue.url %}
             <p><a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a></p>
           {% endif %}
@@ -1307,31 +1311,9 @@
 {% block extra_body %}
 <script>
   (function () {
-    const detailButtons = document.querySelectorAll('.issue-detail-toggle');
-    detailButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const issueId = button.dataset.issueId;
-        if (!issueId) {
-          return;
-        }
-        const detailRow = document.getElementById(`issue-detail-${issueId}`);
-        if (!detailRow) {
-          return;
-        }
-        const isHidden = detailRow.hasAttribute('hidden');
-        if (isHidden) {
-          detailRow.removeAttribute('hidden');
-          button.setAttribute('aria-expanded', 'true');
-        } else {
-          detailRow.setAttribute('hidden', '');
-          button.setAttribute('aria-expanded', 'false');
-        }
-      });
-    });
-
     // Auto-expand issue if issue_id is in URL query parameters or passed via template
     const urlParams = new URLSearchParams(window.location.search);
-    const targetIssueId = urlParams.get('issue_id') || {{ target_issue_id or 'null' }};
+    const targetIssueId = urlParams.get('issue_id') || {% if target_issue_id %}'{{ target_issue_id }}'{% else %}null{% endif %};
 
     // Function to scroll to and highlight a comment
     function scrollToComment(commentId) {
@@ -1350,27 +1332,40 @@
     }
 
     if (targetIssueId) {
-      const targetButton = document.querySelector(`.issue-detail-toggle[data-issue-id="${targetIssueId}"]`);
-      const targetDetailRow = document.getElementById(`issue-detail-${targetIssueId}`);
+      // Find the issue card that contains this issue ID
+      const issueCards = document.querySelectorAll('.issue-card');
+      let targetCard = null;
 
-      if (targetButton && targetDetailRow) {
-        // Expand the issue detail
-        targetDetailRow.removeAttribute('hidden');
-        targetButton.setAttribute('aria-expanded', 'true');
+      for (const card of issueCards) {
+        // Check if this card's header contains the DB ID
+        const headerText = card.querySelector('.issue-card__header')?.textContent || '';
+        const searchString = '(DB: ' + targetIssueId + ')';
+        if (headerText.includes(searchString)) {
+          targetCard = card;
+          break;
+        }
+      }
 
-        // Scroll to the issue with smooth behavior
-        setTimeout(() => {
-          targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (targetCard) {
+        // Open the details element
+        const detailsElement = targetCard.querySelector('details');
+        if (detailsElement) {
+          detailsElement.open = true;
 
-          // After expanding, check for comment hash and scroll to it
-          if (window.location.hash && window.location.hash.startsWith('#comment-')) {
-            const commentId = window.location.hash.substring(1);
-            setTimeout(() => scrollToComment(commentId), 200);
-          }
-        }, 100);
+          // Scroll to the issue with smooth behavior
+          setTimeout(() => {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // After expanding, check for comment hash and scroll to it
+            if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+              const commentId = window.location.hash.substring(1);
+              setTimeout(() => scrollToComment(commentId), 200);
+            }
+          }, 100);
+        }
       } else {
         // Issue not found on this page - might be filtered out or on different page
-        console.warn(`Issue ${targetIssueId} not found on page. Check status filter.`);
+        console.warn('Issue ' + targetIssueId + ' not found on page.');
       }
     }
 
@@ -1929,6 +1924,13 @@
           this.disabled = false;
         }
       });
+    });
+
+    // Lazy-load all images to avoid blocking page render
+    document.querySelectorAll('img[src]').forEach(img => {
+      if (!img.hasAttribute('loading')) {
+        img.setAttribute('loading', 'lazy');
+      }
     });
   })();
 </script>

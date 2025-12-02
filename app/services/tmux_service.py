@@ -929,10 +929,16 @@ def list_windows_for_aliases(
                     f.write(f"[list_windows] Traceback: {traceback.format_exc()}\n")
                 sessions = []
     else:
+        with open("/tmp/tmux_debug.log", "a") as f:
+            f.write(f"[list_windows] include_all_sessions=False: session_name={session_name}, linux_username={linux_username}\n")
         session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username
         )
+        with open("/tmp/tmux_debug.log", "a") as f:
+            f.write(f"[list_windows] include_all_sessions=False: _ensure_session returned {session}\n")
         if session is None:
+            with open("/tmp/tmux_debug.log", "a") as f:
+                f.write(f"[list_windows] include_all_sessions=False: session is None, returning []\n")
             return []
         sessions = [session]
     if not sessions:

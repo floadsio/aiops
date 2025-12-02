@@ -747,10 +747,44 @@ def pull_and_apply_yadm_update(
         YadmServiceError: If pull fails (bootstrap/decrypt failures are non-critical)
     """
     try:
-        # 1. Stash any uncommitted changes before pulling
-        stash_cmd = ["yadm", "stash", "push", "-m", "Auto-stash before pull"]
-        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + stash_cmd
-        stash_result = subprocess.run(
+        # 1. Fetch from remote
+        fetch_cmd = ["yadm", "fetch", "origin"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + fetch_cmd
+        fetch_result = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd=user_home,
+        )
+
+        if fetch_result.returncode != 0:
+            raise YadmServiceError(
+                f"yadm fetch failed: {fetch_result.stderr or fetch_result.stdout}"
+            )
+
+        # 2. Get current branch name
+        branch_cmd = ["yadm", "rev-parse", "--abbrev-ref", "HEAD"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + branch_cmd
+        branch_result = subprocess.run(
+            sudo_cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=user_home,
+        )
+
+        if branch_result.returncode != 0:
+            raise YadmServiceError(
+                f"Failed to get branch name: {branch_result.stderr or branch_result.stdout}"
+            )
+
+        branch = branch_result.stdout.strip()
+
+        # 3. Hard reset to remote branch (clean pull, discards local changes)
+        reset_cmd = ["yadm", "reset", "--hard", f"origin/{branch}"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + reset_cmd
+        result = subprocess.run(
             sudo_cmd,
             capture_output=True,
             text=True,
@@ -758,46 +792,12 @@ def pull_and_apply_yadm_update(
             cwd=user_home,
         )
 
-        # Track if we created a stash (stash returns 0 even if nothing to stash)
-        had_changes = "No local changes to save" not in stash_result.stdout
-
-        try:
-            # 2. Pull from remote with rebase to handle divergent branches
-            # Rebase is appropriate for dotfiles - applies local changes on top of remote
-            pull_cmd = ["yadm", "pull", "--rebase"]
-            sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pull_cmd
-            result = subprocess.run(
-                sudo_cmd,
-                capture_output=True,
-                text=True,
-                timeout=300,
-                cwd=user_home,
+        if result.returncode != 0:
+            raise YadmServiceError(
+                f"yadm reset failed: {result.stderr or result.stdout}"
             )
 
-            if result.returncode != 0:
-                raise YadmServiceError(
-                    f"yadm pull failed: {result.stderr or result.stdout}"
-                )
-
-            logger.info(f"Pulled latest yadm changes for user {linux_username}")
-
-        finally:
-            # 3. Pop stashed changes if we stashed anything
-            if had_changes:
-                pop_cmd = ["yadm", "stash", "pop"]
-                sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pop_cmd
-                pop_result = subprocess.run(
-                    sudo_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    cwd=user_home,
-                )
-                if pop_result.returncode != 0:
-                    logger.warning(
-                        f"Failed to restore stashed changes for {linux_username}: "
-                        f"{pop_result.stderr or pop_result.stdout}"
-                    )
+        logger.info(f"Clean pull completed for {linux_username} (discarded local changes)")
 
         # 2. Run bootstrap (non-critical)
         try:

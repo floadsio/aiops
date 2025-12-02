@@ -916,10 +916,16 @@ def dashboard():
         )
 
         # Populate windows_by_session dict with all windows
+        with open("/tmp/dashboard_debug.log", "a") as f:
+            f.write(f"[dashboard] Processing {len(all_windows)} windows\n")
         for window in all_windows:
             window_name = (getattr(window, "window_name", "") or "").strip()
             if window_name.lower() == "zsh":
+                with open("/tmp/dashboard_debug.log", "a") as f:
+                    f.write(f"[dashboard] Skipping window: {window_name}\n")
                 continue
+            with open("/tmp/dashboard_debug.log", "a") as f:
+                f.write(f"[dashboard] Processing window: {window_name}\n")
             created_display = (
                 window.created.astimezone().strftime("%b %d, %Y • %H:%M %Z")
                 if window.created

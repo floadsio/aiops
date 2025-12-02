@@ -1294,28 +1294,6 @@
 {% block extra_body %}
 <script>
   (function () {
-    const detailButtons = document.querySelectorAll('.issue-detail-toggle');
-    detailButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const issueId = button.dataset.issueId;
-        if (!issueId) {
-          return;
-        }
-        const detailRow = document.getElementById(`issue-detail-${issueId}`);
-        if (!detailRow) {
-          return;
-        }
-        const isHidden = detailRow.hasAttribute('hidden');
-        if (isHidden) {
-          detailRow.removeAttribute('hidden');
-          button.setAttribute('aria-expanded', 'true');
-        } else {
-          detailRow.setAttribute('hidden', '');
-          button.setAttribute('aria-expanded', 'false');
-        }
-      });
-    });
-
     // Auto-expand issue if issue_id is in URL query parameters or passed via template
     const urlParams = new URLSearchParams(window.location.search);
     const targetIssueId = urlParams.get('issue_id') || {{ ('"' + target_issue_id|string + '"') if target_issue_id else 'null' }};
@@ -1337,24 +1315,36 @@
     }
 
     if (targetIssueId) {
-      const targetButton = document.querySelector(`.issue-detail-toggle[data-issue-id="${targetIssueId}"]`);
-      const targetDetailRow = document.getElementById(`issue-detail-${targetIssueId}`);
+      // Find the issue card that contains this issue ID
+      const issueCards = document.querySelectorAll('.issue-card');
+      let targetCard = null;
 
-      if (targetButton && targetDetailRow) {
-        // Expand the issue detail
-        targetDetailRow.removeAttribute('hidden');
-        targetButton.setAttribute('aria-expanded', 'true');
+      for (const card of issueCards) {
+        // Check if this card's meta contains the DB ID
+        const metaText = card.querySelector('.issue-card__meta')?.textContent || '';
+        if (metaText.includes(`(DB: ${targetIssueId})`)) {
+          targetCard = card;
+          break;
+        }
+      }
 
-        // Scroll to the issue with smooth behavior
-        setTimeout(() => {
-          targetButton.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (targetCard) {
+        // Open the details element
+        const detailsElement = targetCard.querySelector('details');
+        if (detailsElement) {
+          detailsElement.open = true;
 
-          // After expanding, check for comment hash and scroll to it
-          if (window.location.hash && window.location.hash.startsWith('#comment-')) {
-            const commentId = window.location.hash.substring(1);
-            setTimeout(() => scrollToComment(commentId), 200);
-          }
-        }, 100);
+          // Scroll to the issue with smooth behavior
+          setTimeout(() => {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // After expanding, check for comment hash and scroll to it
+            if (window.location.hash && window.location.hash.startsWith('#comment-')) {
+              const commentId = window.location.hash.substring(1);
+              setTimeout(() => scrollToComment(commentId), 200);
+            }
+          }, 100);
+        }
       } else {
         // Issue not found on this page - might be filtered out or on different page
         console.warn(`Issue ${targetIssueId} not found on page. Check status filter.`);

@@ -2671,6 +2671,20 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
 
             console.print("[green]✓[/green] Cleanup complete")
 
+            # Stash any unstaged changes before pulling
+            console.print("[dim]Stashing any unstaged changes...[/dim]")
+            try:
+                stash_result = subprocess.run(
+                    ["git", "-C", str(repo_path), "stash"],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if stash_result.returncode == 0 and "No local changes to save" not in stash_result.stdout:
+                    console.print("[green]✓[/green] Changes stashed")
+            except Exception as e:
+                error_console.print(f"[yellow]Warning: Could not stash changes:[/yellow] {e}")
+
             # Pull latest changes
             console.print("[dim]Pulling latest changes from git...[/dim]")
             try:
@@ -2682,12 +2696,12 @@ def cli_update(ctx: click.Context, check_only: bool) -> None:
                 )
                 if result.returncode != 0:
                     error_console.print(f"[red]Git pull failed:[/red] {result.stderr}")
-                    error_console.print("[yellow]Continuing with reinstall anyway...[/yellow]")
+                    sys.exit(1)
                 else:
                     console.print("[green]✓[/green] Git pull successful")
             except Exception as e:
-                error_console.print(f"[yellow]Git pull failed:[/yellow] {e}")
-                error_console.print("[yellow]Continuing with reinstall anyway...[/yellow]")
+                error_console.print(f"[red]Git pull failed:[/red] {e}")
+                sys.exit(1)
 
             # Reinstall the CLI package
             console.print("[dim]Reinstalling aiops CLI...[/dim]")

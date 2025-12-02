@@ -1369,13 +1369,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                   <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>
                 {% endif %}
                 {% if window.owner %}
-                  <button
-                    type="button"
-                    class="secondary outline"
-                    disabled
-                    title="Session owner/creator"
-                    style="cursor: default; opacity: 0.8; font-size: 0.85rem; padding: 0.25rem 0.5rem;"
-                  >👤 {{ window.owner }}</button>
+                  <span class="tmux-chip" style="cursor: default;" title="Session owner/creator">👤 {{ window.owner }}</span>
                 {% endif %}
               </div>
               <div class="tmux-recent-meta">

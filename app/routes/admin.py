@@ -653,6 +653,10 @@ def dashboard():
     tmux_session_name = _current_tmux_session_name()
     linux_username = _current_linux_username()
 
+    # Initialize windows_by_session at the top level so it's always available
+    from collections import defaultdict
+    windows_by_session = defaultdict(list)
+
     def _status_sort_key(item: tuple[str, str]) -> tuple[int, str]:
         key, label = item
         if key == "open":
@@ -906,10 +910,7 @@ def dashboard():
             reverse=True,
         )
 
-        # Group windows by session to show all windows organized by owner
-        from collections import defaultdict
-        windows_by_session = defaultdict(list)
-
+        # Populate windows_by_session dict with all windows
         for window in all_windows:
             window_name = (getattr(window, "window_name", "") or "").strip()
             if window_name.lower() == "zsh":

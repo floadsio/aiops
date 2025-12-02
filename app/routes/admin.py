@@ -1061,13 +1061,19 @@ def dashboard():
             entry for entry in recent_tmux_windows if _recent_tmux_matches(entry)
         ]
 
+    # Calculate session count from the grouped sessions (to match what's displayed)
+    session_count = sum(len(windows) for windows in windows_by_session.values())
+
     pending_tasks = sum(p for p in [0])  # placeholder for task count
     prune_tmux_tools(tracked_tmux_targets)
 
     from ..models import PinnedIssue, PinnedComment
 
+    current_user_obj = _current_user_obj()
+    current_user_id = current_user_obj.id if current_user_obj and hasattr(current_user_obj, 'id') else None
+
     pinned_issues = (
-        PinnedIssue.query.filter_by(user_id=_current_user_obj().id)
+        PinnedIssue.query.filter_by(user_id=current_user_id)
         .join(ExternalIssue)
         .join(ProjectIntegration)
         .options(
@@ -1094,7 +1100,7 @@ def dashboard():
 
     # Load pinned comments for dashboard
     pinned_comments_raw = (
-        PinnedComment.query.filter_by(user_id=_current_user_obj().id)
+        PinnedComment.query.filter_by(user_id=current_user_id)
         .join(ExternalIssue)
         .options(
             selectinload(PinnedComment.issue)
@@ -1136,6 +1142,7 @@ def dashboard():
         recent_tmux_windows=recent_tmux_windows,
         recent_tmux_error=recent_tmux_error,
         windows_by_session=windows_by_session,
+        session_count=session_count,
         update_form=update_form,
         dashboard_query=search_query,
         tmux_scope_show_all=tmux_scope_show_all,

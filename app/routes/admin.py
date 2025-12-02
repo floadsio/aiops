@@ -911,12 +911,21 @@ def dashboard():
             # User viewing their own sessions
             sessions = get_user_sessions(user_id=current_user_id, active_only=True)
 
-        # Process sessions and group by user/session
-        all_sessions = []
-        for session in sessions:
-            if not session.tmux_target:
-                continue
+    except Exception as exc:
+        import traceback
+        recent_tmux_error = f"Failed to load sessions: {str(exc)}"
+        current_app.logger.error(
+            "Error loading AI sessions: %s\n%s", exc, traceback.format_exc()
+        )
+        sessions = []
 
+    # Process sessions and group by user/session (outside try block)
+    all_sessions = []
+    for session in sessions:
+        if not session.tmux_target:
+            continue
+
+        try:
             # Get session summary (includes tool name, etc)
             summary = get_session_summary(session)
 
@@ -944,9 +953,12 @@ def dashboard():
             if window_name.lower() == "zsh":
                 continue
 
-            # Check if pane is dead
+            # Check if pane is dead (with error handling)
             from ..services.tmux_service import is_pane_dead
-            pane_is_dead = is_pane_dead(tmux_target, linux_username=linux_username)
+            try:
+                pane_is_dead = is_pane_dead(tmux_target, linux_username=linux_username)
+            except Exception:
+                pane_is_dead = False  # Default to not dead if we can't check
 
             created_display = (
                 session.started_at.astimezone().strftime("%b %d, %Y • %H:%M %Z")
@@ -960,14 +972,20 @@ def dashboard():
                 tenant = session.project.tenant
                 tenant_name = tenant.name if tenant else "Unassigned"
                 tenant_color = tenant.color if tenant and tenant.color else DEFAULT_TENANT_COLOR
+                workspace_path = None
+                try:
+                    wp = get_workspace_path(session.project, _current_user_obj())
+                    if wp:
+                        workspace_path = str(wp)
+                except Exception:
+                    workspace_path = None
+
                 project_info = {
                     "project_id": session.project.id,
                     "project_name": session.project.name,
                     "tenant_name": tenant_name,
                     "tenant_color": tenant_color,
-                    "workspace_path": str(get_workspace_path(session.project, _current_user_obj()))
-                        if get_workspace_path(session.project, _current_user_obj())
-                        else None,
+                    "workspace_path": workspace_path,
                 }
 
             # Get user who started the session
@@ -980,6 +998,17 @@ def dashboard():
                     or f"User #{session.user.id}"
                 )
 
+            # Get tool and ssh keys (with error handling)
+            try:
+                tool_label = session.tool or get_tmux_tool(tmux_target)
+            except Exception:
+                tool_label = session.tool or "unknown"
+
+            try:
+                ssh_keys = get_tmux_ssh_keys(tmux_target)
+            except Exception:
+                ssh_keys = []
+
             window_entry = {
                 "session": session_name,
                 "window": window_name,
@@ -987,8 +1016,8 @@ def dashboard():
                 "panes": 1,  # AI sessions typically use 1 pane
                 "created": session.started_at,
                 "created_display": created_display,
-                "tool": session.tool or get_tmux_tool(tmux_target),
-                "ssh_keys": get_tmux_ssh_keys(tmux_target),
+                "tool": tool_label,
+                "ssh_keys": ssh_keys,
                 "project": project_info,
                 "pane_dead": pane_is_dead,
                 "owner": owner_name,
@@ -1000,13 +1029,13 @@ def dashboard():
 
             if tmux_target:
                 tracked_tmux_targets.add(tmux_target)
-
-    except Exception as exc:
-        import traceback
-        recent_tmux_error = f"Failed to load sessions: {str(exc)}"
-        current_app.logger.error(
-            "Error loading AI sessions: %s\n%s", exc, traceback.format_exc()
-        )
+        except Exception as exc:
+            current_app.logger.warning(
+                "Failed to process session %s: %s",
+                getattr(session, 'id', 'unknown'),
+                str(exc)
+            )
+            continue  # Skip this session and continue with the next
 
     if search_query:
 

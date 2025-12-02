@@ -251,6 +251,16 @@
     .issue-detail__description a:hover {
       text-decoration: underline;
     }
+    /* Plan indicator */
+    .plan-indicator {
+      cursor: help;
+      margin-left: 0.5rem;
+      opacity: 0.7;
+      font-size: 1rem;
+    }
+    .plan-indicator:hover {
+      opacity: 1;
+    }
     /* Dark theme adjustments */
     [data-theme="dark"] .issue-detail__description h1,
     [data-theme="dark"] .issue-detail__description h2 {
@@ -1114,6 +1124,9 @@
                 {{ issue.external_id }}
               {% endif %}
               <span class="text-muted" style="font-size: 0.75rem; margin-left: 0.5rem; font-weight: 400;">(DB: {{ issue.id }})</span>
+              {% if issue.has_plan %}
+                <span class="plan-indicator" title="Has saved implementation plan" aria-label="Has saved implementation plan">📋</span>
+              {% endif %}
             </h3>
             <p class="issue-card__title">{{ issue.title }}</p>
           </div>

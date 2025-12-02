@@ -2722,6 +2722,12 @@ def manage_issues():
 
     sorted_issues = sorted(issues, key=_issue_sort_key, reverse=True)
 
+    # Load plans for all issues efficiently
+    from ..models import IssuePlan
+    issue_ids = [issue.id for issue in sorted_issues]
+    plans = IssuePlan.query.filter(IssuePlan.issue_id.in_(issue_ids)).all() if issue_ids else []
+    plans_by_issue_id = {plan.issue_id: plan for plan in plans}
+
     # Get pinned issues for the current user
     from ..models import PinnedIssue
 
@@ -2800,6 +2806,9 @@ def manage_issues():
         description_html = extract_issue_description_html(issue)
         comment_entries = _prepare_comment_entries(getattr(issue, "comments", []))
 
+        # Check if issue has a plan
+        has_plan = issue.id in plans_by_issue_id
+
         issue_entries.append(
             {
                 "id": issue.id,
@@ -2829,6 +2838,7 @@ def manage_issues():
                 "comments": comment_entries,
                 "comment_count": len(comment_entries),
                 "is_pinned": issue.id in pinned_issue_ids,
+                "has_plan": has_plan,
                 "prepare_endpoint": url_for(
                     "projects.prepare_issue_context",
                     project_id=project.id,

@@ -1553,7 +1553,7 @@ def move_issue(issue_id: int):
 
 
 @api_v1_bp.route("/issues/<int:issue_id>/plan", methods=["GET"])
-@require_api_auth(require_user=True)
+@require_api_auth(scopes=["read"])
 @audit_api_request
 def get_issue_plan(issue_id: int):
     """Get the implementation plan for an issue.
@@ -1580,7 +1580,7 @@ def get_issue_plan(issue_id: int):
 
 
 @api_v1_bp.route("/issues/<int:issue_id>/plan", methods=["POST"])
-@require_api_auth(require_user=True)
+@require_api_auth(scopes=["write"])
 @audit_api_request
 def create_or_update_issue_plan(issue_id: int):
     """Create or update the implementation plan for an issue.
@@ -1649,7 +1649,7 @@ def create_or_update_issue_plan(issue_id: int):
 
 
 @api_v1_bp.route("/issues/<int:issue_id>/plan", methods=["DELETE"])
-@require_api_auth(require_user=True)
+@require_api_auth(scopes=["write"])
 @audit_api_request
 def delete_issue_plan(issue_id: int):
     """Delete the implementation plan for an issue.

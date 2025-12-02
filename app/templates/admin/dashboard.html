@@ -1369,9 +1369,20 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                   <span class="tmux-chip tmux-chip--tool">{{ window.tool }}</span>
                 {% endif %}
               </div>
+              <div class="tmux-recent-actions" style="margin-bottom: 0.5rem;">
+                {% if window.owner %}
+                  <button
+                    type="button"
+                    class="secondary outline"
+                    disabled
+                    title="Session owner/creator"
+                    style="cursor: default; opacity: 0.8;"
+                  >👤 {{ window.owner }}</button>
+                {% endif %}
+              </div>
               <div class="tmux-recent-meta">
                 {% if window.owner %}
-                  <span class="tmux-meta">
+                  <span class="tmux-meta" style="display: none;">
                     <strong>Owner:</strong> {{ window.owner }}
                   </span>
                 {% endif %}
@@ -1400,15 +1411,6 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                 </span>
               </div>
               <div class="tmux-recent-actions">
-                {% if window.owner %}
-                  <button
-                    type="button"
-                    class="secondary outline"
-                    disabled
-                    title="Session owner/creator"
-                    style="cursor: default; opacity: 0.8;"
-                  >👤 {{ window.owner }}</button>
-                {% endif %}
                 {% if window.project %}
                   {% if window.pane_dead %}
                     <button

@@ -897,15 +897,16 @@ def dashboard():
     )
 
     try:
+        passed_username = linux_username if not tmux_scope_show_all else None
         all_windows = list_windows_for_aliases(
             "",
             session_name=tmux_session_name,
             include_all_sessions=tmux_scope_show_all,
             skip_alias_filter=True,
-            linux_username=linux_username if not tmux_scope_show_all else None,
+            linux_username=passed_username,
         )
         with open("/tmp/dashboard_debug.log", "a") as f:
-            f.write(f"[dashboard] scope_show_all={tmux_scope_show_all}, linux_username={linux_username}, got {len(all_windows)} windows\n")
+            f.write(f"[dashboard] scope_show_all={tmux_scope_show_all}, passed_username={passed_username}, got {len(all_windows)} windows\n")
 
         all_windows = sorted(
             all_windows,

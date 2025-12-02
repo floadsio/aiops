@@ -661,6 +661,34 @@ class AIIssuePreviews(BaseModel, TimestampMixin):
     )
 
 
+class IssuePlan(BaseModel, TimestampMixin):
+    """Stores AI-generated implementation plans for issues.
+
+    Plans are stored as markdown and can be used to resume AI sessions
+    with existing implementation strategies.
+    """
+
+    __tablename__ = "issue_plans"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    issue_id: Mapped[int] = mapped_column(
+        ForeignKey("external_issues.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), default="draft", nullable=False
+    )
+    created_by_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+    issue: Mapped["ExternalIssue"] = relationship("ExternalIssue")
+    created_by: Mapped[Optional["User"]] = relationship("User")
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

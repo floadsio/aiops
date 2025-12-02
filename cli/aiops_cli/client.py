@@ -934,3 +934,46 @@ class APIClient:
             Deletion confirmation message
         """
         return self.delete("agents/global")
+
+    # ============================================================================
+    # ISSUE PLAN METHODS
+    # ============================================================================
+
+    def get_issue_plan(self, issue_id: int) -> dict[str, Any]:
+        """Get the implementation plan for an issue.
+
+        Args:
+            issue_id: The database ID of the issue
+
+        Returns:
+            Plan data including content, status, and metadata
+        """
+        return self.get(f"issues/{issue_id}/plan")
+
+    def create_or_update_issue_plan(
+        self, issue_id: int, content: str, status: str = "draft"
+    ) -> dict[str, Any]:
+        """Create or update the implementation plan for an issue.
+
+        Args:
+            issue_id: The database ID of the issue
+            content: The markdown content of the plan
+            status: Status of the plan (draft, approved, in_progress, completed)
+
+        Returns:
+            Plan data including content, status, and metadata
+        """
+        return self.post(
+            f"issues/{issue_id}/plan", json={"content": content, "status": status}
+        )
+
+    def delete_issue_plan(self, issue_id: int) -> dict[str, Any]:
+        """Delete the implementation plan for an issue.
+
+        Args:
+            issue_id: The database ID of the issue
+
+        Returns:
+            Deletion confirmation message
+        """
+        return self.delete(f"issues/{issue_id}/plan")

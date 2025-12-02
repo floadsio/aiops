@@ -1385,3 +1385,121 @@ def write_reply_context(
             raise RuntimeError(f"Failed to write reply context: {exc}") from exc
 
     return output_path, sources
+
+
+def write_tracked_issue_context_with_plan(
+    project: Project,
+    primary_issue: ExternalIssue,
+    all_issues: Iterable[ExternalIssue],
+    plan_content: str | None = None,
+    plan_status: str | None = None,
+    plan_updated_at: Any | None = None,
+    filename: str = DEFAULT_TRACKED_CONTEXT_FILENAME,
+    *,
+    identity_user: User | None = None,
+) -> tuple[Path, list[str]]:
+    """Write issue context with optional implementation plan included.
+
+    This extends write_tracked_issue_context() to optionally include a saved
+    implementation plan at the end of the context document.
+
+    Args:
+        project: Project containing the issue
+        primary_issue: The main issue to work on
+        all_issues: All issues for context
+        plan_content: Optional plan markdown content
+        plan_status: Status of the plan (draft, approved, etc.)
+        plan_updated_at: Last update timestamp for the plan
+        filename: Name of the file to write
+        identity_user: User for workspace resolution
+
+    Returns:
+        tuple: (path to written file, list of merged sources)
+    """
+    # First, write standard issue context
+    context_path, sources = write_tracked_issue_context(
+        project,
+        primary_issue,
+        all_issues,
+        filename=filename,
+        identity_user=identity_user,
+    )
+
+    # If no plan provided, return as-is
+    if not plan_content:
+        return context_path, sources
+
+    # Read the existing content we just wrote
+    linux_username: str | None = None
+    if identity_user is not None:
+        linux_username = resolve_linux_username(identity_user)
+
+    existing_content = ""
+    if identity_user is not None and linux_username:
+        # User workspace - use sudo to read
+        try:
+            result = run_as_user(
+                linux_username,
+                ["cat", str(context_path)],
+                timeout=10.0,
+            )
+            existing_content = result.stdout
+        except SudoError:
+            # Fall back to direct read
+            existing_content = context_path.read_text(encoding="utf-8")
+    else:
+        # Legacy path - direct file access
+        existing_content = context_path.read_text(encoding="utf-8")
+
+    # Format plan update timestamp
+    if plan_updated_at:
+        if isinstance(plan_updated_at, str):
+            updated_str = plan_updated_at
+        else:
+            updated_str = plan_updated_at.strftime("%Y-%m-%d %H:%M:%S UTC")
+    else:
+        updated_str = "unknown"
+
+    # Append plan section
+    plan_section = dedent(
+        f"""
+
+        ## Saved Implementation Plan
+
+        _Status: {plan_status or "draft"}_
+        _Last updated: {updated_str}_
+
+        {plan_content.strip()}
+        """
+    ).strip()
+
+    final_content = existing_content.rstrip() + "\n\n" + plan_section + "\n"
+
+    # Write the updated content (using sudo if needed)
+    if identity_user is not None and linux_username:
+        try:
+            cmd = [
+                "sudo",
+                "-n",
+                "-u",
+                linux_username,
+                "tee",
+                str(context_path),
+            ]
+            subprocess.run(
+                cmd,
+                input=final_content,
+                capture_output=True,
+                text=True,
+                timeout=10.0,
+                check=True,
+            )
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            raise RuntimeError(f"Failed to write context with plan: {exc}") from exc
+    else:
+        context_path.write_text(final_content, encoding="utf-8")
+
+    # Add plan to sources
+    sources.append(f"saved plan (status: {plan_status or 'draft'})")
+
+    return context_path, sources

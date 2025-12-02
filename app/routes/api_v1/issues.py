@@ -1550,3 +1550,126 @@ def move_issue(issue_id: int):
         "message": f"Issue moved to {target_project.name}",
         "issue": _issue_to_dict(issue),
     })
+
+
+@api_v1_bp.route("/issues/<int:issue_id>/plan", methods=["GET"])
+@require_api_auth(require_user=True)
+@audit_api_request
+def get_issue_plan(issue_id: int):
+    """Get the implementation plan for an issue.
+
+    Args:
+        issue_id: The database ID of the issue
+
+    Returns:
+        JSON response with plan data or 404 if no plan exists
+    """
+    from ...services.issue_plan_service import get_plan, get_plan_summary
+
+    # Verify issue exists and user has access
+    issue = ExternalIssue.query.get(issue_id)
+    if not issue:
+        return jsonify({"error": "Issue not found"}), 404
+
+    # Get the plan
+    plan = get_plan(issue_id)
+    if not plan:
+        return jsonify({"error": "No plan found for this issue"}), 404
+
+    return jsonify(get_plan_summary(plan))
+
+
+@api_v1_bp.route("/issues/<int:issue_id>/plan", methods=["POST"])
+@require_api_auth(require_user=True)
+@audit_api_request
+def create_or_update_issue_plan(issue_id: int):
+    """Create or update the implementation plan for an issue.
+
+    Request body:
+        {
+            "content": "# Implementation Plan...",
+            "status": "draft"  // optional
+        }
+
+    Args:
+        issue_id: The database ID of the issue
+
+    Returns:
+        JSON response with plan data (201 for create, 200 for update)
+    """
+    from ...services.issue_plan_service import (
+        create_or_update_plan,
+        get_plan,
+        get_plan_summary,
+    )
+
+    # Verify issue exists
+    issue = ExternalIssue.query.get(issue_id)
+    if not issue:
+        return jsonify({"error": "Issue not found"}), 404
+
+    # Parse request body
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request body is required"}), 400
+
+    content = data.get("content")
+    if not content or not content.strip():
+        return jsonify({"error": "Plan content is required"}), 400
+
+    status = data.get("status", "draft")
+
+    # Validate status
+    valid_statuses = ["draft", "approved", "in_progress", "completed"]
+    if status not in valid_statuses:
+        return jsonify({
+            "error": f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+        }), 400
+
+    # Check if plan already exists to determine response code
+    existing_plan = get_plan(issue_id)
+    is_update = existing_plan is not None
+
+    # Get current user
+    user_id = g.current_user.get("id")
+    if not user_id:
+        return jsonify({"error": "User not authenticated"}), 401
+
+    # Create or update the plan
+    try:
+        plan = create_or_update_plan(issue_id, content, user_id, status)
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        current_app.logger.error("Failed to save plan for issue %s: %s", issue_id, exc)
+        return jsonify({"error": "Failed to save plan"}), 500
+
+    status_code = 200 if is_update else 201
+    return jsonify(get_plan_summary(plan)), status_code
+
+
+@api_v1_bp.route("/issues/<int:issue_id>/plan", methods=["DELETE"])
+@require_api_auth(require_user=True)
+@audit_api_request
+def delete_issue_plan(issue_id: int):
+    """Delete the implementation plan for an issue.
+
+    Args:
+        issue_id: The database ID of the issue
+
+    Returns:
+        JSON response confirming deletion or 404 if no plan exists
+    """
+    from ...services.issue_plan_service import delete_plan
+
+    # Verify issue exists
+    issue = ExternalIssue.query.get(issue_id)
+    if not issue:
+        return jsonify({"error": "Issue not found"}), 404
+
+    # Delete the plan
+    deleted = delete_plan(issue_id)
+    if not deleted:
+        return jsonify({"error": "No plan found for this issue"}), 404
+
+    return jsonify({"message": "Plan deleted successfully"})

@@ -1356,6 +1356,95 @@ def issues_work(
         sys.exit(1)
 
 
+@issues.group(name="plan")
+def issues_plan() -> None:
+    """Manage implementation plans for issues."""
+
+
+@issues_plan.command(name="get")
+@click.argument("issue_id", type=int)
+@click.pass_context
+def plan_get(ctx: click.Context, issue_id: int) -> None:
+    """View the implementation plan for an issue."""
+    client = get_client(ctx)
+
+    try:
+        plan = client.get_issue_plan(issue_id)
+        console.print(f"\n[bold]Plan for Issue #{issue_id}[/bold]\n")
+        console.print(f"Status: [cyan]{plan['status']}[/cyan]")
+        if plan.get("created_by"):
+            console.print(f"Created by: {plan['created_by']}")
+        if plan.get("updated_at"):
+            console.print(f"Updated: {plan['updated_at']}\n")
+        console.print(plan["content"])
+    except APIError as exc:
+        if "404" in str(exc) or "not found" in str(exc).lower():
+            error_console.print(f"[red]Error:[/red] No plan found for issue #{issue_id}")
+        else:
+            error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@issues_plan.command(name="set")
+@click.argument("issue_id", type=int)
+@click.option("--file", "-f", "file_path", type=click.Path(exists=True), help="Path to plan file")
+@click.option("--stdin", is_flag=True, help="Read plan from stdin")
+@click.option("--status", "-s", type=click.Choice(["draft", "approved", "in_progress", "completed"]), default="draft", help="Plan status")
+@click.pass_context
+def plan_set(ctx: click.Context, issue_id: int, file_path: Optional[str], stdin: bool, status: str) -> None:
+    """Create or update the implementation plan for an issue."""
+    client = get_client(ctx)
+
+    # Get plan content from file or stdin
+    content = None
+    if file_path:
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                content = f.read()
+        except IOError as exc:
+            error_console.print(f"[red]Error reading file:[/red] {exc}")
+            sys.exit(1)
+    elif stdin:
+        try:
+            content = sys.stdin.read()
+        except IOError as exc:
+            error_console.print(f"[red]Error reading stdin:[/red] {exc}")
+            sys.exit(1)
+    else:
+        error_console.print("[red]Error:[/red] Must specify --file or --stdin")
+        sys.exit(1)
+
+    if not content or not content.strip():
+        error_console.print("[red]Error:[/red] Plan content cannot be empty")
+        sys.exit(1)
+
+    try:
+        plan = client.create_or_update_issue_plan(issue_id, content, status)
+        console.print(f"[green]✓[/green] Plan saved for issue #{issue_id} (status: {plan['status']})")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@issues_plan.command(name="clear")
+@click.argument("issue_id", type=int)
+@click.confirmation_option(prompt="Are you sure you want to delete the plan?")
+@click.pass_context
+def plan_clear(ctx: click.Context, issue_id: int) -> None:
+    """Delete the implementation plan for an issue."""
+    client = get_client(ctx)
+
+    try:
+        client.delete_issue_plan(issue_id)
+        console.print(f"[green]✓[/green] Plan deleted for issue #{issue_id}")
+    except APIError as exc:
+        if "404" in str(exc) or "not found" in str(exc).lower():
+            error_console.print(f"[red]Error:[/red] No plan found for issue #{issue_id}")
+        else:
+            error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # PROJECTS COMMANDS
 # ============================================================================

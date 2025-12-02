@@ -747,8 +747,9 @@ def pull_and_apply_yadm_update(
         YadmServiceError: If pull fails (bootstrap/decrypt failures are non-critical)
     """
     try:
-        # 1. Pull from remote
-        pull_cmd = ["yadm", "pull"]
+        # 1. Pull from remote with rebase to handle divergent branches
+        # Rebase is appropriate for dotfiles - applies local changes on top of remote
+        pull_cmd = ["yadm", "pull", "--rebase"]
         sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pull_cmd
         result = subprocess.run(
             sudo_cmd,

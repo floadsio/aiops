@@ -910,13 +910,20 @@ def list_windows_for_aliases(
                 sessions = []
         else:
             # Single user specified - use _ensure_session to get the actual user's session
-            session, _ = _ensure_session(
-                session_name=session_name, create=False, linux_username=linux_username
-            )
-            if session is None:
+            try:
+                session, _ = _ensure_session(
+                    session_name=session_name, create=False, linux_username=linux_username
+                )
+                if session is None:
+                    sessions = []
+                else:
+                    sessions = [session]
+            except Exception as e:
+                import traceback
+                with open("/tmp/tmux_debug.log", "a") as f:
+                    f.write(f"[list_windows] Error in single-user path: {e}\n")
+                    f.write(f"[list_windows] Traceback: {traceback.format_exc()}\n")
                 sessions = []
-            else:
-                sessions = [session]
     else:
         session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username

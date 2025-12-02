@@ -901,15 +901,22 @@ def dashboard():
 
         # Get sessions from database based on scope
         user_obj = _current_user_obj()
-        current_user_id = user_obj.id if user_obj else None
+        current_user_id = user_obj.id if user_obj and hasattr(user_obj, 'id') else None
         is_admin = getattr(current_user, "is_admin", False)
+
+        current_app.logger.debug(
+            "[dashboard] Fetching sessions: user_obj=%s, current_user_id=%s, is_admin=%s, tmux_scope_show_all=%s",
+            user_obj, current_user_id, is_admin, tmux_scope_show_all
+        )
 
         if tmux_scope_show_all and is_admin:
             # Admin viewing all users' sessions
             sessions = get_user_sessions(user_id=None, active_only=True)
+            current_app.logger.debug("[dashboard] Show all sessions: got %d sessions", len(sessions))
         else:
             # User viewing their own sessions
             sessions = get_user_sessions(user_id=current_user_id, active_only=True)
+            current_app.logger.debug("[dashboard] My sessions (user_id=%s): got %d sessions", current_user_id, len(sessions))
 
     except Exception as exc:
         import traceback

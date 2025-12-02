@@ -749,10 +749,9 @@ def create_session(
                 window_name = f"issue-{issue_id}"
             tmux_target = f"{tmux_session_name}:{window_name}"
         else:
-            # Generic session named after project and tool (e.g., dotfiles-claude, aiops-shell)
+            # Generic session named after project (e.g., dotfiles, aiops)
             project_name = getattr(project, "name", "project").lower().replace(" ", "-")
-            tool_name = tool or "shell"
-            window_name = f"{project_name}-{tool_name}"
+            window_name = project_name
             tmux_target = f"{tmux_session_name}:{window_name}"
 
     session, window, created = _resolve_tmux_window(
@@ -1051,10 +1050,9 @@ def create_persistent_session(
                 window_name = f"issue-{issue_id}"
             tmux_target = f"{tmux_session_name}:{window_name}"
         else:
-            # Generic session named after project and tool (e.g., dotfiles-claude, aiops-shell)
+            # Generic session named after project (e.g., dotfiles, aiops)
             project_name = getattr(project, "name", "project").lower().replace(" ", "-")
-            tool_name = tool or "shell"
-            window_name = f"{project_name}-{tool_name}"
+            window_name = project_name
             tmux_target = f"{tmux_session_name}:{window_name}"
 
     # Ensure tmux window exists

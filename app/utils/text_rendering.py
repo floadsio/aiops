@@ -172,9 +172,6 @@ class _IssueHTMLSanitizer(HTMLParser):
             sanitized = _sanitize_attribute(name, raw_value)
             if sanitized is None:
                 continue
-            # For img tags, skip if src is a broken URL
-            if tag.lower() == "img" and name == "src" and _is_broken_image_url(sanitized):
-                continue
             serialized.append(f' {name}="{escape(sanitized)}"')
         return "".join(serialized)
 
@@ -185,6 +182,12 @@ class _IssueHTMLSanitizer(HTMLParser):
             return
         if tag_lower not in _ALLOWED_TAGS:
             return
+        # Skip broken image tags entirely (don't render them)
+        if tag_lower == "img":
+            # Check if this img has a broken src URL
+            for name, value in attrs:
+                if name == "src" and value and _is_broken_image_url(value):
+                    return  # Skip this image entirely
         attr_string = self._serialize_attrs(tag_lower, attrs)
         self._parts.append(f"<{tag_lower}{attr_string}>")
 

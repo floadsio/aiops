@@ -862,29 +862,30 @@ def list_windows_for_aliases(
     sessions: list = []
     if include_all_sessions:
         if linux_username is None:
-            # When no specific user is specified, query one user's tmux server
-            # All users in the aiops group see the same shared sessions via default socket
+            # When no specific user is specified, use tmux list-sessions to get all sessions
+            # This works when running as syseng with proper group permissions
             try:
                 with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Trying to get michael's server...\n")
-                server = _get_server(linux_username="michael")
+                    f.write(f"[list_windows] Querying all sessions via tmux list-sessions...\n")
+                result = _run_tmux_as_user(
+                    os.environ.get("USER", "syseng"),
+                    ["list-sessions", "-F", "#{session_name}"],
+                    timeout=5.0
+                )
+                session_names = result.stdout.decode().strip().split("\n") if result.stdout else []
+                session_names = [s for s in session_names if s]
+                with open("/tmp/tmux_debug.log", "a") as f:
+                    f.write(f"[list_windows] Found {len(session_names)} session names: {session_names}\n")
+
+                # Now get the server to access sessions
+                server = _get_server(linux_username=None)
                 sessions = list(server.sessions)
                 with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Got michael's server: {len(sessions)} sessions\n")
+                    f.write(f"[list_windows] Got {len(sessions)} sessions from server\n")
             except Exception as e:
                 with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Michael's server failed: {e}, trying syseng...\n")
-                # michael user doesn't have a server running, try syseng
-                try:
-                    server = _get_server(linux_username=None)
-                    sessions = list(server.sessions)
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] Got syseng's server: {len(sessions)} sessions\n")
-                except Exception as e2:
-                    # No sessions available
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] Syseng's server also failed: {e2}\n")
-                    sessions = []
+                    f.write(f"[list_windows] Failed to get all sessions: {e}\n")
+                sessions = []
         else:
             # Single user specified
             with open("/tmp/tmux_debug.log", "a") as f:

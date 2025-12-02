@@ -1143,7 +1143,7 @@
           {% endif %}
           <span class="text-muted">Updated {{ issue.updated_display or "Unknown" }}</span>
         </div>
-        <details class="issue-card__details">
+        <details class="issue-card__details" data-issue-id="{{ issue.id }}">
           <summary>View details</summary>
           <div class="issue-card__description">
             {% if issue.description_html %}
@@ -1156,8 +1156,8 @@
               <span class="text-muted">{{ issue.description_fallback }}</span>
             {% endif %}
           </div>
-          {% if issue.comments %}
-            <div class="issue-comments" style="margin-top: 1rem;">
+          <div class="issue-comments" style="margin-top: 1rem;">
+            {% if issue.id|string == target_issue_id and issue.comments %}
               <strong>Comments ({{ issue.comment_count }})</strong>
               {% for comment in issue.comments %}
                 <div class="issue-comment" id="comment-{{ comment.id }}" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.4rem;">
@@ -1183,8 +1183,12 @@
                   </div>
                 </div>
               {% endfor %}
-            </div>
-          {% endif %}
+            {% elif not (issue.id|string == target_issue_id) %}
+              <em style="color: #64748b;">{{ issue.comment_count }} comment{{ 's' if issue.comment_count != 1 else '' }}</em>
+            {% else %}
+              <em style="color: #64748b;">No comments</em>
+            {% endif %}
+          </div>
           {% if issue.url %}
             <p><a href="{{ issue.url }}" target="_blank" rel="noopener">Open in tracker</a></p>
           {% endif %}

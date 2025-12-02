@@ -862,17 +862,19 @@ def list_windows_for_aliases(
     sessions: list = []
     if include_all_sessions:
         if linux_username is None:
-            # When no specific user is specified, enumerate all users' tmux sessions
-            from .linux_users import get_available_linux_users
-
-            available_users = get_available_linux_users()
-            for user in available_users:
+            # When no specific user is specified, query one user's tmux server
+            # All users in the aiops group see the same shared sessions via default socket
+            try:
+                server = _get_server(linux_username="michael")
+                sessions = list(server.sessions)
+            except Exception:
+                # michael user doesn't have a server running, try syseng
                 try:
-                    server = _get_server(linux_username=user)
-                    sessions.extend(server.sessions)
+                    server = _get_server(linux_username=None)
+                    sessions = list(server.sessions)
                 except Exception:
-                    # User may not have a running tmux server, skip silently
-                    pass
+                    # No sessions available
+                    sessions = []
         else:
             # Single user specified
             server = _get_server(linux_username=linux_username)

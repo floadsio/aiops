@@ -1318,7 +1318,7 @@
 
     // Auto-expand issue if issue_id is in URL query parameters or passed via template
     const urlParams = new URLSearchParams(window.location.search);
-    const targetIssueId = urlParams.get('issue_id') || {{ target_issue_id or 'null' }};
+    const targetIssueId = urlParams.get('issue_id') || {{ ('"' + target_issue_id|string + '"') if target_issue_id else 'null' }};
 
     // Function to scroll to and highlight a comment
     function scrollToComment(commentId) {

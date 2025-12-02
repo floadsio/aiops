@@ -904,15 +904,6 @@ def dashboard():
             skip_alias_filter=True,
             linux_username=linux_username,
         )
-        # Debug logging
-        with open("/tmp/aiops_debug.log", "a") as f:
-            f.write(f"\n=== Dashboard Load ===\n")
-            f.write(f"all_windows returned: {len(all_windows)}\n")
-            f.write(f"tmux_scope_show_all: {tmux_scope_show_all}\n")
-            f.write(f"tmux_session_name: {tmux_session_name}\n")
-            for w in all_windows[:5]:
-                f.write(f"  - {w.session_name}: {w.window_name}\n")
-
         all_windows = sorted(
             all_windows,
             key=lambda window: window.created
@@ -921,7 +912,6 @@ def dashboard():
         )
 
         # Populate windows_by_session dict with all windows
-        zsh_count = 0
         for window in all_windows:
             window_name = (getattr(window, "window_name", "") or "").strip()
             if window_name.lower() == "zsh":

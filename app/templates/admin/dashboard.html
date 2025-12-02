@@ -1326,7 +1326,6 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
       <a class="tertiary" href="{{ tmux_scope_toggle_url }}">{{ tmux_scope_toggle_label }}</a>
     </div>
   </header>
-  <!-- DEBUG: recent_tmux_error={{ recent_tmux_error }}, windows_by_session keys={{ windows_by_session|length }} -->
   {% if recent_tmux_error %}
     <p class="warning-note">tmux unavailable: {{ recent_tmux_error }}</p>
   {% elif windows_by_session and windows_by_session|length > 0 %}

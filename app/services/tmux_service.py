@@ -929,18 +929,56 @@ def list_windows_for_aliases(
                     f.write(f"[list_windows] Traceback: {traceback.format_exc()}\n")
                 sessions = []
     else:
-        with open("/tmp/tmux_debug.log", "a") as f:
-            f.write(f"[list_windows] include_all_sessions=False: session_name={session_name}, linux_username={linux_username}\n")
-        session, _ = _ensure_session(
-            session_name=session_name, create=False, linux_username=linux_username
-        )
-        with open("/tmp/tmux_debug.log", "a") as f:
-            f.write(f"[list_windows] include_all_sessions=False: _ensure_session returned {session}\n")
-        if session is None:
-            with open("/tmp/tmux_debug.log", "a") as f:
-                f.write(f"[list_windows] include_all_sessions=False: session is None, returning []\n")
-            return []
-        sessions = [session]
+        # Single user specified - query their tmux socket directly
+        # This avoids permission issues with sudo wrapping
+        try:
+            import subprocess
+            from pathlib import Path
+
+            # Determine the socket path for this user
+            if linux_username == "michael":
+                socket_candidates = ["/tmp/tmux-1004/default"]
+            elif linux_username == "admin":
+                socket_candidates = ["/tmp/tmux-1000/default"]
+            elif linux_username == "ai-assist":
+                socket_candidates = ["/tmp/tmux-1003/default"]
+            else:
+                # Try to find socket by username
+                socket_candidates = [str(p) for p in Path("/tmp").glob("tmux-*/default")]
+
+            socket_found = None
+            resolved_name = _normalize_session_name(session_name)
+
+            for socket_path in socket_candidates:
+                try:
+                    result = subprocess.run(
+                        ["tmux", "-S", socket_path, "has-session", "-t", resolved_name],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if result.returncode == 0:
+                        socket_found = socket_path
+                        break
+                except Exception:
+                    continue
+
+            if socket_found:
+                # Use libtmux with the found socket
+                import libtmux
+                server = libtmux.Server(socket_path=socket_found)
+                session = next(
+                    (item for item in server.sessions if item.get("session_name") == resolved_name),
+                    None,
+                )
+                if session is not None:
+                    sessions = [session]
+                else:
+                    sessions = []
+            else:
+                sessions = []
+        except Exception:
+            sessions = []
     if not sessions:
         return []
 

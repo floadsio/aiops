@@ -1218,6 +1218,7 @@
     if (!sessionList) return;
 
     try {
+      console.log('Loading resumable sessions from:', `/projects/${projectId}/ai/sessions/resumable`);
       const response = await fetch(`/projects/${projectId}/ai/sessions/resumable`, {
         headers: {
           'Accept': 'application/json',
@@ -1225,11 +1226,13 @@
         }
       });
 
+      console.log('Response status:', response.status, 'Headers:', response.headers);
       const data = await parseJsonResponse(response, {
         errorMessage: 'Failed to load sessions',
         invalidBodyMessage: 'Received an invalid sessions response.',
       });
       const sessions = data.sessions || [];
+      console.log('Loaded sessions:', sessions);
 
       if (sessions.length === 0) {
         sessionList.innerHTML = '<p class="text-muted">No resumable sessions found. Start a new AI session to create one.</p>';

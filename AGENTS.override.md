@@ -290,65 +290,65 @@ tail -f /home/syseng/aiops/logs/aiops.log
 ## Current Issue Context
 <!-- issue-context:start -->
 
-NOTE: Generated issue context. Update before publishing if needed.
+# 93 - Add session close/kill button to UI
 
-# 161 - Fix ModuleNotFoundError in /tmp/test_prod_yadm.py
+_Updated: 2025-12-02 00:00:00Z_
 
-        _Updated: 2025-11-28 18:11:28Z_
+## Issue Snapshot
+- Provider: github
+- Status: open
+- Assignee: Michael Turko
+- Labels: enhancement, feature, ui
+- Source: https://github.com/floadsio/aiops/issues/93
+- Last Synced: 2025-12-02 UTC
 
-        ## Issue Snapshot
-        - Provider: github
-        - Status: open
-        - Assignee: Ivo Marino
-        - Labels: bug, fix
-        - Source: https://github.com/floadsio/aiops/issues/161
-        - Last Synced: 2025-11-28 18:11 UTC
+## Issue Description
 
-        ## Issue Description
-        Detailed issue description with:
-
-## Overview
-During execution of a Python script, we encounter a 'ModuleNotFoundError' for 'dotenv'.
+Add a UI button to close/kill sessions. Currently users can manage sessions via CLI (`aiops sessions kill <target>`), but there's no way to do this from the web interface.
 
 ## Requirements
-- Ensure the script runs successfully.
-- Address any missing dependencies or configuration issues.
+- Add close/kill button to the sessions UI
+- Allow users to terminate sessions from the web interface
+- Maintain consistency with CLI behavior
 
 ## Acceptance Criteria
-- [ ] The error is resolved and the script runs without errors.
-- [ ] The issue does not reappear in future executions.
+- [ ] Session list/detail UI shows close/kill button
+- [ ] Button triggers appropriate API endpoint
+- [ ] Session is terminated when button is clicked
+- [ ] UI reflects the terminated session state
 
-## Technical Notes
-[Optional implementation notes]
+## Project Context
+- Project: aiops
+- Repository: git@github.com:floadsio/aiops.git
+- Local Path: /home/michael/workspace/floads/aiops
 
-        ## Project Context
-        - Project: aiops
-        - Repository: git@github.com:floadsio/aiops.git
-        - Local Path: instance/repos/aiops
+## Key Files to Review
+- `app/routes/api.py` - API endpoints for sessions
+- `app/services/session_service.py` - Session management logic
+- `app/templates/` - UI templates showing sessions
+- `tests/test_admin_session_creation.py` - Session tests
 
-        ## Other Known Issues
-        None listed.
-
-        ## Workflow Reminders
-        1. Confirm the acceptance criteria with the external issue tracker.
-        2. Explore relevant code paths and recent history.
-        3. Draft a short execution plan before editing files.
-        4. Implement changes with tests or validation steps.
-        5. Summarize modifications and verification commands when you finish.
+## Workflow Reminders
+1. Explore the current session management UI and API
+2. Review existing session endpoints to understand available operations
+3. Plan the UI changes (where to place the button, confirmation handling)
+4. Implement the frontend button and backend endpoint
+5. Test the functionality end-to-end
+6. Summarize changes when complete
 
 ## Git Identity
-        Use this identity for commits created while working on this issue.
+Use this identity for commits created while working on this issue.
 
-        - Name: Ivo Marino
-- Email: ivo@floads.io
+- Name: Michael Turko
+- Email: michael@floads.io
 
-        ```bash
-git config user.name 'Ivo Marino'
-git config user.email ivo@floads.io
+```bash
+git config user.name 'Michael Turko'
+git config user.email michael@floads.io
 
-export GIT_AUTHOR_NAME='Ivo Marino'
-export GIT_COMMITTER_NAME='Ivo Marino'
-export GIT_AUTHOR_EMAIL=ivo@floads.io
-export GIT_COMMITTER_EMAIL=ivo@floads.io
+export GIT_AUTHOR_NAME='Michael Turko'
+export GIT_COMMITTER_NAME='Michael Turko'
+export GIT_AUTHOR_EMAIL=michael@floads.io
+export GIT_COMMITTER_EMAIL=michael@floads.io
 ```
 <!-- issue-context:end -->

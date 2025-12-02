@@ -872,47 +872,55 @@ def list_windows_for_aliases(
                 with open("/tmp/tmux_debug.log", "a") as f:
                     f.write(f"[list_windows] Getting server for include_all_sessions with no username...\n")
 
-                # Find any tmux socket in /tmp/tmux-*/default, preferring ones with sessions
+                # Try to find any tmux socket with sessions
+                # First try well-known user sockets, then glob for others
                 socket_found = None
-                all_sockets = list(Path("/tmp").glob("tmux-*/default"))
                 with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Found {len(all_sockets)} sockets: {all_sockets}\n")
+                    f.write(f"[list_windows] Looking for tmux sockets...\n")
 
-                # First pass: try to find a socket with sessions
-                for socket_path in all_sockets:
+                # List of common user socket paths to try first
+                candidates = [
+                    "/tmp/tmux-1004/default",  # michael (UID 1004)
+                    "/tmp/tmux-1000/default",  # admin (if UID 1000)
+                    "/tmp/tmux-1003/default",  # ai-assist (if UID 1003)
+                ]
+
+                # Also add any sockets we can find via glob (may be limited due to visibility)
+                try:
+                    candidates.extend([str(p) for p in Path("/tmp").glob("tmux-*/default")])
+                except Exception:
+                    pass
+
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_candidates = []
+                for c in candidates:
+                    if c not in seen:
+                        unique_candidates.append(c)
+                        seen.add(c)
+
+                with open("/tmp/tmux_debug.log", "a") as f:
+                    f.write(f"[list_windows] Trying {len(unique_candidates)} socket candidates\n")
+
+                # Try each socket
+                for socket_path in unique_candidates:
                     with open("/tmp/tmux_debug.log", "a") as f:
                         f.write(f"[list_windows] Trying socket: {socket_path}\n")
                     try:
-                        # Try to use this socket
-                        server = libtmux.Server(socket_path=str(socket_path))
+                        server = libtmux.Server(socket_path=socket_path)
                         sessions = list(server.sessions)
                         if len(sessions) > 0:
-                            socket_found = str(socket_path)
+                            socket_found = socket_path
                             with open("/tmp/tmux_debug.log", "a") as f:
                                 f.write(f"[list_windows] Found socket with sessions: {socket_found}, got {len(sessions)} sessions\n")
                             break
                         else:
                             with open("/tmp/tmux_debug.log", "a") as f:
-                                f.write(f"[list_windows] Socket {socket_path} has 0 sessions, continuing...\n")
+                                f.write(f"[list_windows] Socket {socket_path} has 0 sessions\n")
                     except Exception as e:
                         with open("/tmp/tmux_debug.log", "a") as f:
                             f.write(f"[list_windows] Failed to access {socket_path}: {e}\n")
                         continue
-
-                # Second pass: if no socket had sessions, use the first one that works
-                if not socket_found:
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] No socket with sessions found, trying fallback...\n")
-                    for socket_path in all_sockets:
-                        try:
-                            server = libtmux.Server(socket_path=str(socket_path))
-                            sessions = list(server.sessions)
-                            socket_found = str(socket_path)
-                            with open("/tmp/tmux_debug.log", "a") as f:
-                                f.write(f"[list_windows] Fallback: using {socket_found}\n")
-                            break
-                        except Exception:
-                            continue
 
                 if not socket_found:
                     with open("/tmp/tmux_debug.log", "a") as f:

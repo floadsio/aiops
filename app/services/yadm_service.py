@@ -747,24 +747,57 @@ def pull_and_apply_yadm_update(
         YadmServiceError: If pull fails (bootstrap/decrypt failures are non-critical)
     """
     try:
-        # 1. Pull from remote with rebase to handle divergent branches
-        # Rebase is appropriate for dotfiles - applies local changes on top of remote
-        pull_cmd = ["yadm", "pull", "--rebase"]
-        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pull_cmd
-        result = subprocess.run(
+        # 1. Stash any uncommitted changes before pulling
+        stash_cmd = ["yadm", "stash", "push", "-m", "Auto-stash before pull"]
+        sudo_cmd = ["sudo", "-u", linux_username, "-H"] + stash_cmd
+        stash_result = subprocess.run(
             sudo_cmd,
             capture_output=True,
             text=True,
-            timeout=300,
+            timeout=60,
             cwd=user_home,
         )
 
-        if result.returncode != 0:
-            raise YadmServiceError(
-                f"yadm pull failed: {result.stderr or result.stdout}"
+        # Track if we created a stash (stash returns 0 even if nothing to stash)
+        had_changes = "No local changes to save" not in stash_result.stdout
+
+        try:
+            # 2. Pull from remote with rebase to handle divergent branches
+            # Rebase is appropriate for dotfiles - applies local changes on top of remote
+            pull_cmd = ["yadm", "pull", "--rebase"]
+            sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pull_cmd
+            result = subprocess.run(
+                sudo_cmd,
+                capture_output=True,
+                text=True,
+                timeout=300,
+                cwd=user_home,
             )
 
-        logger.info(f"Pulled latest yadm changes for user {linux_username}")
+            if result.returncode != 0:
+                raise YadmServiceError(
+                    f"yadm pull failed: {result.stderr or result.stdout}"
+                )
+
+            logger.info(f"Pulled latest yadm changes for user {linux_username}")
+
+        finally:
+            # 3. Pop stashed changes if we stashed anything
+            if had_changes:
+                pop_cmd = ["yadm", "stash", "pop"]
+                sudo_cmd = ["sudo", "-u", linux_username, "-H"] + pop_cmd
+                pop_result = subprocess.run(
+                    sudo_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                    cwd=user_home,
+                )
+                if pop_result.returncode != 0:
+                    logger.warning(
+                        f"Failed to restore stashed changes for {linux_username}: "
+                        f"{pop_result.stderr or pop_result.stdout}"
+                    )
 
         # 2. Run bootstrap (non-critical)
         try:

@@ -902,6 +902,7 @@ def dashboard():
             session_name=tmux_session_name,
             include_all_sessions=tmux_scope_show_all,
             skip_alias_filter=True,
+            linux_username=linux_username,
         )
         # Debug logging
         with open("/tmp/aiops_debug.log", "a") as f:

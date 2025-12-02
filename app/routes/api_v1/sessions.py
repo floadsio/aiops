@@ -39,7 +39,7 @@ def _generate_tmux_target(session_name: str, project: Project, tool: str | None,
     """Generate a tmux target for a project or issue.
 
     - With issue_id: window named after issue (e.g., #164-tmux-sessions)
-    - Without issue_id: generic session name (e.g., session-a1b2c3)
+    - Without issue_id: named after project and tool (e.g., dotfiles-claude, aiops-shell)
     """
     if issue_id:
         from ...models import ExternalIssue
@@ -52,7 +52,10 @@ def _generate_tmux_target(session_name: str, project: Project, tool: str | None,
         else:
             window_name = f"issue-{issue_id}"
     else:
-        window_name = f"session-{uuid.uuid4().hex[:6]}"
+        # Generic session named after project and tool (e.g., dotfiles-claude, aiops-shell)
+        project_name = _slugify(project.name)
+        tool_name = tool or "shell"
+        window_name = f"{project_name}-{tool_name}"
     return f"{session_name}:{window_name}"
 
 

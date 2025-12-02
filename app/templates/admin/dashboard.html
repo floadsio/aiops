@@ -1365,6 +1365,11 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                 {% endif %}
               </div>
               <div class="tmux-recent-meta">
+                {% if window.owner %}
+                  <span class="tmux-meta">
+                    <strong>Owner:</strong> {{ window.owner }}
+                  </span>
+                {% endif %}
                 {% if window.project and window.project.workspace_path %}
                   <span class="tmux-meta">
                     <strong>Path:</strong> {{ window.project.workspace_path }}

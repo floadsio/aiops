@@ -970,6 +970,16 @@ def dashboard():
                         else None,
                 }
 
+            # Get user who started the session
+            owner_name = None
+            if session.user:
+                owner_name = (
+                    session.user.name
+                    or session.user.username
+                    or session.user.email
+                    or f"User #{session.user.id}"
+                )
+
             window_entry = {
                 "session": session_name,
                 "window": window_name,
@@ -981,6 +991,7 @@ def dashboard():
                 "ssh_keys": get_tmux_ssh_keys(tmux_target),
                 "project": project_info,
                 "pane_dead": pane_is_dead,
+                "owner": owner_name,
             }
 
             all_sessions.append(window_entry)

@@ -904,6 +904,10 @@ def dashboard():
             skip_alias_filter=True,
             linux_username=linux_username,
         )
+        # Debug logging
+        import sys
+        print(f"DEBUG: all_windows={len(all_windows)}, tmux_scope_show_all={tmux_scope_show_all}, linux_username={linux_username}", file=sys.stderr)
+
         all_windows = sorted(
             all_windows,
             key=lambda window: window.created

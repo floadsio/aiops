@@ -908,26 +908,6 @@ def list_windows_for_aliases(
 
             except Exception:
                 sessions = []
-        else:
-            # Single user specified - use _ensure_session to get the actual user's session
-            with open("/tmp/tmux_debug.log", "a") as f:
-                f.write(f"[list_windows] Single user: session_name={session_name}, linux_username={linux_username}, include_all_sessions={include_all_sessions}\n")
-            try:
-                session, _ = _ensure_session(
-                    session_name=session_name, create=False, linux_username=linux_username
-                )
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] _ensure_session returned: {session}\n")
-                if session is None:
-                    sessions = []
-                else:
-                    sessions = [session]
-            except Exception as e:
-                import traceback
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Error in single-user path: {e}\n")
-                    f.write(f"[list_windows] Traceback: {traceback.format_exc()}\n")
-                sessions = []
     else:
         # Single user specified - query their tmux socket directly
         # This avoids permission issues with sudo wrapping

@@ -1319,11 +1319,15 @@
       const issueCards = document.querySelectorAll('.issue-card');
       let targetCard = null;
 
+      console.log(`Looking for issue ${targetIssueId}, found ${issueCards.length} issue cards`);
+
       for (const card of issueCards) {
-        // Check if this card's meta contains the DB ID
-        const metaText = card.querySelector('.issue-card__meta')?.textContent || '';
-        if (metaText.includes(`(DB: ${targetIssueId})`)) {
+        // Check if this card's header contains the DB ID
+        const headerText = card.querySelector('.issue-card__header')?.textContent || '';
+        console.log(`Checking card header: ${headerText.substring(0, 50)}...`);
+        if (headerText.includes(`(DB: ${targetIssueId})`)) {
           targetCard = card;
+          console.log(`Found target issue card!`);
           break;
         }
       }
@@ -1333,6 +1337,7 @@
         const detailsElement = targetCard.querySelector('details');
         if (detailsElement) {
           detailsElement.open = true;
+          console.log(`Opened details element`);
 
           // Scroll to the issue with smooth behavior
           setTimeout(() => {
@@ -1348,6 +1353,11 @@
       } else {
         // Issue not found on this page - might be filtered out or on different page
         console.warn(`Issue ${targetIssueId} not found on page. Check status filter.`);
+        console.log(`Available issue cards: ${issueCards.length}`);
+        for (const card of issueCards) {
+          const header = card.querySelector('.issue-card__header')?.textContent || '';
+          console.log(`  - ${header.substring(0, 60)}...`);
+        }
       }
     }
 

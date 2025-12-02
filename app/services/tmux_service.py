@@ -894,6 +894,8 @@ def list_windows_for_aliases(
                             text=True,
                             timeout=5
                         )
+                        with open("/tmp/tmux_debug.log", "a") as f:
+                            f.write(f"[list_windows]   returncode={result.returncode}, stdout={repr(result.stdout[:100])}, stderr={repr(result.stderr[:100])}\n")
                         if result.returncode == 0:
                             session_names = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
                             if len(session_names) > 0:
@@ -903,7 +905,7 @@ def list_windows_for_aliases(
                                 break
                     except Exception as e:
                         with open("/tmp/tmux_debug.log", "a") as f:
-                            f.write(f"[list_windows] Failed to query {socket_path}: {e}\n")
+                            f.write(f"[list_windows] Exception: {e}\n")
                         continue
 
                 if socket_found:

@@ -902,11 +902,8 @@ def dashboard():
             session_name=tmux_session_name,
             include_all_sessions=tmux_scope_show_all,
             skip_alias_filter=True,
-            linux_username=linux_username,
+            linux_username=linux_username if not tmux_scope_show_all else None,
         )
-        # Debug logging
-        import sys
-        print(f"DEBUG: all_windows={len(all_windows)}, tmux_scope_show_all={tmux_scope_show_all}, linux_username={linux_username}", file=sys.stderr)
 
         all_windows = sorted(
             all_windows,

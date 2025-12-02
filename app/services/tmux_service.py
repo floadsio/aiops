@@ -872,23 +872,47 @@ def list_windows_for_aliases(
                 with open("/tmp/tmux_debug.log", "a") as f:
                     f.write(f"[list_windows] Getting server for include_all_sessions with no username...\n")
 
-                # Find any tmux socket in /tmp/tmux-*/default
+                # Find any tmux socket in /tmp/tmux-*/default, preferring ones with sessions
                 socket_found = None
-                for socket_path in Path("/tmp").glob("tmux-*/default"):
+                all_sockets = list(Path("/tmp").glob("tmux-*/default"))
+                with open("/tmp/tmux_debug.log", "a") as f:
+                    f.write(f"[list_windows] Found {len(all_sockets)} sockets: {all_sockets}\n")
+
+                # First pass: try to find a socket with sessions
+                for socket_path in all_sockets:
                     with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] Found socket: {socket_path}\n")
+                        f.write(f"[list_windows] Trying socket: {socket_path}\n")
                     try:
                         # Try to use this socket
                         server = libtmux.Server(socket_path=str(socket_path))
                         sessions = list(server.sessions)
-                        socket_found = str(socket_path)
-                        with open("/tmp/tmux_debug.log", "a") as f:
-                            f.write(f"[list_windows] Successfully accessed {socket_found}, got {len(sessions)} sessions\n")
-                        break
+                        if len(sessions) > 0:
+                            socket_found = str(socket_path)
+                            with open("/tmp/tmux_debug.log", "a") as f:
+                                f.write(f"[list_windows] Found socket with sessions: {socket_found}, got {len(sessions)} sessions\n")
+                            break
+                        else:
+                            with open("/tmp/tmux_debug.log", "a") as f:
+                                f.write(f"[list_windows] Socket {socket_path} has 0 sessions, continuing...\n")
                     except Exception as e:
                         with open("/tmp/tmux_debug.log", "a") as f:
                             f.write(f"[list_windows] Failed to access {socket_path}: {e}\n")
                         continue
+
+                # Second pass: if no socket had sessions, use the first one that works
+                if not socket_found:
+                    with open("/tmp/tmux_debug.log", "a") as f:
+                        f.write(f"[list_windows] No socket with sessions found, trying fallback...\n")
+                    for socket_path in all_sockets:
+                        try:
+                            server = libtmux.Server(socket_path=str(socket_path))
+                            sessions = list(server.sessions)
+                            socket_found = str(socket_path)
+                            with open("/tmp/tmux_debug.log", "a") as f:
+                                f.write(f"[list_windows] Fallback: using {socket_found}\n")
+                            break
+                        except Exception:
+                            continue
 
                 if not socket_found:
                     with open("/tmp/tmux_debug.log", "a") as f:

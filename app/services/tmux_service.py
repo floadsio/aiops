@@ -868,9 +868,6 @@ def list_windows_for_aliases(
                 import subprocess
                 from pathlib import Path
 
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Getting all sessions (include_all_sessions)...\n")
-
                 # Try to find tmux sockets and query them directly
                 socket_candidates = [
                     "/tmp/tmux-1004/default",  # michael (UID 1004)
@@ -885,8 +882,6 @@ def list_windows_for_aliases(
                 # Query each socket via tmux command
                 socket_found = None
                 for socket_path in socket_candidates:
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] Querying socket: {socket_path}\n")
                     try:
                         result = subprocess.run(
                             ["tmux", "-S", socket_path, "list-sessions", "-F", "#{session_name}"],
@@ -894,18 +889,12 @@ def list_windows_for_aliases(
                             text=True,
                             timeout=5
                         )
-                        with open("/tmp/tmux_debug.log", "a") as f:
-                            f.write(f"[list_windows]   returncode={result.returncode}, stdout={repr(result.stdout[:100])}, stderr={repr(result.stderr[:100])}\n")
                         if result.returncode == 0:
                             session_names = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
                             if len(session_names) > 0:
                                 socket_found = socket_path
-                                with open("/tmp/tmux_debug.log", "a") as f:
-                                    f.write(f"[list_windows] Found {len(session_names)} sessions in {socket_path}\n")
                                 break
-                    except Exception as e:
-                        with open("/tmp/tmux_debug.log", "a") as f:
-                            f.write(f"[list_windows] Exception: {e}\n")
+                    except Exception:
                         continue
 
                 if socket_found:
@@ -913,26 +902,16 @@ def list_windows_for_aliases(
                     import libtmux
                     server = libtmux.Server(socket_path=socket_found)
                     sessions = list(server.sessions)
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] Got {len(sessions)} sessions from libtmux\n")
                 else:
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] No socket found with sessions, using default\n")
                     server = _get_server(linux_username=None)
                     sessions = list(server.sessions)
 
-            except Exception as e:
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Failed to get sessions: {e}\n")
+            except Exception:
                 sessions = []
         else:
             # Single user specified
-            with open("/tmp/tmux_debug.log", "a") as f:
-                f.write(f"[list_windows] Getting server for user {linux_username}...\n")
             server = _get_server(linux_username=linux_username)
             sessions = list(server.sessions)
-            with open("/tmp/tmux_debug.log", "a") as f:
-                f.write(f"[list_windows] Got {len(sessions)} sessions for {linux_username}\n")
     else:
         session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username

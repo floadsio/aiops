@@ -861,8 +861,22 @@ def list_windows_for_aliases(
 ) -> List[TmuxWindow]:
     sessions: list = []
     if include_all_sessions:
-        server = _get_server(linux_username=linux_username)
-        sessions = list(server.sessions)
+        if linux_username is None:
+            # When no specific user is specified, enumerate all users' tmux sessions
+            from .linux_users import get_available_linux_users
+
+            available_users = get_available_linux_users()
+            for user in available_users:
+                try:
+                    server = _get_server(linux_username=user)
+                    sessions.extend(server.sessions)
+                except Exception:
+                    # User may not have a running tmux server, skip silently
+                    pass
+        else:
+            # Single user specified
+            server = _get_server(linux_username=linux_username)
+            sessions = list(server.sessions)
         with open("/tmp/tmux_service_debug.log", "a") as f:
             f.write(f"include_all_sessions: got {len(sessions)} sessions: {[s.get('session_name') for s in sessions]}\n")
     else:

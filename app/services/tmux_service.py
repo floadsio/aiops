@@ -909,9 +909,14 @@ def list_windows_for_aliases(
             except Exception:
                 sessions = []
         else:
-            # Single user specified
-            server = _get_server(linux_username=linux_username)
-            sessions = list(server.sessions)
+            # Single user specified - use _ensure_session to get the actual user's session
+            session, _ = _ensure_session(
+                session_name=session_name, create=False, linux_username=linux_username
+            )
+            if session is None:
+                sessions = []
+            else:
+                sessions = [session]
     else:
         session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username

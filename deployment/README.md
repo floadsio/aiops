@@ -327,3 +327,73 @@ The default timeout is 30 seconds. Increase for:
 | Process management | Manual | Systemd |
 
 Use `make start-dev` for development and the systemd service for production deployments.
+
+## Claude Code Auto-Update Timer
+
+The system includes a systemd timer that automatically updates Claude Code CLI daily using the `aiops system update-ai-tool` command.
+
+### Installation
+
+From the deployment directory:
+
+```bash
+cd /home/syseng/aiops/deployment
+sudo ./install-claude-update-timer.sh
+```
+
+### Management
+
+**Check timer status:**
+```bash
+sudo systemctl status aiops-claude-update.timer
+sudo systemctl list-timers aiops-claude-update.timer
+```
+
+**View update logs:**
+```bash
+sudo journalctl -u aiops-claude-update -f
+sudo journalctl -u aiops-claude-update --since today
+```
+
+**Trigger manual update:**
+```bash
+sudo systemctl start aiops-claude-update.service
+```
+
+**Disable auto-updates:**
+```bash
+sudo systemctl stop aiops-claude-update.timer
+sudo systemctl disable aiops-claude-update.timer
+```
+
+### Configuration
+
+The timer runs daily at 2 AM. To change the schedule, edit:
+```
+/etc/systemd/system/aiops-claude-update.timer
+```
+
+Then reload systemd:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart aiops-claude-update.timer
+```
+
+### Disabling Claude Code's Built-in Auto-Update
+
+To prevent "Auto-update failed" error messages in Claude Code, users can disable its built-in auto-updater by setting an environment variable in their shell profile:
+
+```bash
+# Add to ~/.zshrc or ~/.bashrc
+export DISABLE_AUTOUPDATER=1
+```
+
+Or add to Claude Code settings file (`~/.claude/settings.json`):
+
+```json
+{
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  }
+}
+```

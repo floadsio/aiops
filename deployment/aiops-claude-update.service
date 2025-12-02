@@ -1,0 +1,33 @@
+[Unit]
+Description=Update Claude Code CLI via aiops
+Documentation=https://github.com/anthropics/claude-code
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=syseng
+Group=syseng
+
+# Ensure we use the aiops virtual environment
+Environment="PATH=/home/syseng/.local/bin:/home/syseng/aiops/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+WorkingDirectory=/home/syseng/aiops
+
+# Use the aiops CLI to trigger update via API
+ExecStart=/home/syseng/aiops/.venv/bin/python -m aiops_cli.cli system update-ai-tool claude --source npm
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aiops-claude-update
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

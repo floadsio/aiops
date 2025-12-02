@@ -903,6 +903,11 @@ def dashboard():
             include_all_sessions=tmux_scope_show_all,
             skip_alias_filter=True,
         )
+        import sys
+        print(f"DEBUG: all_windows returned {len(all_windows)} windows", file=sys.stderr)
+        for w in all_windows[:3]:
+            print(f"  - {w.session_name}: {w.window_name}", file=sys.stderr)
+
         all_windows = sorted(
             all_windows,
             key=lambda window: window.created
@@ -911,6 +916,7 @@ def dashboard():
         )
 
         # Populate windows_by_session dict with all windows
+        zsh_count = 0
         for window in all_windows:
             window_name = (getattr(window, "window_name", "") or "").strip()
             if window_name.lower() == "zsh":

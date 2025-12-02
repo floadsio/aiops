@@ -1296,7 +1296,7 @@
   (function () {
     // Auto-expand issue if issue_id is in URL query parameters or passed via template
     const urlParams = new URLSearchParams(window.location.search);
-    const targetIssueId = urlParams.get('issue_id') || {{ ('"' + target_issue_id|string + '"') if target_issue_id else 'null' }};
+    const targetIssueId = urlParams.get('issue_id') || {% if target_issue_id %}'{{ target_issue_id }}'{% else %}null{% endif %};
 
     // Function to scroll to and highlight a comment
     function scrollToComment(commentId) {
@@ -1319,15 +1319,12 @@
       const issueCards = document.querySelectorAll('.issue-card');
       let targetCard = null;
 
-      console.log(`Looking for issue ${targetIssueId}, found ${issueCards.length} issue cards`);
-
       for (const card of issueCards) {
         // Check if this card's header contains the DB ID
         const headerText = card.querySelector('.issue-card__header')?.textContent || '';
-        console.log(`Checking card header: ${headerText.substring(0, 50)}...`);
-        if (headerText.includes(`(DB: ${targetIssueId})`)) {
+        const searchString = '(DB: ' + targetIssueId + ')';
+        if (headerText.includes(searchString)) {
           targetCard = card;
-          console.log(`Found target issue card!`);
           break;
         }
       }
@@ -1337,7 +1334,6 @@
         const detailsElement = targetCard.querySelector('details');
         if (detailsElement) {
           detailsElement.open = true;
-          console.log(`Opened details element`);
 
           // Scroll to the issue with smooth behavior
           setTimeout(() => {
@@ -1352,12 +1348,7 @@
         }
       } else {
         // Issue not found on this page - might be filtered out or on different page
-        console.warn(`Issue ${targetIssueId} not found on page. Check status filter.`);
-        console.log(`Available issue cards: ${issueCards.length}`);
-        for (const card of issueCards) {
-          const header = card.querySelector('.issue-card__header')?.textContent || '';
-          console.log(`  - ${header.substring(0, 60)}...`);
-        }
+        console.warn('Issue ' + targetIssueId + ' not found on page.');
       }
     }
 
@@ -1916,6 +1907,13 @@
           this.disabled = false;
         }
       });
+    });
+
+    // Lazy-load all images to avoid blocking page render
+    document.querySelectorAll('img[src]').forEach(img => {
+      if (!img.hasAttribute('loading')) {
+        img.setAttribute('loading', 'lazy');
+      }
     });
   })();
 </script>

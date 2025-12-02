@@ -2896,10 +2896,6 @@ def manage_issues():
     raw_direction = (request.args.get("direction") or "").strip().lower()
     target_issue_id = request.args.get("issue_id")
 
-    # Debug logging for issue #158
-    if target_issue_id:
-        current_app.logger.info(f"[Issue #158] Pinned issue redirect: issue_id={target_issue_id}, raw_filter='{raw_filter}'")
-
     if raw_direction not in {"asc", "desc"}:
         sort_direction = ISSUE_SORT_META[sort_key]["default_direction"]
     else:
@@ -2919,10 +2915,6 @@ def manage_issues():
         status_filter = "__none__"
     else:
         status_filter = default_filter
-
-    # Debug logging for issue #158
-    if target_issue_id:
-        current_app.logger.info(f"[Issue #158] After filter logic: status_filter='{status_filter}', status_labels={list(status_labels.keys())}")
 
     if tenant_raw_filter and tenant_raw_filter.lower() != "all":
         if tenant_raw_filter in tenant_labels:
@@ -2980,15 +2972,6 @@ def manage_issues():
 
     filtered_issues = [entry for entry in issue_entries if _matches(entry)]
     total_issue_count = len(filtered_issues)
-
-    # Debug logging for issue #158
-    if target_issue_id:
-        current_app.logger.info(f"[Issue #158] After filtering: total_issue_count={total_issue_count}, looking for issue {target_issue_id}")
-        issue_ids_in_results = [str(entry.get('id')) for entry in filtered_issues]
-        if target_issue_id in issue_ids_in_results:
-            current_app.logger.info(f"[Issue #158] ✓ Issue {target_issue_id} IS in filtered results")
-        else:
-            current_app.logger.warning(f"[Issue #158] ✗ Issue {target_issue_id} NOT in filtered results. IDs: {issue_ids_in_results[:5]}...")
 
     def _string_sort_key(field: str, transform=None):
         def _key(entry: dict[str, object]):

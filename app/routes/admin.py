@@ -904,8 +904,8 @@ def dashboard():
             skip_alias_filter=True,
             linux_username=linux_username if not tmux_scope_show_all else None,
         )
-        import sys
-        print(f"DEBUG DASHBOARD: all_windows={len(all_windows)}, scope_all={tmux_scope_show_all}, user={linux_username}", file=sys.stderr)
+        with open("/tmp/dashboard_debug.log", "a") as f:
+            f.write(f"all_windows={len(all_windows)}, scope_all={tmux_scope_show_all}, user={linux_username}\n")
 
         all_windows = sorted(
             all_windows,
@@ -949,11 +949,11 @@ def dashboard():
                 tracked_tmux_targets.add(window.target)
     except TmuxServiceError as exc:
         recent_tmux_error = str(exc)
-        import sys
-        print(f"DEBUG DASHBOARD: TmuxServiceError: {exc}", file=sys.stderr)
+        with open("/tmp/dashboard_debug.log", "a") as f:
+            f.write(f"TmuxServiceError: {exc}\n")
     except Exception as exc:
-        import sys
-        print(f"DEBUG DASHBOARD: Unexpected error: {type(exc).__name__}: {exc}", file=sys.stderr)
+        with open("/tmp/dashboard_debug.log", "a") as f:
+            f.write(f"Unexpected error: {type(exc).__name__}: {exc}\n")
         raise
 
     if search_query:

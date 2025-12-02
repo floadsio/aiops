@@ -1328,7 +1328,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
   </header>
   {% if recent_tmux_error %}
     <p class="warning-note">tmux unavailable: {{ recent_tmux_error }}</p>
-  {% elif windows_by_session %}
+  {% elif windows_by_session and windows_by_session|length > 0 %}
     <!-- Group windows by session/owner -->
     {% for session_name, windows_list in windows_by_session.items() | sort %}
       <div style="margin-bottom: 2rem;">

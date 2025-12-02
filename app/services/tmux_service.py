@@ -862,74 +862,63 @@ def list_windows_for_aliases(
     sessions: list = []
     if include_all_sessions:
         if linux_username is None:
-            # When no specific user is specified, get all sessions from the default server
-            # Since we're running as syseng with group permissions, we can access the
-            # shared tmux socket that contains all user sessions
+            # When no specific user is specified, query tmux directly via subprocess
+            # This is more reliable than libtmux when syseng needs to access other users' sockets
             try:
-                import libtmux
+                import subprocess
                 from pathlib import Path
 
                 with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Getting server for include_all_sessions with no username...\n")
+                    f.write(f"[list_windows] Getting all sessions (include_all_sessions)...\n")
 
-                # Try to find any tmux socket with sessions
-                # First try well-known user sockets, then glob for others
-                socket_found = None
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Looking for tmux sockets...\n")
-
-                # List of common user socket paths to try first
-                candidates = [
+                # Try to find tmux sockets and query them directly
+                socket_candidates = [
                     "/tmp/tmux-1004/default",  # michael (UID 1004)
                     "/tmp/tmux-1000/default",  # admin (if UID 1000)
                     "/tmp/tmux-1003/default",  # ai-assist (if UID 1003)
                 ]
-
-                # Also add any sockets we can find via glob (may be limited due to visibility)
                 try:
-                    candidates.extend([str(p) for p in Path("/tmp").glob("tmux-*/default")])
+                    socket_candidates.extend([str(p) for p in Path("/tmp").glob("tmux-*/default")])
                 except Exception:
                     pass
 
-                # Remove duplicates while preserving order
-                seen = set()
-                unique_candidates = []
-                for c in candidates:
-                    if c not in seen:
-                        unique_candidates.append(c)
-                        seen.add(c)
-
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Trying {len(unique_candidates)} socket candidates\n")
-
-                # Try each socket
-                for socket_path in unique_candidates:
+                # Query each socket via tmux command
+                socket_found = None
+                for socket_path in socket_candidates:
                     with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] Trying socket: {socket_path}\n")
+                        f.write(f"[list_windows] Querying socket: {socket_path}\n")
                     try:
-                        server = libtmux.Server(socket_path=socket_path)
-                        sessions = list(server.sessions)
-                        if len(sessions) > 0:
-                            socket_found = socket_path
-                            with open("/tmp/tmux_debug.log", "a") as f:
-                                f.write(f"[list_windows] Found socket with sessions: {socket_found}, got {len(sessions)} sessions\n")
-                            break
-                        else:
-                            with open("/tmp/tmux_debug.log", "a") as f:
-                                f.write(f"[list_windows] Socket {socket_path} has 0 sessions\n")
+                        result = subprocess.run(
+                            ["tmux", "-S", socket_path, "list-sessions", "-F", "#{session_name}"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        if result.returncode == 0:
+                            session_names = [line.strip() for line in result.stdout.strip().split("\n") if line.strip()]
+                            if len(session_names) > 0:
+                                socket_found = socket_path
+                                with open("/tmp/tmux_debug.log", "a") as f:
+                                    f.write(f"[list_windows] Found {len(session_names)} sessions in {socket_path}\n")
+                                break
                     except Exception as e:
                         with open("/tmp/tmux_debug.log", "a") as f:
-                            f.write(f"[list_windows] Failed to access {socket_path}: {e}\n")
+                            f.write(f"[list_windows] Failed to query {socket_path}: {e}\n")
                         continue
 
-                if not socket_found:
+                if socket_found:
+                    # Use libtmux with the found socket
+                    import libtmux
+                    server = libtmux.Server(socket_path=socket_found)
+                    sessions = list(server.sessions)
                     with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows] No accessible socket found, using default server\n")
+                        f.write(f"[list_windows] Got {len(sessions)} sessions from libtmux\n")
+                else:
+                    with open("/tmp/tmux_debug.log", "a") as f:
+                        f.write(f"[list_windows] No socket found with sessions, using default\n")
                     server = _get_server(linux_username=None)
                     sessions = list(server.sessions)
 
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows] Final: Got {len(sessions)} sessions\n")
             except Exception as e:
                 with open("/tmp/tmux_debug.log", "a") as f:
                     f.write(f"[list_windows] Failed to get sessions: {e}\n")

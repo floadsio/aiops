@@ -904,6 +904,8 @@ def dashboard():
             skip_alias_filter=True,
             linux_username=linux_username if not tmux_scope_show_all else None,
         )
+        with open("/tmp/dashboard_debug.log", "a") as f:
+            f.write(f"[dashboard] scope_show_all={tmux_scope_show_all}, linux_username={linux_username}, got {len(all_windows)} windows\n")
 
         all_windows = sorted(
             all_windows,

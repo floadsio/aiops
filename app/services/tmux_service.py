@@ -879,6 +879,8 @@ def list_windows_for_aliases(
             # Single user specified
             server = _get_server(linux_username=linux_username)
             sessions = list(server.sessions)
+        with open("/tmp/tmux_debug.log", "a") as f:
+            f.write(f"[list_windows] include_all_sessions={include_all_sessions}, linux_username={linux_username}, got {len(sessions)} sessions\n")
     else:
         session, _ = _ensure_session(
             session_name=session_name, create=False, linux_username=linux_username

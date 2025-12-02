@@ -2907,7 +2907,11 @@ def manage_issues():
 
     default_filter = "open"
 
-    if raw_filter == "all":
+    # If targeting a specific issue via issue_id parameter, always show all statuses to ensure the issue is found
+    if target_issue_id:
+        status_filter = "all"
+        current_app.logger.info(f"[Issue #158] Pinned issue mode: forcing status_filter='all' to show target issue {target_issue_id}")
+    elif raw_filter == "all":
         status_filter = "all"
     elif raw_filter in status_labels:
         status_filter = raw_filter

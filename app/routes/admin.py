@@ -900,8 +900,11 @@ def dashboard():
         from ..services.ai_session_service import get_user_sessions, get_session_summary
 
         # Get sessions from database based on scope
-        current_user_id = _current_user_id()
-        if tmux_scope_show_all and getattr(current_user, "is_admin", False):
+        user_obj = _current_user_obj()
+        current_user_id = user_obj.id if user_obj else None
+        is_admin = getattr(current_user, "is_admin", False)
+
+        if tmux_scope_show_all and is_admin:
             # Admin viewing all users' sessions
             sessions = get_user_sessions(user_id=None, active_only=True)
         else:

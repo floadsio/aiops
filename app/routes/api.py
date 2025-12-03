@@ -770,8 +770,18 @@ def _get_project_session(project_id: int, session_id: str):
     if not _ensure_project_access(project):
         return None, jsonify({"error": "Access denied."}), 403
 
+    # First try to get from in-memory sessions (currently running)
     session = get_session(session_id)
-    if session is None or session.project_id != project.id:
+
+    # If not found in memory, try database (for persistent/historical sessions)
+    if session is None:
+        from ..models import AISession as AISessionModel
+        db_session = AISessionModel.query.filter_by(session_id=session_id, project_id=project_id).first()
+        if db_session is None or db_session.project_id != project_id:
+            return None, jsonify({"error": "Session not found."}), 404
+        return db_session, None, None
+
+    if session.project_id != project.id:
         return None, jsonify({"error": "Session not found."}), 404
     return session, None, None
 

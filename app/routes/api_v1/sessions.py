@@ -9,9 +9,11 @@ from __future__ import annotations
 import os
 import re
 import uuid
+from pathlib import Path
 
 from flask import current_app, g, jsonify, request
 from flask_login import current_user  # type: ignore
+from werkzeug.utils import secure_filename
 
 from . import api_v1_bp
 from ...ai_sessions import (
@@ -28,6 +30,7 @@ from ...models import AISession as AISessionModel, ExternalIssue, Project, User
 from ...services.activity_service import ActivityType, ResourceType, log_activity
 from ...services.api_auth import require_api_auth
 from ...services.tmux_service import session_name_for_user
+from ...services.workspace_service import get_workspace_path
 
 
 def _slugify(value: str) -> str:
@@ -90,8 +93,17 @@ def _get_project_session(project_id: int, session_id: str):
     if not _ensure_project_access(project):
         return None, jsonify({"error": "Access denied."}), 403
 
+    # First try to get from in-memory sessions (currently running)
     session = get_session(session_id)
-    if session is None or session.project_id != project.id:
+
+    # If not found in memory, try database (for persistent/historical sessions)
+    if session is None:
+        db_session = AISessionModel.query.filter_by(session_id=session_id, project_id=project_id).first()
+        if db_session is None or db_session.project_id != project_id:
+            return None, jsonify({"error": "Session not found."}), 404
+        return db_session, None, None
+
+    if session.project_id != project.id:
         return None, jsonify({"error": "Session not found."}), 404
     return session, None, None
 
@@ -670,3 +682,78 @@ def track_session_attach(db_session_id: int):
             "message": f"Session attach tracked for project {project.name}",
         }
     ), 200
+
+
+@api_v1_bp.post("/projects/<int:project_id>/ai/sessions/<session_id>/upload")
+@require_api_auth(scopes=["write"])
+def upload_file_to_session(project_id: int, session_id: str):
+    """Upload a file to the session's workspace .uploads directory.
+
+    Args:
+        project_id: Project ID
+        session_id: Session ID
+
+    Request:
+        multipart/form-data with 'file' field
+
+    Returns:
+        200: File uploaded successfully with workspace path
+        400: Invalid request (no file, file too large, etc.)
+        403: Access denied
+        404: Session not found
+    """
+    session, error_response, status = _get_project_session(project_id, session_id)
+    if error_response is not None:
+        return error_response, status
+
+    # Check if file is in request
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files['file']
+    if not file or not file.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    # Get project and user for workspace path
+    project = Project.query.get_or_404(project_id)
+    user = User.query.get(session.user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    # Get workspace path
+    workspace_path = get_workspace_path(project, user)
+    if not workspace_path:
+        return jsonify({"error": "Workspace not initialized for user"}), 400
+
+    # Create .uploads directory
+    uploads_dir = Path(workspace_path) / ".uploads"
+    try:
+        uploads_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        current_app.logger.error(f"Failed to create uploads directory: {exc}")
+        return jsonify({"error": "Failed to create uploads directory"}), 500
+
+    # Secure filename
+    filename = secure_filename(file.filename)
+    if not filename:
+        return jsonify({"error": "Invalid filename"}), 400
+
+    # Save file
+    file_path = uploads_dir / filename
+    try:
+        file.save(str(file_path))
+        file_size = file_path.stat().st_size
+    except Exception as exc:
+        current_app.logger.error(f"Failed to save file: {exc}")
+        return jsonify({"error": "Failed to save file"}), 500
+
+    # Return workspace path (relative to workspace root for user convenience)
+    relative_path = f".uploads/{filename}"
+
+    return jsonify({
+        "message": "File uploaded successfully",
+        "workspace_path": str(file_path),
+        "relative_path": relative_path,
+        "filename": filename,
+        "size": file_size
+    }), 200

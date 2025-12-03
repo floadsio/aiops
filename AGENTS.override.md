@@ -1,3 +1,146 @@
+## Issue Implementation Plans
+
+**CRITICAL: Use issue plans to document and resume complex implementation work**
+
+### When to Create Plans
+- **Multi-step features** requiring careful coordination
+- **Complex refactoring** with multiple affected components
+- **Breaking changes** needing detailed migration strategy
+- **Large features** that span multiple sessions or days
+- **Architectural decisions** that need documentation
+
+### Creating and Managing Plans
+
+```bash
+# Create/update a plan for an issue
+aiops issues plan set <issue-id> -f PLAN.md
+
+# Or pipe from stdin
+cat PLAN.md | aiops issues plan set <issue-id> --stdin
+
+# View existing plan
+aiops issues plan get <issue-id>
+
+# Remove plan
+aiops issues plan clear <issue-id>
+```
+
+### Plan Structure
+
+Implementation plans should follow this structure:
+
+```markdown
+# Implementation Plan: [Feature Name]
+
+## Overview
+Brief description of what needs to be built and why.
+
+## Architecture
+Key architectural decisions and design patterns to use.
+
+## Implementation Phases
+
+### Phase 1: [Name]
+**Files to modify:**
+- `path/to/file.py` - What changes are needed
+- `path/to/template.html` - What changes are needed
+
+**Tasks:**
+1. Task description
+2. Task description
+
+### Phase 2: [Name]
+...
+
+## API Design (if applicable)
+Document new API endpoints, request/response formats.
+
+## Testing Strategy
+How to test each phase.
+
+## Rollout Plan
+Steps for deploying to production.
+```
+
+### How Plans Work
+
+1. **Storage**: Plans are stored in the database, associated with issues
+2. **Visibility**: Issues list shows 📋 indicator when a plan exists
+3. **Auto-injection**: When you start work on an issue with a plan, the plan is automatically included in `AGENTS.override.md`
+4. **Resume capability**: Plans allow you to resume work exactly where you left off
+5. **Collaboration**: Multiple agents or developers can follow the same plan
+
+### Best Practices
+
+- ✅ **Create plans BEFORE starting complex work** - think through the implementation first
+- ✅ **Update plans as you work** - document decisions and discoveries
+- ✅ **Mark phases complete** - track progress through the implementation
+- ✅ **Include file paths** - make it easy to find what needs changing
+- ✅ **Document decisions** - explain WHY, not just WHAT
+- ❌ **Don't create plans for trivial tasks** - simple one-file changes don't need plans
+- ❌ **Don't let plans go stale** - update or delete them when no longer relevant
+
+### Example Workflow
+
+```bash
+# Step 1: Create issue for new feature
+aiops issues create --project myproject --integration 1 \
+  --title "Feature: Add user authentication" \
+  --description "Implement JWT-based authentication..."
+
+# Step 2: Create implementation plan
+cat > PLAN.md <<'EOF'
+# Implementation Plan: User Authentication
+
+## Overview
+Add JWT-based authentication to API endpoints.
+
+## Implementation Phases
+
+### Phase 1: Database Models
+- Add User model with hashed passwords
+- Add APIKey model for token management
+
+### Phase 2: Authentication Service
+- Create auth_service.py with JWT handling
+- Add password hashing and verification
+
+### Phase 3: API Endpoints
+- POST /api/v1/auth/login
+- POST /api/v1/auth/logout
+- Protect existing endpoints with @require_auth
+
+### Phase 4: Testing
+- Unit tests for auth service
+- Integration tests for protected endpoints
+EOF
+
+aiops issues plan set 123 -f PLAN.md
+
+# Step 3: Start work (plan auto-loads in AGENTS.override.md)
+aiops issues work 123
+
+# Step 4: Update plan as you progress
+# Edit PLAN.md to mark Phase 1 complete, add notes
+aiops issues plan set 123 -f PLAN.md
+
+# Step 5: When done, close issue (plan remains for reference)
+aiops issues close 123
+```
+
+---
+
+## Git Commit Guidelines
+
+**CRITICAL: NEVER mention AI tools in commits**
+
+- NEVER include "Claude", "AI", "Generated with", "Co-Authored-By: Claude" or similar references in commit messages
+- NEVER include bot co-author lines in commits
+- Write commit messages as if a human developer wrote them
+- Focus on what changed and why, not how it was created
+
+---
+
 ## Development Workflow - Features & Bug Fixes
 
 **CRITICAL: ALWAYS follow this workflow for new features AND bug fixes**
@@ -58,32 +201,32 @@ sudo systemctl restart aiops
    - Example structure:
      ```markdown
      ## ✅ Implementation Complete - Feature Name (Issue #XXX)
-     
+
      ### Overview
      [Brief description of what was built]
-     
+
      ### Features Implemented
      - Feature 1 with details
      - Feature 2 with details
-     
+
      ### Technical Implementation
      #### Files Modified
      1. path/to/file.py (description)
      2. path/to/template.html (description)
-     
+
      #### Key Functions
      - function_name() - what it does
-     
+
      ### API Endpoints
      - GET /api/v1/endpoint - description
-     
+
      ### Design Decisions
      1. Decision 1 - rationale
      2. Decision 2 - rationale
-     
+
      ### How to Resume/Extend
      [Notes on future enhancements and testing]
-     
+
      ### Commits
      [List of all commits in feature branch]
      ```
@@ -92,7 +235,7 @@ sudo systemctl restart aiops
    ```bash
    # Find internal issue ID
    aiops issues list --project <project> -o json | grep '"external_id":"<number>"' -B 5 | grep '"id"'
-   
+
    # Post implementation summary from file
    aiops issues comment <internal-id> --file /path/to/summary.txt
    ```
@@ -287,68 +430,113 @@ tail -f /home/syseng/aiops/logs/aiops.log
 
 ---
 
+# AGENTS.md – How to Not Sound Like ChatGPT Wrote Your Shit
+
+## Why this matters
+Your audience smells AI from a mile away. The moment they do, they stop trusting you and scroll past. You're not saving time—you're erasing what makes you different and blending into the same grey noise as everyone else.
+
+## Dead giveaways (kill these immediately)
+
+### Structure & Rhythm
+- Binary opposites when you have nothing to say
+  Bad: "Success isn't about hard work, it's about working smart."
+  Good: Just say what you mean. No fake contrasts needed.
+- Everything in threes
+  Bad: "Fast, reliable, and scalable."
+  Good: Use two points. Or four. Or one. Mix it up.
+- Infomercial questions
+  Bad: "The catch?" / "Want the secret?"
+  Good: Write like you're talking to a friend at a bar.
+
+### Language
+- Corporate zombie verbs
+  Bad: highlighting, leveraging, facilitating, optimizing
+  Good: show, use, help, improve
+- Throat-clearing hedges
+  Bad: "It's worth noting that…" / "You might want to consider…"
+  Good: Cut the warm-up. Say the thing.
+- Thesaurus abuse
+  utilize → use
+  execute → do
+  implement → start
+  leverage → use
+
+### Formatting & Style
+- Arrow spam → → →
+  Use zero or one. Not a fireworks show.
+- Emoji confetti 🚀💡🔥
+  One per section max. Usually none.
+- Em-dash addiction—look—I can't stop—see?
+  Use commas and periods like a normal human.
+
+### Robot Phrase Patterns (instant red flags)
+- "No fluff. No BS. Just results."
+- "Game-changer" / "supercharge" / "this one weird trick"
+- "To your success,"
+- "If you're serious about …"
+- "Enter: the framework"
+- "The best part?" / "Ready to 10x?"
+
+All of these scream 2023–2025 ChatGPT. Delete on sight.
+
+### Content Problems
+- Symbolism overdose ("This represents a pivotal shift…")
+  Just say what happened.
+- Fake case studies about "Sarah Chen, a 34-year-old founder from San Francisco"
+  Use real stories, real names (with permission), real numbers.
+- Universal transformation claims ("This one tweak 10x'd my entire business")
+  Be specific or be quiet.
+
+## How to actually write good shit
+
+1. Use AI to think, not to write.
+   Brainstorm, outline, poke holes—then close the tab.
+2. Write the first draft yourself, in your own voice.
+3. Read it out loud. If you cringe, cut it.
+4. If a sentence could appear in any other creator's newsletter, delete it.
+5. Edit ruthlessly.
+
+## The real cost
+
+You're not paying $20/month for ChatGPT.
+
+You're paying with your voice, your trust, and your differentiation.
+
+People don't leave because the advice is wrong.
+
+They leave because it's forgettable.
+
+## TL;DR
+
+Write like you talk.
+
+Delete anything that sounds like it was generated.
+
+Your voice is the only moat you have left. Don't piss it away.
+
+---
+
+## Git Push Configuration for IWF Infrastructure Repos
+
+**Repository:** git@git.iwf.io:infrastructure/*
+
+**Working SSH Key:** `~/.ssh/syseng/id_rsa-iwf-syseng`
+
+**Push Command:**
+```bash
+GIT_SSH_COMMAND="ssh -i ~/.ssh/syseng/id_rsa-iwf-syseng -o IdentitiesOnly=yes" git push origin main
+```
+
+**Alternative Key:** `~/.ssh/deploy/id_rsa-iwf-deploy` (also works if write access enabled)
+
+**Important:** Deploy keys must have write access enabled in GitLab repository settings:
+- Settings → Repository → Deploy Keys → "Write access allowed" checkbox
+
+---
+
 ## Current Issue Context
 <!-- issue-context:start -->
 
-# 93 - Add session close/kill button to UI
+_No issue context populated yet. Use the Populate AGENTS.override.md button to generate it._
 
-_Updated: 2025-12-02 00:00:00Z_
-
-## Issue Snapshot
-- Provider: github
-- Status: open
-- Assignee: Michael Turko
-- Labels: enhancement, feature, ui
-- Source: https://github.com/floadsio/aiops/issues/93
-- Last Synced: 2025-12-02 UTC
-
-## Issue Description
-
-Add a UI button to close/kill sessions. Currently users can manage sessions via CLI (`aiops sessions kill <target>`), but there's no way to do this from the web interface.
-
-## Requirements
-- Add close/kill button to the sessions UI
-- Allow users to terminate sessions from the web interface
-- Maintain consistency with CLI behavior
-
-## Acceptance Criteria
-- [ ] Session list/detail UI shows close/kill button
-- [ ] Button triggers appropriate API endpoint
-- [ ] Session is terminated when button is clicked
-- [ ] UI reflects the terminated session state
-
-## Project Context
-- Project: aiops
-- Repository: git@github.com:floadsio/aiops.git
-- Local Path: /home/michael/workspace/floads/aiops
-
-## Key Files to Review
-- `app/routes/api.py` - API endpoints for sessions
-- `app/services/session_service.py` - Session management logic
-- `app/templates/` - UI templates showing sessions
-- `tests/test_admin_session_creation.py` - Session tests
-
-## Workflow Reminders
-1. Explore the current session management UI and API
-2. Review existing session endpoints to understand available operations
-3. Plan the UI changes (where to place the button, confirmation handling)
-4. Implement the frontend button and backend endpoint
-5. Test the functionality end-to-end
-6. Summarize changes when complete
-
-## Git Identity
-Use this identity for commits created while working on this issue.
-
-- Name: Michael Turko
-- Email: michael@floads.io
-
-```bash
-git config user.name 'Michael Turko'
-git config user.email michael@floads.io
-
-export GIT_AUTHOR_NAME='Michael Turko'
-export GIT_COMMITTER_NAME='Michael Turko'
-export GIT_AUTHOR_EMAIL=michael@floads.io
-export GIT_COMMITTER_EMAIL=michael@floads.io
-```
 <!-- issue-context:end -->

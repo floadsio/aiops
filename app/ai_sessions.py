@@ -1286,6 +1286,29 @@ def close_session(session: AISession | PersistentAISession) -> None:
     session.close()
     remove_session(session.id)
 
+    # Clean up uploaded files from the session's workspace
+    try:
+        from pathlib import Path
+        from app import db
+        from app.models import Project, User
+
+        # Only clean up if this is a database-backed session
+        if isinstance(session, PersistentAISession) or hasattr(session, 'user_id'):
+            user = User.query.get(session.user_id)
+            project = Project.query.get(session.project_id)
+            if user and project:
+                from app.services.workspace_service import get_workspace_path
+                workspace_path = get_workspace_path(project, user)
+                if workspace_path:
+                    uploads_dir = Path(workspace_path) / ".uploads"
+                    if uploads_dir.exists():
+                        import shutil
+                        shutil.rmtree(uploads_dir)
+    except Exception as exc:
+        # Log but don't fail if cleanup fails
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to clean up uploads for session {session.id}: {exc}")
+
 
 def resize_session(session: AISession, rows: int, cols: int) -> None:
     if session.stop_event.is_set():

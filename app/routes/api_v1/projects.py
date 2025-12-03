@@ -15,6 +15,7 @@ from ...models import AISession, Project, ProjectIntegration, Tenant, User
 from ...services.api_auth import audit_api_request, require_api_auth
 from ...services.git_service import ensure_repo_checkout, get_repo_status
 from ...services.tmux_service import TmuxServiceError, close_tmux_target, respawn_pane
+from ...services.workspace_service import get_workspace_path
 from . import api_v1_bp
 
 
@@ -323,6 +324,21 @@ def close_tmux_window_api(project_id: int):
     for session in sessions:
         session.is_active = False
         session.ended_at = datetime.now(timezone.utc)
+
+        # Clean up uploaded files directory from the session's workspace
+        try:
+            from pathlib import Path
+            import shutil
+            user = session.user
+            workspace_path = get_workspace_path(project, user) if user else None
+            if workspace_path:
+                uploads_dir = Path(workspace_path) / ".uploads"
+                if uploads_dir.exists():
+                    # Remove the directory and all its contents
+                    shutil.rmtree(uploads_dir)
+                    current_app.logger.debug(f"Cleaned up uploads directory for session {session.session_id}")
+        except Exception as exc:
+            current_app.logger.warning(f"Failed to clean up uploads for session {session.session_id}: {exc}")
 
     if sessions:
         db.session.commit()

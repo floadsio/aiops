@@ -1752,21 +1752,10 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 </section>
 
 <section class="dashboard-section">
-  <!-- DEBUG: AI Session History Section - Check if this appears in browser -->
   <header class="tmux-section-header">
-    <div>
-      <button
-        type="button"
-        id="ai-sessions-toggle"
-        class="ai-sessions-toggle"
-        style="background: none; border: none; padding: 0; cursor: pointer; text-align: left;"
-        aria-expanded="true"
-      >
-        <h2 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-          <span class="ai-toggle-icon" style="display: inline-block; width: 1.2rem; text-align: center;">▼</span>
-          <span>AI Session History</span>
-        </h2>
-      </button>
+    <div class="dashboard-section-heading">
+      <button id="ai-sessions-toggle" class="session-toggle-btn" aria-expanded="true" style="background: none; border: none; padding: 0; margin-right: 0.5rem; cursor: pointer; font-size: 1.2rem; color: inherit;">▼</button>
+      <h2>AI Session History</h2>
       <small>Resume past Claude and Codex sessions</small>
     </div>
     <div class="tmux-scope-controls">
@@ -2197,13 +2186,12 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 
     // Handle collapse/expand
     if (toggleBtn) {
-      const toggleIcon = toggleBtn.querySelector('.ai-toggle-icon');
       let isCollapsed = localStorage.getItem('ai-sessions-collapsed') === 'true';
 
       // Set initial state
       if (isCollapsed) {
         container.style.display = 'none';
-        if (toggleIcon) toggleIcon.textContent = '▶';
+        toggleBtn.textContent = '▶';
         toggleBtn.setAttribute('aria-expanded', 'false');
       }
 
@@ -2211,7 +2199,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
       toggleBtn.addEventListener('click', function() {
         isCollapsed = !isCollapsed;
         container.style.display = isCollapsed ? 'none' : 'block';
-        if (toggleIcon) toggleIcon.textContent = isCollapsed ? '▶' : '▼';
+        toggleBtn.textContent = isCollapsed ? '▶' : '▼';
         toggleBtn.setAttribute('aria-expanded', !isCollapsed);
         localStorage.setItem('ai-sessions-collapsed', isCollapsed);
       });

@@ -1849,6 +1849,8 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
       if (!button) return;
 
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
 
       const projectId = button.dataset.projectId;
       const tmuxTarget = button.dataset.tmuxTarget;

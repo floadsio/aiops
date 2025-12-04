@@ -1290,14 +1290,15 @@
     }
   }
 
-  let sessionHandlerAttached = false;
-
   function attachSessionEventHandlers() {
     const sessionList = document.getElementById('session-list');
-    if (!sessionList || sessionHandlerAttached) return;
+    if (!sessionList) return;
+
+    // Check if handler is already attached to this element
+    if (sessionList.dataset.handlerAttached === 'true') return;
 
     // Mark that we've attached the handler
-    sessionHandlerAttached = true;
+    sessionList.dataset.handlerAttached = 'true';
 
     // Use event delegation to handle resume and copy buttons
     sessionList.addEventListener('click', function(event) {

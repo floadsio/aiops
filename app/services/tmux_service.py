@@ -929,10 +929,6 @@ def list_windows_for_aliases(
             socket_found = None
             resolved_name = _normalize_session_name(session_name)
 
-            with open("/tmp/tmux_debug.log", "a") as f:
-                f.write(f"[list_windows_else] include_all_sessions=False: session_name={session_name}, resolved_name={resolved_name}, linux_username={linux_username}\n")
-                f.write(f"[list_windows_else] socket_candidates={socket_candidates}\n")
-
             for socket_path in socket_candidates:
                 try:
                     result = subprocess.run(
@@ -941,16 +937,10 @@ def list_windows_for_aliases(
                         text=True,
                         timeout=5
                     )
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows_else] Checked socket {socket_path}: returncode={result.returncode}, stderr={result.stderr.strip()}\n")
                     if result.returncode == 0:
                         socket_found = socket_path
-                        with open("/tmp/tmux_debug.log", "a") as f:
-                            f.write(f"[list_windows_else] Found session at {socket_path}\n")
                         break
-                except Exception as e:
-                    with open("/tmp/tmux_debug.log", "a") as f:
-                        f.write(f"[list_windows_else] Exception checking socket {socket_path}: {e}\n")
+                except Exception:
                     continue
 
             if socket_found:
@@ -961,21 +951,13 @@ def list_windows_for_aliases(
                     (item for item in server.sessions if item.get("session_name") == resolved_name),
                     None,
                 )
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows_else] Found libtmux session: {session}\n")
                 if session is not None:
                     sessions = [session]
                 else:
                     sessions = []
             else:
-                with open("/tmp/tmux_debug.log", "a") as f:
-                    f.write(f"[list_windows_else] No socket found for session {resolved_name}\n")
                 sessions = []
-        except Exception as e:
-            import traceback
-            with open("/tmp/tmux_debug.log", "a") as f:
-                f.write(f"[list_windows_else] Exception: {e}\n")
-                f.write(f"[list_windows_else] Traceback: {traceback.format_exc()}\n")
+        except Exception:
             sessions = []
     if not sessions:
         return []

@@ -1336,19 +1336,21 @@ def close_tmux_window(project_id: int):
     if sessions:
         db.session.commit()
 
-    # Handle errors and success messages
-    if tmux_error and not sessions:
-        # Tmux failed and no sessions found - this is an error
-        if request.is_json:
-            return jsonify({"error": tmux_error}), 500
-        flash(tmux_error, "danger")
-    else:
-        # Either tmux succeeded or we cleaned up sessions - this is success
-        if not request.is_json:
-            flash(f"Closed tmux window {tmux_target}.", "success")
+    # Return success, but include warning if tmux close failed
+    # (database cleanup still succeeded even if tmux server is unreachable)
+    response_data = {"success": True}
+    if tmux_error:
+        response_data["warning"] = f"Session marked as inactive but tmux close failed: {tmux_error}"
+        current_app.logger.warning(f"Failed to close tmux target {tmux_target}: {tmux_error}")
 
     if request.is_json:
-        return jsonify({"success": True})
+        return jsonify(response_data)
+
+    # Handle non-JSON responses (form submissions)
+    if tmux_error:
+        flash(f"Session closed but with warning: {tmux_error}", "warning")
+    else:
+        flash(f"Closed tmux window {tmux_target}.", "success")
 
     redirect_target = request.form.get("next") or url_for("admin.dashboard")
     return redirect(redirect_target)

@@ -1,3 +1,9 @@
+Content:
+Global Agent Context
+
+Updated: 2025-12-02T15:57:46.768679
+
+Content:
 ## Issue Implementation Plans
 
 **CRITICAL: Use issue plans to document and resume complex implementation work**
@@ -66,19 +72,24 @@ Steps for deploying to production.
 
 1. **Storage**: Plans are stored in the database, associated with issues
 2. **Visibility**: Issues list shows 📋 indicator when a plan exists
-3. **Auto-injection**: When you start work on an issue with a plan, the plan is automatically included in `AGENTS.override.md`
-4. **Resume capability**: Plans allow you to resume work exactly where you left off
+3. **Auto-injection**: When you start work on an issue with a plan, the plan is 
+automatically included in `AGENTS.override.md`
+4. **Resume capability**: Plans allow you to resume work exactly where you left 
+off
 5. **Collaboration**: Multiple agents or developers can follow the same plan
 
 ### Best Practices
 
-- ✅ **Create plans BEFORE starting complex work** - think through the implementation first
+- ✅ **Create plans BEFORE starting complex work** - think through the 
+implementation first
 - ✅ **Update plans as you work** - document decisions and discoveries
 - ✅ **Mark phases complete** - track progress through the implementation
 - ✅ **Include file paths** - make it easy to find what needs changing
 - ✅ **Document decisions** - explain WHY, not just WHAT
-- ❌ **Don't create plans for trivial tasks** - simple one-file changes don't need plans
-- ❌ **Don't let plans go stale** - update or delete them when no longer relevant
+- ❌ **Don't create plans for trivial tasks** - simple one-file changes don't 
+need plans
+- ❌ **Don't let plans go stale** - update or delete them when no longer 
+relevant
 
 ### Example Workflow
 
@@ -134,7 +145,8 @@ aiops issues close 123
 
 **CRITICAL: NEVER mention AI tools in commits**
 
-- NEVER include "Claude", "AI", "Generated with", "Co-Authored-By: Claude" or similar references in commit messages
+- NEVER include "Claude", "AI", "Generated with", "Co-Authored-By: Claude" or 
+similar references in commit messages
 - NEVER include bot co-author lines in commits
 - Write commit messages as if a human developer wrote them
 - Focus on what changed and why, not how it was created
@@ -159,7 +171,8 @@ aiops issues close 123
   - `feature` or `enhancement` for new features
   - `refactor` for refactoring work
   - `documentation` for docs updates
-  - Additional context labels as needed (e.g., `high-priority`, `breaking-change`)
+  - Additional context labels as needed (e.g., `high-priority`, 
+`breaking-change`)
 
 ### 2. Live Testing on Production
 
@@ -234,7 +247,8 @@ sudo systemctl restart aiops
 2. **Use aiops CLI to Post Comment**
    ```bash
    # Find internal issue ID
-   aiops issues list --project <project> -o json | grep '"external_id":"<number>"' -B 5 | grep '"id"'
+   aiops issues list --project <project> -o json | grep 
+'"external_id":"<number>"' -B 5 | grep '"id"'
 
    # Post implementation summary from file
    aiops issues comment <internal-id> --file /path/to/summary.txt
@@ -259,7 +273,8 @@ sudo systemctl restart aiops
 # Step 2: Merge feature branch to main (from workspace)
 git checkout main
 git pull origin main
-git merge feature/xyz-description --no-ff -m "Merge: Feature - Description (closes #XXX)"
+git merge feature/xyz-description --no-ff -m "Merge: Feature - Description 
+(closes #XXX)"
 git push origin main
 
 # Step 3: Deploy to production
@@ -268,7 +283,8 @@ sudo git fetch origin main
 sudo git reset --hard origin/main
 
 # CRITICAL: Sync dependencies after pulling code updates
-sudo su - syseng -c "cd /home/syseng/aiops && /home/syseng/.local/bin/uv pip install -r requirements.txt"
+sudo su - syseng -c "cd /home/syseng/aiops && /home/syseng/.local/bin/uv pip 
+install -r requirements.txt"
 # OR use make sync if available
 sudo su - syseng -c "cd /home/syseng/aiops && make sync"
 
@@ -279,13 +295,17 @@ sudo systemctl status aiops --no-pager
 git log --oneline -1
 ```
 
-**IMPORTANT:** Always run `make sync` or `uv pip install -r requirements.txt` after pulling code updates to ensure all dependencies (including new ones like `ollama`) are installed. Skipping this step can cause runtime errors due to missing libraries.
+**IMPORTANT:** Always run `make sync` or `uv pip install -r requirements.txt` 
+after pulling code updates to ensure all dependencies (including new ones like 
+`ollama`) are installed. Skipping this step can cause runtime errors due to 
+missing libraries.
 
 ### 5. Close the Issue
 
 ```bash
 # After merged and deployed to production
-aiops issues comment <internal-id> "✅ Implemented and merged in $(git rev-parse --short HEAD)"
+aiops issues comment <internal-id> "✅ Implemented and merged in $(git rev-parse
+--short HEAD)"
 aiops issues close <internal-id>
 ```
 
@@ -293,7 +313,8 @@ aiops issues close <internal-id>
 
 ## Pull/Merge Request Creation
 
-**CRITICAL: ALWAYS use `aiops git pr-create` for creating pull requests (GitHub) or merge requests (GitLab)**
+**CRITICAL: ALWAYS use `aiops git pr-create` for creating pull requests (GitHub)
+or merge requests (GitLab)**
 
 ### Command Syntax
 ```bash
@@ -318,10 +339,12 @@ Testing:
 ```
 
 ### PR/MR Guidelines
-- **NEVER use `gh pr create`, `glab mr create`, or direct git push with PR creation**
+- **NEVER use `gh pr create`, `glab mr create`, or direct git push with PR 
+creation**
 - **ALWAYS use `aiops git pr-create`** to create PRs/MRs
 - **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
-- The CLI automatically detects provider (GitHub/GitLab) and creates appropriate PR/MR
+- The CLI automatically detects provider (GitHub/GitLab) and creates appropriate
+PR/MR
 - Supports both GitHub pull requests and GitLab merge requests
 - Assignee becomes reviewer for GitHub, assignee for GitLab
 - Use `--draft` flag to create draft PRs (GitHub only)
@@ -338,7 +361,8 @@ For full PR/MR functionality, GitHub fine-grained personal access tokens need:
 
 ## Pull/Merge Request Merging
 
-**CRITICAL: ALWAYS use `aiops git pr-merge` for merging pull requests (GitHub) or merge requests (GitLab)**
+**CRITICAL: ALWAYS use `aiops git pr-merge` for merging pull requests (GitHub) 
+or merge requests (GitLab)**
 
 ### Command Syntax
 ```bash
@@ -362,7 +386,8 @@ aiops git pr-merge <project> <pr-number> --method squash --delete-branch
 ```
 
 ### Merge Guidelines
-- **NEVER use `gh pr merge`, `glab mr merge`, or GitHub/GitLab web UI for merging**
+- **NEVER use `gh pr merge`, `glab mr merge`, or GitHub/GitLab web UI for 
+merging**
 - **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
 - The CLI automatically detects provider (GitHub/GitLab)
 - Merge methods:
@@ -370,7 +395,8 @@ aiops git pr-merge <project> <pr-number> --method squash --delete-branch
   - `squash`: Combines all commits into a single commit
   - `rebase`: Rebases commits onto target branch
 - Use `--delete-branch` to automatically clean up the source branch after merge
-- Requires integration with "Pull requests: Write" and "Contents: Write" permissions
+- Requires integration with "Pull requests: Write" and "Contents: Write" 
+permissions
 
 ### Commit Message Best Practices
 - Reference issue in commits: `"Add validation (refs #123)"`
@@ -380,7 +406,8 @@ aiops git pr-merge <project> <pr-number> --method squash --delete-branch
 
 ## Production System Management
 
-**IMPORTANT: AI agents CAN restart production when configuration changes require it**
+**IMPORTANT: AI agents CAN restart production when configuration changes require
+it**
 
 ### When Production Restart is Required
 - ✅ Changes to `.env` configuration files
@@ -403,11 +430,13 @@ aiops system update-and-restart
 ```
 
 ### Production Safety Guidelines
-- ✅ **DO restart production** when configuration changes require it (e.g., `.env` updates)
+- ✅ **DO restart production** when configuration changes require it (e.g., 
+`.env` updates)
 - ✅ **DO use `aiops system restart`** for controlled restarts
 - ✅ **DO verify changes** before restarting when possible
 - ✅ **DO sync dependencies** after pulling code updates
-- ❌ **NEVER modify `/home/syseng/aiops/` directly** - work in personal workspaces and merge via PRs
+- ❌ **NEVER modify `/home/syseng/aiops/` directly** - work in personal 
+workspaces and merge via PRs
 - ❌ **NEVER auto-update production code** without testing in workspace first
 - ❌ **NEVER restart production** for experimental changes or untested code
 
@@ -426,14 +455,18 @@ aiops system restart
 tail -f /home/syseng/aiops/logs/aiops.log
 ```
 
-**Key Principle:** Configuration changes in production `.env` files are safe to apply immediately with restarts. Code changes should always go through workspace → PR → merge → production deployment workflow.
+**Key Principle:** Configuration changes in production `.env` files are safe to 
+apply immediately with restarts. Code changes should always go through workspace
+→ PR → merge → production deployment workflow.
 
 ---
 
 # AGENTS.md – How to Not Sound Like ChatGPT Wrote Your Shit
 
 ## Why this matters
-Your audience smells AI from a mile away. The moment they do, they stop trusting you and scroll past. You're not saving time—you're erasing what makes you different and blending into the same grey noise as everyone else.
+Your audience smells AI from a mile away. The moment they do, they stop trusting
+you and scroll past. You're not saving time—you're erasing what makes you 
+different and blending into the same grey noise as everyone else.
 
 ## Dead giveaways (kill these immediately)
 
@@ -524,13 +557,545 @@ Your voice is the only moat you have left. Don't piss it away.
 
 **Push Command:**
 ```bash
-GIT_SSH_COMMAND="ssh -i ~/.ssh/syseng/id_rsa-iwf-syseng -o IdentitiesOnly=yes" git push origin main
+GIT_SSH_COMMAND="ssh -i ~/.ssh/syseng/id_rsa-iwf-syseng -o IdentitiesOnly=yes" 
+git push origin main
 ```
 
-**Alternative Key:** `~/.ssh/deploy/id_rsa-iwf-deploy` (also works if write access enabled)
+**Alternative Key:** `~/.ssh/deploy/id_rsa-iwf-deploy` (also works if write 
+access enabled)
 
-**Important:** Deploy keys must have write access enabled in GitLab repository settings:
+**Important:** Deploy keys must have write access enabled in GitLab repository 
+settings:
 - Settings → Repository → Deploy Keys → "Write access allowed" checkbox
+
+---
+
+## Creating Jira Issues with aiops CLI
+
+**CRITICAL: Jira projects may have different issue types than the default 
+"Task"**
+
+### Issue Creation Command
+
+```bash
+aiops issues create --project <project-id-or-name> --integration 
+<integration-id> \
+  --title "Issue Title" \
+  --description "Issue description" \
+  --labels "label1,label2"
+```
+
+### Common Issue Creation Error
+
+**Error:** `Jira API error: The issue type selected is invalid.`
+
+**Cause:** The Jira project doesn't have the default issue type "Task". Some 
+Jira projects use localized issue types (e.g., "Aufgabe" in German Jira 
+projects).
+
+### Solution: Configure issue_type in ProjectIntegration
+
+1. **Check available issue types** in the Jira project:
+
+```python
+cd /home/syseng/aiops && sudo su - syseng -c "source .venv/bin/activate && 
+python3 << 'EOF'
+from app import create_app
+from app.models import TenantIntegration
+
+app = create_app()
+with app.app_context():
+    integration = TenantIntegration.query.get(<integration-id>)
+    if integration:
+        settings = integration.settings or {}
+        username = settings.get('username', '')
+        
+        from jira import JIRA
+        client = JIRA(
+            server=integration.base_url,
+            basic_auth=(username, integration.api_token),
+            timeout=30,
+        )
+        
+        # Get project-specific issue types
+        meta = client.createmeta(projectKeys='<PROJECT-KEY>', 
+expand='projects.issuetypes')
+        for project in meta.get('projects', []):
+            print(f'Project: {project[\"key\"]}')
+            for issuetype in project.get('issuetypes', []):
+                print(f'  - {issuetype[\"name\"]} (ID: {issuetype[\"id\"]})')
+        
+        client.close()
+EOF"
+```
+
+2. **Configure the correct issue_type** for the project:
+
+```bash
+sudo su - syseng -c "cd /home/syseng/aiops && source .venv/bin/activate && 
+python3 << 'EOF'
+from app import create_app
+from app.models import ProjectIntegration, db
+
+app = create_app()
+with app.app_context():
+    pi = ProjectIntegration.query.filter_by(project_id=<project-id>, 
+integration_id=<integration-id>).first()
+    if pi:
+        pi.config = {'issue_type': 'Aufgabe'}  # Use the correct issue type name
+        db.session.commit()
+        print(f'Updated config: {pi.config}')
+EOF"
+```
+
+3. **Try creating the issue again** - it should now work!
+
+### Example: IWF Infrastructure Projects
+
+For IWF infrastructure projects (k8s-infra-stage, k8s-infra) using the IWFCLOUD2
+Jira project:
+
+**Available issue types in IWFCLOUD2:**
+- Aufgabe (German for "Task") - **use this for general tasks**
+- Story
+- Bug
+- Epic
+- Incident
+- Service Request
+- etc.
+
+**Configuration:**
+```python
+# Project 8 (k8s-infra-stage) and Project 9 (k8s-infra) both use:
+pi.config = {'issue_type': 'Aufgabe'}
+```
+
+**Issue creation after config:**
+```bash
+aiops issues create --project 9 --integration 6 \
+  --title "Your Issue Title" \
+  --description "Description" \
+  --labels "label"
+```
+
+### Issue Type Priority
+
+The issue type is resolved in this order:
+1. `request.issue_type` (not exposed in CLI currently)
+2. `project_integration.config['issue_type']` (set via Python script above)
+3. `DEFAULT_ISSUE_TYPE` ("Task" - may not exist in all Jira projects)
+
+### Best Practices
+
+- ✅ **Check issue types** before creating issues in a new Jira project
+- ✅ **Configure issue_type** in project_integration.config if default "Task" 
+doesn't exist
+- ✅ **Use localized names** (e.g., "Aufgabe" for German Jira, "Task" for 
+English)
+- ❌ **Don't assume** "Task" exists in all Jira projects
+
+---
+
+## Jira Wiki Markup Formatting
+
+**CRITICAL: Jira uses Wiki Markup, NOT Markdown!**
+
+When creating or updating Jira issues and comments via `aiops issues create`, 
+`aiops issues update`, or `aiops issues comment`, you MUST use Jira Wiki Markup 
+syntax, not Markdown.
+
+### Text Formatting
+
+| Style | Jira Markup | Example | Rendered |
+|-------|-------------|---------|----------|
+| **Bold** | `*text*` | `*bold text*` | **bold text** |
+| _Italic_ | `_text_` | `_italic text_` | _italic text_ |
+| Monospace | `{{text}}` | `{{code}}` | `code` |
+| Strikethrough | `-text-` | `-deleted-` | ~~deleted~~ |
+| Underline | `+text+` | `+underlined+` | <u>underlined</u> |
+| Superscript | `^text^` | `x^2^` | x² |
+| Subscript | `~text~` | `H~2~O` | H₂O |
+
+**DO NOT USE:**
+- ❌ `**bold**` (Markdown) → Use `*bold*`
+- ❌ `` `code` `` (Markdown) → Use `{{code}}`
+
+### Headings
+
+| Level | Jira Markup | Example |
+|-------|-------------|---------|
+| H1 | `h1. ` | `h1. Main Heading` |
+| H2 | `h2. ` | `h2. Section` |
+| H3 | `h3. ` | `h3. Subsection` |
+| H4 | `h4. ` | `h4. Minor Heading` |
+| H5 | `h5. ` | `h5. Small Heading` |
+| H6 | `h6. ` | `h6. Tiny Heading` |
+
+**DO NOT USE:**
+- ❌ `# Heading` (Markdown) → Use `h1. Heading`
+- ❌ `## Heading` (Markdown) → Use `h2. Heading`
+- ❌ `### Heading` (Markdown) → Use `h3. Heading`
+
+### Lists
+
+**Unordered Lists (Bullets):**
+```
+* Level 1
+** Level 2
+*** Level 3
+* Back to Level 1
+```
+
+**Ordered Lists (Numbered):**
+```
+# First item
+# Second item
+## Nested item
+## Another nested
+# Third item
+```
+
+**DO NOT USE:**
+- ❌ `- bullet` (Markdown) → Use `* bullet`
+- ❌ `1. item` (Markdown) → Use `# item`
+
+### Code Blocks
+
+**Simple code block:**
+```
+{code}
+code here
+{code}
+```
+
+**Code block with language syntax:**
+```
+{code:python}
+def hello():
+    print("Hello, world!")
+{code}
+
+{code:bash}
+kubectl get pods
+{code}
+
+{code:yaml}
+apiVersion: v1
+kind: Pod
+{code}
+```
+
+**DO NOT USE:**
+- ❌ ` ```python ` (Markdown) → Use `{code:python}`
+- ❌ ` ``` ` (Markdown) → Use `{code}`
+
+### Links
+
+**External links:**
+```
+[Link text|http://example.com]
+  (auto-linked)
+```
+
+**User mentions:**
+```
+[~accountid:557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e]
+[~accountid:557058:5010d224-86bf-47de-bff7-d7f9406b362b]
+```
+
+**Issue links:**
+```
+IWFCLOUD2-44
+IWFCLOUD2-43
+```
+
+**DO NOT USE:**
+- ❌ `(url)` (Markdown) → Use ``
+
+### Tables
+
+```
+|| Heading 1 || Heading 2 || Heading 3 ||
+| Cell A1 | Cell A2 | Cell A3 |
+| Cell B1 | Cell B2 | Cell B3 |
+```
+
+**DO NOT USE:**
+- ❌ `| Header |` (Markdown) → Use `|| Header ||`
+- ❌ `|---|` separator → Not needed in Jira
+
+### Quotes and Panels
+
+**Quote:**
+```
+{quote}
+This is a quoted text.
+Multiple lines work fine.
+{quote}
+```
+
+**Info Panel:**
+```
+{panel:title=Information|borderStyle=dashed|borderColor=#ccc|titleBGColor=#F7D6C
+1|bgColor=#FFFFCE}
+Important information here
+{panel}
+```
+
+**DO NOT USE:**
+- ❌ `> quote` (Markdown) → Use `{quote}quote{quote}`
+
+### Line Breaks and Spacing
+
+- **Single line break:** Just press Enter once
+- **Paragraph break:** Press Enter twice (blank line)
+- **Force line break:** Use `\\` at end of line
+
+### Horizontal Rule
+
+```
+----
+```
+
+### Special Characters
+
+To display Jira markup literally without rendering:
+```
+\{noformat}
+*This will not be bold*
+{{This will not be monospace}}
+\{noformat}
+```
+
+### Complete Example: Issue Description
+
+**BAD (Markdown):**
+```markdown
+## Overview
+This is a **critical** bug fix.
+
+### Steps to reproduce:
+1. Navigate to `/dashboard`
+2. Click on `Settings`
+3. See error
+
+### Code Example:
+```python
+def broken():
+    return None
+```
+
+### Expected Result:
+- Should work
+- No errors
+```
+
+**GOOD (Jira Wiki Markup):**
+```
+h2. Overview
+This is a *critical* bug fix.
+
+h3. Steps to reproduce:
+# Navigate to {{/dashboard}}
+# Click on {{Settings}}
+# See error
+
+h3. Code Example:
+{code:python}
+def broken():
+    return None
+{code}
+
+h3. Expected Result:
+* Should work
+* No errors
+```
+
+### CLI Examples
+
+**Creating issue with Jira formatting:**
+```bash
+aiops issues create --project 9 --integration 6 \
+  --title "Bug: Login fails on mobile" \
+  --description "h2. Problem
+The login form does not work on mobile devices.
+
+h3. Steps to reproduce:
+# Open app on mobile
+# Enter credentials
+# Click {{Login}}
+
+h3. Expected:
+* User logs in successfully
+
+h3. Actual:
+* Error: {{Authentication failed}}
+
+h3. Environment:
+* Device: iPhone 13
+* OS: iOS 17.2
+* App Version: 2.1.0" \
+  --labels "bug,mobile"
+```
+
+**Adding comment with code block:**
+```bash
+aiops issues comment 763 "h3. Implementation Update
+
+Fixed the authentication issue by updating the token validation.
+
+h4. Changes:
+{code:python}
+def validate_token(token):
+    # Added expiry check
+    if token.is_expired():
+        raise TokenExpiredError()
+    return token.verify()
+{code}
+
+h4. Testing:
+* Unit tests passing
+* Integration tests passing
+* Deployed to staging
+
+Ready for review [~accountid:557058:5010d224-86bf-47de-bff7-d7f9406b362b]"
+```
+
+**Updating issue description:**
+```bash
+aiops issues update 763 --description "h2. Updated Requirements
+
+The requirements have changed:
+
+h3. New Scope:
+* Support OAuth2
+* Add MFA
+* Implement session timeout
+
+h3. Implementation Plan:
+# Update authentication service
+# Add OAuth2 provider integration
+# Implement MFA flow
+# Add session management
+
+h3. Acceptance Criteria:
+* Users can log in with OAuth2
+* MFA is enforced for admin users
+* Sessions expire after 30 minutes
+
+h3. References:
+See IWFCLOUD2-44 for related work."
+```
+
+### Best Practices
+
+1. ✅ **Always use Jira Wiki Markup** for issues and comments
+2. ✅ **Test formatting** in Jira UI first if unsure
+3. ✅ **Use headings** (h2, h3) to structure content
+4. ✅ **Use code blocks** `{code}` for command output, YAML, code
+5. ✅ **Use inline code** `{{text}}` for file paths, commands, values
+6. ✅ **Use bullets** `*` for lists (not `-`)
+7. ✅ **Mention users** with `[~accountid:...]` format
+8. ✅ **Reference issues** with just the key (IWFCLOUD2-44)
+
+### Common Mistakes to Avoid
+
+1. ❌ **Using Markdown syntax** (`## heading`, `**bold**`, `` `code` ``)
+2. ❌ **Triple backticks** for code blocks (use `{code}`)
+3. ❌ **Dash for bullets** `-` (use `*`)
+4. ❌ **Number for ordered lists** `1.` (use `#`)
+5. ❌ **Markdown links** `(url)` (use ``)
+6. ❌ **Checkbox syntax** `- [ ]` (not supported, use plain bullets)
+
+### Quick Reference
+
+```
+Text:       *bold*  _italic_  {{mono}}  -strike-  +underline+
+Headings:   h1. h2. h3. h4. h5. h6.
+Lists:      * bullet   # numbered
+Code:       {code} ... {code}  or  {code:lang} ... {code}
+Links:        or  [~accountid:xxx]
+Quotes:     {quote} ... {quote}
+Panels:     {panel} ... {panel}
+Tables:     || Header ||  and  | Cell |
+```
+
+### Jira Documentation
+
+Official reference: 
+https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all
+# Global Agents Context
+
+## Jira Users and Account IDs Lookup Table
+
+**Quick reference for tagging users in Jira comments using Jira Wiki Markup format: `[~accountid:ACCOUNT_ID]`**
+
+| Name | Account ID | Full Mention Format |
+|------|-----------|-------------------|
+| Ivo Marino | `557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e` | `[~accountid:557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e]` |
+| Jens Hassler | `557058:5010d224-86bf-47de-bff7-d7f9406b362b` | `[~accountid:557058:5010d224-86bf-47de-bff7-d7f9406b362b]` |
+
+**Note:** Add new users to this table as discovered. Org ID is always `557058` for IWF Atlassian instance.
+
+### How to Find User Account IDs
+
+Jira Cloud enforces GDPR strict mode which prevents direct user search via API. To find account IDs:
+
+1. **From Atlassian People Directory (most reliable):**
+   - URL: `https://home.atlassian.com/o/3a2b7jk8-35j7-1264-6jc3-a1jacj23033k/people`
+   - Search for the user
+   - The profile URL contains the account ID: `https://home.atlassian.com/o/{orgId}/people/{accountId}`
+   - Extract the account ID (format: `557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+
+2. **From Jira UI (easiest):**
+   - Go to any Jira issue and start typing `@` in a comment
+   - Type the user's name
+   - Jira will show their account ID in the format `[~accountid:557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]`
+
+3. **From Existing Comments:**
+   - Check any issue where the user has been mentioned
+   - View the raw comment to find their account ID in format: `[~accountid:557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]`
+
+## ArgoCD CLI Setup
+
+### Quick Start
+```bash
+# Get ArgoCD password from cluster
+ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d)
+
+# Login
+argocd login argocd.web-solutions.io --insecure --grpc-web --username admin --password "$ARGOCD_PASSWORD"
+
+# List applications
+argocd app list --insecure --grpc-web
+```
+
+### Common Commands
+```bash
+# Sync application
+argocd app sync <APP_NAME> --insecure --grpc-web
+
+# Wait for sync
+argocd app wait <APP_NAME> --sync --insecure --grpc-web
+
+# Get app status
+argocd app get <APP_NAME> --insecure --grpc-web
+
+# Hard refresh (bypass cache)
+argocd app sync <APP_NAME> --hard-refresh --insecure --grpc-web
+```
+
+### Environment Variables for Convenience
+```bash
+export ARGOCD_INSECURE=true
+export ARGOCD_SERVER=argocd.web-solutions.io
+
+# Now you can use shorter commands
+argocd app list
+argocd app sync cleanup-job
+```
+
+For full documentation on ArgoCD CLI, see the AGENTS.override.md file in the k8s-infra repository.
 
 ---
 

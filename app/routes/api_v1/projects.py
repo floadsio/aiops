@@ -343,11 +343,14 @@ def close_tmux_window_api(project_id: int):
     if sessions:
         db.session.commit()
 
-    # If tmux close failed and no sessions were found, return error
-    if tmux_error and not sessions:
-        return jsonify({"error": tmux_error}), 500
+    # Return success, but include warning if tmux close failed
+    # (database cleanup still succeeded even if tmux server is unreachable)
+    response = {"success": True}
+    if tmux_error:
+        response["warning"] = f"Session marked as inactive but tmux close failed: {tmux_error}"
+        current_app.logger.warning(f"Failed to close tmux target {tmux_target}: {tmux_error}")
 
-    return jsonify({"success": True})
+    return jsonify(response)
 
 
 @api_v1_bp.post("/projects/<int:project_id>/tmux/respawn")

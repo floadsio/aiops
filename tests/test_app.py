@@ -1104,8 +1104,9 @@ def test_close_tmux_window_route(tmp_path, monkeypatch):
 
     recorded = {}
 
-    def fake_close(target):
+    def fake_close(target, linux_username=None):
         recorded["target"] = target
+        recorded["linux_username"] = linux_username
 
     monkeypatch.setattr("app.routes.projects.close_tmux_target", fake_close)
 

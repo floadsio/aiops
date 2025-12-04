@@ -925,18 +925,22 @@
           tmux_target: tmuxTarget,
         }),
       })
-      .then(response => {
-        if (response.ok) {
+      .then(response => response.json().then(data => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
           // Remove the tmux card
           const tmuxCard = button.closest('.tmux-card');
           if (tmuxCard) {
             tmuxCard.remove();
             term.write(`\n[Closed tmux window ${windowName || tmuxTarget}]\n`);
           }
+          // Show warning if tmux close failed but database was updated
+          if (data.warning) {
+            console.warn(data.warning);
+            alert(`Session closed (with warning): ${data.warning}`);
+          }
         } else {
-          return response.json().then(data => {
-            throw new Error(data.error || 'Failed to close window.');
-          });
+          throw new Error(data.error || 'Failed to close window.');
         }
       })
       .catch(error => {
@@ -1336,17 +1340,21 @@
             tmux_target: tmuxTarget,
           }),
         })
-        .then(response => {
-          if (response.ok) {
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (ok) {
             // Remove the session card
             const sessionCard = button.closest('.session-card');
             if (sessionCard) {
               sessionCard.remove();
             }
+            // Show warning if tmux close failed but database was updated
+            if (data.warning) {
+              console.warn(data.warning);
+              alert(`Session closed (with warning): ${data.warning}`);
+            }
           } else {
-            return response.json().then(data => {
-              throw new Error(data.error || 'Failed to close session.');
-            });
+            throw new Error(data.error || 'Failed to close session.');
           }
         })
         .catch(error => {

@@ -1878,8 +1878,9 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
             next: window.location.pathname + window.location.search,
           }),
         })
-        .then(response => {
-          if (response.ok) {
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+          if (ok) {
             // Try to find the card to remove it
             const recentCard = button.closest('.tmux-recent-card');
             if (recentCard) {
@@ -1893,10 +1894,13 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                 window.location.reload();
               }
             }
+            // Show warning if tmux close failed but database was updated
+            if (data.warning) {
+              console.warn(data.warning);
+              alert(`Session closed (with warning): ${data.warning}`);
+            }
           } else {
-            return response.json().then(data => {
-              throw new Error(data.error || 'Failed to close session.');
-            });
+            throw new Error(data.error || 'Failed to close session.');
           }
         })
         .catch(error => {
@@ -2367,8 +2371,9 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
               }),
             });
           })
-          .then(response => {
-            if (response.ok) {
+          .then(response => response.json().then(data => ({ ok: response.ok, data })))
+          .then(({ ok, data }) => {
+            if (ok) {
               // Remove the card
               const card = button.closest('.tmux-recent-card');
               if (card) {
@@ -2376,10 +2381,13 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
               }
               // Reload the sessions list
               loadSessions();
+              // Show warning if tmux close failed but database was updated
+              if (data.warning) {
+                console.warn(data.warning);
+                alert(`Session closed (with warning): ${data.warning}`);
+              }
             } else {
-              return response.json().then(data => {
-                throw new Error(data.error || 'Failed to close session');
-              });
+              throw new Error(data.error || 'Failed to close session');
             }
           })
           .catch(error => {

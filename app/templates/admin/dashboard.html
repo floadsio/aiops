@@ -2032,14 +2032,11 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
     });
 
     const closePinnedIssueButtons = document.querySelectorAll('.close-pinned-issue-btn');
-    if (!closePinnedIssueButtons.length) {
-      return;
-    }
+    if (closePinnedIssueButtons.length > 0) {
+      const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+      const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
-    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-    const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-
-    closePinnedIssueButtons.forEach(button => {
+      closePinnedIssueButtons.forEach(button => {
       button.addEventListener('click', (event) => {
         event.preventDefault();
         const projectId = button.dataset.projectId;
@@ -2100,7 +2097,8 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
           button.textContent = originalLabel;
         });
       });
-    });
+      });
+    }
   })();
 
   // Unpin comment handler

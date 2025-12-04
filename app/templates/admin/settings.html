@@ -948,9 +948,221 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
             </ul>
           </div>
         </details>
+
+        <!-- Version History Section -->
+        <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid rgba(148, 163, 184, 0.2);">
+          <h3>📋 Version History</h3>
+          <p>All changes to the global agent context are automatically versioned. You can view, compare, and rollback to previous versions.</p>
+
+          <div id="version-history-container" style="margin-top: 1rem;">
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+              <button type="button" class="secondary" onclick="loadVersionHistory()">🔄 Refresh History</button>
+              <span id="version-history-status" class="text-muted" style="align-self: center;"></span>
+            </div>
+
+            <div id="version-history-table-container">
+              <p class="text-muted">Click "Refresh History" to load version history</p>
+            </div>
+          </div>
+        </div>
       </article>
     </div>
   </section>
+
+  <!-- Version View Modal -->
+  <dialog id="version-view-modal">
+    <article style="max-width: 800px; max-height: 90vh; overflow: auto;">
+      <header>
+        <button aria-label="Close" rel="prev" onclick="document.getElementById('version-view-modal').close()"></button>
+        <h3 id="version-view-title">Version Details</h3>
+      </header>
+      <div id="version-view-content">
+        <p class="text-muted">Loading...</p>
+      </div>
+    </article>
+  </dialog>
+
+  <!-- Version Diff Modal -->
+  <dialog id="version-diff-modal">
+    <article style="max-width: 1000px; max-height: 90vh; overflow: auto;">
+      <header>
+        <button aria-label="Close" rel="prev" onclick="document.getElementById('version-diff-modal').close()"></button>
+        <h3 id="version-diff-title">Version Comparison</h3>
+      </header>
+      <div id="version-diff-content">
+        <p class="text-muted">Loading...</p>
+      </div>
+    </article>
+  </dialog>
+
+  <script>
+    // Global agents version history functionality
+    let versionHistoryData = [];
+
+    async function loadVersionHistory() {
+      const statusEl = document.getElementById('version-history-status');
+      const containerEl = document.getElementById('version-history-table-container');
+
+      statusEl.textContent = 'Loading...';
+
+      try {
+        const response = await fetch('/api/v1/agents/global/history?limit=20');
+        if (!response.ok) throw new Error('Failed to load version history');
+
+        const data = await response.json();
+        versionHistoryData = data.versions || [];
+
+        if (versionHistoryData.length === 0) {
+          containerEl.innerHTML = '<p class="text-muted">No version history available</p>';
+          statusEl.textContent = '';
+          return;
+        }
+
+        renderVersionHistory(versionHistoryData);
+        statusEl.textContent = `Showing ${versionHistoryData.length} of ${data.total} versions`;
+      } catch (error) {
+        containerEl.innerHTML = `<p class="error">Error loading version history: ${error.message}</p>`;
+        statusEl.textContent = '';
+      }
+    }
+
+    function renderVersionHistory(versions) {
+      const container = document.getElementById('version-history-table-container');
+
+      let html = '<div class="table-scroll"><table><thead><tr>';
+      html += '<th scope="col">Version</th>';
+      html += '<th scope="col">Created</th>';
+      html += '<th scope="col">By</th>';
+      html += '<th scope="col">Description</th>';
+      html += '<th scope="col">Actions</th>';
+      html += '</tr></thead><tbody>';
+
+      versions.forEach(version => {
+        const createdAt = new Date(version.created_at).toLocaleString();
+        const createdBy = version.created_by ? version.created_by.name : 'System';
+        const description = version.change_description || '-';
+
+        html += `<tr>`;
+        html += `<th scope="row">${version.version_number}</th>`;
+        html += `<td><small>${createdAt}</small></td>`;
+        html += `<td>${createdBy}</td>`;
+        html += `<td>${description}</td>`;
+        html += `<td><div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">`;
+        html += `<button class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;" onclick="viewVersion(${version.version_number})">View</button>`;
+        html += `<button class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;" onclick="confirmRollback(${version.version_number})">Rollback</button>`;
+        if (versions.indexOf(version) < versions.length - 1) {
+          const prevVersion = versions[versions.indexOf(version) + 1].version_number;
+          html += `<button class="secondary outline" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;" onclick="viewDiff(${prevVersion}, ${version.version_number})">Diff</button>`;
+        }
+        html += `</div></td>`;
+        html += `</tr>`;
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    async function viewVersion(versionNumber) {
+      const modal = document.getElementById('version-view-modal');
+      const titleEl = document.getElementById('version-view-title');
+      const contentEl = document.getElementById('version-view-content');
+
+      titleEl.textContent = `Version ${versionNumber}`;
+      contentEl.innerHTML = '<p class="text-muted">Loading...</p>';
+      modal.showModal();
+
+      try {
+        const response = await fetch(`/api/v1/agents/global/history/${versionNumber}`);
+        if (!response.ok) throw new Error('Failed to load version');
+
+        const version = await response.json();
+
+        let html = '<div style="margin-bottom: 1rem;">';
+        html += `<p><strong>Created:</strong> ${new Date(version.created_at).toLocaleString()}</p>`;
+        if (version.created_by) {
+          html += `<p><strong>Created by:</strong> ${version.created_by.name} (${version.created_by.email})</p>`;
+        }
+        if (version.change_description) {
+          html += `<p><strong>Description:</strong> ${version.change_description}</p>`;
+        }
+        html += '</div>';
+        html += '<div style="margin-top: 1rem;"><strong>Content:</strong></div>';
+        html += `<pre style="background: rgba(241, 245, 249, 0.9); padding: 1rem; border-radius: 0.5rem; overflow-x: auto; margin-top: 0.5rem; max-height: 400px;">${escapeHtml(version.content)}</pre>`;
+
+        contentEl.innerHTML = html;
+      } catch (error) {
+        contentEl.innerHTML = `<p class="error">Error loading version: ${error.message}</p>`;
+      }
+    }
+
+    async function confirmRollback(versionNumber) {
+      if (!confirm(`Are you sure you want to rollback to version ${versionNumber}?\n\nThis will create a new version with the content from version ${versionNumber}.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/v1/agents/global/rollback/${versionNumber}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Rollback failed');
+        }
+
+        const result = await response.json();
+        alert(`✓ Successfully rolled back to version ${versionNumber}\n\n${result.message}`);
+
+        // Reload the page to show updated content
+        window.location.reload();
+      } catch (error) {
+        alert(`Error during rollback: ${error.message}`);
+      }
+    }
+
+    async function viewDiff(fromVersion, toVersion) {
+      const modal = document.getElementById('version-diff-modal');
+      const titleEl = document.getElementById('version-diff-title');
+      const contentEl = document.getElementById('version-diff-content');
+
+      titleEl.textContent = `Diff: Version ${fromVersion} → ${toVersion}`;
+      contentEl.innerHTML = '<p class="text-muted">Loading...</p>';
+      modal.showModal();
+
+      try {
+        const response = await fetch(`/api/v1/agents/global/diff?from=${fromVersion}&to=${toVersion}`);
+        if (!response.ok) throw new Error('Failed to load diff');
+
+        const diff = await response.json();
+
+        let html = '<div style="margin-bottom: 1rem;">';
+        html += `<p><span style="color: #22c55e;">+${diff.added_lines} lines added</span> / `;
+        html += `<span style="color: #ef4444;">-${diff.removed_lines} lines removed</span></p>`;
+        html += '</div>';
+
+        if (diff.diff) {
+          html += '<pre style="background: rgba(15, 23, 42, 0.9); color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; max-height: 500px; font-family: monospace; font-size: 0.85rem;">';
+          html += escapeHtml(diff.diff);
+          html += '</pre>';
+        } else {
+          html += '<p class="text-muted">No differences found</p>';
+        }
+
+        contentEl.innerHTML = html;
+      } catch (error) {
+        contentEl.innerHTML = `<p class="error">Error loading diff: ${error.message}</p>`;
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
 
   <section class="settings-category" id="system-logs">
     <h2>System Logs</h2>

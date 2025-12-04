@@ -1765,16 +1765,16 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
         <span>AI Session History</span>
       </h2>
     </button>
-    <div class="tmux-scope-controls" style="margin-bottom: 0; margin-left: auto; flex-shrink: 0; background: red; padding: 0.5rem; border-radius: 0.25rem;">
-      <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; color: white;">
-        <select id="ai-session-filter" aria-label="Filter by tool" style="background: blue; color: white;">
+    <div class="tmux-scope-controls" style="margin-bottom: 0; margin-left: auto; flex-shrink: 0;">
+      <label>
+        <select id="ai-session-filter" aria-label="Filter by tool">
           <option value="">All tools</option>
           <option value="claude">🤖 Claude</option>
           <option value="codex">💻 Codex</option>
         </select>
       </label>
-      <label style="display: flex; align-items: center; gap: 0.5rem; margin: 0; color: white;">
-        <input type="checkbox" id="ai-session-active-only" role="switch" checked style="width: 1.5rem; height: 1.5rem;" />
+      <label>
+        <input type="checkbox" id="ai-session-active-only" role="switch" checked />
         Active only
       </label>
     </div>

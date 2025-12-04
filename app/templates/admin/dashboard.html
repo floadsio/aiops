@@ -2211,6 +2211,21 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
           ? '<span class="tmux-chip" style="background: #10b981;">Active</span>'
           : '<span class="tmux-chip" style="background: #64748b;">Ended</span>';
 
+        // Only show close button for active sessions
+        const closeButtonHTML = session.is_active ? `
+            <div class="tmux-action">
+              <button
+                class="secondary outline tmux-action-btn close-ai-session-btn"
+                data-tmux-target="${session.tmux_target}"
+                data-session-id="${session.id}"
+                title="Close session"
+                style="color: #dc2626; border-color: #dc2626;"
+              >
+                × Close
+              </button>
+            </div>
+        ` : '';
+
         card.innerHTML = `
           <div class="tmux-recent-meta">
             <strong>${session.project_name}</strong>
@@ -2250,17 +2265,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                 Copy Command
               </button>
             </div>
-            <div class="tmux-action">
-              <button
-                class="secondary outline tmux-action-btn close-ai-session-btn"
-                data-tmux-target="${session.tmux_target}"
-                data-session-id="${session.id}"
-                title="Close session"
-                style="color: #dc2626; border-color: #dc2626;"
-              >
-                × Close
-              </button>
-            </div>
+            ${closeButtonHTML}
           </div>
         `;
 

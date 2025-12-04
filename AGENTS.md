@@ -1,4 +1,4 @@
-# Project Overview _(version 0.6.4)_
+# Project Overview _(version 0.6.5)_
 
 aiops is a multi-tenant Flask control plane that unifies Git workflows, external issue trackers,
 AI-assisted tmux sessions, and Ansible automation. The codebase favours thin blueprints, well-tested

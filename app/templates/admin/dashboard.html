@@ -1848,6 +1848,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 </section>
 {% block extra_body %}
 <script>
+  console.log('Dashboard script loaded');
   (function () {
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';

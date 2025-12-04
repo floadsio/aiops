@@ -1222,8 +1222,13 @@
 <script>
   // Load resumable sessions
   async function loadResumableSessions() {
+    console.log('loadResumableSessions called');
     const sessionList = document.getElementById('session-list');
-    if (!sessionList) return;
+    console.log('sessionList element found:', sessionList);
+    if (!sessionList) {
+      console.warn('sessionList not found!');
+      return;
+    }
 
     try {
       console.log('Loading resumable sessions from:', `/projects/${projectId}/ai/sessions/resumable`);
@@ -1292,17 +1297,24 @@
 
   function attachSessionEventHandlers() {
     const sessionList = document.getElementById('session-list');
+    console.log('attachSessionEventHandlers called, sessionList:', sessionList);
     if (!sessionList) return;
 
     // Check if handler is already attached to this element
-    if (sessionList.dataset.handlerAttached === 'true') return;
+    if (sessionList.dataset.handlerAttached === 'true') {
+      console.log('Handler already attached, skipping');
+      return;
+    }
 
     // Mark that we've attached the handler
     sessionList.dataset.handlerAttached = 'true';
+    console.log('Attaching session event handlers');
 
     // Use event delegation to handle resume and copy buttons
     sessionList.addEventListener('click', function(event) {
+      console.log('Session list click event fired, target:', event.target, 'target.tagName:', event.target.tagName);
       const button = event.target.closest('button');
+      console.log('Closest button:', button, 'button class:', button?.className);
       if (!button) return;
 
       if (button.classList.contains('resume-session')) {

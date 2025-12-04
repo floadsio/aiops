@@ -2266,10 +2266,13 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
       container.innerHTML = '';
       container.appendChild(grid);
 
-      // Add event listeners for resume buttons
-      grid.querySelectorAll('.resume-session-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const button = this;  // Save button reference for use in promise chain
+      // Use event delegation for all button handlers
+      grid.addEventListener('click', function(event) {
+        const button = event.target.closest('button');
+        if (!button) return;
+
+        // Handle resume buttons
+        if (button.classList.contains('resume-session-btn')) {
           const sessionId = button.dataset.sessionId;
           const projectName = button.dataset.projectName;
           const tool = button.dataset.tool;
@@ -2311,29 +2314,24 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
             button.disabled = false;
             button.textContent = originalText;
           });
-        });
-      });
+        }
 
-      // Add event listeners for copy buttons
-      grid.querySelectorAll('.copy-command-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const command = this.dataset.command;
+        // Handle copy buttons
+        else if (button.classList.contains('copy-command-btn')) {
+          const command = button.dataset.command;
           navigator.clipboard.writeText(command).then(() => {
-            const originalText = this.textContent;
-            this.textContent = 'Copied!';
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
             setTimeout(() => {
-              this.textContent = originalText;
+              button.textContent = originalText;
             }, 2000);
           }).catch(err => {
             alert('Failed to copy command: ' + err);
           });
-        });
-      });
+        }
 
-      // Add event listeners for close buttons
-      grid.querySelectorAll('.close-ai-session-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-          const button = this;
+        // Handle close buttons
+        else if (button.classList.contains('close-ai-session-btn')) {
           const tmuxTarget = button.dataset.tmuxTarget;
           const sessionId = button.dataset.sessionId;
 
@@ -2407,7 +2405,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
             button.disabled = false;
             button.textContent = originalText;
           });
-        });
+        }
       });
     }
 

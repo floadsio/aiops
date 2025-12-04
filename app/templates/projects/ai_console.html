@@ -1222,16 +1222,10 @@
 <script>
   // Load resumable sessions
   async function loadResumableSessions() {
-    console.log('loadResumableSessions called');
     const sessionList = document.getElementById('session-list');
-    console.log('sessionList element found:', sessionList);
-    if (!sessionList) {
-      console.warn('sessionList not found!');
-      return;
-    }
+    if (!sessionList) return;
 
     try {
-      console.log('Loading resumable sessions from:', `/projects/${projectId}/ai/sessions/resumable`);
       const response = await fetch(`/projects/${projectId}/ai/sessions/resumable`, {
         headers: {
           'Accept': 'application/json',
@@ -1297,24 +1291,17 @@
 
   function attachSessionEventHandlers() {
     const sessionList = document.getElementById('session-list');
-    console.log('attachSessionEventHandlers called, sessionList:', sessionList);
     if (!sessionList) return;
 
     // Check if handler is already attached to this element
-    if (sessionList.dataset.handlerAttached === 'true') {
-      console.log('Handler already attached, skipping');
-      return;
-    }
+    if (sessionList.dataset.handlerAttached === 'true') return;
 
     // Mark that we've attached the handler
     sessionList.dataset.handlerAttached = 'true';
-    console.log('Attaching session event handlers');
 
     // Use event delegation to handle resume and copy buttons
     sessionList.addEventListener('click', function(event) {
-      console.log('Session list click event fired, target:', event.target, 'target.tagName:', event.target.tagName);
       const button = event.target.closest('button');
-      console.log('Closest button:', button, 'button class:', button?.className);
       if (!button) return;
 
       if (button.classList.contains('resume-session')) {
@@ -1332,10 +1319,7 @@
         event.stopPropagation();
 
         // Prevent duplicate clicks by disabling immediately
-        if (button.disabled) {
-          console.log('Button already disabled, ignoring click');
-          return;
-        }
+        if (button.disabled) return;
 
         const tmuxTarget = button.getAttribute('data-tmux-target');
         const sessionId = button.getAttribute('data-session-id');
@@ -1349,16 +1333,11 @@
         const originalLabel = button.textContent;
         button.disabled = true;
 
-        console.log('Showing confirm dialog for session', sessionId);
-
         if (!confirm(`Are you sure you want to close this session?`)) {
           // User cancelled - re-enable button
-          console.log('User cancelled close');
           button.disabled = false;
           return;
         }
-
-        console.log('User confirmed close, proceeding with fetch');
 
         const url = `/projects/${projectId}/tmux/close`;
         button.textContent = 'Closing...';

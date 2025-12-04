@@ -935,6 +935,68 @@ class APIClient:
         """
         return self.delete("agents/global")
 
+    def get_global_agents_history(
+        self, limit: int = 50, offset: int = 0
+    ) -> dict[str, Any]:
+        """Get version history for global agent context.
+
+        Args:
+            limit: Maximum number of versions to return
+            offset: Number of versions to skip
+
+        Returns:
+            Version history data with list of versions
+        """
+        return self.get("agents/global/history", params={"limit": limit, "offset": offset})
+
+    def get_global_agents_version(self, version_number: int) -> dict[str, Any]:
+        """Get a specific version of global agent context.
+
+        Args:
+            version_number: The version number to retrieve
+
+        Returns:
+            Version data including full content
+        """
+        return self.get(f"agents/global/history/{version_number}")
+
+    def rollback_global_agents_context(
+        self, version_number: int, description: Optional[str] = None
+    ) -> dict[str, Any]:
+        """Rollback global agent context to a previous version.
+
+        Args:
+            version_number: The version number to rollback to
+            description: Optional description for the rollback
+
+        Returns:
+            Updated global agent context data
+        """
+        payload = {}
+        if description:
+            payload["description"] = description
+        return self.post(
+            f"agents/global/rollback/{version_number}",
+            json=payload if payload else None
+        )
+
+    def get_global_agents_diff(
+        self, from_version: int, to_version: int
+    ) -> dict[str, Any]:
+        """Get diff between two versions of global agent context.
+
+        Args:
+            from_version: Source version number
+            to_version: Target version number
+
+        Returns:
+            Diff data with unified diff text and statistics
+        """
+        return self.get(
+            "agents/global/diff",
+            params={"from": from_version, "to": to_version}
+        )
+
     # ============================================================================
     # ISSUE PLAN METHODS
     # ============================================================================

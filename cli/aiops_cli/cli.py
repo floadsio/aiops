@@ -3590,6 +3590,182 @@ def agents_global_clear(ctx: click.Context) -> None:
         sys.exit(1)
 
 
+@agents_global.command(name="history")
+@click.option(
+    "--limit",
+    type=int,
+    default=20,
+    help="Maximum number of versions to show (default: 20)",
+)
+@click.option(
+    "--version",
+    "-v",
+    "version_number",
+    type=int,
+    help="Show specific version details",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Choice(["table", "json", "yaml"]),
+    help="Output format",
+)
+@click.pass_context
+def agents_global_history(
+    ctx: click.Context, limit: int, version_number: Optional[int], output: Optional[str]
+) -> None:
+    """View version history of global agent context.
+
+    By default, shows a list of recent versions. Use --version to see details
+    of a specific version including full content.
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        if version_number:
+            # Show specific version
+            result = client.get_global_agents_version(version_number)
+
+            if output_format == "json":
+                format_output(result, output_format, console)
+            elif output_format == "yaml":
+                format_output(result, output_format, console)
+            else:
+                # Table format
+                console.print(f"[bold]Version {result['version_number']}[/bold]\n")
+                console.print(f"[yellow]Created:[/yellow] {result.get('created_at', 'N/A')}")
+                if result.get("created_by"):
+                    by = result["created_by"]
+                    console.print(f"[yellow]Created by:[/yellow] {by.get('name')} ({by.get('email')})")
+                if result.get("change_description"):
+                    console.print(f"[yellow]Description:[/yellow] {result['change_description']}")
+                console.print("\n[bold]Content:[/bold]")
+                console.print(result.get("content", ""))
+        else:
+            # Show version list
+            result = client.get_global_agents_history(limit=limit)
+
+            if output_format == "json":
+                format_output(result, output_format, console)
+            elif output_format == "yaml":
+                format_output(result, output_format, console)
+            else:
+                # Table format
+                versions = result.get("versions", [])
+                if not versions:
+                    console.print("[yellow]No version history found.[/yellow]")
+                    return
+
+                from rich.table import Table
+
+                table = Table(title=f"Global Agents Version History (showing {len(versions)} of {result.get('total', 0)})")
+                table.add_column("Version", style="cyan")
+                table.add_column("Created")
+                table.add_column("By")
+                table.add_column("Description", no_wrap=False, max_width=50)
+
+                for v in versions:
+                    version_str = str(v["version_number"])
+                    created = v.get("created_at", "N/A")
+                    by_name = v["created_by"]["name"] if v.get("created_by") else "System"
+                    desc = v.get("change_description") or ""
+                    table.add_row(version_str, created, by_name, desc)
+
+                console.print(table)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@agents_global.command(name="rollback")
+@click.argument("version_number", type=int)
+@click.option(
+    "--description",
+    "-d",
+    help="Optional description for the rollback",
+)
+@click.confirmation_option(
+    prompt="Are you sure you want to rollback to this version?"
+)
+@click.pass_context
+def agents_global_rollback(
+    ctx: click.Context, version_number: int, description: Optional[str]
+) -> None:
+    """Rollback global agent context to a previous version.
+
+    This creates a new version with the content from the specified version
+    and updates the current global context.
+
+    Example:
+        aiops agents global rollback 5 -d "Reverting problematic changes"
+    """
+    client = get_client(ctx)
+
+    try:
+        result = client.rollback_global_agents_context(version_number, description)
+        msg = result.get("message", f"Rolled back to version {version_number}")
+        console.print(f"[green]✓[/green] {msg}")
+        console.print(f"[yellow]Updated at:[/yellow] {result.get('updated_at', 'N/A')}")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@agents_global.command(name="diff")
+@click.argument("from_version", type=int)
+@click.argument("to_version", type=int)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Choice(["diff", "json", "yaml"]),
+    default="diff",
+    help="Output format (default: diff)",
+)
+@click.pass_context
+def agents_global_diff(
+    ctx: click.Context, from_version: int, to_version: int, output: str
+) -> None:
+    """Show diff between two versions of global agent context.
+
+    Arguments:
+        FROM_VERSION: Source version number
+        TO_VERSION: Target version number
+
+    Example:
+        aiops agents global diff 4 5
+    """
+    client = get_client(ctx)
+
+    try:
+        result = client.get_global_agents_diff(from_version, to_version)
+
+        if output == "json":
+            format_output(result, output, console)
+        elif output == "yaml":
+            format_output(result, output, console)
+        else:
+            # Show unified diff
+            console.print(f"[bold]Diff from version {from_version} to {to_version}[/bold]\n")
+            console.print(f"[green]+{result['added_lines']} lines added[/green]")
+            console.print(f"[red]-{result['removed_lines']} lines removed[/red]\n")
+
+            diff_text = result.get("diff", "")
+            if diff_text:
+                from rich.syntax import Syntax
+                syntax = Syntax(diff_text, "diff", theme="monokai", line_numbers=False)
+                console.print(syntax)
+            else:
+                console.print("[yellow]No differences found[/yellow]")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # INTEGRATIONS COMMANDS
 # ============================================================================

@@ -2174,7 +2174,15 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
     const activeOnlyCheckbox = document.getElementById('ai-session-active-only');
     const toggleBtn = document.getElementById('ai-sessions-toggle');
 
+    console.log('AI Session History elements:', {
+      container: !!container,
+      filterSelect: !!filterSelect,
+      activeOnlyCheckbox: !!activeOnlyCheckbox,
+      toggleBtn: !!toggleBtn
+    });
+
     if (!container || !filterSelect || !activeOnlyCheckbox) {
+      console.error('Missing AI Session History elements');
       return;
     }
 

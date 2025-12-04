@@ -1317,8 +1317,13 @@
         });
       } else if (button.classList.contains('close-session')) {
         event.preventDefault();
+        event.stopPropagation();
+
         // Prevent duplicate clicks by disabling immediately
-        if (button.disabled) return;
+        if (button.disabled) {
+          console.log('Button already disabled, ignoring click');
+          return;
+        }
 
         const tmuxTarget = button.getAttribute('data-tmux-target');
         const sessionId = button.getAttribute('data-session-id');
@@ -1332,11 +1337,16 @@
         const originalLabel = button.textContent;
         button.disabled = true;
 
+        console.log('Showing confirm dialog for session', sessionId);
+
         if (!confirm(`Are you sure you want to close this session?`)) {
           // User cancelled - re-enable button
+          console.log('User cancelled close');
           button.disabled = false;
           return;
         }
+
+        console.log('User confirmed close, proceeding with fetch');
 
         const url = `/projects/${projectId}/tmux/close`;
         button.textContent = 'Closing...';

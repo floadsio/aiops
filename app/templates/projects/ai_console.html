@@ -906,13 +906,17 @@
         return;
       }
 
+      // Disable button before showing confirm to prevent rapid clicks
+      const originalLabel = button.textContent;
+      button.disabled = true;
+
       if (!confirm(`Are you sure you want to close tmux window ${windowName || tmuxTarget}?`)) {
+        // User cancelled - re-enable button
+        button.disabled = false;
         return;
       }
 
       const url = `/projects/${projectId}/tmux/close`;
-      const originalLabel = button.textContent;
-      button.disabled = true;
       button.textContent = 'Closing...';
 
       fetch(url, {
@@ -1323,13 +1327,17 @@
           return;
         }
 
+        // Disable button before showing confirm to prevent rapid clicks
+        const originalLabel = button.textContent;
+        button.disabled = true;
+
         if (!confirm(`Are you sure you want to close this session?`)) {
+          // User cancelled - re-enable button
+          button.disabled = false;
           return;
         }
 
         const url = `/projects/${projectId}/tmux/close`;
-        const originalLabel = button.textContent;
-        button.disabled = true;
         button.textContent = 'Closing...';
 
         fetch(url, {

@@ -2172,13 +2172,21 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
     const filterSelect = document.getElementById('ai-session-filter');
     const activeOnlyCheckbox = document.getElementById('ai-session-active-only');
     const toggleBtn = document.getElementById('ai-sessions-toggle');
+    const controlsDiv = document.querySelector('.tmux-scope-controls');
 
     console.log('AI Session History elements:', {
       container: !!container,
       filterSelect: !!filterSelect,
       activeOnlyCheckbox: !!activeOnlyCheckbox,
-      toggleBtn: !!toggleBtn
+      toggleBtn: !!toggleBtn,
+      controlsDiv: !!controlsDiv
     });
+
+    if (filterSelect && controlsDiv) {
+      console.log('Controls div display:', window.getComputedStyle(controlsDiv).display);
+      console.log('Controls div visibility:', window.getComputedStyle(controlsDiv).visibility);
+      console.log('Filter select display:', window.getComputedStyle(filterSelect).display);
+    }
 
     if (!container || !filterSelect || !activeOnlyCheckbox) {
       console.error('Missing AI Session History elements');

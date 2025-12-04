@@ -1752,27 +1752,34 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 </section>
 
 <section class="dashboard-section">
-  <header class="tmux-section-header">
-    <div class="dashboard-section-heading">
-      <button id="ai-sessions-toggle" class="session-toggle-btn" aria-expanded="true" style="background: none; border: none; padding: 0; margin-right: 0.5rem; cursor: pointer; font-size: 1.2rem; color: inherit;">▼</button>
-      <h2>AI Session History</h2>
-      <small>Resume past Claude and Codex sessions</small>
-    </div>
-    <div class="tmux-scope-controls">
-      <label>
-        <select id="ai-session-filter" aria-label="Filter by tool">
-          <option value="">All tools</option>
-          <option value="claude">🤖 Claude</option>
-          <option value="codex">💻 Codex</option>
-        </select>
-      </label>
-      <label>
-        <input type="checkbox" id="ai-session-active-only" role="switch" checked />
-        Active only
-      </label>
-    </div>
-  </header>
+  <button
+    type="button"
+    id="ai-sessions-toggle"
+    class="ai-sessions-toggle"
+    style="background: none; border: none; padding: 0; cursor: pointer; width: 100%; text-align: left;"
+    aria-expanded="true"
+  >
+    <h2 style="margin: 0; padding: 0.5rem 0; border-bottom: 2px solid rgba(148, 163, 184, 0.3); font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+      <span class="ai-toggle-icon" style="display: inline-block; width: 1.2rem; text-align: center;">▼</span>
+      <span>AI Session History</span>
+    </h2>
+  </button>
   <div id="ai-sessions-container" class="ai-sessions-content">
+    <div style="padding: 1rem;">
+      <div class="tmux-scope-controls" style="margin-bottom: 1rem;">
+        <label>
+          <select id="ai-session-filter" aria-label="Filter by tool">
+            <option value="">All tools</option>
+            <option value="claude">🤖 Claude</option>
+            <option value="codex">💻 Codex</option>
+          </select>
+        </label>
+        <label>
+          <input type="checkbox" id="ai-session-active-only" role="switch" checked />
+          Active only
+        </label>
+      </div>
+    </div>
     <p style="text-align: center; color: #64748b;">Loading sessions...</p>
   </div>
 </section>
@@ -2171,12 +2178,13 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 
     // Handle collapse/expand
     if (toggleBtn) {
+      const toggleIcon = toggleBtn.querySelector('.ai-toggle-icon');
       let isCollapsed = localStorage.getItem('ai-sessions-collapsed') === 'true';
 
       // Set initial state
       if (isCollapsed) {
         container.style.display = 'none';
-        toggleBtn.textContent = '▶';
+        if (toggleIcon) toggleIcon.textContent = '▶';
         toggleBtn.setAttribute('aria-expanded', 'false');
       }
 
@@ -2184,7 +2192,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
       toggleBtn.addEventListener('click', function() {
         isCollapsed = !isCollapsed;
         container.style.display = isCollapsed ? 'none' : 'block';
-        toggleBtn.textContent = isCollapsed ? '▶' : '▼';
+        if (toggleIcon) toggleIcon.textContent = isCollapsed ? '▶' : '▼';
         toggleBtn.setAttribute('aria-expanded', !isCollapsed);
         localStorage.setItem('ai-sessions-collapsed', isCollapsed);
       });

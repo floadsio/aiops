@@ -12,6 +12,7 @@ instance/
 .coverage
 coverage.xml
 /logs/
+/.uploads/
 AGENTS.local.md
 AGENTS.override.md
 PLAN.md

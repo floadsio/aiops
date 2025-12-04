@@ -1286,14 +1286,23 @@
     }
   }
 
-  function attachSessionEventHandlers() {
-    document.querySelectorAll('.resume-session').forEach(btn => {
-      btn.addEventListener('click', handleResumeSession);
-    });
+  let sessionHandlerAttached = false;
 
-    document.querySelectorAll('.copy-resume-cmd').forEach(btn => {
-      btn.addEventListener('click', function() {
-        const button = this;
+  function attachSessionEventHandlers() {
+    const sessionList = document.getElementById('session-list');
+    if (!sessionList || sessionHandlerAttached) return;
+
+    // Mark that we've attached the handler
+    sessionHandlerAttached = true;
+
+    // Use event delegation to handle resume and copy buttons
+    sessionList.addEventListener('click', function(event) {
+      const button = event.target.closest('button');
+      if (!button) return;
+
+      if (button.classList.contains('resume-session')) {
+        handleResumeSession(event);
+      } else if (button.classList.contains('copy-resume-cmd')) {
         const cmd = button.getAttribute('data-resume-command');
         navigator.clipboard.writeText(cmd).then(() => {
           button.textContent = 'Copied!';
@@ -1301,18 +1310,11 @@
             button.textContent = 'Copy Command';
           }, 2000);
         });
-      });
-    });
-
-    // Close session handlers for resumable sessions
-    document.querySelectorAll('.close-session').forEach(btn => {
-      // Remove any existing listener to avoid duplicates
-      const newBtn = btn.cloneNode(true);
-      btn.parentNode.replaceChild(newBtn, btn);
-
-      newBtn.addEventListener('click', function(event) {
+      } else if (button.classList.contains('close-session')) {
         event.preventDefault();
-        const button = this;
+        // Prevent duplicate clicks by disabling immediately
+        if (button.disabled) return;
+
         const tmuxTarget = button.getAttribute('data-tmux-target');
         const sessionId = button.getAttribute('data-session-id');
 
@@ -1362,7 +1364,7 @@
           button.disabled = false;
           button.textContent = originalLabel;
         });
-      });
+      }
     });
   }
 

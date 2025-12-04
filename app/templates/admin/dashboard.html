@@ -2218,6 +2218,7 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
                 class="secondary outline tmux-action-btn close-ai-session-btn"
                 data-tmux-target="${session.tmux_target}"
                 data-session-id="${session.id}"
+                data-project-id="${session.project_id}"
                 title="Close session"
                 style="color: #dc2626; border-color: #dc2626;"
               >
@@ -2342,16 +2343,16 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
         // Handle close buttons
         else if (button.classList.contains('close-ai-session-btn')) {
           const tmuxTarget = button.dataset.tmuxTarget;
-          const sessionId = button.dataset.sessionId;
+          const projectId = button.dataset.projectId;
 
-          if (!tmuxTarget) {
-            alert('No session target available');
+          if (!tmuxTarget || !projectId) {
+            alert('Missing session or project information');
             return;
           }
 
-          // Disable button before showing confirm to prevent rapid clicks
-          const originalText = button.textContent;
+          // Disable button to prevent double-clicks
           button.disabled = true;
+          const originalText = button.textContent;
 
           if (!confirm(`Are you sure you want to close this session (${tmuxTarget})?`)) {
             // User cancelled - re-enable button
@@ -2361,34 +2362,16 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 
           button.textContent = 'Closing...';
 
-          // Find project_id from the card's project name
-          // For now, we need to find which project this session belongs to
-          // We'll use the API endpoint that requires project_id
-          // So we need to determine project from session data
-          fetch(`/api/v1/ai/sessions/${sessionId}`, {
-            method: 'GET',
+          // Close the session using the project endpoint
+          fetch(`/projects/${projectId}/tmux/close`, {
+            method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'X-CSRFToken': csrfToken,
             },
-          })
-          .then(response => {
-            if (!response.ok) throw new Error('Failed to get session details');
-            return response.json();
-          })
-          .then(data => {
-            const projectId = data.project_id;
-            // Now close the session using the project endpoint
-            return fetch(`/projects/${projectId}/tmux/close`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': csrfToken,
-              },
-              body: JSON.stringify({
-                tmux_target: tmuxTarget,
-              }),
-            });
+            body: JSON.stringify({
+              tmux_target: tmuxTarget,
+            }),
           })
           .then(response => response.json().then(data => ({ ok: response.ok, data })))
           .then(({ ok, data }) => {

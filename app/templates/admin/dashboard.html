@@ -2170,6 +2170,76 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
     const csrfMeta = document.querySelector('meta[name="csrf-token"]');
     const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
 
+    // Use event delegation on document to handle all close buttons
+    // This prevents duplicate handlers when buttons appear after dynamic rendering
+    document.addEventListener('click', function(event) {
+      const button = event.target.closest('.close-ai-session-btn');
+      if (!button) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+
+      const tmuxTarget = button.dataset.tmuxTarget;
+      const projectId = button.dataset.projectId;
+
+      if (!tmuxTarget || !projectId) {
+        alert('Missing session or project information');
+        return;
+      }
+
+      // Prevent double-clicks
+      if (button.disabled) return;
+
+      // Disable button to prevent double-clicks
+      button.disabled = true;
+      const originalText = button.textContent;
+
+      if (!confirm(`Are you sure you want to close this session (${tmuxTarget})?`)) {
+        // User cancelled - re-enable button
+        button.disabled = false;
+        return;
+      }
+
+      button.textContent = 'Closing...';
+
+      // Close the session using the project endpoint
+      fetch(`/projects/${projectId}/tmux/close`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+          tmux_target: tmuxTarget,
+        }),
+      })
+      .then(response => response.json().then(data => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (ok) {
+          // Remove the card
+          const card = button.closest('.tmux-recent-card');
+          if (card) {
+            card.remove();
+          }
+          // Reload the sessions list
+          loadSessions();
+          // Show warning if tmux close failed but database was updated
+          if (data.warning) {
+            console.warn(data.warning);
+            alert(`Session closed (with warning): ${data.warning}`);
+          }
+        } else {
+          throw new Error(data.error || 'Failed to close session');
+        }
+      })
+      .catch(error => {
+        alert(`Error: ${error.message}`);
+        button.disabled = false;
+        button.textContent = originalText;
+      });
+    });
+
     function formatDuration(seconds) {
       if (seconds < 60) return `${seconds}s`;
       const minutes = Math.floor(seconds / 60);
@@ -2337,65 +2407,6 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
             }, 2000);
           }).catch(err => {
             alert('Failed to copy command: ' + err);
-          });
-        }
-
-        // Handle close buttons
-        else if (button.classList.contains('close-ai-session-btn')) {
-          const tmuxTarget = button.dataset.tmuxTarget;
-          const projectId = button.dataset.projectId;
-
-          if (!tmuxTarget || !projectId) {
-            alert('Missing session or project information');
-            return;
-          }
-
-          // Disable button to prevent double-clicks
-          button.disabled = true;
-          const originalText = button.textContent;
-
-          if (!confirm(`Are you sure you want to close this session (${tmuxTarget})?`)) {
-            // User cancelled - re-enable button
-            button.disabled = false;
-            return;
-          }
-
-          button.textContent = 'Closing...';
-
-          // Close the session using the project endpoint
-          fetch(`/projects/${projectId}/tmux/close`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': csrfToken,
-            },
-            body: JSON.stringify({
-              tmux_target: tmuxTarget,
-            }),
-          })
-          .then(response => response.json().then(data => ({ ok: response.ok, data })))
-          .then(({ ok, data }) => {
-            if (ok) {
-              // Remove the card
-              const card = button.closest('.tmux-recent-card');
-              if (card) {
-                card.remove();
-              }
-              // Reload the sessions list
-              loadSessions();
-              // Show warning if tmux close failed but database was updated
-              if (data.warning) {
-                console.warn(data.warning);
-                alert(`Session closed (with warning): ${data.warning}`);
-              }
-            } else {
-              throw new Error(data.error || 'Failed to close session');
-            }
-          })
-          .catch(error => {
-            alert(`Error: ${error.message}`);
-            button.disabled = false;
-            button.textContent = originalText;
           });
         }
       });

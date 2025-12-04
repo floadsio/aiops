@@ -1752,35 +1752,37 @@ document.querySelectorAll('.pinned-comments-group-header').forEach(header => {
 </section>
 
 <section class="dashboard-section">
-  <button
-    type="button"
-    id="ai-sessions-toggle"
-    class="ai-sessions-toggle"
-    style="background: none; border: none; padding: 0; cursor: pointer; width: 100%; text-align: left;"
-    aria-expanded="true"
-  >
-    <h2 style="margin: 0; padding: 0.5rem 0; border-bottom: 2px solid rgba(148, 163, 184, 0.3); font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
-      <span class="ai-toggle-icon" style="display: inline-block; width: 1.2rem; text-align: center;">▼</span>
-      <span>AI Session History</span>
-    </h2>
-  </button>
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+    <button
+      type="button"
+      id="ai-sessions-toggle"
+      class="ai-sessions-toggle"
+      style="background: none; border: none; padding: 0; cursor: pointer; flex-grow: 1; text-align: left;"
+      aria-expanded="true"
+    >
+      <h2 style="margin: 0; padding: 0.5rem 0; border-bottom: 2px solid rgba(148, 163, 184, 0.3); font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem;">
+        <span class="ai-toggle-icon" style="display: inline-block; width: 1.2rem; text-align: center;">▼</span>
+        <span>AI Session History</span>
+      </h2>
+    </button>
+    <div class="tmux-scope-controls" style="margin-bottom: 0; margin-right: 0.5rem;">
+      <label>
+        <select id="ai-session-filter" aria-label="Filter by tool">
+          <option value="">All tools</option>
+          <option value="claude">🤖 Claude</option>
+          <option value="codex">💻 Codex</option>
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" id="ai-session-active-only" role="switch" checked />
+        Active only
+      </label>
+    </div>
+  </div>
   <div id="ai-sessions-container" class="ai-sessions-content">
     <div style="padding: 1rem;">
-      <div class="tmux-scope-controls" style="margin-bottom: 1rem;">
-        <label>
-          <select id="ai-session-filter" aria-label="Filter by tool">
-            <option value="">All tools</option>
-            <option value="claude">🤖 Claude</option>
-            <option value="codex">💻 Codex</option>
-          </select>
-        </label>
-        <label>
-          <input type="checkbox" id="ai-session-active-only" role="switch" checked />
-          Active only
-        </label>
-      </div>
+      <p style="text-align: center; color: #64748b;">Loading sessions...</p>
     </div>
-    <p style="text-align: center; color: #64748b;">Loading sessions...</p>
   </div>
 </section>
 

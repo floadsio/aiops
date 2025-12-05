@@ -460,11 +460,18 @@ def create_issue_for_project_integration(
             f"Issue creation is not supported for provider '{integration.provider}'."
         )
 
+    # Auto-apply default_label from project_integration config if configured
+    final_labels = list(labels) if labels is not None else []
+    if project_integration.config:
+        default_label = project_integration.config.get("default_label")
+        if default_label and default_label not in final_labels:
+            final_labels.append(default_label)
+
     request = IssueCreateRequest(
         summary=summary,
         description=description,
         issue_type=issue_type,
-        labels=list(labels) if labels is not None else None,
+        labels=final_labels if final_labels else None,
         milestone=milestone,
         priority=priority,
         custom_fields=dict(custom_fields) if custom_fields is not None else None,

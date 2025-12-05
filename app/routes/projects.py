@@ -1705,19 +1705,53 @@ def kubernetes_clusters():
     # Apply cached connectivity status
     cache_timestamp = apply_cached_status(all_clusters)
 
+    # Helper function to extract tenant from kubeconfig filename
+    def extract_tenant_from_config(config_file: str) -> str:
+        """Extract tenant name from kubeconfig filename.
+
+        Examples:
+            iwf-prod-flow-zrh1-k8s.config -> iwf
+            lernetz-klett-prod-flow-zrh1-k8s.config -> lernetz-klett
+            mdo-collumino-prod-flow-zrh1-k8s.config -> mdo-collumino
+        """
+        basename = os.path.basename(config_file)
+        # Remove -k8s.config suffix
+        name_without_suffix = basename.replace("-k8s.config", "")
+
+        # Split by dash and try to identify tenant
+        # Pattern: {tenant}-{env}-{details}
+        parts = name_without_suffix.split("-")
+
+        if len(parts) >= 2:
+            # Check if second part is an environment (prod, stage, test, dev)
+            if parts[1] in ("prod", "stage", "test", "dev"):
+                return parts[0]
+            # Otherwise, tenant might be first two parts (e.g., lernetz-klett)
+            elif len(parts) >= 3 and parts[2] in ("prod", "stage", "test", "dev"):
+                return f"{parts[0]}-{parts[1]}"
+
+        # Fallback: just use first part
+        return parts[0] if parts else "unknown"
+
     # Parse filter parameters
+    tenant_filter = request.args.get("tenant", "all")
     status_filter = request.args.get("status", "all")
     config_filter = request.args.get("config", "all")
     namespace_filter = request.args.get("namespace", "all")
     search_query = request.args.get("search", "").strip()
 
-    # Count clusters per status/config/namespace
+    # Count clusters per tenant/status/config/namespace
     total_count = len(all_clusters)
+    tenant_counts: Counter[str] = Counter()
     status_counts: Counter[str] = Counter()
     config_counts: Counter[str] = Counter()
     namespace_counts: Counter[str] = Counter()
 
     for cluster in all_clusters:
+        # Tenant from config filename
+        tenant = extract_tenant_from_config(cluster.config_file)
+        tenant_counts[tenant] += 1
+
         # Status: reachable (True), unreachable (False), unknown (None)
         if cluster.reachable is True:
             status_counts["reachable"] += 1
@@ -1737,6 +1771,12 @@ def kubernetes_clusters():
             namespace_counts["default"] += 1
 
     # Build filter options
+    tenant_options = [{"value": "all", "label": "All Tenants", "count": total_count}]
+    for tenant in sorted(tenant_counts.keys()):
+        tenant_options.append(
+            {"value": tenant, "label": tenant.upper(), "count": tenant_counts[tenant]}
+        )
+
     status_options = [{"value": "all", "label": "All Statuses", "count": total_count}]
     status_options.append(
         {"value": "reachable", "label": "Reachable", "count": status_counts.get("reachable", 0)}
@@ -1762,6 +1802,11 @@ def kubernetes_clusters():
 
     # Apply filters
     filtered_clusters = all_clusters
+
+    if tenant_filter != "all":
+        filtered_clusters = [
+            c for c in filtered_clusters if extract_tenant_from_config(c.config_file) == tenant_filter
+        ]
 
     if status_filter != "all":
         if status_filter == "reachable":
@@ -1795,6 +1840,7 @@ def kubernetes_clusters():
     filtered_count = len(filtered_clusters)
 
     # Get labels for summary
+    tenant_filter_label = next((opt["label"] for opt in tenant_options if opt["value"] == tenant_filter), "")
     status_filter_label = next((opt["label"] for opt in status_options if opt["value"] == status_filter), "")
     config_filter_label = next((opt["label"] for opt in config_options if opt["value"] == config_filter), "")
     namespace_filter_label = next((opt["label"] for opt in namespace_options if opt["value"] == namespace_filter), "")
@@ -1807,15 +1853,18 @@ def kubernetes_clusters():
         summary=summary,
         linux_username=linux_username,
         cache_timestamp=cache_timestamp,
+        tenant_options=tenant_options,
         status_options=status_options,
         config_options=config_options,
         namespace_options=namespace_options,
+        tenant_filter=tenant_filter,
         status_filter=status_filter,
         config_filter=config_filter,
         namespace_filter=namespace_filter,
         search_query=search_query,
         total_count=total_count,
         filtered_count=filtered_count,
+        tenant_filter_label=tenant_filter_label,
         status_filter_label=status_filter_label,
         config_filter_label=config_filter_label,
         namespace_filter_label=namespace_filter_label,

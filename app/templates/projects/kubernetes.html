@@ -264,6 +264,14 @@
       {% endfor %}
     </select>
 
+    <select name="version" onchange="this.form.submit()" aria-label="Filter by Kubernetes version">
+      {% for option in version_options %}
+        <option value="{{ option.value }}" {% if option.value == version_filter %}selected{% endif %}>
+          {{ option.label }} ({{ option.count }})
+        </option>
+      {% endfor %}
+    </select>
+
     <input
       type="text"
       name="search"
@@ -286,6 +294,9 @@
     {% endif %}
     {% if namespace_filter != 'all' %}
       (namespace: {{ namespace_filter_label }})
+    {% endif %}
+    {% if version_filter != 'all' %}
+      (version: {{ version_filter_label }})
     {% endif %}
     {% if search_query %}
       (search: "{{ search_query }}")

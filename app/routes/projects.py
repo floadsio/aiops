@@ -1738,14 +1738,16 @@ def kubernetes_clusters():
     status_filter = request.args.get("status", "all")
     config_filter = request.args.get("config", "all")
     namespace_filter = request.args.get("namespace", "all")
+    version_filter = request.args.get("version", "all")
     search_query = request.args.get("search", "").strip()
 
-    # Count clusters per tenant/status/config/namespace
+    # Count clusters per tenant/status/config/namespace/version
     total_count = len(all_clusters)
     tenant_counts: Counter[str] = Counter()
     status_counts: Counter[str] = Counter()
     config_counts: Counter[str] = Counter()
     namespace_counts: Counter[str] = Counter()
+    version_counts: Counter[str] = Counter()
 
     for cluster in all_clusters:
         # Tenant from config filename
@@ -1769,6 +1771,12 @@ def kubernetes_clusters():
             namespace_counts[cluster.namespace] += 1
         else:
             namespace_counts["default"] += 1
+
+        # Version
+        if cluster.version:
+            version_counts[cluster.version] += 1
+        else:
+            version_counts["unchecked"] += 1
 
     # Build filter options
     tenant_options = [{"value": "all", "label": "All Tenants", "count": total_count}]
@@ -1800,6 +1808,22 @@ def kubernetes_clusters():
             {"value": namespace, "label": namespace, "count": namespace_counts[namespace]}
         )
 
+    version_options = [{"value": "all", "label": "All Versions", "count": total_count}]
+    # Add "Unchecked" option first
+    unchecked_count = version_counts.get("unchecked", 0)
+    if unchecked_count > 0:
+        version_options.append(
+            {"value": "unchecked", "label": "Unchecked", "count": unchecked_count}
+        )
+    # Add version options sorted (newest first)
+    for version in sorted(
+        [v for v in version_counts.keys() if v != "unchecked"],
+        reverse=True
+    ):
+        version_options.append(
+            {"value": version, "label": version, "count": version_counts[version]}
+        )
+
     # Apply filters
     filtered_clusters = all_clusters
 
@@ -1827,6 +1851,12 @@ def kubernetes_clusters():
         else:
             filtered_clusters = [c for c in filtered_clusters if c.namespace == namespace_filter]
 
+    if version_filter != "all":
+        if version_filter == "unchecked":
+            filtered_clusters = [c for c in filtered_clusters if not c.version]
+        else:
+            filtered_clusters = [c for c in filtered_clusters if c.version == version_filter]
+
     if search_query:
         search_lower = search_query.lower()
         filtered_clusters = [
@@ -1844,6 +1874,7 @@ def kubernetes_clusters():
     status_filter_label = next((opt["label"] for opt in status_options if opt["value"] == status_filter), "")
     config_filter_label = next((opt["label"] for opt in config_options if opt["value"] == config_filter), "")
     namespace_filter_label = next((opt["label"] for opt in namespace_options if opt["value"] == namespace_filter), "")
+    version_filter_label = next((opt["label"] for opt in version_options if opt["value"] == version_filter), "")
 
     summary = get_kubernetes_summary(filtered_clusters)
 
@@ -1857,10 +1888,12 @@ def kubernetes_clusters():
         status_options=status_options,
         config_options=config_options,
         namespace_options=namespace_options,
+        version_options=version_options,
         tenant_filter=tenant_filter,
         status_filter=status_filter,
         config_filter=config_filter,
         namespace_filter=namespace_filter,
+        version_filter=version_filter,
         search_query=search_query,
         total_count=total_count,
         filtered_count=filtered_count,
@@ -1868,6 +1901,7 @@ def kubernetes_clusters():
         status_filter_label=status_filter_label,
         config_filter_label=config_filter_label,
         namespace_filter_label=namespace_filter_label,
+        version_filter_label=version_filter_label,
     )
 
 

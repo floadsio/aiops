@@ -32,6 +32,7 @@ source .venv/bin/activate
 # Sync and list
 aiops issues sync --project <project>          # Sync from GitHub/GitLab/Jira
 aiops issues list --status open --project <project>  # List issues
+aiops issues list --tenant <tenant>            # Filter by tenant ID or slug
 aiops issues get <id> --output json            # Get details (use DB ID, not external number)
 
 # Update and comment

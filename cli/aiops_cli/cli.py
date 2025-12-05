@@ -366,6 +366,7 @@ def issues_pinned(ctx: click.Context, output: Optional[str]) -> None:
 @click.option("--status", help="Filter by status (open, closed)")
 @click.option("--provider", help="Filter by provider (github, gitlab, jira)")
 @click.option("--project", help="Filter by project ID or name")
+@click.option("--tenant", help="Filter by tenant ID or slug")
 @click.option("--assignee", help="Filter by assignee name")
 @click.option("--limit", type=int, help="Limit number of results")
 @click.option("--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format")
@@ -375,6 +376,7 @@ def issues_list(
     status: Optional[str],
     provider: Optional[str],
     project: Optional[str],
+    tenant: Optional[str],
     assignee: Optional[str],
     limit: Optional[int],
     output: Optional[str],
@@ -390,10 +392,16 @@ def issues_list(
         if project:
             project_id = resolve_project_id(client, project)
 
+        # Resolve tenant name/slug to ID if needed
+        tenant_id = None
+        if tenant:
+            tenant_id = resolve_tenant_id(client, tenant)
+
         issues_data = client.list_issues(
             status=status,
             provider=provider,
             project_id=project_id,
+            tenant_id=tenant_id,
             assignee=assignee,
             limit=limit,
         )

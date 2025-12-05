@@ -65,10 +65,17 @@ class GitHubIssueProvider(BaseIssueProvider):
         assignee: Optional[str] = None,
         user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        # Auto-apply default_label from project_integration config if configured
+        final_labels = list(labels) if labels else []
+        if project_integration.config:
+            default_label = project_integration.config.get("default_label")
+            if default_label and default_label not in final_labels:
+                final_labels.append(default_label)
+
         request = IssueCreateRequest(
             summary=title,
             description=description,
-            labels=list(labels) if labels else None,
+            labels=final_labels if final_labels else None,
         )
         # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(
@@ -314,10 +321,17 @@ class GitLabIssueProvider(BaseIssueProvider):
         assignee: Optional[str] = None,
         user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        # Auto-apply default_label from project_integration config if configured
+        final_labels = list(labels) if labels else []
+        if project_integration.config:
+            default_label = project_integration.config.get("default_label")
+            if default_label and default_label not in final_labels:
+                final_labels.append(default_label)
+
         request = IssueCreateRequest(
             summary=title,
             description=description,
-            labels=list(labels) if labels else None,
+            labels=final_labels if final_labels else None,
         )
         # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(
@@ -494,10 +508,17 @@ class JiraIssueProvider(BaseIssueProvider):
         assignee: Optional[str] = None,
         user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        # Auto-apply default_label from project_integration config if configured
+        final_labels = list(labels) if labels else []
+        if project_integration.config:
+            default_label = project_integration.config.get("default_label")
+            if default_label and default_label not in final_labels:
+                final_labels.append(default_label)
+
         request = IssueCreateRequest(
             summary=title,
             description=description,
-            labels=list(labels) if labels else None,
+            labels=final_labels if final_labels else None,
         )
         # Use effective integration with project-level and user-level credential overrides
         effective_integration = get_effective_integration(

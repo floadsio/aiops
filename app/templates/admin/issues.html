@@ -1154,6 +1154,9 @@
           {% else %}
             <span class="text-muted">Unassigned</span>
           {% endif %}
+          {% if issue.labels %}
+            <span>🏷️ {{ issue.labels|join(', ') }}</span>
+          {% endif %}
           <span class="text-muted">Updated {{ issue.updated_display or "Unknown" }}</span>
         </div>
         <details class="issue-card__details" data-issue-id="{{ issue.id }}">

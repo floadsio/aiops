@@ -27,20 +27,36 @@
     gap: 1rem;
   }
   .integrations-filters {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 0.75rem;
-    flex-wrap: wrap;
     margin-bottom: 1.5rem;
   }
   .integrations-filters select,
-  .integrations-filters input {
+  .integrations-filters input[type="text"] {
     margin: 0;
-    min-width: 200px;
-    flex: 1 1 auto;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    background: rgba(255, 255, 255, 0.92);
+    min-width: 180px;
   }
-  .clear-filters-btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.85rem;
+  [data-theme="dark"] .integrations-filters select,
+  [data-theme="dark"] .integrations-filters input[type="text"] {
+    border-color: rgba(148, 163, 184, 0.5);
+    background: rgba(26, 29, 35, 0.65);
+    color: rgba(226, 232, 240, 0.9);
+  }
+  @media (max-width: 768px) {
+    .integrations-filters {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .integrations-filters select,
+    .integrations-filters input {
+      width: 100%;
+      min-width: 0;
+      font-size: 1rem;
+    }
   }
 
   /* Card Layout - based on Statistics page contributor cards */
@@ -245,31 +261,55 @@
 <h2>Configured Integrations</h2>
 
 <!-- Filters -->
-<div class="integrations-filters">
-  <input
-    type="text"
-    id="searchIntegrations"
-    placeholder="Search integrations..."
-    aria-label="Search"
-  >
-  <select id="tenantFilter" aria-label="Filter by tenant">
-    <option value="">All Tenants</option>
-    {% for tenant in (integrations | map(attribute='tenant') | unique | sort(attribute='name')) %}
-      {% if tenant %}
-        <option value="{{ tenant.id }}">{{ tenant.name }}</option>
-      {% endif %}
+<form method="get" class="integrations-filters">
+  <select name="tenant" onchange="this.form.submit()" aria-label="Filter by tenant">
+    {% for option in tenant_options %}
+      <option value="{{ option.value }}" {% if option.value == tenant_filter %}selected{% endif %}>
+        {{ option.label }} ({{ option.count }})
+      </option>
     {% endfor %}
   </select>
-  <select id="providerFilter" aria-label="Filter by provider">
-    <option value="">All Providers</option>
-    <option value="github">GitHub</option>
-    <option value="gitlab">GitLab</option>
-    <option value="jira">Jira</option>
+
+  <select name="provider" onchange="this.form.submit()" aria-label="Filter by provider">
+    {% for option in provider_options %}
+      <option value="{{ option.value }}" {% if option.value == provider_filter %}selected{% endif %}>
+        {{ option.label }} ({{ option.count }})
+      </option>
+    {% endfor %}
   </select>
-  <button id="clearFilters" class="clear-filters-btn secondary outline" style="display: none;">
-    Clear Filters
-  </button>
-</div>
+
+  <select name="status" onchange="this.form.submit()" aria-label="Filter by status">
+    {% for option in status_options %}
+      <option value="{{ option.value }}" {% if option.value == status_filter %}selected{% endif %}>
+        {{ option.label }} ({{ option.count }})
+      </option>
+    {% endfor %}
+  </select>
+
+  <input
+    type="text"
+    name="search"
+    value="{{ search_query }}"
+    placeholder="Search integrations..."
+    aria-label="Search"
+  />
+</form>
+
+<p class="text-muted">
+  Showing {{ filtered_count }} of {{ total_count }} integration{{ 's' if total_count != 1 else '' }}
+  {% if tenant_filter != 'all' %}
+    (tenant: {{ tenant_filter_label }})
+  {% endif %}
+  {% if provider_filter != 'all' %}
+    (provider: {{ provider_filter_label }})
+  {% endif %}
+  {% if status_filter != 'all' %}
+    (status: {{ status_filter_label }})
+  {% endif %}
+  {% if search_query %}
+    (search: "{{ search_query }}")
+  {% endif %}.
+</p>
 
 {% if integrations %}
 <div class="integrations-list">

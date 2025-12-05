@@ -3658,10 +3658,92 @@ def manage_integrations():
     tenants = Tenant.query.order_by(Tenant.name).all()
     integration_form.tenant_id.choices = [(t.id, t.name) for t in tenants]
 
-    integrations_q = TenantIntegration.query.order_by(
+    # Parse filter parameters
+    tenant_filter = request.args.get("tenant", "all")
+    provider_filter = request.args.get("provider", "all")
+    status_filter = request.args.get("status", "all")
+    search_query = request.args.get("search", "").strip()
+
+    # Get all integrations for counting
+    all_integrations = TenantIntegration.query.all()
+    total_count = len(all_integrations)
+
+    # Count integrations per filter
+    from collections import Counter
+    tenant_counts: Counter[int] = Counter()
+    provider_counts: Counter[str] = Counter()
+    status_counts: Counter[str] = Counter()
+
+    for integration in all_integrations:
+        tenant_counts[integration.tenant_id] += 1
+        provider_counts[integration.provider.lower()] += 1
+        status_key = "enabled" if integration.enabled else "disabled"
+        status_counts[status_key] += 1
+
+    # Build tenant filter options
+    tenant_options = [{"value": "all", "label": "All Tenants", "count": total_count}]
+    for tenant in Tenant.query.order_by(Tenant.name).all():
+        count = tenant_counts.get(tenant.id, 0)
+        if count > 0:
+            tenant_options.append(
+                {"value": str(tenant.id), "label": tenant.name, "count": count}
+            )
+
+    # Build provider filter options
+    provider_options = [{"value": "all", "label": "All Providers", "count": total_count}]
+    for provider in sorted(provider_counts.keys()):
+        count = provider_counts[provider]
+        provider_options.append(
+            {"value": provider, "label": provider.title(), "count": count}
+        )
+
+    # Build status filter options
+    status_options = [
+        {"value": "all", "label": "All Status", "count": total_count},
+        {"value": "enabled", "label": "Enabled", "count": status_counts.get("enabled", 0)},
+        {"value": "disabled", "label": "Disabled", "count": status_counts.get("disabled", 0)},
+    ]
+
+    # Apply filters to query
+    integrations_q = TenantIntegration.query
+
+    if tenant_filter != "all":
+        try:
+            tenant_id = int(tenant_filter)
+            integrations_q = integrations_q.filter(TenantIntegration.tenant_id == tenant_id)
+        except ValueError:
+            pass
+
+    if provider_filter != "all":
+        integrations_q = integrations_q.filter(TenantIntegration.provider == provider_filter)
+
+    if status_filter != "all":
+        enabled_val = status_filter == "enabled"
+        integrations_q = integrations_q.filter(TenantIntegration.enabled == enabled_val)
+
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        integrations_q = integrations_q.filter(
+            or_(
+                TenantIntegration.name.ilike(search_pattern),
+                TenantIntegration.base_url.ilike(search_pattern),
+            )
+        )
+
+    integrations_list = integrations_q.order_by(
         TenantIntegration.enabled.desc(), TenantIntegration.created_at.desc()
-    )
-    integrations_list = integrations_q.all()
+    ).all()
+    filtered_count = len(integrations_list)
+
+    # Get filter labels for display
+    tenant_filter_label = "All Tenants"
+    if tenant_filter != "all":
+        tenant_obj = Tenant.query.get(int(tenant_filter))
+        if tenant_obj:
+            tenant_filter_label = tenant_obj.name
+
+    provider_filter_label = provider_filter.title() if provider_filter != "all" else "All Providers"
+    status_filter_label = status_filter.title() if status_filter != "all" else "All Status"
 
     integration_choices = []
     for integration in integrations_list:
@@ -3840,6 +3922,18 @@ def manage_integrations():
         integration_update_forms=update_forms,
         integration_delete_forms=delete_forms,
         tenant_integration_update_forms=tenant_integration_update_forms,
+        tenant_filter=tenant_filter,
+        provider_filter=provider_filter,
+        status_filter=status_filter,
+        search_query=search_query,
+        tenant_options=tenant_options,
+        provider_options=provider_options,
+        status_options=status_options,
+        tenant_filter_label=tenant_filter_label,
+        provider_filter_label=provider_filter_label,
+        status_filter_label=status_filter_label,
+        total_count=total_count,
+        filtered_count=filtered_count,
     )
 
 
@@ -4174,13 +4268,132 @@ def manage_ssh_keys():
                     current_app.logger.error("Failed to save SSH key: %s", exc)
                     form.private_key.errors.append("Failed to save SSH key to database.")
 
-    keys = (
-        SSHKey.query.filter_by(user_id=current_user.model.id)
-        .order_by(SSHKey.created_at.desc())
-        .all()
-    )
+    # Parse filter parameters
+    tenant_filter = request.args.get("tenant", "all")
+    owner_filter = request.args.get("owner", "all")
+    storage_filter = request.args.get("storage", "all")
+    search_query = request.args.get("search", "").strip()
+
+    # Get all SSH keys for counting
+    all_keys = SSHKey.query.filter_by(user_id=current_user.model.id).all()
+    total_count = len(all_keys)
+
+    # Count keys per filter
+    from collections import Counter
+    tenant_counts: Counter[str] = Counter()
+    owner_counts: Counter[int] = Counter()
+    storage_counts: Counter[str] = Counter()
+
+    for key in all_keys:
+        tenant_key = str(key.tenant_id) if key.tenant_id else "unassigned"
+        tenant_counts[tenant_key] += 1
+        owner_counts[key.user_id] += 1
+        if key.encrypted_private_key:
+            storage_counts["database"] += 1
+        elif key.private_key_path:
+            storage_counts["filesystem"] += 1
+
+    # Build tenant filter options
+    tenant_options = [{"value": "all", "label": "All Tenants", "count": total_count}]
+    unassigned_count = tenant_counts.get("unassigned", 0)
+    if unassigned_count > 0:
+        tenant_options.append(
+            {"value": "unassigned", "label": "Unassigned", "count": unassigned_count}
+        )
+    for tenant in Tenant.query.order_by(Tenant.name).all():
+        count = tenant_counts.get(str(tenant.id), 0)
+        if count > 0:
+            tenant_options.append(
+                {"value": str(tenant.id), "label": tenant.name, "count": count}
+            )
+
+    # Build owner filter options
+    owner_options = [{"value": "all", "label": "All Owners", "count": total_count}]
+    for user in User.query.order_by(User.email).all():
+        count = owner_counts.get(user.id, 0)
+        if count > 0:
+            owner_options.append(
+                {"value": str(user.id), "label": user.email, "count": count}
+            )
+
+    # Build storage filter options
+    storage_options = [
+        {"value": "all", "label": "All Storage", "count": total_count},
+        {"value": "database", "label": "Database", "count": storage_counts.get("database", 0)},
+        {"value": "filesystem", "label": "Filesystem", "count": storage_counts.get("filesystem", 0)},
+    ]
+
+    # Apply filters to query
+    keys_q = SSHKey.query.filter_by(user_id=current_user.model.id)
+
+    if tenant_filter != "all":
+        if tenant_filter == "unassigned":
+            keys_q = keys_q.filter(SSHKey.tenant_id.is_(None))
+        else:
+            try:
+                tenant_id = int(tenant_filter)
+                keys_q = keys_q.filter(SSHKey.tenant_id == tenant_id)
+            except ValueError:
+                pass
+
+    if owner_filter != "all":
+        try:
+            owner_id = int(owner_filter)
+            keys_q = keys_q.filter(SSHKey.user_id == owner_id)
+        except ValueError:
+            pass
+
+    if storage_filter == "database":
+        keys_q = keys_q.filter(SSHKey.encrypted_private_key.isnot(None))
+    elif storage_filter == "filesystem":
+        keys_q = keys_q.filter(SSHKey.private_key_path.isnot(None))
+
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        keys_q = keys_q.filter(
+            or_(
+                SSHKey.name.ilike(search_pattern),
+                SSHKey.fingerprint.ilike(search_pattern),
+            )
+        )
+
+    keys = keys_q.order_by(SSHKey.created_at.desc()).all()
+    filtered_count = len(keys)
+
+    # Get filter labels for display
+    tenant_filter_label = "All Tenants"
+    if tenant_filter == "unassigned":
+        tenant_filter_label = "Unassigned"
+    elif tenant_filter != "all":
+        tenant_obj = Tenant.query.get(int(tenant_filter))
+        if tenant_obj:
+            tenant_filter_label = tenant_obj.name
+
+    owner_filter_label = "All Owners"
+    if owner_filter != "all":
+        owner_obj = User.query.get(int(owner_filter))
+        if owner_obj:
+            owner_filter_label = owner_obj.email
+
+    storage_filter_label = storage_filter.title() if storage_filter != "all" else "All Storage"
+
     return render_template(
-        "admin/ssh_keys.html", form=form, delete_form=delete_form, ssh_keys=keys
+        "admin/ssh_keys.html",
+        form=form,
+        delete_form=delete_form,
+        ssh_keys=keys,
+        tenant_filter=tenant_filter,
+        owner_filter=owner_filter,
+        storage_filter=storage_filter,
+        search_query=search_query,
+        tenant_options=tenant_options,
+        owner_options=owner_options,
+        storage_options=storage_options,
+        tenant_filter_label=tenant_filter_label,
+        owner_filter_label=owner_filter_label,
+        storage_filter_label=storage_filter_label,
+        total_count=total_count,
+        filtered_count=filtered_count,
     )
 
 

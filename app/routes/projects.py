@@ -1688,29 +1688,137 @@ def kubernetes_clusters():
         get_kubernetes_summary,
         apply_cached_status,
     )
+    from collections import Counter
+    import os
 
     user = current_user
     linux_username = user.email.split("@")[0]
     user_home = f"/home/{linux_username}"
 
     # Discover clusters without connectivity check (done via API)
-    clusters = discover_kubernetes_clusters(
+    all_clusters = discover_kubernetes_clusters(
         user_home,
         check_connectivity=False,
         linux_username=linux_username,
     )
 
     # Apply cached connectivity status
-    cache_timestamp = apply_cached_status(clusters)
+    cache_timestamp = apply_cached_status(all_clusters)
 
-    summary = get_kubernetes_summary(clusters)
+    # Parse filter parameters
+    status_filter = request.args.get("status", "all")
+    config_filter = request.args.get("config", "all")
+    namespace_filter = request.args.get("namespace", "all")
+    search_query = request.args.get("search", "").strip()
+
+    # Count clusters per status/config/namespace
+    total_count = len(all_clusters)
+    status_counts: Counter[str] = Counter()
+    config_counts: Counter[str] = Counter()
+    namespace_counts: Counter[str] = Counter()
+
+    for cluster in all_clusters:
+        # Status: reachable (True), unreachable (False), unknown (None)
+        if cluster.reachable is True:
+            status_counts["reachable"] += 1
+        elif cluster.reachable is False:
+            status_counts["unreachable"] += 1
+        else:
+            status_counts["unknown"] += 1
+
+        # Config file basename
+        config_basename = os.path.basename(cluster.config_file)
+        config_counts[config_basename] += 1
+
+        # Namespace
+        if cluster.namespace:
+            namespace_counts[cluster.namespace] += 1
+        else:
+            namespace_counts["default"] += 1
+
+    # Build filter options
+    status_options = [{"value": "all", "label": "All Statuses", "count": total_count}]
+    status_options.append(
+        {"value": "reachable", "label": "Reachable", "count": status_counts.get("reachable", 0)}
+    )
+    status_options.append(
+        {"value": "unreachable", "label": "Unreachable", "count": status_counts.get("unreachable", 0)}
+    )
+    status_options.append(
+        {"value": "unknown", "label": "Unknown", "count": status_counts.get("unknown", 0)}
+    )
+
+    config_options = [{"value": "all", "label": "All Config Files", "count": total_count}]
+    for config_basename in sorted(config_counts.keys()):
+        config_options.append(
+            {"value": config_basename, "label": config_basename, "count": config_counts[config_basename]}
+        )
+
+    namespace_options = [{"value": "all", "label": "All Namespaces", "count": total_count}]
+    for namespace in sorted(namespace_counts.keys()):
+        namespace_options.append(
+            {"value": namespace, "label": namespace, "count": namespace_counts[namespace]}
+        )
+
+    # Apply filters
+    filtered_clusters = all_clusters
+
+    if status_filter != "all":
+        if status_filter == "reachable":
+            filtered_clusters = [c for c in filtered_clusters if c.reachable is True]
+        elif status_filter == "unreachable":
+            filtered_clusters = [c for c in filtered_clusters if c.reachable is False]
+        elif status_filter == "unknown":
+            filtered_clusters = [c for c in filtered_clusters if c.reachable is None]
+
+    if config_filter != "all":
+        filtered_clusters = [
+            c for c in filtered_clusters if os.path.basename(c.config_file) == config_filter
+        ]
+
+    if namespace_filter != "all":
+        if namespace_filter == "default":
+            filtered_clusters = [c for c in filtered_clusters if not c.namespace]
+        else:
+            filtered_clusters = [c for c in filtered_clusters if c.namespace == namespace_filter]
+
+    if search_query:
+        search_lower = search_query.lower()
+        filtered_clusters = [
+            c for c in filtered_clusters
+            if search_lower in c.name.lower()
+            or search_lower in c.server.lower()
+            or search_lower in c.context.lower()
+            or (c.namespace and search_lower in c.namespace.lower())
+        ]
+
+    filtered_count = len(filtered_clusters)
+
+    # Get labels for summary
+    status_filter_label = next((opt["label"] for opt in status_options if opt["value"] == status_filter), "")
+    config_filter_label = next((opt["label"] for opt in config_options if opt["value"] == config_filter), "")
+    namespace_filter_label = next((opt["label"] for opt in namespace_options if opt["value"] == namespace_filter), "")
+
+    summary = get_kubernetes_summary(filtered_clusters)
 
     return render_template(
         "projects/kubernetes.html",
-        clusters=clusters,
+        clusters=filtered_clusters,
         summary=summary,
         linux_username=linux_username,
         cache_timestamp=cache_timestamp,
+        status_options=status_options,
+        config_options=config_options,
+        namespace_options=namespace_options,
+        status_filter=status_filter,
+        config_filter=config_filter,
+        namespace_filter=namespace_filter,
+        search_query=search_query,
+        total_count=total_count,
+        filtered_count=filtered_count,
+        status_filter_label=status_filter_label,
+        config_filter_label=config_filter_label,
+        namespace_filter_label=namespace_filter_label,
     )
 
 

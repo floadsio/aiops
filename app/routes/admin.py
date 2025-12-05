@@ -2865,6 +2865,7 @@ def manage_issues():
     project_labels: dict[str, str] = {}
     assignee_counts: Counter[str] = Counter()
     assignee_labels: dict[str, str] = {}
+    label_counts: Counter[str] = Counter()
     for issue in issues:
         project = (
             issue.project_integration.project if issue.project_integration else None
@@ -2885,6 +2886,10 @@ def manage_issues():
         assignee_label = issue.assignee if issue.assignee else "Unassigned"
         assignee_counts[assignee_key] += 1
         assignee_labels.setdefault(assignee_key, assignee_label)
+
+        # Track labels
+        for label in (issue.labels or []):
+            label_counts[label] += 1
 
     status_counts: Counter[str] = Counter()
     status_labels: dict[str, str] = {}
@@ -3015,6 +3020,7 @@ def manage_issues():
     tenant_raw_filter = (request.args.get("tenant") or "").strip()
     project_raw_filter = (request.args.get("project") or "").strip()
     assignee_raw_filter = (request.args.get("assignee") or "").strip()
+    label_raw_filter = (request.args.get("label") or "").strip()
     raw_sort = (request.args.get("sort") or "").strip().lower()
     sort_key = raw_sort if raw_sort in ISSUE_SORT_META else ISSUE_SORT_DEFAULT_KEY
     raw_direction = (request.args.get("direction") or "").strip().lower()
@@ -3071,6 +3077,12 @@ def manage_issues():
     else:
         assignee_filter = "all"
 
+    # Handle label filter
+    if label_raw_filter and label_raw_filter.lower() != "all":
+        label_filter = label_raw_filter
+    else:
+        label_filter = "all"
+
     def _matches(entry: dict[str, object]) -> bool:
         if status_filter != "all" and entry.get("status_key") != status_filter:
             return False
@@ -3091,6 +3103,10 @@ def manage_issues():
                     return True
                 return False
             elif entry_assignee != assignee_filter:
+                return False
+        if label_filter != "all":
+            entry_labels = entry.get("labels") or []
+            if label_filter not in entry_labels:
                 return False
         return True
 
@@ -3246,6 +3262,31 @@ def manage_issues():
         else assignee_labels.get(assignee_filter, assignee_filter)
     )
 
+    # Build label options
+    label_options = [
+        {
+            "value": "all",
+            "label": "All labels",
+            "count": total_issue_full_count,
+        }
+    ]
+
+    # Add all labels sorted alphabetically
+    for label in sorted(label_counts.keys()):
+        label_options.append(
+            {
+                "value": label,
+                "label": label,
+                "count": label_counts.get(label, 0),
+            }
+        )
+
+    label_filter_label = (
+        "All labels"
+        if label_filter == "all"
+        else label_filter
+    )
+
     sort_state = {"key": sort_key, "direction": sort_direction}
     sort_columns = [dict(column) for column in ISSUE_SORT_COLUMNS]
 
@@ -3258,6 +3299,8 @@ def manage_issues():
         base_query_params["project"] = project_filter
     if "assignee" in request.args:
         base_query_params["assignee"] = assignee_filter
+    if "label" in request.args:
+        base_query_params["label"] = label_filter
 
     sort_headers: dict[str, dict[str, object]] = {}
     for column in sort_columns:
@@ -3307,6 +3350,9 @@ def manage_issues():
         assignee_filter=assignee_filter,
         assignee_filter_label=assignee_filter_label,
         assignee_options=assignee_options,
+        label_filter=label_filter,
+        label_filter_label=label_filter_label,
+        label_options=label_options,
         total_issue_count=total_issue_count,
         total_issue_full_count=total_issue_full_count,
         sort_columns=sort_columns,

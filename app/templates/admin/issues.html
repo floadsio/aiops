@@ -12,9 +12,9 @@
       gap: 1rem;
     }
     .issues-filters {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 0.75rem;
-      flex-wrap: wrap;
       margin-bottom: 1.5rem;
     }
     .issues-filter-form {
@@ -27,7 +27,6 @@
       border: 1px solid rgba(148, 163, 184, 0.6);
       background: rgba(255, 255, 255, 0.92);
       min-width: 180px;
-      flex: 1 1 auto;
     }
     [data-theme="dark"] .issues-filters select,
     [data-theme="dark"] .issues-filters input[type="text"] {
@@ -903,15 +902,22 @@
         </option>
       {% endfor %}
     </select>
+    <select id="issue-label-filter" name="label" onchange="this.form.submit()" aria-label="Filter by label">
+      {% for option in label_options %}
+        <option value="{{ option.value }}" {% if option.value == label_filter %}selected{% endif %}>
+          {{ option.label }} ({{ option.count }})
+        </option>
+      {% endfor %}
+    </select>
+    <input
+      type="text"
+      id="issueSearchInput"
+      placeholder="Search issues..."
+      aria-label="Search issues"
+    >
     <input type="hidden" name="sort" value="{{ sort_state.key }}">
     <input type="hidden" name="direction" value="{{ sort_state.direction }}">
   </form>
-  <input
-    type="text"
-    id="issueSearchInput"
-    placeholder="Search issues..."
-    aria-label="Search issues"
-  >
 </div>
 
 <!-- Actions Section -->
@@ -1110,6 +1116,9 @@
     {% endif %}
     {% if assignee_filter != 'all' %}
       (assignee: {{ assignee_filter_label }})
+    {% endif %}
+    {% if label_filter != 'all' %}
+      (label: {{ label_filter_label }})
     {% endif %}.
   </p>
 

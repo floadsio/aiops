@@ -3538,9 +3538,113 @@ def manage_projects():
             )
         return redirect(url_for("admin.manage_projects"))
 
-    projects = Project.query.order_by(Project.created_at.desc()).all()
+    # Parse filter parameters
+    tenant_filter = request.args.get("tenant", "all")
+    owner_filter = request.args.get("owner", "all")
+    branch_filter = request.args.get("branch", "all")
+    search_query = request.args.get("search", "").strip()
+
+    # Get all projects for counting
+    all_projects = Project.query.all()
+    total_count = len(all_projects)
+
+    # Count projects per tenant
+    from collections import Counter
+    tenant_counts: Counter[int] = Counter()
+    owner_counts: Counter[int] = Counter()
+    branch_counts: Counter[str] = Counter()
+
+    for project in all_projects:
+        tenant_counts[project.tenant_id] += 1
+        owner_counts[project.owner_id] += 1
+        branch_counts[project.default_branch] += 1
+
+    # Build tenant filter options
+    tenant_options = [{"value": "all", "label": "All Tenants", "count": total_count}]
+    for tenant in Tenant.query.order_by(Tenant.name).all():
+        count = tenant_counts.get(tenant.id, 0)
+        if count > 0:
+            tenant_options.append(
+                {"value": str(tenant.id), "label": tenant.name, "count": count}
+            )
+
+    # Build owner filter options
+    owner_options = [{"value": "all", "label": "All Owners", "count": total_count}]
+    for user in User.query.order_by(User.email).all():
+        count = owner_counts.get(user.id, 0)
+        if count > 0:
+            owner_options.append(
+                {"value": str(user.id), "label": user.email, "count": count}
+            )
+
+    # Build branch filter options
+    branch_options = [{"value": "all", "label": "All Branches", "count": total_count}]
+    for branch in sorted(branch_counts.keys()):
+        count = branch_counts[branch]
+        branch_options.append({"value": branch, "label": branch, "count": count})
+
+    # Apply filters to query
+    query = Project.query
+
+    if tenant_filter != "all":
+        try:
+            tenant_id = int(tenant_filter)
+            query = query.filter(Project.tenant_id == tenant_id)
+        except ValueError:
+            pass
+
+    if owner_filter != "all":
+        try:
+            owner_id = int(owner_filter)
+            query = query.filter(Project.owner_id == owner_id)
+        except ValueError:
+            pass
+
+    if branch_filter != "all":
+        query = query.filter(Project.default_branch == branch_filter)
+
+    if search_query:
+        search_pattern = f"%{search_query}%"
+        query = query.filter(
+            or_(
+                Project.name.ilike(search_pattern),
+                Project.repo_url.ilike(search_pattern),
+                Project.description.ilike(search_pattern),
+            )
+        )
+
+    projects = query.order_by(Project.created_at.desc()).all()
+    filtered_count = len(projects)
+
+    # Get filter labels for display
+    tenant_filter_label = "All Tenants"
+    if tenant_filter != "all":
+        tenant_obj = Tenant.query.get(int(tenant_filter))
+        if tenant_obj:
+            tenant_filter_label = tenant_obj.name
+
+    owner_filter_label = "All Owners"
+    if owner_filter != "all":
+        owner_obj = User.query.get(int(owner_filter))
+        if owner_obj:
+            owner_filter_label = owner_obj.email
+
     return render_template(
-        "admin/projects.html", form=form, delete_form=delete_form, projects=projects
+        "admin/projects.html",
+        form=form,
+        delete_form=delete_form,
+        projects=projects,
+        tenant_filter=tenant_filter,
+        owner_filter=owner_filter,
+        branch_filter=branch_filter,
+        search_query=search_query,
+        tenant_options=tenant_options,
+        owner_options=owner_options,
+        branch_options=branch_options,
+        tenant_filter_label=tenant_filter_label,
+        owner_filter_label=owner_filter_label,
+        total_count=total_count,
+        filtered_count=filtered_count,
     )
 
 

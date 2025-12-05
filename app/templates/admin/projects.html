@@ -98,9 +98,41 @@
     .project-form textarea {
       min-height: 144px;
     }
+    .projects-filters {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
+    }
+    .projects-filters select,
+    .projects-filters input[type="text"] {
+      margin: 0;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: rgba(255, 255, 255, 0.92);
+      min-width: 180px;
+    }
+    [data-theme="dark"] .projects-filters select,
+    [data-theme="dark"] .projects-filters input[type="text"] {
+      border-color: rgba(148, 163, 184, 0.5);
+      background: rgba(26, 29, 35, 0.65);
+      color: rgba(226, 232, 240, 0.9);
+    }
     @media (max-width: 860px) {
       .project-form-grid {
         grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 768px) {
+      .projects-filters {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .projects-filters select,
+      .projects-filters input {
+        width: 100%;
+        min-width: 0;
+        font-size: 1rem;
       }
     }
   </style>
@@ -114,6 +146,58 @@
         <p class="text-muted">Manage synced repositories and their tenant ownership.</p>
       </div>
     </div>
+
+    <!-- Filters -->
+    <form method="get" class="projects-filters">
+      <select name="tenant" onchange="this.form.submit()" aria-label="Filter by tenant">
+        {% for option in tenant_options %}
+          <option value="{{ option.value }}" {% if option.value == tenant_filter %}selected{% endif %}>
+            {{ option.label }} ({{ option.count }})
+          </option>
+        {% endfor %}
+      </select>
+
+      <select name="owner" onchange="this.form.submit()" aria-label="Filter by owner">
+        {% for option in owner_options %}
+          <option value="{{ option.value }}" {% if option.value == owner_filter %}selected{% endif %}>
+            {{ option.label }} ({{ option.count }})
+          </option>
+        {% endfor %}
+      </select>
+
+      <select name="branch" onchange="this.form.submit()" aria-label="Filter by branch">
+        {% for option in branch_options %}
+          <option value="{{ option.value }}" {% if option.value == branch_filter %}selected{% endif %}>
+            {{ option.label }} ({{ option.count }})
+          </option>
+        {% endfor %}
+      </select>
+
+      <input
+        type="text"
+        name="search"
+        value="{{ search_query }}"
+        placeholder="Search projects..."
+        aria-label="Search"
+      />
+    </form>
+
+    <p class="text-muted">
+      Showing {{ filtered_count }} of {{ total_count }} project{{ 's' if total_count != 1 else '' }}
+      {% if tenant_filter != 'all' %}
+        (tenant: {{ tenant_filter_label }})
+      {% endif %}
+      {% if owner_filter != 'all' %}
+        (owner: {{ owner_filter_label }})
+      {% endif %}
+      {% if branch_filter != 'all' %}
+        (branch: {{ branch_filter }})
+      {% endif %}
+      {% if search_query %}
+        (search: "{{ search_query }}")
+      {% endif %}.
+    </p>
+
     <div class="projects-card-list">
       {% for project in projects %}
         {% set tenant_color = project.tenant.color or default_tenant_color %}

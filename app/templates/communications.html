@@ -719,6 +719,70 @@
       display: block;
     }
 
+    /* Image zoom modal */
+    .image-zoom-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      cursor: zoom-out;
+      animation: fadeIn 0.2s ease;
+    }
+    .image-zoom-modal.open {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .image-zoom-modal img {
+      max-width: 95%;
+      max-height: 95%;
+      object-fit: contain;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+      cursor: default;
+    }
+    .image-zoom-close {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.9);
+      color: #000;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      font-size: 1.5rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+    .image-zoom-close:hover {
+      background: #fff;
+      transform: scale(1.1);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* Make images clickable */
+    .issue-post__body img,
+    .comment-body img {
+      cursor: zoom-in;
+      transition: opacity 0.2s ease;
+    }
+    .issue-post__body img:hover,
+    .comment-body img:hover {
+      opacity: 0.85;
+    }
+
     .reply-form textarea {
       width: 100%;
       min-height: 100px;
@@ -1219,6 +1283,12 @@
 
   <!-- Pagination -->
   <div class="pagination" id="pagination"></div>
+
+  <!-- Image Zoom Modal -->
+  <div id="imageZoomModal" class="image-zoom-modal" onclick="closeImageZoom()">
+    <button class="image-zoom-close" onclick="closeImageZoom()" aria-label="Close">×</button>
+    <img id="zoomedImage" src="" alt="" onclick="event.stopPropagation()">
+  </div>
 </main>
 
 <script>
@@ -1583,6 +1653,9 @@ async function loadThreads(reset = true) {
     } else {
       container.innerHTML += threads.map(renderThread).join('');
     }
+
+    // Attach image zoom handlers to newly rendered content
+    attachImageClickHandlers();
 
     // Update pagination
     updatePagination(data.pagination);
@@ -2098,12 +2171,50 @@ async function submitThreadReply(event, issueId) {
 }
 
 // Initialize
+// Image zoom functionality
+function openImageZoom(imgElement) {
+  const modal = document.getElementById('imageZoomModal');
+  const zoomedImg = document.getElementById('zoomedImage');
+
+  zoomedImg.src = imgElement.src;
+  zoomedImg.alt = imgElement.alt || 'Zoomed image';
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden'; // Prevent scrolling
+}
+
+function closeImageZoom() {
+  const modal = document.getElementById('imageZoomModal');
+  modal.classList.remove('open');
+  document.body.style.overflow = ''; // Re-enable scrolling
+}
+
+// Close on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    closeImageZoom();
+  }
+});
+
+// Add click handlers to all images after threads load
+function attachImageClickHandlers() {
+  const images = document.querySelectorAll('.issue-post__body img, .comment-body img');
+  images.forEach(img => {
+    if (!img.dataset.zoomAttached) {
+      img.addEventListener('click', () => openImageZoom(img));
+      img.dataset.zoomAttached = 'true';
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   loadFilters();
   setTimeout(() => {
     updateProjectsForTenant(); // Apply initial tenant filtering
   }, 500);
-  loadThreads();
+  loadThreads().then(() => {
+    // Attach image handlers after threads are loaded
+    setTimeout(attachImageClickHandlers, 500);
+  });
 });
 </script>
 {% endblock %}

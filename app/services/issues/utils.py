@@ -263,6 +263,68 @@ _CLOSED_STATUS_PHRASES = {
     "no longer needed",
 }
 
+# Statuses that indicate active work (subset of open)
+_IN_PROGRESS_TOKENS = {
+    "progress",
+    "doing",
+    "review",
+    "active",
+    "blocked",
+    "pending",
+    "offen",  # German for open, but used like "in progress" in IWF
+}
+_IN_PROGRESS_PHRASES = {
+    "in progress",
+    "in review",
+    "under review",
+    "ready for review",
+    "needs review",
+    "awaiting review",
+}
+
+
+def get_status_category(status: Optional[str]) -> str:
+    """Get the display category for a status: Open, In Progress, or Closed.
+
+    This provides a normalized view for statistics and display purposes.
+    """
+    if status is None:
+        return "Open"
+    raw = status.strip()
+    if not raw:
+        return "Open"
+
+    normalized = raw.replace("_", " ").replace("-", " ").strip()
+    normalized = re.sub(r"\s+", " ", normalized)
+    lower_normalized = normalized.lower()
+    tokens = _split_status_tokens(lower_normalized)
+
+    # Check closed first
+    if lower_normalized in _CLOSED_STATUS_PHRASES or any(
+        token in _CLOSED_STATUS_TOKENS for token in tokens
+    ):
+        return "Closed"
+
+    # Check in progress (subset of open)
+    if lower_normalized in _IN_PROGRESS_PHRASES or any(
+        token in _IN_PROGRESS_TOKENS for token in tokens
+    ):
+        return "In Progress"
+
+    # Default to Open for everything else that's open-ish
+    if lower_normalized in _OPEN_STATUS_PHRASES or any(
+        token in _OPEN_STATUS_TOKENS for token in tokens
+    ):
+        return "Open"
+
+    # Unknown status - default to Open
+    return "Open"
+
+
+def is_closed_status(status: Optional[str]) -> bool:
+    """Check if a status represents a closed/resolved state."""
+    return get_status_category(status) == "Closed"
+
 
 def normalize_issue_status(status: Optional[str]) -> tuple[str, str]:
     """Map a raw provider status to a filter key and display label."""

@@ -161,9 +161,9 @@ def test_get_workflow_statistics_with_issues(mock_db_session, monkeypatch):
     assert stats["total_issues"] == 4
     assert stats["open_count"] == 3  # open + in_progress
     assert stats["closed_count"] == 1
-    assert stats["status_distribution"]["open"] == 2
-    assert stats["status_distribution"]["closed"] == 1
-    assert stats["status_distribution"]["in_progress"] == 1
+    assert stats["status_distribution"]["Open"] == 2
+    assert stats["status_distribution"]["Closed"] == 1
+    assert stats["status_distribution"]["In Progress"] == 1
 
 
 def test_get_contributor_statistics_empty(mock_db_session, monkeypatch):

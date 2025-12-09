@@ -5,11 +5,11 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
 from ..models import ExternalIssue, Project, ProjectIntegration, User
+from .issues.utils import get_status_category, is_closed_status
 
 
 def get_resolution_statistics(
@@ -44,18 +44,15 @@ def get_resolution_statistics(
             Project.tenant_id == tenant_id
         )
 
-    # Filter by closed status and date range (case-insensitive)
+    # Filter by date range and then by closed status using centralized logic
     cutoff_date = datetime.utcnow() - timedelta(days=days)
-    query = query.filter(
-        or_(
-            func.lower(ExternalIssue.status) == "closed",
-            func.lower(ExternalIssue.status) == "resolved",
-            func.lower(ExternalIssue.status) == "done",
-        ),
-        ExternalIssue.updated_at >= cutoff_date,
-    )
+    query = query.filter(ExternalIssue.updated_at >= cutoff_date)
+    all_recent_issues = query.all()
 
-    resolved_issues = query.all()
+    # Filter to closed issues using centralized status logic
+    resolved_issues = [
+        issue for issue in all_recent_issues if is_closed_status(issue.status)
+    ]
 
     # Calculate statistics
     total_resolved = len(resolved_issues)
@@ -140,28 +137,11 @@ def get_workflow_statistics(
 
     all_issues = query.all()
 
-    # Normalize statuses for display
-    # Done/Resolved/closed -> Closed, Offen -> In Progress, open -> Open
-    status_normalization = {
-        "done": "Closed",
-        "resolved": "Closed",
-        "closed": "Closed",
-        "offen": "In Progress",
-        "in_progress": "In Progress",
-        "open": "Open",
-        "opened": "Open",
-        "todo": "Open",
-        "new": "Open",
-        "reopened": "Open",
-    }
-
-    # Status distribution with normalized names
+    # Status distribution with normalized categories (Open, In Progress, Closed)
     status_counts: dict[str, int] = defaultdict(int)
     for issue in all_issues:
-        status = issue.status or "unknown"
-        # Normalize the status for display
-        normalized = status_normalization.get(status.lower(), status)
-        status_counts[normalized] += 1
+        category = get_status_category(issue.status)
+        status_counts[category] += 1
 
     # Open vs closed counts
     open_count = status_counts.get("Open", 0) + status_counts.get("In Progress", 0)

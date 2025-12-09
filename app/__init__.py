@@ -86,6 +86,19 @@ def create_app(
             except Exception as exc:  # noqa: BLE001
                 app.logger.warning("Failed to scan for orphaned sessions: %s", exc)
 
+    # Initialize issue sync scheduler if enabled
+    @app.before_request
+    def init_sync_scheduler_once():
+        """Initialize issue sync scheduler on first request."""
+        if not hasattr(app, "_sync_scheduler_initialized"):
+            app._sync_scheduler_initialized = True
+            if app.config.get("ISSUE_SYNC_ENABLED", False):
+                try:
+                    from .services.sync_scheduler import init_scheduler
+                    init_scheduler(app)
+                except Exception as exc:  # noqa: BLE001
+                    app.logger.warning("Failed to initialize sync scheduler: %s", exc)
+
     return app
 
 

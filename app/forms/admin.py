@@ -229,6 +229,11 @@ class ProjectIntegrationUpdateForm(FlaskForm):
         description="Optional: project-specific username (for Jira email)",
         validators=[Optional(), Length(max=255)],
     )
+    auto_sync_enabled = BooleanField(
+        "Auto-sync enabled",
+        description="Automatically sync issues from this integration on a schedule",
+        default=True,
+    )
     submit = SubmitField("Update Link")
 
 

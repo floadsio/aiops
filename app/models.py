@@ -228,6 +228,10 @@ class ProjectIntegration(BaseModel, TimestampMixin):
     override_settings: Mapped[Optional[dict[str, Any]]] = mapped_column(
         db.JSON, nullable=True
     )
+    # Auto-sync configuration
+    auto_sync_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
 
     project: Mapped["Project"] = relationship(
         "Project", back_populates="issue_integrations"
@@ -891,6 +895,46 @@ class NotificationPreferences(BaseModel, TimestampMixin):
             "muted_integrations": self.muted_integrations,
             "email_notifications": self.email_notifications,
             "email_frequency": self.email_frequency,
+        }
+
+
+class SyncHistory(BaseModel):
+    """History of automatic issue sync operations."""
+
+    __tablename__ = "sync_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_integration_id: Mapped[int] = mapped_column(
+        ForeignKey("project_integrations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # 'success', 'failed'
+    issues_updated: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    duration_seconds: Mapped[Optional[float]] = mapped_column(
+        db.Float, nullable=True
+    )
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False, index=True
+    )
+
+    project_integration: Mapped["ProjectIntegration"] = relationship(
+        "ProjectIntegration", backref="sync_history"
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "project_integration_id": self.project_integration_id,
+            "status": self.status,
+            "issues_updated": self.issues_updated,
+            "duration_seconds": self.duration_seconds,
+            "error_message": self.error_message,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 

@@ -225,3 +225,16 @@ class Config:
     # Dotfiles (yadm) Configuration
     DOTFILE_REPO_URL = os.getenv("DOTFILE_REPO_URL")
     DOTFILE_REPO_BRANCH = os.getenv("DOTFILE_REPO_BRANCH", "main")
+    # Automatic Issue Sync Configuration
+    ISSUE_SYNC_ENABLED = os.getenv("ISSUE_SYNC_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    ISSUE_SYNC_INTERVAL = _get_int_env_var("ISSUE_SYNC_INTERVAL", 900)  # 15 minutes
+    ISSUE_SYNC_ON_STARTUP = os.getenv("ISSUE_SYNC_ON_STARTUP", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    ISSUE_SYNC_MAX_CONCURRENT = _get_int_env_var("ISSUE_SYNC_MAX_CONCURRENT", 3)

@@ -164,7 +164,12 @@
             </a>
           </h3>
         </div>
-        <div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          {% if link.auto_sync_enabled %}
+            <span class="badge success" title="Auto-sync enabled">🔄 Auto-sync</span>
+          {% else %}
+            <span class="badge" title="Auto-sync disabled" style="opacity: 0.6;">🔄 Manual</span>
+          {% endif %}
           {% if link.issues %}
             <span class="badge">{{ link.issues|length }} issue{{ 's' if link.issues|length != 1 else '' }}</span>
           {% endif %}
@@ -229,6 +234,11 @@
           <label>
             {{ update_form.override_username.label }}
             {{ update_form.override_username(placeholder=update_form.override_username.description) }}
+          </label>
+          <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;">
+            {{ update_form.auto_sync_enabled() }}
+            {{ update_form.auto_sync_enabled.label.text }}
+            <small style="color: var(--pico-muted-color);">({{ update_form.auto_sync_enabled.description }})</small>
           </label>
           <button type="submit" class="secondary">{{ update_form.submit.label.text }}</button>
         </form>

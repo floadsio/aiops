@@ -4024,6 +4024,7 @@ def integration_detail(integration_id: int):
         update_form.override_base_url.data = link.override_base_url or ""
         if link.override_settings:
             update_form.override_username.data = link.override_settings.get("username", "")
+        update_form.auto_sync_enabled.data = link.auto_sync_enabled
         update_forms[link.id] = update_form
 
         # Delete form
@@ -4140,6 +4141,9 @@ def update_project_integration(project_integration_id: int):
         link.override_settings = {"username": override_username}
     else:
         link.override_settings = None
+
+    # Update auto-sync setting
+    link.auto_sync_enabled = form.auto_sync_enabled.data
 
     db.session.commit()
 

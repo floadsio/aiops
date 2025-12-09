@@ -219,7 +219,7 @@ function updateStatusDisplay(data) {
   const componentsGrid = document.getElementById('components-grid');
   componentsGrid.innerHTML = '';
 
-  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'database', 'tmux', 'git', 'ai_tools', 'ollama', 'workspaces', 'integrations', 'sessions'];
+  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'database', 'tmux', 'git', 'ai_tools', 'ollama', 'workspaces', 'integrations', 'sessions', 'issue_sync'];
 
   componentOrder.forEach(key => {
     if (data.components[key]) {
@@ -379,6 +379,30 @@ function createDetailsHTML(componentName, details) {
         <div class="detail-row">
           <span class="detail-label">Endpoint</span>
           <span class="detail-value">${details.endpoint}</span>
+        </div>
+      `;
+    }
+  } else if (componentName === 'issue_sync') {
+    html += `
+      <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value">${details.enabled ? (details.running ? '🟢 Active' : '🔴 Stopped') : '⚪ Disabled'}</span>
+      </div>
+    `;
+    if (details.interval_minutes) {
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Interval</span>
+          <span class="detail-value">${details.interval_minutes} minutes</span>
+        </div>
+      `;
+    }
+    if (details.next_run) {
+      const nextRun = new Date(details.next_run);
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Next Run</span>
+          <span class="detail-value">${nextRun.toLocaleTimeString()}</span>
         </div>
       `;
     }

@@ -840,6 +840,94 @@ def migrate_ssh_key(key_id: int):
         return jsonify({"error": str(exc)}), 500
 
 
+@api_v1_bp.get("/system/sync/status")
+@require_api_auth(scopes=["read"])
+def get_sync_status():
+    """Get automatic issue sync scheduler status.
+
+    Returns:
+        200: Sync scheduler status
+    """
+    from ...services.sync_scheduler import get_scheduler_status
+
+    status = get_scheduler_status()
+
+    # Add configuration info
+    status["config"] = {
+        "enabled": current_app.config.get("ISSUE_SYNC_ENABLED", False),
+        "interval_seconds": current_app.config.get("ISSUE_SYNC_INTERVAL", 900),
+        "sync_on_startup": current_app.config.get("ISSUE_SYNC_ON_STARTUP", True),
+        "max_concurrent": current_app.config.get("ISSUE_SYNC_MAX_CONCURRENT", 3),
+    }
+
+    return jsonify(status)
+
+
+@api_v1_bp.post("/system/sync/trigger")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def trigger_sync():
+    """Manually trigger an immediate issue sync.
+
+    Requires admin scope.
+
+    Returns:
+        200: Sync triggered
+    """
+    from ...services.sync_scheduler import trigger_sync_now
+
+    trigger_sync_now(current_app._get_current_object())
+
+    return jsonify({
+        "message": "Issue sync triggered. Check logs for progress.",
+    })
+
+
+@api_v1_bp.get("/system/sync/history")
+@require_api_auth(scopes=["read"])
+def get_sync_history():
+    """Get recent sync history.
+
+    Query params:
+        limit: Max number of records (default: 50, max: 200)
+        project_integration_id: Filter by project integration
+
+    Returns:
+        200: List of sync history records
+    """
+    from ...models import SyncHistory, ProjectIntegration, Project
+    from ...extensions import db
+
+    limit = min(request.args.get("limit", 50, type=int), 200)
+    pi_id = request.args.get("project_integration_id", type=int)
+
+    query = (
+        db.session.query(SyncHistory)
+        .join(ProjectIntegration)
+        .join(Project)
+        .order_by(SyncHistory.created_at.desc())
+    )
+
+    if pi_id:
+        query = query.filter(SyncHistory.project_integration_id == pi_id)
+
+    records = query.limit(limit).all()
+
+    result = []
+    for record in records:
+        pi = record.project_integration
+        result.append({
+            **record.to_dict(),
+            "project_name": pi.project.name if pi and pi.project else None,
+            "integration_name": pi.integration.name if pi and pi.integration else None,
+        })
+
+    return jsonify({
+        "history": result,
+        "count": len(result),
+    })
+
+
 @api_v1_bp.route("/system/switch-branch", methods=["POST"])
 @require_api_auth(scopes=["admin"])
 def switch_branch():

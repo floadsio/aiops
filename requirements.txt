@@ -69,3 +69,4 @@ defusedxml>=0.7
 wcwidth>=0.2
 rich>=13.9
 ollama>=0.6.1
+APScheduler>=3.10

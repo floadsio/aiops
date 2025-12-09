@@ -872,6 +872,58 @@ def check_ollama() -> dict[str, Any]:
         }
 
 
+def check_sync_scheduler() -> dict[str, Any]:
+    """Check automatic issue sync scheduler status.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    try:
+        from .sync_scheduler import get_scheduler_status
+
+        status = get_scheduler_status()
+        enabled = current_app.config.get("ISSUE_SYNC_ENABLED", False)
+        interval = current_app.config.get("ISSUE_SYNC_INTERVAL", 900)
+
+        if not enabled:
+            return {
+                "healthy": True,
+                "message": "Auto-sync disabled",
+                "details": {
+                    "enabled": False,
+                    "interval_minutes": interval // 60,
+                }
+            }
+
+        if status.get("running"):
+            return {
+                "healthy": True,
+                "message": f"Running (every {interval // 60} min)",
+                "details": {
+                    "enabled": True,
+                    "running": True,
+                    "interval_minutes": interval // 60,
+                    "next_run": status.get("next_run"),
+                }
+            }
+
+        return {
+            "healthy": False,
+            "message": "Enabled but not running",
+            "details": {
+                "enabled": True,
+                "running": False,
+                "interval_minutes": interval // 60,
+            }
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "healthy": False,
+            "message": f"Scheduler error: {exc}",
+            "details": {"error": str(exc)}
+        }
+
+
 def get_system_status() -> dict[str, Any]:
     """Get comprehensive system status for all components.
 
@@ -889,6 +941,7 @@ def get_system_status() -> dict[str, Any]:
         "ssh_connectivity": check_ssh_connectivity(),
         "sessions": check_sessions(),
         "ollama": check_ollama(),
+        "issue_sync": check_sync_scheduler(),
     }
 
     # Calculate overall health

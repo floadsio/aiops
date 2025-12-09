@@ -983,7 +983,7 @@
       .notifications-container {
         position: relative;
         margin-right: 0.5rem;
-        z-index: 1001;
+        z-index: 9999;
       }
       .notifications-bell {
         background: transparent;
@@ -1025,7 +1025,7 @@
         box-shadow: var(--shadow-4);
         display: none;
         flex-direction: column;
-        z-index: 1000;
+        z-index: 9998;
         overflow: hidden;
         border: 1px solid var(--md-border);
       }
@@ -1540,13 +1540,23 @@
           return icons[type] || '🔔';
         }
 
+        // Get category label for notification type
+        function getNotificationCategory(type) {
+          if (type.startsWith('system.')) return 'System';
+          if (type.startsWith('session.')) return 'Session';
+          if (type.startsWith('project.')) return 'Project';
+          if (type.startsWith('issue.')) return null;  // Issues show project name instead
+          return null;
+        }
+
         // Render notification item
         function renderNotification(n) {
           const priorityClass = (n.priority === 'high' || n.priority === 'critical') ? n.priority : '';
           const unreadClass = n.is_read ? '' : 'unread';
+          const category = getNotificationCategory(n.type);
           const projectTag = n.metadata?.project_name
             ? `<span class="project">${n.metadata.project_name}</span>`
-            : '';
+            : (category ? `<span class="project">${category}</span>` : '');
 
           return `
             <div class="notification-item ${unreadClass}" data-id="${n.id}" onclick="handleNotificationClick(${n.id}, '${n.resource_url || ''}')">

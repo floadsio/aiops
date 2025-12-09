@@ -301,7 +301,7 @@ def notify_backup_completed(backup_id: int, description: str) -> list:
         message=description,
         resource_type="backup",
         resource_id=backup_id,
-        resource_url="/admin/settings",
+        resource_url=f"/admin/settings?tab=backups&highlight={backup_id}",
         priority=NotificationPriority.LOW,
         metadata={"backup_id": backup_id},
     )

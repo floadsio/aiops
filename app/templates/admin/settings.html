@@ -414,7 +414,7 @@
             {% for backup in backups %}
               {% set restore_form = backup_restore_forms[backup.id] %}
               {% set delete_form = backup_delete_forms[backup.id] %}
-              <tr>
+              <tr id="backup-{{ backup.id }}">
                 <th scope="row"><code>{{ backup.filename }}</code></th>
                 <td>{{ backup.description or "-" }}</td>
                 <td>{{ "%.2f"|format(backup.size_bytes / 1024 / 1024) }} MB</td>
@@ -1377,6 +1377,35 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
       container.innerHTML = `<p class="error">Error loading history: ${error.message}</p>`;
     }
   }
+
+  // Handle URL query params for deep linking (e.g., from notifications)
+  document.addEventListener('DOMContentLoaded', function() {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    const highlight = params.get('highlight');
+
+    // Scroll to section based on tab
+    if (tab === 'backups') {
+      const section = document.getElementById('system-operations');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+
+    // Highlight specific backup row
+    if (highlight) {
+      const row = document.getElementById('backup-' + highlight);
+      if (row) {
+        row.style.backgroundColor = 'var(--pico-primary-focus)';
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Remove highlight after a few seconds
+        setTimeout(() => {
+          row.style.transition = 'background-color 1s ease';
+          row.style.backgroundColor = '';
+        }, 3000);
+      }
+    }
+  });
 
 </script>
 {% endblock %}

@@ -104,6 +104,7 @@ _JIRA_MARKUP_PATTERNS = [
     re.compile(r"^----+$", re.MULTILINE),  # Horizontal rule
     re.compile(r"^\|\|.+\|\|$", re.MULTILINE),  # Table header row
     re.compile(r"\[~(?:accountid:)?[^\]]+\]"),  # Jira mentions: [~user] or [~accountid:...]
+    re.compile(r"![^!\s]+\.[a-z]{2,4}(?:\|[^\!]+)?!", re.IGNORECASE),  # Images: !image.png! or !image.png|params!
 ]
 
 # Create a Mistune instance for rendering Markdown

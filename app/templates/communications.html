@@ -1617,40 +1617,8 @@ async function loadThreads(reset = true) {
       }
     });
 
-    // Extract available authors from current threads (before filtering)
-    availableAuthors.clear();
-    threads.forEach(t => {
-      // Add issue assignee
-      if (t.issue_assignee) {
-        const key = t.issue_assignee.toLowerCase();
-        if (!availableAuthors.has(key)) {
-          availableAuthors.set(key, {
-            displayName: t.issue_assignee,
-            remoteName: null
-          });
-        }
-      }
-      // Add comment authors
-      if (t.comments) {
-        t.comments.forEach(c => {
-          if (c.author) {
-            const displayName = c.author.display_name || c.author.remote_name;
-            const remoteName = c.author.remote_name;
-            const key = (displayName || '').toLowerCase();
-            if (key && !availableAuthors.has(key)) {
-              availableAuthors.set(key, {
-                displayName: displayName,
-                remoteName: remoteName
-              });
-            }
-          }
-        });
-      }
-    });
-
-    // Update dropdowns based on available options
+    // Update provider dropdown based on available options
     updateProvidersDropdown();
-    updateAuthorsDropdown();
 
     // Client-side provider filter
     const providerFilter = document.getElementById('providerFilter').value;
@@ -1747,6 +1715,42 @@ function updatePagination(pagination) {
       loadThreads(false);
     };
     container.appendChild(button);
+  }
+}
+
+// Load authors from API
+async function loadAuthors() {
+  try {
+    const params = new URLSearchParams({
+      tenant_id: document.getElementById('tenantFilter').value || '',
+      project_id: document.getElementById('projectFilter').value || '',
+    });
+
+    const response = await fetch(
+      `${API_BASE}/authors?${params.toString()}`,
+      { headers: { 'Accept': 'application/json' } }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Update availableAuthors map
+    availableAuthors.clear();
+    (data.authors || []).forEach(author => {
+      const key = author.display_name.toLowerCase();
+      availableAuthors.set(key, {
+        displayName: author.display_name,
+        remoteName: author.remote_name,
+        commentCount: author.comment_count
+      });
+    });
+
+    updateAuthorsDropdown();
+  } catch (error) {
+    console.error('Error loading authors:', error);
   }
 }
 
@@ -2094,17 +2098,21 @@ async function submitCommentReply(event, issueId, authorName) {
 
 // Event listeners
 document.getElementById('tenantFilter').addEventListener('change', () => {
-  // Reset provider and project filters when tenant changes
+  // Reset provider, author and project filters when tenant changes
   document.getElementById('projectFilter').value = '';
   document.getElementById('providerFilter').value = '';
+  document.getElementById('authorFilter').value = '';
   updateProjectsForTenant();
+  loadAuthors(); // Reload authors for new tenant
   loadThreads(true);
   updateClearButton();
 });
 
 document.getElementById('projectFilter').addEventListener('change', () => {
-  // Reset provider filter when project changes
+  // Reset provider and author filters when project changes
   document.getElementById('providerFilter').value = '';
+  document.getElementById('authorFilter').value = '';
+  loadAuthors(); // Reload authors for new project
   loadThreads(true);
   updateClearButton();
 });
@@ -2308,6 +2316,7 @@ function attachImageClickHandlers() {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadFilters();
+  loadAuthors(); // Load all authors for filter dropdown
   setTimeout(() => {
     updateProjectsForTenant(); // Apply initial tenant filtering
   }, 500);

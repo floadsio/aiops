@@ -465,3 +465,94 @@ def get_communication_threads():
         return jsonify({
             "error": f"Failed to fetch communication threads: {str(exc)}"
         }), 500
+
+
+@api_v1_bp.get("/communications/authors")
+@require_api_auth(scopes=["read"])
+@audit_api_request
+def get_communication_authors():
+    """Get unique authors from all communications.
+
+    Query Parameters:
+        tenant_id (int, optional): Filter by tenant
+        project_id (int, optional): Filter by project
+
+    Returns:
+        200: List of unique authors with display names
+    """
+    try:
+        # Get query parameters
+        tenant_id = request.args.get("tenant_id", type=int)
+        project_id = request.args.get("project_id", type=int)
+
+        # Build query for all issues with comments
+        query = ExternalIssue.query.options(
+            selectinload(ExternalIssue.project_integration).selectinload(
+                ProjectIntegration.project
+            ),
+        )
+
+        # Apply filters
+        if tenant_id or project_id:
+            query = query.join(ProjectIntegration)
+            if tenant_id:
+                query = query.join(Project).filter(Project.tenant_id == tenant_id)
+            if project_id:
+                query = query.filter(ProjectIntegration.project_id == project_id)
+
+        # Only include issues with comments
+        query = query.filter(func.json_array_length(ExternalIssue.comments) > 0)
+
+        issues = query.all()
+
+        # Extract unique authors
+        authors_map: dict[str, dict[str, Any]] = {}
+
+        for issue in issues:
+            # Add issue assignee
+            if issue.assignee:
+                key = issue.assignee.lower()
+                if key not in authors_map:
+                    authors_map[key] = {
+                        "display_name": issue.assignee,
+                        "remote_name": None,
+                        "comment_count": 0,
+                    }
+
+            # Add comment authors
+            for comment in issue.comments or []:
+                author = comment.get("author", {})
+                if not author:
+                    continue
+
+                display_name = author.get("display_name") or author.get("remote_name")
+                remote_name = author.get("remote_name")
+
+                if not display_name:
+                    continue
+
+                key = display_name.lower()
+                if key not in authors_map:
+                    authors_map[key] = {
+                        "display_name": display_name,
+                        "remote_name": remote_name,
+                        "comment_count": 0,
+                    }
+                authors_map[key]["comment_count"] += 1
+
+        # Convert to list and sort by display name
+        authors = sorted(
+            authors_map.values(),
+            key=lambda a: a["display_name"].lower()
+        )
+
+        return jsonify({
+            "authors": authors,
+            "count": len(authors),
+        })
+
+    except Exception as exc:  # noqa: BLE001
+        current_app.logger.error("Failed to fetch communication authors: %s", exc)
+        return jsonify({
+            "error": f"Failed to fetch communication authors: {str(exc)}"
+        }), 500

@@ -487,6 +487,16 @@
       border-radius: 0.7rem;
       background: rgba(26, 29, 35, 0.04);
       border: 1px solid rgba(148, 163, 184, 0.2);
+      transition: box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+    .issue-card.highlighted {
+      box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.5);
+      border-color: #58a6ff;
+      animation: highlight-pulse 2s ease-out;
+    }
+    @keyframes highlight-pulse {
+      0% { box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.8); }
+      100% { box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.3); }
     }
     [data-theme="dark"] .issue-card {
       background: rgba(148, 163, 184, 0.08);
@@ -1122,7 +1132,7 @@
   </p>
 
     {% for issue in issues %}
-      <article class="issue-card">
+      <article class="issue-card" id="issue-{{ issue.id }}">
         <header class="issue-card__header">
           <div>
             <h3>
@@ -1943,6 +1953,29 @@
         img.setAttribute('loading', 'lazy');
       }
     });
+
+    // Highlight and scroll to issue if ?highlight=<id> is in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightId = urlParams.get('highlight');
+    if (highlightId) {
+      const issueElement = document.getElementById('issue-' + highlightId);
+      if (issueElement) {
+        // Scroll to element with offset for header
+        setTimeout(() => {
+          issueElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          issueElement.classList.add('highlighted');
+          // Open the details section
+          const details = issueElement.querySelector('details');
+          if (details) {
+            details.open = true;
+          }
+          // Remove highlight after 5 seconds
+          setTimeout(() => {
+            issueElement.classList.remove('highlighted');
+          }, 5000);
+        }, 100);
+      }
+    }
   })();
 </script>
 {% endblock %}

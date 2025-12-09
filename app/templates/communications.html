@@ -1721,21 +1721,30 @@ function updatePagination(pagination) {
 // Load authors from API
 async function loadAuthors() {
   try {
-    const params = new URLSearchParams({
-      tenant_id: document.getElementById('tenantFilter').value || '',
-      project_id: document.getElementById('projectFilter').value || '',
+    const params = new URLSearchParams();
+    const tenantId = document.getElementById('tenantFilter').value;
+    const projectId = document.getElementById('projectFilter').value;
+    if (tenantId) params.set('tenant_id', tenantId);
+    if (projectId) params.set('project_id', projectId);
+
+    const url = `${API_BASE}/authors?${params.toString()}`;
+    console.log('Loading authors from:', url);
+
+    const response = await fetch(url, {
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin'
     });
 
-    const response = await fetch(
-      `${API_BASE}/authors?${params.toString()}`,
-      { headers: { 'Accept': 'application/json' } }
-    );
+    console.log('Authors response status:', response.status);
 
     if (!response.ok) {
+      const text = await response.text();
+      console.error('Authors API error:', text);
       throw new Error(`HTTP ${response.status}`);
     }
 
     const data = await response.json();
+    console.log('Authors loaded:', data.count, 'authors');
 
     // Update availableAuthors map
     availableAuthors.clear();

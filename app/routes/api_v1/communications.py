@@ -91,8 +91,14 @@ def _get_issue_body(issue: ExternalIssue) -> tuple[str, str]:
     """
     # Try to extract body from raw_payload
     body = ""
+    body_html = ""
 
     if issue.raw_payload and isinstance(issue.raw_payload, dict):
+        # Check for Jira pre-rendered HTML first (includes proper attachment URLs)
+        rendered_fields = issue.raw_payload.get("renderedFields")
+        if rendered_fields and isinstance(rendered_fields, dict):
+            body_html = rendered_fields.get("description")
+
         # GitHub, GitLab use "body" at top level
         body = issue.raw_payload.get("body")
 
@@ -121,8 +127,30 @@ def _get_issue_body(issue: ExternalIssue) -> tuple[str, str]:
     if not body:
         return "", ""
 
-    # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, HTML, etc.)
-    rendered_body = render_issue_rich_text(body)
+    # Use pre-rendered HTML if available (Jira provides this with proper attachment URLs)
+    # Otherwise render the body content ourselves
+    if body_html:
+        # Sanitize the Jira HTML to ensure it's safe
+        from app.template_utils import sanitize_html
+        rendered_body = sanitize_html(body_html)
+
+        # Convert relative Jira attachment URLs to absolute URLs
+        # Jira provides relative URLs like /rest/api/3/attachment/content/12345
+        integration = issue.project_integration.integration
+        if integration and integration.provider.lower() == "jira":
+            base_url = integration.base_url
+            if base_url:
+                # Replace relative URLs with absolute ones
+                rendered_body_str = str(rendered_body)
+                rendered_body_str = rendered_body_str.replace(
+                    'src="/rest/api/',
+                    f'src="{base_url}/rest/api/'
+                )
+                from markupsafe import Markup
+                rendered_body = Markup(rendered_body_str)
+    else:
+        # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, HTML, etc.)
+        rendered_body = render_issue_rich_text(body)
 
     return body, str(rendered_body)
 
@@ -150,6 +178,14 @@ def _comment_to_dict(
         # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, etc.)
         rendered_body = render_issue_rich_text(body)
         body_html = str(rendered_body)
+    elif integration and integration.provider.lower() == "jira":
+        # Convert relative Jira attachment URLs to absolute URLs
+        base_url = integration.base_url
+        if base_url and 'src="/rest/api/' in body_html:
+            body_html = body_html.replace(
+                'src="/rest/api/',
+                f'src="{base_url}/rest/api/'
+            )
 
     return {
         "id": comment.get("id"),

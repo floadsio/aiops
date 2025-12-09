@@ -141,7 +141,7 @@ def get_workflow_statistics(
     all_issues = query.all()
 
     # Normalize statuses for display
-    # Done/Resolved/closed -> Closed, Offen -> In Progress
+    # Done/Resolved/closed -> Closed, Offen -> In Progress, open -> Open
     status_normalization = {
         "done": "Closed",
         "resolved": "Closed",
@@ -149,6 +149,7 @@ def get_workflow_statistics(
         "offen": "In Progress",
         "in_progress": "In Progress",
         "open": "Open",
+        "opened": "Open",
         "todo": "Open",
         "new": "Open",
         "reopened": "Open",

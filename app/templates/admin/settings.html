@@ -284,6 +284,7 @@
     <li><a href="#personal-tokens">🎫 Tokens</a></li>
     <li><a href="#global-agent">🧠 Agent Context</a></li>
     <li><a href="#system-logs">📋 Logs</a></li>
+    <li><a href="#issue-sync">🔄 Issue Sync</a></li>
     <li><a href="#dotfiles">🗂️ Dotfiles</a></li>
   </ul>
 </nav>
@@ -1187,6 +1188,81 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     </div>
   </section>
 
+  <section class="settings-category" id="issue-sync">
+    <h2>Automatic Issue Sync</h2>
+    <div class="settings-grid">
+      <article class="settings-card settings-card-full">
+        <h3>🔄 Background Issue Synchronization</h3>
+        <p>Configure automatic synchronization of issues from external providers (GitHub, GitLab, Jira). When enabled, issues will be synced on a schedule to keep your local database up-to-date.</p>
+
+        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <div style="padding: 1rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.5rem; flex: 1; min-width: 200px;">
+            <div style="font-size: 0.85rem; color: var(--pico-muted-color);">Status</div>
+            <div style="font-size: 1.25rem; font-weight: 600;" id="sync-status-display">
+              {% if issue_sync_enabled %}
+                <span style="color: var(--pico-ins-color);">🟢 Active</span>
+              {% else %}
+                <span style="color: var(--pico-muted-color);">⚪ Disabled</span>
+              {% endif %}
+            </div>
+          </div>
+          <div style="padding: 1rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.5rem; flex: 1; min-width: 200px;">
+            <div style="font-size: 0.85rem; color: var(--pico-muted-color);">Interval</div>
+            <div style="font-size: 1.25rem; font-weight: 600;">{{ issue_sync_interval_minutes }} min</div>
+          </div>
+          <div style="padding: 1rem; background: rgba(148, 163, 184, 0.1); border-radius: 0.5rem; flex: 1; min-width: 200px;">
+            <div style="font-size: 0.85rem; color: var(--pico-muted-color);">Next Run</div>
+            <div style="font-size: 1.25rem; font-weight: 600;" id="next-sync-display">
+              {% if issue_sync_next_run %}
+                {{ issue_sync_next_run }}
+              {% else %}
+                -
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <form method="post" action="{{ url_for('admin.save_issue_sync_settings') }}">
+          {{ issue_sync_form.hidden_tag() }}
+          <div class="settings-actions" style="flex-direction: column; align-items: stretch;">
+            <label style="display: flex; align-items: center; gap: 0.5rem; width: auto;">
+              {{ issue_sync_form.enabled() }}
+              {{ issue_sync_form.enabled.label.text }}
+            </label>
+            <label style="max-width: 300px;">
+              {{ issue_sync_form.interval_minutes.label }}
+              {{ issue_sync_form.interval_minutes() }}
+            </label>
+            <label style="display: flex; align-items: center; gap: 0.5rem; width: auto;">
+              {{ issue_sync_form.sync_on_startup() }}
+              {{ issue_sync_form.sync_on_startup.label.text }}
+            </label>
+            <div style="margin-top: 1rem;">
+              <button type="submit" class="primary">{{ issue_sync_form.submit.label.text }}</button>
+              <button type="button" class="secondary" onclick="triggerManualSync()">🔄 Sync Now</button>
+            </div>
+          </div>
+        </form>
+
+        <details style="margin-top: 1.5rem;">
+          <summary><strong>Recent Sync History</strong></summary>
+          <div id="sync-history-container" style="margin-top: 1rem;">
+            <button type="button" class="secondary outline" onclick="loadSyncHistory()">Load History</button>
+            <div id="sync-history-content" style="margin-top: 1rem;"></div>
+          </div>
+        </details>
+
+        <details style="margin-top: 1rem;">
+          <summary><strong>Per-Integration Settings</strong></summary>
+          <div style="margin-top: 1rem;">
+            <p>You can enable or disable auto-sync for individual project integrations from the <a href="{{ url_for('admin.integrations') }}">Integrations page</a>.</p>
+            <p class="text-muted">Each project integration has an "Auto-sync" toggle that controls whether it's included in the scheduled sync.</p>
+          </div>
+        </details>
+      </article>
+    </div>
+  </section>
+
 </div>
 <script>
   (function () {
@@ -1227,6 +1303,80 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
     output.textContent = 'Click "Refresh Logs" to load application logs';
   })();
 
+  // Issue Sync functions
+  async function triggerManualSync() {
+    if (!confirm('Trigger a manual sync of all enabled integrations now?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/v1/system/sync/trigger', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': '{{ csrf_token() }}'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Sync trigger failed');
+      }
+
+      const result = await response.json();
+      alert(`✓ Sync completed!\n\nTotal: ${result.results.total}\nSuccess: ${result.results.success}\nFailed: ${result.results.failed}`);
+      window.location.reload();
+    } catch (error) {
+      alert(`Error triggering sync: ${error.message}`);
+    }
+  }
+
+  async function loadSyncHistory() {
+    const container = document.getElementById('sync-history-content');
+    container.innerHTML = '<p class="text-muted">Loading...</p>';
+
+    try {
+      const response = await fetch('/api/v1/system/sync/history?limit=20');
+      if (!response.ok) throw new Error('Failed to load history');
+
+      const data = await response.json();
+      const history = data.history || [];
+
+      if (history.length === 0) {
+        container.innerHTML = '<p class="text-muted">No sync history available</p>';
+        return;
+      }
+
+      let html = '<div class="table-scroll"><table><thead><tr>';
+      html += '<th>Time</th><th>Integration</th><th>Status</th><th>Issues</th><th>Duration</th>';
+      html += '</tr></thead><tbody>';
+
+      history.forEach(entry => {
+        const time = new Date(entry.created_at).toLocaleString();
+        const statusBadge = entry.status === 'success'
+          ? '<span class="badge success">Success</span>'
+          : '<span class="badge" style="background: var(--pico-del-color);">Failed</span>';
+        const duration = entry.duration_seconds ? `${entry.duration_seconds.toFixed(1)}s` : '-';
+
+        html += `<tr>`;
+        html += `<td><small>${time}</small></td>`;
+        html += `<td>${entry.project_name || 'Unknown'} / ${entry.integration_name || 'Unknown'}</td>`;
+        html += `<td>${statusBadge}</td>`;
+        html += `<td>${entry.issues_updated}</td>`;
+        html += `<td>${duration}</td>`;
+        html += `</tr>`;
+
+        if (entry.error_message) {
+          html += `<tr><td colspan="5" style="padding-left: 2rem; color: var(--pico-del-color);"><small>${entry.error_message}</small></td></tr>`;
+        }
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    } catch (error) {
+      container.innerHTML = `<p class="error">Error loading history: ${error.message}</p>`;
+    }
+  }
 
 </script>
 {% endblock %}

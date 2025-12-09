@@ -286,3 +286,66 @@ def get_scheduler_status() -> dict:
         "next_run": next_run.isoformat() if next_run else None,
         "jobs": jobs,
     }
+
+
+def reconfigure_scheduler(enabled: bool, interval_minutes: int) -> None:
+    """Reconfigure the scheduler with new settings.
+
+    If settings change, this will stop/start or modify the scheduler as needed.
+
+    Args:
+        enabled: Whether auto-sync should be enabled
+        interval_minutes: Sync interval in minutes
+    """
+    global _scheduler
+
+    from flask import current_app
+
+    with _scheduler_lock:
+        if not enabled:
+            # Disable the scheduler
+            if _scheduler is not None:
+                logger.info("Disabling issue sync scheduler per settings change")
+                _scheduler.shutdown(wait=False)
+                _scheduler = None
+            return
+
+        interval_seconds = interval_minutes * 60
+
+        if _scheduler is None:
+            # Need to start a new scheduler
+            logger.info(
+                "Starting issue sync scheduler (interval=%d minutes)",
+                interval_minutes,
+            )
+            _scheduler = BackgroundScheduler(
+                daemon=True,
+                job_defaults={
+                    "coalesce": True,
+                    "max_instances": 1,
+                    "misfire_grace_time": 60,
+                },
+            )
+
+            _scheduler.add_job(
+                func=_run_sync_all,
+                trigger=IntervalTrigger(seconds=interval_seconds),
+                id="issue_sync_all",
+                name="Sync all issues from external providers",
+                replace_existing=True,
+                kwargs={"app": current_app._get_current_object()},
+            )
+
+            _scheduler.start()
+            logger.info("Issue sync scheduler started with %d minute interval", interval_minutes)
+        else:
+            # Reschedule the existing job with new interval
+            logger.info(
+                "Updating issue sync scheduler interval to %d minutes",
+                interval_minutes,
+            )
+            _scheduler.reschedule_job(
+                job_id="issue_sync_all",
+                trigger=IntervalTrigger(seconds=interval_seconds),
+            )
+            logger.info("Issue sync scheduler interval updated")

@@ -1424,10 +1424,57 @@ def manage_settings():
     }
 
     # Load yadm (dotfiles) settings
-    from ..forms.admin import YadmSettingsForm
+    from ..forms.admin import IssueSyncSettingsForm, YadmSettingsForm
     from ..models import SystemConfig
 
     yadm_form = YadmSettingsForm()
+
+    # Load issue sync settings
+    issue_sync_form = IssueSyncSettingsForm()
+    issue_sync_enabled_config = SystemConfig.query.filter_by(
+        key="issue_sync_enabled"
+    ).first()
+    issue_sync_interval_config = SystemConfig.query.filter_by(
+        key="issue_sync_interval"
+    ).first()
+    issue_sync_on_startup_config = SystemConfig.query.filter_by(
+        key="issue_sync_on_startup"
+    ).first()
+
+    # Check if sync is enabled (database takes precedence over env)
+    if issue_sync_enabled_config:
+        issue_sync_enabled = issue_sync_enabled_config.value.get("enabled", False)
+    else:
+        issue_sync_enabled = current_app.config.get("ISSUE_SYNC_ENABLED", False)
+
+    # Get interval (database takes precedence over env)
+    if issue_sync_interval_config:
+        issue_sync_interval_minutes = issue_sync_interval_config.value.get("interval_minutes", 15)
+    else:
+        issue_sync_interval_minutes = current_app.config.get("ISSUE_SYNC_INTERVAL", 900) // 60
+
+    # Get sync on startup setting
+    if issue_sync_on_startup_config:
+        issue_sync_on_startup = issue_sync_on_startup_config.value.get("enabled", True)
+    else:
+        issue_sync_on_startup = current_app.config.get("ISSUE_SYNC_ON_STARTUP", True)
+
+    # Pre-populate form
+    issue_sync_form.enabled.data = issue_sync_enabled
+    issue_sync_form.interval_minutes.data = str(issue_sync_interval_minutes)
+    issue_sync_form.sync_on_startup.data = issue_sync_on_startup
+
+    # Get next run time from scheduler
+    issue_sync_next_run = None
+    try:
+        from ..services.sync_scheduler import get_scheduler_status
+        scheduler_status = get_scheduler_status()
+        if scheduler_status.get("next_run"):
+            from datetime import datetime as dt
+            next_run_dt = dt.fromisoformat(scheduler_status["next_run"].replace("Z", "+00:00"))
+            issue_sync_next_run = next_run_dt.strftime("%H:%M:%S")
+    except Exception:
+        pass
     dotfile_repo_url_config = SystemConfig.query.filter_by(
         key="dotfile_repo_url"
     ).first()
@@ -1478,6 +1525,10 @@ def manage_settings():
         user_credentials=user_credentials,
         user_credential_delete_forms=user_credential_delete_forms,
         yadm_form=yadm_form,
+        issue_sync_form=issue_sync_form,
+        issue_sync_enabled=issue_sync_enabled,
+        issue_sync_interval_minutes=issue_sync_interval_minutes,
+        issue_sync_next_run=issue_sync_next_run,
         now=datetime.utcnow(),
     )
 
@@ -4838,6 +4889,67 @@ def save_yadm_settings():
                 flash(f"{field}: {error}", "warning")
 
     return redirect(url_for("admin.manage_settings"))
+
+
+@admin_bp.route("/settings/issue-sync", methods=["POST"])
+@admin_required
+def save_issue_sync_settings():
+    """Save automatic issue sync configuration."""
+    from ..extensions import db
+    from ..forms.admin import IssueSyncSettingsForm
+    from ..models import SystemConfig
+
+    form = IssueSyncSettingsForm()
+    if form.validate_on_submit():
+        try:
+            # Save or update issue_sync_enabled
+            enabled_config = SystemConfig.query.filter_by(
+                key="issue_sync_enabled"
+            ).first()
+            if not enabled_config:
+                enabled_config = SystemConfig(key="issue_sync_enabled")
+                db.session.add(enabled_config)
+            enabled_config.value = {"enabled": form.enabled.data}
+
+            # Save or update issue_sync_interval
+            interval_config = SystemConfig.query.filter_by(
+                key="issue_sync_interval"
+            ).first()
+            if not interval_config:
+                interval_config = SystemConfig(key="issue_sync_interval")
+                db.session.add(interval_config)
+            interval_minutes = int(form.interval_minutes.data)
+            interval_config.value = {"interval_minutes": interval_minutes}
+
+            # Save or update issue_sync_on_startup
+            startup_config = SystemConfig.query.filter_by(
+                key="issue_sync_on_startup"
+            ).first()
+            if not startup_config:
+                startup_config = SystemConfig(key="issue_sync_on_startup")
+                db.session.add(startup_config)
+            startup_config.value = {"enabled": form.sync_on_startup.data}
+
+            db.session.commit()
+
+            # Restart/reconfigure scheduler with new settings
+            from ..services.sync_scheduler import reconfigure_scheduler
+            reconfigure_scheduler(
+                enabled=form.enabled.data,
+                interval_minutes=interval_minutes,
+            )
+
+            flash("Issue sync settings saved successfully.", "success")
+        except Exception as exc:
+            db.session.rollback()
+            current_app.logger.exception("Failed to save issue sync settings")
+            flash(f"Error saving issue sync settings: {exc}", "danger")
+    else:
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"{field}: {error}", "warning")
+
+    return redirect(url_for("admin.manage_settings") + "#issue-sync")
 
 
 @admin_bp.route("/yadm/init", methods=["POST"])

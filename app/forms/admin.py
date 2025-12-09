@@ -731,3 +731,29 @@ class YadmPersonalConfigForm(FlaskForm):
         },
     )
     submit = SubmitField("Save Configuration")
+
+
+class IssueSyncSettingsForm(FlaskForm):
+    """Form for automatic issue sync configuration."""
+
+    enabled = BooleanField(
+        "Enable automatic issue sync",
+        description="Automatically sync issues from external providers on a schedule",
+    )
+    interval_minutes = SelectField(
+        "Sync interval",
+        choices=[
+            ("5", "Every 5 minutes"),
+            ("10", "Every 10 minutes"),
+            ("15", "Every 15 minutes"),
+            ("30", "Every 30 minutes"),
+            ("60", "Every hour"),
+        ],
+        default="15",
+    )
+    sync_on_startup = BooleanField(
+        "Sync on startup",
+        description="Run an initial sync when the application starts",
+        default=True,
+    )
+    submit = SubmitField("Save Sync Settings")

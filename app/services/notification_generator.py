@@ -32,14 +32,21 @@ def resolve_user_from_external_identity(
     Returns:
         User object if mapping exists, None otherwise
     """
-    query = UserIdentityMap.query.filter_by(
-        external_username=external_username, provider=provider
-    )
+    # Map provider to the correct column name
+    provider_column_map = {
+        "github": "github_username",
+        "gitlab": "gitlab_username",
+        "jira": "jira_account_id",
+    }
+    column_name = provider_column_map.get(provider.lower())
+    if not column_name:
+        return None
 
-    if integration_id:
-        query = query.filter_by(integration_id=integration_id)
+    # Query using the provider-specific column
+    mapping = UserIdentityMap.query.filter(
+        getattr(UserIdentityMap, column_name) == external_username
+    ).first()
 
-    mapping = query.first()
     if mapping:
         return User.query.get(mapping.user_id)
     return None

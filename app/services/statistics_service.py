@@ -5,7 +5,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db
@@ -44,13 +44,13 @@ def get_resolution_statistics(
             Project.tenant_id == tenant_id
         )
 
-    # Filter by closed status and date range
+    # Filter by closed status and date range (case-insensitive)
     cutoff_date = datetime.utcnow() - timedelta(days=days)
     query = query.filter(
         or_(
-            ExternalIssue.status == "closed",
-            ExternalIssue.status == "resolved",
-            ExternalIssue.status == "done",
+            func.lower(ExternalIssue.status) == "closed",
+            func.lower(ExternalIssue.status) == "resolved",
+            func.lower(ExternalIssue.status) == "done",
         ),
         ExternalIssue.updated_at >= cutoff_date,
     )
@@ -146,20 +146,22 @@ def get_workflow_statistics(
         status = issue.status or "unknown"
         status_counts[status] += 1
 
-    # Open vs closed
-    open_statuses = {"open", "in_progress", "todo", "new", "reopened"}
+    # Open vs closed (case-insensitive matching)
+    open_statuses = {"open", "in_progress", "todo", "new", "reopened", "offen"}
     closed_statuses = {"closed", "resolved", "done"}
 
     open_count = sum(
-        count for status, count in status_counts.items() if status in open_statuses
+        count for status, count in status_counts.items()
+        if status.lower() in open_statuses
     )
     closed_count = sum(
-        count for status, count in status_counts.items() if status in closed_statuses
+        count for status, count in status_counts.items()
+        if status.lower() in closed_statuses
     )
     other_count = sum(
         count
         for status, count in status_counts.items()
-        if status not in open_statuses and status not in closed_statuses
+        if status.lower() not in open_statuses and status.lower() not in closed_statuses
     )
 
     return {

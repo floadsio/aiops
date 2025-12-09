@@ -51,16 +51,18 @@ def _issue_to_payload(base_url: str, issue: dict) -> IssuePayload:
     # Get rendered fields if available (contains HTML-rendered content)
     rendered_fields = issue.get("renderedFields")
 
+    assignee_display, assignee_account_id = _resolve_assignee(fields)
     return IssuePayload(
         external_id=str(key),
         title=str(fields.get("summary", "")),
         status=_resolve_status(fields),
-        assignee=_resolve_assignee(fields),
+        assignee=assignee_display,
         url=f"{base_url}/browse/{key}",
         labels=labels,
         external_updated_at=parse_datetime(fields.get("updated")),
         raw=issue,
         comments=_extract_comment_payloads(fields, rendered_fields),
+        assignee_username=assignee_account_id,  # Jira uses accountId for matching
     )
 
 
@@ -844,14 +846,21 @@ def assign_issue(
                 pass
 
 
-def _resolve_assignee(fields: dict) -> Optional[str]:
+def _resolve_assignee(fields: dict) -> tuple[Optional[str], Optional[str]]:
+    """Resolve assignee display name and account ID from Jira fields.
+
+    Returns:
+        Tuple of (display_name, account_id) where display_name is for UI
+        and account_id is for notification matching.
+    """
     from .utils import normalize_assignee_name
 
     assignee = fields.get("assignee")
     if isinstance(assignee, dict):
         value = assignee.get("displayName") or assignee.get("name")
-        return normalize_assignee_name(str(value) if value else None)
-    return None
+        account_id = assignee.get("accountId")
+        return normalize_assignee_name(str(value) if value else None), account_id
+    return None, None
 
 
 def _resolve_status(fields: dict) -> Optional[str]:

@@ -122,17 +122,19 @@ def fetch_issues(
             if description:
                 raw_payload = {**raw_payload, "description": description}
 
+        assignee_display, assignee_username = _resolve_assignee(issue)
         payloads.append(
             IssuePayload(
                 external_id=str(external_id),
                 title=getattr(issue, "title", "") or "",
                 status=getattr(issue, "state", None),
-                assignee=_resolve_assignee(issue),
+                assignee=assignee_display,
                 url=getattr(issue, "web_url", None),
                 labels=[str(label) for label in getattr(issue, "labels", [])],
                 external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
                 raw=raw_payload,
                 comments=_collect_issue_comments(issue),
+                assignee_username=assignee_username,
             )
         )
     return payloads
@@ -195,16 +197,18 @@ def create_issue(
     if not external_id:
         raise IssueSyncError("GitLab did not return an issue IID.")
 
+    assignee_display, assignee_username = _resolve_assignee(issue)
     return IssuePayload(
         external_id=str(external_id),
         title=getattr(issue, "title", "") or "",
         status=getattr(issue, "state", None),
-        assignee=_resolve_assignee(issue),
+        assignee=assignee_display,
         url=getattr(issue, "web_url", None),
         labels=[str(label) for label in getattr(issue, "labels", [])],
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.attributes if hasattr(issue, "attributes") else {},
         comments=_collect_issue_comments(issue),
+        assignee_username=assignee_username,
     )
 
 
@@ -243,16 +247,18 @@ def close_issue(
         raise IssueSyncError(error_msg) from exc
 
     external_id_value = getattr(issue, "iid", None) or identifier
+    assignee_display, assignee_username = _resolve_assignee(issue)
     return IssuePayload(
         external_id=str(external_id_value),
         title=getattr(issue, "title", "") or "",
         status=getattr(issue, "state", None),
-        assignee=_resolve_assignee(issue),
+        assignee=assignee_display,
         url=getattr(issue, "web_url", None),
         labels=[str(label) for label in getattr(issue, "labels", [])],
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.attributes if hasattr(issue, "attributes") else {},
         comments=_collect_issue_comments(issue),
+        assignee_username=assignee_username,
     )
 
 
@@ -327,16 +333,18 @@ def assign_issue(
         raise IssueSyncError(error_msg) from exc
 
     external_id_value = getattr(issue, "iid", None) or identifier
+    assignee_display, assignee_username = _resolve_assignee(issue)
     return IssuePayload(
         external_id=str(external_id_value),
         title=getattr(issue, "title", "") or "",
         status=getattr(issue, "state", None),
-        assignee=_resolve_assignee(issue),
+        assignee=assignee_display,
         url=getattr(issue, "web_url", None),
         labels=list(getattr(issue, "labels", None) or []),
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.asdict() if hasattr(issue, "asdict") else {},
         comments=_collect_issue_comments(issue),
+        assignee_username=assignee_username,
     )
 
 
@@ -475,16 +483,18 @@ def update_issue(
         raise IssueSyncError(error_msg) from exc
 
     external_id_value = getattr(issue, "iid", None) or identifier
+    assignee_display, assignee_username = _resolve_assignee(issue)
     return IssuePayload(
         external_id=str(external_id_value),
         title=getattr(issue, "title", "") or "",
         status=getattr(issue, "state", None),
-        assignee=_resolve_assignee(issue),
+        assignee=assignee_display,
         url=getattr(issue, "web_url", None),
         labels=[str(label) for label in getattr(issue, "labels", [])],
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.attributes if hasattr(issue, "attributes") else {},
         comments=_collect_issue_comments(issue),
+        assignee_username=assignee_username,
     )
 
 
@@ -538,16 +548,18 @@ def reopen_issue(
         raise IssueSyncError(error_msg) from exc
 
     external_id_value = getattr(issue, "iid", None) or identifier
+    assignee_display, assignee_username = _resolve_assignee(issue)
     return IssuePayload(
         external_id=str(external_id_value),
         title=getattr(issue, "title", "") or "",
         status=getattr(issue, "state", None),
-        assignee=_resolve_assignee(issue),
+        assignee=assignee_display,
         url=getattr(issue, "web_url", None),
         labels=[str(label) for label in getattr(issue, "labels", [])],
         external_updated_at=parse_datetime(getattr(issue, "updated_at", None)),
         raw=issue.attributes if hasattr(issue, "attributes") else {},
         comments=_collect_issue_comments(issue),
+        assignee_username=assignee_username,
     )
 
 
@@ -630,19 +642,27 @@ def update_comment(
         raise IssueSyncError(f"Invalid comment ID: {comment_id}") from exc
 
 
-def _resolve_assignee(issue_payload: Any) -> Optional[str]:
+def _resolve_assignee(issue_payload: Any) -> tuple[Optional[str], Optional[str]]:
+    """Resolve assignee display name and username from GitLab issue.
+
+    Returns:
+        Tuple of (display_name, username) where display_name is for UI
+        and username is the GitLab username for notification matching.
+    """
     from .utils import normalize_assignee_name
 
     assignee = getattr(issue_payload, "assignee", None)
     if isinstance(assignee, dict):
-        name = assignee.get("name") or assignee.get("username")
-        return normalize_assignee_name(str(name) if name else None)
+        username = assignee.get("username")
+        name = assignee.get("name") or username
+        return normalize_assignee_name(str(name) if name else None), username
     if isinstance(assignee, list) and assignee:
         primary = assignee[0]
         if isinstance(primary, dict):
-            name = primary.get("name") or primary.get("username")
-            return normalize_assignee_name(str(name) if name else None)
-    return None
+            username = primary.get("username")
+            name = primary.get("name") or username
+            return normalize_assignee_name(str(name) if name else None), username
+    return None, None
 
 
 def _collect_issue_comments(issue_payload: Any) -> List[IssueCommentPayload]:

@@ -262,28 +262,39 @@ def _issue_to_payload(issue: Any) -> IssuePayload:
         if body:
             raw_payload = {**raw_payload, "body": body}
 
+    assignee_display, assignee_username = _resolve_assignee(issue)
     return IssuePayload(
         external_id=str(number),
         title=issue.title or "",
         status=issue.state,
-        assignee=_resolve_assignee(issue),
+        assignee=assignee_display,
         url=issue.html_url,
         labels=labels,
         external_updated_at=updated_at,
         raw=raw_payload,
         comments=comments,
+        assignee_username=assignee_username,
     )
 
 
-def _resolve_assignee(issue: Any) -> Optional[str]:
+def _resolve_assignee(issue: Any) -> tuple[Optional[str], Optional[str]]:
+    """Resolve assignee display name and username from GitHub issue.
+
+    Returns:
+        Tuple of (display_name, username) where display_name is for UI
+        and username is the GitHub login for notification matching.
+    """
     from .utils import normalize_assignee_name
 
     assignee = getattr(issue, "assignee", None)
     if assignee is None:
-        return None
-    # Prefer name over login for better consistency with other providers
-    name = getattr(assignee, "name", None) or getattr(assignee, "login", None)
-    return normalize_assignee_name(str(name) if name else None)
+        return None, None
+    # Get both name (display) and login (username)
+    login = getattr(assignee, "login", None)
+    name = getattr(assignee, "name", None) or login
+    display_name = normalize_assignee_name(str(name) if name else None)
+    username = str(login) if login else None
+    return display_name, username
 
 
 def _collect_issue_comments(issue: Any) -> List[IssueCommentPayload]:

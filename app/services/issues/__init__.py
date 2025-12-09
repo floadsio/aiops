@@ -28,12 +28,13 @@ class IssuePayload:
     external_id: str
     title: str
     status: Optional[str]
-    assignee: Optional[str]
+    assignee: Optional[str]  # Display name for UI
     url: Optional[str]
     labels: List[str]
     external_updated_at: Optional[datetime]
     raw: Dict[str, Any]
     comments: List[IssueCommentPayload] = field(default_factory=list)
+    assignee_username: Optional[str] = None  # Username/login for notification matching
 
 
 @dataclass(slots=True)
@@ -264,10 +265,16 @@ def sync_project_integration(
 
         # Generate notifications for changes (after flush to ensure issue has ID)
         # Queue notification events for processing after commit
-        if not is_new_issue:
+        # Use assignee_username for notification matching (falls back to assignee if not set)
+        notification_username = payload.assignee_username or payload.assignee
+        if is_new_issue:
+            # New issue with assignee - notify the assignee
+            if notification_username:
+                _queue_assignee_notification(issue, notification_username)
+        else:
             # Assignee changed
-            if old_assignee != payload.assignee and payload.assignee:
-                _queue_assignee_notification(issue, payload.assignee)
+            if old_assignee != payload.assignee and notification_username:
+                _queue_assignee_notification(issue, notification_username)
             # Status changed
             if old_status and old_status != payload.status and payload.assignee:
                 _queue_status_notification(issue, old_status, payload.status)

@@ -1211,7 +1211,7 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
             </div>
             {% if comment %}
               <div class="pinned-comment-body">
-                {{ (comment.body or '')|render_issue_content|striptags|truncate(200) }}
+                {{ (comment.body or '')|truncate(200)|render_issue_content }}
               </div>
             {% else %}
               <div class="pinned-comment-body text-muted">
@@ -1283,8 +1283,17 @@ document.querySelectorAll('.tenant-group-header').forEach(header => {
   color: var(--pico-color);
   font-size: 0.9rem;
   line-height: 1.4;
-  white-space: pre-wrap;
   word-break: break-word;
+  overflow-wrap: break-word;
+}
+.pinned-comment-body p {
+  margin: 0.5rem 0;
+}
+.pinned-comment-body p:first-child {
+  margin-top: 0;
+}
+.pinned-comment-body p:last-child {
+  margin-bottom: 0;
 }
 .pinned-comment-note {
   background: rgba(88, 166, 255, 0.1);

@@ -710,6 +710,190 @@ class IssuePlan(BaseModel, TimestampMixin):
     created_by: Mapped[Optional["User"]] = relationship("User")
 
 
+class Notification(BaseModel):
+    """User notifications for events across all integrated platforms.
+
+    Notifications are generated for issue assignments, comments, mentions,
+    status changes, and system events (backups, sync errors, etc.).
+    """
+
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    notification_type: Mapped[str] = mapped_column(
+        String(64), nullable=False, index=True
+    )
+    title: Mapped[str] = mapped_column(String(512), nullable=False)
+    message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    resource_type: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    resource_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    resource_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    priority: Mapped[str] = mapped_column(
+        String(32), default="normal", nullable=False
+    )
+    metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, nullable=False, index=True
+    )
+    read_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship("User")
+
+    __table_args__ = (
+        db.Index("idx_notifications_user_unread", "user_id", "is_read", "created_at"),
+    )
+
+    def get_metadata(self) -> dict[str, Any]:
+        """Parse metadata JSON into a dictionary."""
+        import json
+
+        if self.metadata_json:
+            try:
+                return json.loads(self.metadata_json)
+            except json.JSONDecodeError:
+                return {}
+        return {}
+
+    def set_metadata(self, value: dict[str, Any]) -> None:
+        """Serialize metadata dictionary to JSON."""
+        import json
+
+        self.metadata_json = json.dumps(value) if value else None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert notification to dictionary for API responses."""
+        return {
+            "id": self.id,
+            "type": self.notification_type,
+            "title": self.title,
+            "message": self.message,
+            "priority": self.priority,
+            "is_read": self.is_read,
+            "resource_type": self.resource_type,
+            "resource_id": self.resource_id,
+            "resource_url": self.resource_url,
+            "metadata": self.get_metadata(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "read_at": self.read_at.isoformat() if self.read_at else None,
+        }
+
+
+class NotificationPreferences(BaseModel, TimestampMixin):
+    """User preferences for notification types and filtering.
+
+    Controls which notification types a user receives and allows
+    muting specific projects or integrations.
+    """
+
+    __tablename__ = "notification_preferences"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    enabled_types_json: Mapped[str] = mapped_column(
+        Text, default="[]", nullable=False
+    )
+    muted_projects_json: Mapped[str] = mapped_column(
+        Text, default="[]", nullable=False
+    )
+    muted_integrations_json: Mapped[str] = mapped_column(
+        Text, default="[]", nullable=False
+    )
+    email_notifications: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    email_frequency: Mapped[str] = mapped_column(
+        String(32), default="realtime", nullable=False
+    )
+
+    user: Mapped["User"] = relationship("User")
+
+    # Default notification types enabled for new users
+    DEFAULT_ENABLED_TYPES = [
+        "issue.assigned",
+        "issue.mentioned",
+        "issue.commented",
+        "issue.status_changed",
+        "system.backup_failed",
+        "system.integration_error",
+        "session.error",
+    ]
+
+    @property
+    def enabled_types(self) -> list[str]:
+        """Parse enabled types JSON into a list."""
+        import json
+
+        try:
+            return json.loads(self.enabled_types_json or "[]")
+        except json.JSONDecodeError:
+            return []
+
+    @enabled_types.setter
+    def enabled_types(self, value: list[str]) -> None:
+        """Serialize enabled types list to JSON."""
+        import json
+
+        self.enabled_types_json = json.dumps(value) if value else "[]"
+
+    @property
+    def muted_projects(self) -> list[int]:
+        """Parse muted projects JSON into a list."""
+        import json
+
+        try:
+            return json.loads(self.muted_projects_json or "[]")
+        except json.JSONDecodeError:
+            return []
+
+    @muted_projects.setter
+    def muted_projects(self, value: list[int]) -> None:
+        """Serialize muted projects list to JSON."""
+        import json
+
+        self.muted_projects_json = json.dumps(value) if value else "[]"
+
+    @property
+    def muted_integrations(self) -> list[int]:
+        """Parse muted integrations JSON into a list."""
+        import json
+
+        try:
+            return json.loads(self.muted_integrations_json or "[]")
+        except json.JSONDecodeError:
+            return []
+
+    @muted_integrations.setter
+    def muted_integrations(self, value: list[int]) -> None:
+        """Serialize muted integrations list to JSON."""
+        import json
+
+        self.muted_integrations_json = json.dumps(value) if value else "[]"
+
+    @classmethod
+    def create_default(cls, user_id: int) -> "NotificationPreferences":
+        """Create default notification preferences for a user."""
+        prefs = cls(user_id=user_id)
+        prefs.enabled_types = cls.DEFAULT_ENABLED_TYPES
+        return prefs
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert preferences to dictionary for API responses."""
+        return {
+            "enabled_types": self.enabled_types,
+            "muted_projects": self.muted_projects,
+            "muted_integrations": self.muted_integrations,
+            "email_notifications": self.email_notifications,
+            "email_frequency": self.email_frequency,
+        }
+
+
 @login_manager.user_loader
 def load_user(user_id: str) -> Optional[LoginUser]:
     user = User.query.get(int(user_id))

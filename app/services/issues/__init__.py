@@ -230,6 +230,10 @@ def sync_project_integration(
             continue
 
         issue = existing_issues.get(payload.external_id)
+        is_new_issue = issue is None
+        old_assignee = None
+        old_status = None
+
         if issue is None:
             issue = ExternalIssue(
                 project_integration_id=project_integration.id,
@@ -237,11 +241,15 @@ def sync_project_integration(
             )
             db.session.add(issue)
             existing_issues[payload.external_id] = issue
-        elif issue.manually_assigned:
-            # Don't update issues that are manually assigned to this project
-            # (they should stay here but we might still want to update their data)
-            # For now, we DO update the data but preserve the assignment
-            pass
+        else:
+            # Track changes for notifications
+            old_assignee = issue.assignee
+            old_status = issue.status
+            if issue.manually_assigned:
+                # Don't update issues that are manually assigned to this project
+                # (they should stay here but we might still want to update their data)
+                # For now, we DO update the data but preserve the assignment
+                pass
 
         issue.title = payload.title
         issue.status = payload.status
@@ -254,9 +262,67 @@ def sync_project_integration(
         issue.comments = serialize_issue_comments(payload.comments)
         updated_issues.append(issue)
 
+        # Generate notifications for changes (after flush to ensure issue has ID)
+        # Queue notification events for processing after commit
+        if not is_new_issue:
+            # Assignee changed
+            if old_assignee != payload.assignee and payload.assignee:
+                _queue_assignee_notification(issue, payload.assignee)
+            # Status changed
+            if old_status and old_status != payload.status and payload.assignee:
+                _queue_status_notification(issue, old_status, payload.status)
+
     project_integration.last_synced_at = now  # type: ignore[assignment]
     db.session.flush()
+
+    # Process queued notifications after flush
+    _process_notification_queue()
+
     return updated_issues
+
+
+# Notification queue for batch processing
+_notification_queue: List[tuple] = []
+
+
+def _queue_assignee_notification(issue: ExternalIssue, assignee: str) -> None:
+    """Queue an assignee notification for later processing."""
+    _notification_queue.append(("assignee", issue, assignee))
+
+
+def _queue_status_notification(
+    issue: ExternalIssue, old_status: str, new_status: str
+) -> None:
+    """Queue a status change notification for later processing."""
+    _notification_queue.append(("status", issue, old_status, new_status))
+
+
+def _process_notification_queue() -> None:
+    """Process all queued notifications."""
+    global _notification_queue
+    if not _notification_queue:
+        return
+
+    try:
+        from ..notification_generator import (
+            notify_issue_assigned,
+            notify_issue_status_changed,
+        )
+
+        for item in _notification_queue:
+            try:
+                if item[0] == "assignee":
+                    _, issue, assignee = item
+                    notify_issue_assigned(issue, assignee)
+                elif item[0] == "status":
+                    _, issue, old_status, new_status = item
+                    notify_issue_status_changed(issue, old_status, new_status)
+            except Exception as exc:  # noqa: BLE001
+                current_app.logger.warning(
+                    "Failed to generate notification: %s", exc
+                )
+    finally:
+        _notification_queue = []
 
 
 def close_issue_for_project_integration(

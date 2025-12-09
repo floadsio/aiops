@@ -17,6 +17,7 @@ from . import (  # noqa: E402, F401
     git,
     issues,
     jira_proxy,
+    notifications,
     projects,
     sessions,
     system,

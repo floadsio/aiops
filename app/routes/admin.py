@@ -5303,3 +5303,74 @@ def view_statistics():
         selected_project_id=project_id,
         selected_days=days,
     )
+
+
+@admin_bp.route("/notifications/settings", methods=["GET", "POST"])
+@login_required
+def notification_settings():
+    """Notification settings page for the current user."""
+    from ..services.notification_service import (
+        NotificationType,
+        get_or_create_preferences,
+        update_preferences,
+    )
+    from ..models import Project, TenantIntegration
+
+    user = current_user._get_current_object()
+    prefs = get_or_create_preferences(user.id)
+
+    if request.method == "POST":
+        # Get form data
+        enabled_types = request.form.getlist("enabled_types")
+        muted_projects = [
+            int(p) for p in request.form.getlist("muted_projects") if p
+        ]
+        muted_integrations = [
+            int(i) for i in request.form.getlist("muted_integrations") if i
+        ]
+
+        # Update preferences
+        update_preferences(
+            user_id=user.id,
+            enabled_types=enabled_types,
+            muted_projects=muted_projects,
+            muted_integrations=muted_integrations,
+        )
+
+        flash("Notification settings updated.", "success")
+        return redirect(url_for("admin.notification_settings"))
+
+    # Get all projects and integrations for mute options
+    projects = Project.query.order_by(Project.name).all()
+    integrations = TenantIntegration.query.order_by(TenantIntegration.name).all()
+
+    # Group notification types
+    notification_types = {
+        "Issue Events": [
+            ("issue.assigned", "Issue assigned to you"),
+            ("issue.mentioned", "You were mentioned"),
+            ("issue.commented", "New comment on your issues"),
+            ("issue.status_changed", "Issue status changed"),
+            ("issue.created", "New issue created (can be noisy)"),
+        ],
+        "Project Events": [
+            ("project.sync_error", "Issue sync failed"),
+        ],
+        "System Events (Admin only)": [
+            ("system.backup_completed", "Backup completed"),
+            ("system.backup_failed", "Backup failed"),
+            ("system.integration_error", "Integration error"),
+        ],
+        "AI Session Events": [
+            ("session.completed", "Session completed"),
+            ("session.error", "Session error"),
+        ],
+    }
+
+    return render_template(
+        "admin/notification_settings.html",
+        prefs=prefs,
+        notification_types=notification_types,
+        projects=projects,
+        integrations=integrations,
+    )

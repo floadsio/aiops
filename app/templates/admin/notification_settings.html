@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Notification Settings | aiops Control Panel{% endblock %}
+{% block extra_head %}
+<style>
+  .notification-settings {
+    max-width: 800px;
+  }
+  .settings-section {
+    background: var(--pico-card-background-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--md-border);
+  }
+  .settings-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+  .notification-type-group {
+    margin-bottom: 1.5rem;
+  }
+  .notification-type-group:last-child {
+    margin-bottom: 0;
+  }
+  .notification-type-group h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--pico-muted-color);
+    margin: 0 0 0.75rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .notification-type-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .notification-type-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0;
+  }
+  .notification-type-item input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .notification-type-item label {
+    margin: 0;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .mute-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 768px) {
+    .mute-section {
+      grid-template-columns: 1fr;
+    }
+  }
+  .mute-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: var(--md-surface-hover);
+    border-radius: 8px;
+  }
+  .mute-list label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .mute-list input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+  }
+  .save-btn {
+    margin-top: 1rem;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    color: var(--pico-muted-color);
+    text-decoration: none;
+    font-size: 0.9rem;
+  }
+  .back-link:hover {
+    color: var(--pico-primary);
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="notification-settings">
+  <a href="{{ url_for('admin.dashboard') }}" class="back-link">← Back to Dashboard</a>
+
+  <h1>Notification Settings</h1>
+  <p style="color: var(--pico-muted-color); margin-bottom: 1.5rem;">
+    Configure which notifications you receive and mute specific projects or integrations.
+  </p>
+
+  <form method="post">
+    {{ csrf_token() }}
+
+    <div class="settings-section">
+      <h3>Notification Types</h3>
+      <p style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 1rem;">
+        Select which types of notifications you want to receive.
+      </p>
+
+      {% for group_name, types in notification_types.items() %}
+      <div class="notification-type-group">
+        <h4>{{ group_name }}</h4>
+        <div class="notification-type-list">
+          {% for type_key, type_label in types %}
+          <div class="notification-type-item">
+            <input type="checkbox"
+                   id="type_{{ type_key|replace('.', '_') }}"
+                   name="enabled_types"
+                   value="{{ type_key }}"
+                   {% if type_key in prefs.enabled_types %}checked{% endif %}>
+            <label for="type_{{ type_key|replace('.', '_') }}">{{ type_label }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="settings-section">
+      <h3>Mute Projects & Integrations</h3>
+      <p style="font-size: 0.85rem; color: var(--pico-muted-color); margin-bottom: 1rem;">
+        Mute notifications from specific projects or integrations.
+      </p>
+
+      <div class="mute-section">
+        <div>
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Muted Projects</h4>
+          {% if projects %}
+          <div class="mute-list">
+            {% for project in projects %}
+            <label>
+              <input type="checkbox"
+                     name="muted_projects"
+                     value="{{ project.id }}"
+                     {% if project.id in prefs.muted_projects %}checked{% endif %}>
+              {{ project.name }}
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p style="font-size: 0.85rem; color: var(--pico-muted-color);">No projects available.</p>
+          {% endif %}
+        </div>
+
+        <div>
+          <h4 style="font-size: 0.9rem; margin-bottom: 0.5rem;">Muted Integrations</h4>
+          {% if integrations %}
+          <div class="mute-list">
+            {% for integration in integrations %}
+            <label>
+              <input type="checkbox"
+                     name="muted_integrations"
+                     value="{{ integration.id }}"
+                     {% if integration.id in prefs.muted_integrations %}checked{% endif %}>
+              {{ integration.name }} ({{ integration.provider }})
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p style="font-size: 0.85rem; color: var(--pico-muted-color);">No integrations available.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <button type="submit" class="save-btn">Save Settings</button>
+  </form>
+</div>
+{% endblock %}

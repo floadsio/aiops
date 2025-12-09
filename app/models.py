@@ -818,14 +818,22 @@ class NotificationPreferences(BaseModel, TimestampMixin):
 
     user: Mapped["User"] = relationship("User")
 
-    # Default notification types enabled for new users
+    # Default notification types enabled for new users (all enabled by default)
     DEFAULT_ENABLED_TYPES = [
+        # Issue events
         "issue.assigned",
         "issue.mentioned",
         "issue.commented",
         "issue.status_changed",
+        "issue.created",
+        # Project events
+        "project.sync_error",
+        # System events (admin only)
+        "system.backup_completed",
         "system.backup_failed",
         "system.integration_error",
+        # AI Session events
+        "session.completed",
         "session.error",
     ]
 

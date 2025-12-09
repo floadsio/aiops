@@ -112,7 +112,7 @@
   </p>
 
   <form method="post">
-    {{ csrf_token() }}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
     <div class="settings-section">
       <h3>Notification Types</h3>

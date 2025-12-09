@@ -82,7 +82,7 @@ def notify_issue_assigned(issue: ExternalIssue, assignee_username: str) -> bool:
         message=issue.title,
         resource_type="issue",
         resource_id=issue.id,
-        resource_url=f"/admin/issues?highlight={issue.id}",
+        resource_url=f"/admin/issues?status=all&highlight={issue.id}",
         priority=NotificationPriority.NORMAL,
         metadata={
             "project_id": project.id if project else None,
@@ -158,7 +158,7 @@ def notify_issue_commented(
                 message=_truncate_message(comment_body, 200),
                 resource_type="issue",
                 resource_id=issue.id,
-                resource_url=f"/admin/issues?highlight={issue.id}",
+                resource_url=f"/admin/issues?status=all&highlight={issue.id}",
                 metadata=base_metadata,
             )
             if notification:
@@ -175,7 +175,7 @@ def notify_issue_commented(
                 message=_truncate_message(comment_body, 200),
                 resource_type="issue",
                 resource_id=issue.id,
-                resource_url=f"/admin/issues?highlight={issue.id}",
+                resource_url=f"/admin/issues?status=all&highlight={issue.id}",
                 priority=NotificationPriority.HIGH,
                 metadata=base_metadata,
             )
@@ -227,7 +227,7 @@ def notify_issue_status_changed(
         message=f"{old_status} → {new_status}",
         resource_type="issue",
         resource_id=issue.id,
-        resource_url=f"/admin/issues?highlight={issue.id}",
+        resource_url=f"/admin/issues?status=all&highlight={issue.id}",
         metadata={
             "project_id": project.id if project else None,
             "project_name": project_name,

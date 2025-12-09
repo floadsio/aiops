@@ -134,20 +134,39 @@ def _get_issue_body(issue: ExternalIssue) -> tuple[str, str]:
         from app.template_utils import sanitize_html
         rendered_body = sanitize_html(body_html)
 
-        # Convert relative Jira attachment URLs to absolute URLs
+        # Convert relative Jira attachment URLs to use our proxy
         # Jira provides relative URLs like /rest/api/3/attachment/content/12345
+        # We proxy them to avoid CORS and authentication issues
         integration = issue.project_integration.integration
         if integration and integration.provider.lower() == "jira":
-            base_url = integration.base_url
-            if base_url:
-                # Replace relative URLs with absolute ones
-                rendered_body_str = str(rendered_body)
-                rendered_body_str = rendered_body_str.replace(
-                    'src="/rest/api/',
-                    f'src="{base_url}/rest/api/'
-                )
-                from markupsafe import Markup
-                rendered_body = Markup(rendered_body_str)
+            # Replace Jira URLs with our proxy endpoint
+            rendered_body_str = str(rendered_body)
+            # Match: src="/rest/api/... or src="https://jira.../rest/api/...
+            import re
+            def replace_jira_url(match):
+                url = match.group(1)
+                # Extract the path part (everything after the domain if present)
+                if url.startswith('http'):
+                    # Extract path from absolute URL
+                    path_match = re.search(r'(\/rest\/api\/.+)', url)
+                    if path_match:
+                        path = path_match.group(1)
+                    else:
+                        return match.group(0)  # Keep original if can't parse
+                else:
+                    # Already a relative path
+                    path = url
+                # Build proxy URL
+                proxy_url = f"/api/v1/jira/attachment/{integration.id}{path}"
+                return f'src="{proxy_url}"'
+
+            rendered_body_str = re.sub(
+                r'src="([^"]*\/rest\/api\/[^"]+)"',
+                replace_jira_url,
+                rendered_body_str
+            )
+            from markupsafe import Markup
+            rendered_body = Markup(rendered_body_str)
     else:
         # Render the body content (handles markdown for GitHub/GitLab, Jira syntax, HTML, etc.)
         rendered_body = render_issue_rich_text(body)
@@ -179,12 +198,27 @@ def _comment_to_dict(
         rendered_body = render_issue_rich_text(body)
         body_html = str(rendered_body)
     elif integration and integration.provider.lower() == "jira":
-        # Convert relative Jira attachment URLs to absolute URLs
-        base_url = integration.base_url
-        if base_url and 'src="/rest/api/' in body_html:
-            body_html = body_html.replace(
-                'src="/rest/api/',
-                f'src="{base_url}/rest/api/'
+        # Convert Jira attachment URLs to use our proxy
+        if 'src="/rest/api/' in body_html or '/rest/api/' in body_html:
+            import re
+            def replace_jira_url(match):
+                url = match.group(1)
+                # Extract the path part
+                if url.startswith('http'):
+                    path_match = re.search(r'(\/rest\/api\/.+)', url)
+                    if path_match:
+                        path = path_match.group(1)
+                    else:
+                        return match.group(0)
+                else:
+                    path = url
+                proxy_url = f"/api/v1/jira/attachment/{integration.id}{path}"
+                return f'src="{proxy_url}"'
+
+            body_html = re.sub(
+                r'src="([^"]*\/rest\/api\/[^"]+)"',
+                replace_jira_url,
+                body_html
             )
 
     return {

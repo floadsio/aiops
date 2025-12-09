@@ -9,6 +9,7 @@ from flask import current_app
 
 from ..extensions import db
 from ..models import Backup
+from .notification_generator import notify_backup_completed, notify_backup_failed
 
 
 class BackupError(Exception):
@@ -70,11 +71,16 @@ def create_backup(description: Optional[str] = None, user_id: Optional[int] = No
         db.session.add(backup)
         db.session.commit()
 
+        # Notify admins about successful backup
+        notify_backup_completed(backup.id, description or backup_filename)
+
         return backup
     except Exception as e:
         if backup_path.exists():
             os.remove(backup_path)
         db.session.rollback()
+        # Notify admins about failed backup
+        notify_backup_failed(str(e))
         raise BackupError(f"Failed to create backup: {e}")
 
 

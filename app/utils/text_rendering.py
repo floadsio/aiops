@@ -136,16 +136,16 @@ def _is_broken_image_url(url: str) -> bool:
 
     Broken image patterns:
     - /uploads/ paths (common for broken attachment references)
-    - /rest/api/3/attachment/content/ (Jira API paths that often fail)
     - empty or very short paths
+
+    Note: We allow Jira attachment URLs (/rest/api/*/attachment/content/*)
+    as they are valid when users are authenticated to Jira.
     """
     if not url or len(url) < 5:
         return True
     url_lower = url.lower()
     broken_patterns = [
-        '/uploads/',  # Local upload paths that often break
-        '/rest/api/',  # REST API paths that frequently fail
-        'attachment/content/',  # Jira attachment content paths
+        '/uploads/',  # Local upload paths that often break (GitLab, GitHub)
     ]
     return any(pattern in url_lower for pattern in broken_patterns)
 
@@ -351,6 +351,7 @@ def _convert_jira_markup_to_html(text: str) -> str:
     - Blockquotes: bq. text
     - Horizontal rules: ----
     - Lists: * and #
+    - Images: !filename.ext|width=X,height=Y,alt="text"!
     """
     html = text
 
@@ -380,6 +381,45 @@ def _convert_jira_markup_to_html(text: str) -> str:
         save_code_block,
         html,
     )
+
+    # Images: !image.png|params! -> <img src="image.png" ... />
+    # Jira image syntax: !filename.ext|width=X,height=Y,alt="text"!
+    def convert_jira_image(match: re.Match) -> str:
+        image_content = match.group(1)
+        parts = image_content.split("|", 1)
+        filename = parts[0].strip()
+
+        # Parse parameters if present
+        width = None
+        height = None
+        alt = filename
+
+        if len(parts) > 1:
+            params = parts[1]
+            # Extract width
+            width_match = re.search(r'width=(\d+)', params)
+            if width_match:
+                width = width_match.group(1)
+            # Extract height
+            height_match = re.search(r'height=(\d+)', params)
+            if height_match:
+                height = height_match.group(1)
+            # Extract alt text
+            alt_match = re.search(r'alt="([^"]+)"', params)
+            if alt_match:
+                alt = alt_match.group(1)
+
+        # Build img tag
+        attrs = [f'src="{escape(filename)}"', f'alt="{escape(alt)}"']
+        if width:
+            attrs.append(f'width="{width}"')
+        if height:
+            attrs.append(f'height="{height}"')
+        attrs.append('style="max-width: 100%; height: auto;"')
+
+        return f'<img {" ".join(attrs)} />'
+
+    html = re.sub(r"!([^!]+)!", convert_jira_image, html)
 
     # Headers: h1. Header Text -> <h1>Header Text</h1>
     for level in range(1, 7):

@@ -37,17 +37,18 @@ def test_render_issue_rich_text_strips_broken_images():
     assert 'Text before' in result
     assert 'text after' in result
 
-    # Test /rest/api/ pattern in proper HTML context
+    # Test Jira attachment URLs - should be ALLOWED (changed behavior)
+    # Jira attachments require authentication but are valid images
     html = '<p>See attachment: <img src="/rest/api/3/attachment/content/12345" alt="attachment"></p>'
     result = str(render_issue_rich_text(html))
-    assert '/rest/api/' not in result
-    assert '<img' not in result
+    assert '/rest/api/' in result  # Changed: Now we ALLOW Jira attachment URLs
+    assert '<img' in result  # Changed: Image should be preserved
     assert 'See attachment:' in result
 
-    # Test mixed content with valid and broken images
+    # Test mixed content with broken and valid images
     html = '<p><img src="/uploads/broken.png">Valid: <img src="https://example.com/valid.png"></p>'
     result = str(render_issue_rich_text(html))
     assert '/uploads/' not in result
     assert 'https://example.com/valid.png' in result
-    # Should have exactly one img tag (the valid one)
+    # Should have exactly one img tag (the valid one, broken one stripped)
     assert result.count('<img') == 1

@@ -4,10 +4,10 @@ Proxies Jira attachment images to avoid CORS and authentication issues.
 """
 
 import requests
-from flask import current_app, request, Response
+from flask import current_app, Response
 
-from app.auth import require_api_auth
-from app.models import TenantIntegration
+from ...models import TenantIntegration
+from ...services.api_auth import require_api_auth
 from . import api_v1_bp
 
 

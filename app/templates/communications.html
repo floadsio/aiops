@@ -14,7 +14,7 @@
     }
     .communications-filters {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 0.75rem;
       margin-bottom: 1.5rem;
     }
@@ -1262,6 +1262,10 @@
       <option value="">All Issues</option>
     </select>
 
+    <select id="authorFilter" aria-label="Filter by author">
+      <option value="">All People</option>
+    </select>
+
     <input
       type="text"
       id="searchInput"
@@ -1300,6 +1304,7 @@ let totalCount = 0;
 let allTenants = [];
 let allProjects = [];
 let availableProviders = new Set();
+let availableAuthors = new Map(); // Map of author name -> display info
 let deepLinkHandled = false;
 
 // Handle deep link to specific issue/comment (from pinned comments)
@@ -1612,8 +1617,40 @@ async function loadThreads(reset = true) {
       }
     });
 
-    // Update provider dropdown based on available providers
+    // Extract available authors from current threads (before filtering)
+    availableAuthors.clear();
+    threads.forEach(t => {
+      // Add issue assignee
+      if (t.issue_assignee) {
+        const key = t.issue_assignee.toLowerCase();
+        if (!availableAuthors.has(key)) {
+          availableAuthors.set(key, {
+            displayName: t.issue_assignee,
+            remoteName: null
+          });
+        }
+      }
+      // Add comment authors
+      if (t.comments) {
+        t.comments.forEach(c => {
+          if (c.author) {
+            const displayName = c.author.display_name || c.author.remote_name;
+            const remoteName = c.author.remote_name;
+            const key = (displayName || '').toLowerCase();
+            if (key && !availableAuthors.has(key)) {
+              availableAuthors.set(key, {
+                displayName: displayName,
+                remoteName: remoteName
+              });
+            }
+          }
+        });
+      }
+    });
+
+    // Update dropdowns based on available options
     updateProvidersDropdown();
+    updateAuthorsDropdown();
 
     // Client-side provider filter
     const providerFilter = document.getElementById('providerFilter').value;
@@ -1632,6 +1669,27 @@ async function loadThreads(reset = true) {
           return statusKey === 'closed';
         }
         return true;
+      });
+    }
+
+    // Client-side author filter
+    const authorFilter = document.getElementById('authorFilter').value.toLowerCase();
+    if (authorFilter) {
+      threads = threads.filter(t => {
+        // Check if issue assignee matches
+        if (t.issue_assignee && t.issue_assignee.toLowerCase() === authorFilter) {
+          return true;
+        }
+        // Check if any comment author matches
+        if (t.comments) {
+          return t.comments.some(c => {
+            if (!c.author) return false;
+            const displayName = (c.author.display_name || '').toLowerCase();
+            const remoteName = (c.author.remote_name || '').toLowerCase();
+            return displayName === authorFilter || remoteName === authorFilter;
+          });
+        }
+        return false;
       });
     }
 
@@ -1689,6 +1747,41 @@ function updatePagination(pagination) {
       loadThreads(false);
     };
     container.appendChild(button);
+  }
+}
+
+// Update authors dropdown based on available authors
+function updateAuthorsDropdown() {
+  const authorSelect = document.getElementById('authorFilter');
+  const currentValue = authorSelect.value;
+
+  // Rebuild dropdown with available authors
+  authorSelect.innerHTML = '<option value="">All People</option>';
+
+  if (availableAuthors.size === 0) {
+    authorSelect.disabled = true;
+  } else {
+    authorSelect.disabled = false;
+
+    // Sort authors alphabetically by display name
+    const sortedAuthors = Array.from(availableAuthors.entries()).sort((a, b) =>
+      a[1].displayName.localeCompare(b[1].displayName)
+    );
+
+    sortedAuthors.forEach(([key, author]) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.textContent = author.displayName;
+      if (author.remoteName && author.remoteName !== author.displayName) {
+        option.textContent += ` (${author.remoteName})`;
+      }
+      authorSelect.appendChild(option);
+    });
+  }
+
+  // Restore selection if still available
+  if (currentValue && availableAuthors.has(currentValue)) {
+    authorSelect.value = currentValue;
   }
 }
 
@@ -2026,6 +2119,11 @@ document.getElementById('statusFilter').addEventListener('change', () => {
   updateClearButton();
 });
 
+document.getElementById('authorFilter').addEventListener('change', () => {
+  loadThreads(true);
+  updateClearButton();
+});
+
 document.getElementById('searchInput').addEventListener('input', () => {
   loadThreads(true);
   updateClearButton();
@@ -2036,6 +2134,7 @@ document.getElementById('clearFilters').addEventListener('click', () => {
   document.getElementById('projectFilter').value = '';
   document.getElementById('providerFilter').value = '';
   document.getElementById('statusFilter').value = 'open'; // Reset to default: open issues only
+  document.getElementById('authorFilter').value = '';
   document.getElementById('searchInput').value = '';
   loadThreads(true);
   updateClearButton();
@@ -2047,6 +2146,7 @@ function updateClearButton() {
     document.getElementById('projectFilter').value ||
     document.getElementById('providerFilter').value ||
     document.getElementById('statusFilter').value !== 'open' || // Only count as filter if not default
+    document.getElementById('authorFilter').value ||
     document.getElementById('searchInput').value;
 
   document.getElementById('clearFilters').style.display = hasFilters ? 'block' : 'none';

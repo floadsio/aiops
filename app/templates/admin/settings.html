@@ -277,6 +277,7 @@
 <nav class="settings-nav">
   <ul>
     <li><a href="#system-operations">🔧 System</a></li>
+    <li><a href="#backups">💾 Backups</a></li>
     <li><a href="#session-maintenance">🧹 Sessions</a></li>
     <li><a href="#ai-tools">🤖 AI Tools</a></li>
     <li><a href="#user-management">👥 Users</a></li>
@@ -379,7 +380,7 @@
   </article>
     </div>
 
-    <div class="settings-grid">
+    <div class="settings-grid" id="backups">
   <article class="settings-card settings-card-full">
     <h3>Database Backups</h3>
     <p>Create, restore, and manage database backups. Backups include the full SQLite database with all settings and data.</p>
@@ -1386,7 +1387,7 @@ curl -H "X-API-Key: aiops_your_key_here" http://localhost:5000/api/v1/issues</co
 
     // Scroll to section based on tab
     if (tab === 'backups') {
-      const section = document.getElementById('system-operations');
+      const section = document.getElementById('backups');
       if (section) {
         section.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }

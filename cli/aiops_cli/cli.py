@@ -3469,6 +3469,35 @@ def backup_restore(ctx: click.Context, backup_id: int, yes: bool) -> None:
         sys.exit(1)
 
 
+@system_backup.command(name="delete")
+@click.argument("backup_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation prompt")
+@click.pass_context
+def backup_delete(ctx: click.Context, backup_id: int, yes: bool) -> None:
+    """Delete a backup.
+
+    BACKUP_ID is the database ID of the backup (from 'aiops system backup list').
+
+    Example:
+        aiops system backup delete 5
+        aiops system backup delete 5 --yes
+    """
+    if not yes:
+        click.confirm(f"Are you sure you want to delete backup {backup_id}?", abort=True)
+
+    client = get_client(ctx)
+
+    try:
+        console.print(f"[yellow]Deleting backup {backup_id}...[/yellow]")
+        result = client.delete_backup(backup_id)
+
+        console.print(f"[green]✓[/green] {result.get('message', 'Backup deleted')}")
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 # ============================================================================
 # AGENTS COMMANDS
 # ============================================================================

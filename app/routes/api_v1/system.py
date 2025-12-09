@@ -649,6 +649,48 @@ def restore_system_backup(backup_id: int):
         return jsonify({"error": str(exc)}), 500
 
 
+@api_v1_bp.delete("/system/backups/<int:backup_id>")
+@require_api_auth(scopes=["admin"])
+@audit_api_request
+def delete_system_backup(backup_id: int):
+    """Delete a backup.
+
+    Args:
+        backup_id: ID of the backup to delete
+
+    Returns:
+        200: Backup deleted successfully
+        404: Backup not found
+        500: Delete failed
+    """
+    import os
+    from ...extensions import db
+
+    try:
+        backup = get_backup(backup_id)
+        filename = backup.filename
+
+        # Delete the backup file
+        if os.path.exists(backup.filepath):
+            os.remove(backup.filepath)
+
+        # Delete the database record
+        db.session.delete(backup)
+        db.session.commit()
+
+        return jsonify({
+            "message": f"Backup {filename} deleted successfully",
+            "backup_id": backup_id,
+        })
+    except BackupError as exc:
+        current_app.logger.error(f"Backup delete failed: {exc}")
+        return jsonify({"error": str(exc)}), 404
+    except Exception as exc:
+        current_app.logger.error(f"Backup delete failed: {exc}")
+        db.session.rollback()
+        return jsonify({"error": str(exc)}), 500
+
+
 # ============================================================================
 # SSH KEYS API ENDPOINTS
 # ============================================================================

@@ -907,6 +907,17 @@ class APIClient:
         """
         return self.post(f"system/backups/{backup_id}/restore")
 
+    def delete_backup(self, backup_id: int) -> dict[str, Any]:
+        """Delete a backup.
+
+        Args:
+            backup_id: Database ID of the backup to delete
+
+        Returns:
+            Delete result message
+        """
+        return self.delete(f"system/backups/{backup_id}")
+
     # ============================================================================
     # AGENTS METHODS
     # ============================================================================

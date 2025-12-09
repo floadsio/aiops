@@ -140,28 +140,34 @@ def get_workflow_statistics(
 
     all_issues = query.all()
 
-    # Status distribution
+    # Normalize statuses for display
+    # Done/Resolved/closed -> Closed, Offen -> In Progress
+    status_normalization = {
+        "done": "Closed",
+        "resolved": "Closed",
+        "closed": "Closed",
+        "offen": "In Progress",
+        "in_progress": "In Progress",
+        "open": "Open",
+        "todo": "Open",
+        "new": "Open",
+        "reopened": "Open",
+    }
+
+    # Status distribution with normalized names
     status_counts: dict[str, int] = defaultdict(int)
     for issue in all_issues:
         status = issue.status or "unknown"
-        status_counts[status] += 1
+        # Normalize the status for display
+        normalized = status_normalization.get(status.lower(), status)
+        status_counts[normalized] += 1
 
-    # Open vs closed (case-insensitive matching)
-    open_statuses = {"open", "in_progress", "todo", "new", "reopened", "offen"}
-    closed_statuses = {"closed", "resolved", "done"}
-
-    open_count = sum(
-        count for status, count in status_counts.items()
-        if status.lower() in open_statuses
-    )
-    closed_count = sum(
-        count for status, count in status_counts.items()
-        if status.lower() in closed_statuses
-    )
+    # Open vs closed counts
+    open_count = status_counts.get("Open", 0) + status_counts.get("In Progress", 0)
+    closed_count = status_counts.get("Closed", 0)
     other_count = sum(
-        count
-        for status, count in status_counts.items()
-        if status.lower() not in open_statuses and status.lower() not in closed_statuses
+        count for status, count in status_counts.items()
+        if status not in ("Open", "In Progress", "Closed")
     )
 
     return {

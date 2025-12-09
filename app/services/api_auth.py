@@ -119,6 +119,7 @@ def require_api_auth(scopes: Optional[list[str]] = None):
             # Store user and api_key in g for access in the route
             g.api_user = user
             g.api_key = api_key
+            g.current_user = user  # Also set current_user for consistency
 
             # Check scopes if API key auth was used
             if api_key and scopes:

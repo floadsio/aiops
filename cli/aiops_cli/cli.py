@@ -5052,6 +5052,8 @@ def semaphore_template_get(
 @click.option("--description", "-d", help="Template description")
 @click.option("--arg", multiple=True, help="Extra CLI argument (can be repeated)")
 @click.option("--limit", "-l", help="Host limitation pattern (e.g., 'webservers')")
+@click.option("--tags", "-t", help="Ansible tags to run (comma-separated)")
+@click.option("--skip-tags", help="Ansible tags to skip (comma-separated)")
 @click.option("--allow-override-args", is_flag=True, help="Allow arg override per task")
 @click.option("--suppress-alerts", is_flag=True, help="Disable success notifications")
 @click.option("--autorun", is_flag=True, help="Enable automatic execution")
@@ -5073,6 +5075,8 @@ def semaphore_template_create(
     description: Optional[str],
     arg: tuple,
     limit: Optional[str],
+    tags: Optional[str],
+    skip_tags: Optional[str],
     allow_override_args: bool,
     suppress_alerts: bool,
     autorun: bool,
@@ -5097,6 +5101,7 @@ def semaphore_template_create(
             --repository 1 \\
             --environment 1 \\
             --limit "webservers" \\
+            --tags "deploy,config" \\
             --branch "main"
     """
     client = get_client(ctx)
@@ -5121,6 +5126,10 @@ def semaphore_template_create(
             payload["arguments"] = list(arg)
         if limit:
             payload["limit"] = limit
+        if tags:
+            payload["tags"] = tags
+        if skip_tags:
+            payload["skip_tags"] = skip_tags
         if allow_override_args:
             payload["allow_override_args"] = True
         if suppress_alerts:
@@ -5159,6 +5168,8 @@ def semaphore_template_create(
 )
 @click.option("--description", "-d", help="New template description")
 @click.option("--limit", "-l", help="Host limitation pattern (e.g., 'webservers')")
+@click.option("--tags", "-t", help="Ansible tags to run (comma-separated)")
+@click.option("--skip-tags", help="Ansible tags to skip (comma-separated)")
 @click.option(
     "--allow-override-args/--no-allow-override-args", default=None, help="Allow arg override"
 )
@@ -5184,6 +5195,8 @@ def semaphore_template_update(
     app: Optional[str],
     description: Optional[str],
     limit: Optional[str],
+    tags: Optional[str],
+    skip_tags: Optional[str],
     allow_override_args: Optional[bool],
     suppress_alerts: Optional[bool],
     autorun: Optional[bool],
@@ -5196,7 +5209,7 @@ def semaphore_template_update(
     Examples:
         aiops semaphore template update aiops 1 --name "New Name"
         aiops semaphore template update aiops 1 --playbook "ansible/new.yml"
-        aiops semaphore template update aiops 1 --limit "webservers" --branch "main"
+        aiops semaphore template update aiops 1 --tags "deploy" --branch "main"
     """
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
@@ -5222,6 +5235,10 @@ def semaphore_template_update(
             payload["description"] = description
         if limit is not None:
             payload["limit"] = limit
+        if tags is not None:
+            payload["tags"] = tags
+        if skip_tags is not None:
+            payload["skip_tags"] = skip_tags
         if allow_override_args is not None:
             payload["allow_override_args"] = allow_override_args
         if suppress_alerts is not None:

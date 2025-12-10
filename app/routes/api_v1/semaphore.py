@@ -426,6 +426,8 @@ def project_semaphore_template_create(project_id: int):
         arguments: list[str] - Optional CLI arguments
         description: str - Optional description
         limit: str - Host limitation pattern
+        tags: str - Ansible tags to run (comma-separated)
+        skip_tags: str - Ansible tags to skip (comma-separated)
         allow_override_args: bool - Allow overriding args per task
         suppress_success_alerts: bool - Disable success notifications
         autorun: bool - Enable automatic execution
@@ -459,6 +461,8 @@ def project_semaphore_template_create(project_id: int):
             arguments=data.get("arguments"),
             description=data.get("description"),
             limit=data.get("limit"),
+            tags=data.get("tags"),
+            skip_tags=data.get("skip_tags"),
             allow_override_args=data.get("allow_override_args"),
             suppress_success_alerts=data.get("suppress_success_alerts"),
             autorun=data.get("autorun"),
@@ -494,6 +498,8 @@ def project_semaphore_template_update(project_id: int, template_id: int):
         arguments: list[str] - New CLI arguments
         description: str - New description
         limit: str - Host limitation pattern
+        tags: str - Ansible tags to run (comma-separated)
+        skip_tags: str - Ansible tags to skip (comma-separated)
         allow_override_args: bool - Allow overriding args per task
         suppress_success_alerts: bool - Disable success notifications
         autorun: bool - Enable automatic execution
@@ -522,6 +528,8 @@ def project_semaphore_template_update(project_id: int, template_id: int):
             arguments=data.get("arguments"),
             description=data.get("description"),
             limit=data.get("limit"),
+            tags=data.get("tags"),
+            skip_tags=data.get("skip_tags"),
             allow_override_args=data.get("allow_override_args"),
             suppress_success_alerts=data.get("suppress_success_alerts"),
             autorun=data.get("autorun"),

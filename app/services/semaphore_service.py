@@ -449,6 +449,8 @@ def create_template(
     arguments: Optional[list[str]] = None,
     description: Optional[str] = None,
     limit: Optional[str] = None,
+    tags: Optional[str] = None,
+    skip_tags: Optional[str] = None,
     allow_override_args: Optional[bool] = None,
     suppress_success_alerts: Optional[bool] = None,
     autorun: Optional[bool] = None,
@@ -468,6 +470,8 @@ def create_template(
         arguments: Optional list of extra CLI arguments
         description: Optional template description
         limit: Host limitation pattern (e.g., 'webservers' or 'host1,host2')
+        tags: Ansible tags to run (e.g., 'deploy,config' or 'setup')
+        skip_tags: Ansible tags to skip (e.g., 'slow,dangerous')
         allow_override_args: Allow overriding arguments per task run
         suppress_success_alerts: Disable success notifications
         autorun: Enable automatic execution trigger
@@ -510,17 +514,35 @@ def create_template(
     if git_branch:
         payload["git_branch"] = git_branch
 
-    # Ansible-specific params go in task_params (limit must be array)
-    if limit and app == "ansible":
-        # Convert comma-separated string to array if needed
-        if isinstance(limit, str):
-            limit_array = [h.strip() for h in limit.split(",") if h.strip()]
-        else:
-            limit_array = list(limit)
-        payload["task_params"] = {
-            "limit": limit_array,
-            "allow_override_limit": True,
-        }
+    # Ansible-specific params go in task_params (limit/tags must be arrays)
+    if app == "ansible" and (limit or tags or skip_tags):
+        task_params: dict[str, Any] = {}
+
+        if limit:
+            # Convert comma-separated string to array
+            if isinstance(limit, str):
+                task_params["limit"] = [h.strip() for h in limit.split(",") if h.strip()]
+            else:
+                task_params["limit"] = list(limit)
+            task_params["allow_override_limit"] = True
+
+        if tags:
+            # Convert comma-separated string to array
+            if isinstance(tags, str):
+                task_params["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+            else:
+                task_params["tags"] = list(tags)
+            task_params["allow_override_tags"] = True
+
+        if skip_tags:
+            # Convert comma-separated string to array
+            if isinstance(skip_tags, str):
+                task_params["skip_tags"] = [t.strip() for t in skip_tags.split(",") if t.strip()]
+            else:
+                task_params["skip_tags"] = list(skip_tags)
+            task_params["allow_override_skip_tags"] = True
+
+        payload["task_params"] = task_params
 
     response = client._request(
         "post",
@@ -551,6 +573,8 @@ def update_template(
     arguments: Optional[list[str]] = None,
     description: Optional[str] = None,
     limit: Optional[str] = None,
+    tags: Optional[str] = None,
+    skip_tags: Optional[str] = None,
     allow_override_args: Optional[bool] = None,
     suppress_success_alerts: Optional[bool] = None,
     autorun: Optional[bool] = None,
@@ -571,6 +595,8 @@ def update_template(
         arguments: New list of extra CLI arguments
         description: New template description
         limit: Host limitation pattern
+        tags: Ansible tags to run (e.g., 'deploy,config')
+        skip_tags: Ansible tags to skip (e.g., 'slow,dangerous')
         allow_override_args: Allow overriding arguments per task run
         suppress_success_alerts: Disable success notifications
         autorun: Enable automatic execution trigger
@@ -613,21 +639,35 @@ def update_template(
     elif current.get("description"):
         payload["description"] = current["description"]
 
-    # Handle limit in task_params for Ansible templates
+    # Handle limit/tags in task_params for Ansible templates
     current_app = app if app is not None else current.get("app", "ansible")
     current_task_params = current.get("task_params", {}) or {}
 
-    if limit is not None and current_app == "ansible":
-        # Convert comma-separated string to array if needed
-        if isinstance(limit, str):
-            limit_array = [h.strip() for h in limit.split(",") if h.strip()]
-        else:
-            limit_array = list(limit)
-        payload["task_params"] = {
-            **current_task_params,
-            "limit": limit_array,
-            "allow_override_limit": True,
-        }
+    if current_app == "ansible" and (limit is not None or tags is not None or skip_tags is not None):
+        new_task_params = {**current_task_params}
+
+        if limit is not None:
+            if isinstance(limit, str):
+                new_task_params["limit"] = [h.strip() for h in limit.split(",") if h.strip()]
+            else:
+                new_task_params["limit"] = list(limit)
+            new_task_params["allow_override_limit"] = True
+
+        if tags is not None:
+            if isinstance(tags, str):
+                new_task_params["tags"] = [t.strip() for t in tags.split(",") if t.strip()]
+            else:
+                new_task_params["tags"] = list(tags)
+            new_task_params["allow_override_tags"] = True
+
+        if skip_tags is not None:
+            if isinstance(skip_tags, str):
+                new_task_params["skip_tags"] = [t.strip() for t in skip_tags.split(",") if t.strip()]
+            else:
+                new_task_params["skip_tags"] = list(skip_tags)
+            new_task_params["allow_override_skip_tags"] = True
+
+        payload["task_params"] = new_task_params
     elif current_task_params:
         payload["task_params"] = current_task_params
 

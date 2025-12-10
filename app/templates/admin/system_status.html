@@ -105,12 +105,85 @@
   #components-grid.card-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  /* Component cards need IDs for anchor navigation */
+  .component-card {
+    scroll-margin-top: 120px;
+  }
+
+  /* Sticky navigation bar */
+  .status-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    padding: 0.75rem 0;
+    margin: 0 0 1.5rem 0;
+  }
+  [data-theme="dark"] .status-nav {
+    background: rgba(26, 29, 35, 0.95);
+  }
+  .status-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .status-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(94, 108, 117, 0.2);
+    color: inherit;
+    text-decoration: none;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+  }
+  .status-nav a:hover {
+    background: rgba(94, 108, 117, 0.4);
+  }
+  [data-theme="dark"] .status-nav a:hover {
+    background: rgba(148, 163, 184, 0.3);
+  }
+  .status-nav .nav-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--pico-muted-color);
+  }
+  .status-nav .nav-status.healthy {
+    background: var(--pico-ins-color);
+  }
+  .status-nav .nav-status.unhealthy {
+    background: var(--pico-del-color);
+  }
+  @media (max-width: 768px) {
+    .status-nav ul {
+      gap: 0.25rem;
+    }
+    .status-nav a {
+      padding: 0.35rem 0.6rem;
+      font-size: 0.8rem;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="status-container">
   <h1>System Status</h1>
+
+  <nav class="status-nav" id="status-nav">
+    <ul id="nav-links">
+      <!-- Nav links will be populated by JavaScript -->
+    </ul>
+  </nav>
 
   <div class="controls-bar">
     <button onclick="refreshStatus()" id="refresh-btn">
@@ -215,27 +288,65 @@ function updateStatusDisplay(data) {
   document.getElementById('total-count').textContent = summary.total_components || 0;
   document.getElementById('summary-section').style.display = 'grid';
 
-  // Update components
-  const componentsGrid = document.getElementById('components-grid');
-  componentsGrid.innerHTML = '';
+  // Component display names and order
+  const componentConfig = {
+    'cli_git_tools': { name: 'CLI Git Tools', icon: '🔌' },
+    'ssh_connectivity': { name: 'SSH Connectivity', icon: '🔐' },
+    'user_credentials': { name: 'User Credentials', icon: '👤' },
+    'database': { name: 'Database', icon: '🗄️' },
+    'tmux': { name: 'Tmux', icon: '📺' },
+    'git': { name: 'Git Tools', icon: '📦' },
+    'ai_tools': { name: 'AI Tools', icon: '🤖' },
+    'ollama': { name: 'Ollama', icon: '🦙' },
+    'workspaces': { name: 'Workspaces', icon: '📁' },
+    'integrations': { name: 'Integrations', icon: '🔗' },
+    'sessions': { name: 'Sessions', icon: '💻' },
+    'issue_sync': { name: 'Issue Sync', icon: '🔄' },
+  };
 
-  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'user_credentials', 'database', 'tmux', 'git', 'ai_tools', 'ollama', 'workspaces', 'integrations', 'sessions', 'issue_sync'];
+  const componentOrder = Object.keys(componentConfig);
+
+  // Update navigation
+  const navLinks = document.getElementById('nav-links');
+  navLinks.innerHTML = '';
 
   componentOrder.forEach(key => {
     if (data.components[key]) {
       const component = data.components[key];
-      const card = createComponentCard(key, component);
+      const config = componentConfig[key];
+      const li = document.createElement('li');
+      const statusClass = component.healthy ? 'healthy' : 'unhealthy';
+      li.innerHTML = `
+        <a href="#component-${key}">
+          <span class="nav-status ${statusClass}"></span>
+          ${config.name}
+        </a>
+      `;
+      navLinks.appendChild(li);
+    }
+  });
+
+  // Update components
+  const componentsGrid = document.getElementById('components-grid');
+  componentsGrid.innerHTML = '';
+
+  componentOrder.forEach(key => {
+    if (data.components[key]) {
+      const component = data.components[key];
+      const config = componentConfig[key];
+      const card = createComponentCard(key, component, config);
       componentsGrid.appendChild(card);
     }
   });
 }
 
-function createComponentCard(name, component) {
+function createComponentCard(name, component, config) {
   const card = document.createElement('div');
   const accentClass = component.healthy ? 'accent-green' : 'accent-red';
-  card.className = `clean-card ${accentClass}`;
+  card.className = `clean-card component-card ${accentClass}`;
+  card.id = `component-${name}`;
 
-  const displayName = name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const displayName = config ? config.name : name.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
   const article = document.createElement('article');
   article.innerHTML = `

@@ -216,18 +216,27 @@ def run_template(
     if environment:
         payload["environment"] = environment
 
-    # Runtime overrides - limit is top-level string, tags go in arguments
+    # Runtime overrides - limit as top-level string, tags/skip_tags as arrays
     if limit:
         payload["limit"] = limit
 
-    # Tags/skip_tags must be passed as --tags/--skip-tags in arguments
     if tags or skip_tags:
-        args = []
+        task_params: dict[str, Any] = {}
         if tags:
-            args.append(f"--tags={tags}")
+            if isinstance(tags, str):
+                task_params["tags"] = [
+                    t.strip() for t in tags.split(",") if t.strip()
+                ]
+            else:
+                task_params["tags"] = list(tags)
         if skip_tags:
-            args.append(f"--skip-tags={skip_tags}")
-        payload["arguments"] = " ".join(args)
+            if isinstance(skip_tags, str):
+                task_params["skip_tags"] = [
+                    t.strip() for t in skip_tags.split(",") if t.strip()
+                ]
+            else:
+                task_params["skip_tags"] = list(skip_tags)
+        payload["params"] = task_params
 
     task = client.start_task(
         project_id=project.semaphore_project_id,

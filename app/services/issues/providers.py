@@ -625,6 +625,7 @@ class JiraIssueProvider(BaseIssueProvider):
         issue_number: str,
         comment_id: str,
         body: str,
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         # Use effective integration with project-level credential overrides
         effective_integration = get_effective_integration(
@@ -636,6 +637,7 @@ class JiraIssueProvider(BaseIssueProvider):
             issue_number,
             comment_id,
             body,
+            user_id,
         )
         # Convert IssueCommentPayload to dict format expected by API
         return {

@@ -4494,7 +4494,9 @@ def semaphore_templates(
 @click.argument("template_id", type=int)
 @click.option("--var", "-v", multiple=True, help="Variable in key=value format")
 @click.option("--wait", is_flag=True, help="Wait for task to complete")
+@click.option("--follow", "-f", is_flag=True, help="Stream logs in real time")
 @click.option("--timeout", default=600, type=int, help="Wait timeout in seconds")
+@click.option("--poll", default=2, type=int, help="Poll interval in seconds (for --follow)")
 @click.option(
     "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
 )
@@ -4505,7 +4507,9 @@ def semaphore_run(
     template_id: int,
     var: tuple,
     wait: bool,
+    follow: bool,
     timeout: int,
+    poll: int,
     output: Optional[str],
 ) -> None:
     """Run a Semaphore template.
@@ -4516,7 +4520,10 @@ def semaphore_run(
         aiops semaphore run aiops 5
         aiops semaphore run aiops 5 --var env=production --var limit=web
         aiops semaphore run aiops 5 --wait --timeout 300
+        aiops semaphore run aiops 5 --follow
     """
+    import time
+
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
     output_format = output or config.output_format
@@ -4544,7 +4551,53 @@ def semaphore_run(
         task_id = task.get("id")
         console.print(f"[green]✓[/green] Task started: ID {task_id}")
 
-        if wait:
+        if follow:
+            # Stream logs in real time
+            console.print(f"[dim]Streaming logs (poll: {poll}s, timeout: {timeout}s)...[/dim]\n")
+
+            last_output = ""
+            start_time = time.time()
+            terminal_states = {
+                "error", "failed", "success", "stopped", "warning",
+                "timeout", "cancelled", "canceled", "completed", "unknown", "aborted",
+            }
+
+            while True:
+                # Check timeout
+                if time.time() - start_time > timeout:
+                    console.print(f"\n[yellow]Timeout reached ({timeout}s)[/yellow]")
+                    break
+
+                # Fetch logs
+                result = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}/logs")
+                logs = result.get("logs", "")
+
+                # Print only new content
+                if len(logs) > len(last_output):
+                    new_content = logs[len(last_output):]
+                    console.print(new_content, end="")
+                    last_output = logs
+
+                # Check if task is complete
+                task_status = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}")
+                status = (task_status.get("status") or "").lower()
+
+                if status in terminal_states:
+                    # One final fetch to get complete logs
+                    result = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}/logs")
+                    logs = result.get("logs", "")
+                    if len(logs) > len(last_output):
+                        console.print(logs[len(last_output):], end="")
+
+                    if status in ("success", "completed"):
+                        console.print(f"\n[green]✓[/green] Task completed: {status}")
+                    else:
+                        console.print(f"\n[red]✗[/red] Task finished: {status}")
+                    break
+
+                time.sleep(poll)
+
+        elif wait:
             console.print(f"[dim]Waiting for task to complete (timeout: {timeout}s)...[/dim]")
             with Progress(
                 SpinnerColumn(),

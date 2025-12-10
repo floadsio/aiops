@@ -4493,6 +4493,9 @@ def semaphore_templates(
 @click.argument("project")
 @click.argument("template_id", type=int)
 @click.option("--var", "-v", multiple=True, help="Variable in key=value format")
+@click.option("--limit", "-l", help="Ansible host limit (comma-separated)")
+@click.option("--tags", "-t", help="Ansible tags to run (comma-separated)")
+@click.option("--skip-tags", help="Ansible tags to skip (comma-separated)")
 @click.option("--wait", is_flag=True, help="Wait for task to complete")
 @click.option("--follow", "-f", is_flag=True, help="Stream logs in real time")
 @click.option("--timeout", default=600, type=int, help="Wait timeout in seconds")
@@ -4506,6 +4509,9 @@ def semaphore_run(
     project: str,
     template_id: int,
     var: tuple,
+    limit: Optional[str],
+    tags: Optional[str],
+    skip_tags: Optional[str],
     wait: bool,
     follow: bool,
     timeout: int,
@@ -4518,9 +4524,11 @@ def semaphore_run(
 
     Examples:
         aiops semaphore run aiops 5
-        aiops semaphore run aiops 5 --var env=production --var limit=web
+        aiops semaphore run aiops 5 --var env=production
+        aiops semaphore run aiops 5 --limit "web1,web2"
+        aiops semaphore run aiops 5 --tags "dns,unbound"
+        aiops semaphore run aiops 5 --limit webservers --tags dns --follow
         aiops semaphore run aiops 5 --wait --timeout 300
-        aiops semaphore run aiops 5 --follow
     """
     import time
 
@@ -4542,9 +4550,15 @@ def semaphore_run(
                 error_console.print("Use: --var key=value")
                 sys.exit(1)
 
-        payload = {"template_id": template_id}
+        payload: dict[str, Any] = {"template_id": template_id}
         if variables:
             payload["variables"] = variables
+        if limit:
+            payload["limit"] = limit
+        if tags:
+            payload["tags"] = tags
+        if skip_tags:
+            payload["skip_tags"] = skip_tags
 
         task = client.post(f"projects/{project_id}/semaphore/run", json=payload)
 

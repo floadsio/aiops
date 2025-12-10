@@ -151,6 +151,9 @@ def project_semaphore_run(project_id: int):
     Request body:
         template_id: int - Semaphore template ID
         variables: dict - Optional survey variables
+        limit: str - Optional Ansible host limit (comma-separated)
+        tags: str - Optional Ansible tags to run (comma-separated)
+        skip_tags: str - Optional Ansible tags to skip (comma-separated)
 
     Returns:
         JSON task details
@@ -168,7 +171,14 @@ def project_semaphore_run(project_id: int):
     variables = data.get("variables")
 
     try:
-        task = run_template(project, template_id, variables=variables)
+        task = run_template(
+            project,
+            template_id,
+            variables=variables,
+            limit=data.get("limit"),
+            tags=data.get("tags"),
+            skip_tags=data.get("skip_tags"),
+        )
         return jsonify(task), 201
     except SemaphoreConfigError as e:
         return jsonify({"error": str(e)}), 404

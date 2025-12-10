@@ -185,6 +185,9 @@ def run_template(
     template_id: int,
     variables: Optional[dict[str, Any]] = None,
     environment: Optional[str] = None,
+    limit: Optional[str] = None,
+    tags: Optional[str] = None,
+    skip_tags: Optional[str] = None,
 ) -> dict[str, Any]:
     """Run a Semaphore template.
 
@@ -193,6 +196,9 @@ def run_template(
         template_id: Semaphore template ID
         variables: Optional survey variables
         environment: Optional environment override
+        limit: Optional Ansible host limit (comma-separated)
+        tags: Optional Ansible tags to run (comma-separated)
+        skip_tags: Optional Ansible tags to skip (comma-separated)
 
     Returns:
         Task details including task ID
@@ -209,6 +215,19 @@ def run_template(
         payload["environment"] = variables
     if environment:
         payload["environment"] = environment
+
+    # Runtime overrides - limit is top-level string, tags go in arguments
+    if limit:
+        payload["limit"] = limit
+
+    # Tags/skip_tags must be passed as --tags/--skip-tags in arguments
+    if tags or skip_tags:
+        args = []
+        if tags:
+            args.append(f"--tags={tags}")
+        if skip_tags:
+            args.append(f"--skip-tags={skip_tags}")
+        payload["arguments"] = " ".join(args)
 
     task = client.start_task(
         project_id=project.semaphore_project_id,

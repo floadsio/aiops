@@ -188,6 +188,8 @@ def run_template(
     limit: Optional[str] = None,
     tags: Optional[str] = None,
     skip_tags: Optional[str] = None,
+    dry_run: bool = False,
+    diff: bool = False,
 ) -> dict[str, Any]:
     """Run a Semaphore template.
 
@@ -199,6 +201,8 @@ def run_template(
         limit: Optional Ansible host limit (comma-separated)
         tags: Optional Ansible tags to run (comma-separated)
         skip_tags: Optional Ansible tags to skip (comma-separated)
+        dry_run: Run in check mode (--check), no changes made
+        diff: Show diff of changes (--diff)
 
     Returns:
         Task details including task ID
@@ -219,6 +223,10 @@ def run_template(
     # Runtime overrides - limit as top-level string, tags/skip_tags as arrays
     if limit:
         payload["limit"] = limit
+    if dry_run:
+        payload["dry_run"] = True
+    if diff:
+        payload["diff"] = True
 
     if tags or skip_tags:
         task_params: dict[str, Any] = {}

@@ -154,6 +154,8 @@ def project_semaphore_run(project_id: int):
         limit: str - Optional Ansible host limit (comma-separated)
         tags: str - Optional Ansible tags to run (comma-separated)
         skip_tags: str - Optional Ansible tags to skip (comma-separated)
+        dry_run: bool - Run in check mode (--check), no changes made
+        diff: bool - Show diff of changes (--diff)
 
     Returns:
         JSON task details
@@ -178,6 +180,8 @@ def project_semaphore_run(project_id: int):
             limit=data.get("limit"),
             tags=data.get("tags"),
             skip_tags=data.get("skip_tags"),
+            dry_run=data.get("dry_run", False),
+            diff=data.get("diff", False),
         )
         return jsonify(task), 201
     except SemaphoreConfigError as e:

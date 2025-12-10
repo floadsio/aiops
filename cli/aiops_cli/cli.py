@@ -4496,6 +4496,8 @@ def semaphore_templates(
 @click.option("--limit", "-l", help="Ansible host limit (comma-separated)")
 @click.option("--tags", "-t", help="Ansible tags to run (comma-separated)")
 @click.option("--skip-tags", help="Ansible tags to skip (comma-separated)")
+@click.option("--check", "-C", is_flag=True, help="Dry run mode (--check), no changes made")
+@click.option("--diff", "-D", is_flag=True, help="Show diff of changes (--diff)")
 @click.option("--wait", is_flag=True, help="Wait for task to complete")
 @click.option("--follow", "-f", is_flag=True, help="Stream logs in real time")
 @click.option("--timeout", default=600, type=int, help="Wait timeout in seconds")
@@ -4512,6 +4514,8 @@ def semaphore_run(
     limit: Optional[str],
     tags: Optional[str],
     skip_tags: Optional[str],
+    check: bool,
+    diff: bool,
     wait: bool,
     follow: bool,
     timeout: int,
@@ -4527,6 +4531,7 @@ def semaphore_run(
         aiops semaphore run aiops 5 --var env=production
         aiops semaphore run aiops 5 --limit "web1,web2"
         aiops semaphore run aiops 5 --tags "dns,unbound"
+        aiops semaphore run aiops 5 --check --diff  # dry run with diff
         aiops semaphore run aiops 5 --limit webservers --tags dns --follow
         aiops semaphore run aiops 5 --wait --timeout 300
     """
@@ -4559,6 +4564,10 @@ def semaphore_run(
             payload["tags"] = tags
         if skip_tags:
             payload["skip_tags"] = skip_tags
+        if check:
+            payload["dry_run"] = True
+        if diff:
+            payload["diff"] = True
 
         task = client.post(f"projects/{project_id}/semaphore/run", json=payload)
 

@@ -389,6 +389,7 @@ def update_comment(
     issue_key: str,
     comment_id: str,
     body: str,
+    user_id: int | None = None,
 ) -> IssueCommentPayload:
     """Update an existing comment on a Jira issue.
 
@@ -398,6 +399,7 @@ def update_comment(
         issue_key: Issue key (e.g. 'IWFCLOUD2-42')
         comment_id: Comment ID to update
         body: New comment text
+        user_id: Optional user ID for user-specific credentials (unused for Jira)
 
     Returns:
         Updated comment payload

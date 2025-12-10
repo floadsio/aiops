@@ -21,7 +21,7 @@ from ...services.issues import (
     serialize_issue_comments,
     sync_tenant_integrations,
 )
-from ...services.issues.utils import normalize_issue_status
+from ...services.issues.utils import normalize_issue_status, user_has_integration_credentials
 from ...services.user_identity_service import get_user_identity  # type: ignore
 from . import api_v1_bp
 
@@ -428,7 +428,17 @@ def create_issue():
             elif provider_type == "jira":
                 assignee_identity = identity_map.jira_account_id
 
-    # Create issue via provider (with user-specific credentials if available)
+    # Verify user has personal credentials for this integration
+    # Without personal credentials, issues would be created as the tenant token owner
+    if not user_has_integration_credentials(user.id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Issues would be created as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
+
+    # Create issue via provider (with user-specific credentials)
     try:
         provider = _get_issue_provider(integration)
         external_issue_data = provider.create_issue(
@@ -491,6 +501,19 @@ def update_issue(issue_id: int):
     data = request.get_json(silent=True) or {}
     integration = issue.project_integration.integration
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
+    # Verify user has personal credentials for this integration
+    if user_id and not user_has_integration_credentials(user_id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Issue updates would be made as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
+
     try:
         provider = _get_issue_provider(integration)
         updated_data = provider.update_issue(
@@ -548,6 +571,15 @@ def close_issue(issue_id: int):
     user_id = getattr(g, "api_user", None)
     user_id = user_id.id if user_id else None
 
+    # Verify user has personal credentials for this integration
+    if user_id and not user_has_integration_credentials(user_id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Closing issues would be done as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
+
     try:
         provider = _get_issue_provider(integration)
         provider.close_issue(
@@ -590,11 +622,25 @@ def reopen_issue(issue_id: int):
 
     integration = issue.project_integration.integration
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
+    # Verify user has personal credentials for this integration
+    if user_id and not user_has_integration_credentials(user_id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Reopening issues would be done as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
+
     try:
         provider = _get_issue_provider(integration)
         provider.reopen_issue(
             project_integration=issue.project_integration,
             issue_number=issue.external_id,
+            user_id=user_id,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -644,6 +690,16 @@ def add_issue_comment(issue_id: int):
     # Get authenticated user ID for user-specific credentials
     user_id = getattr(g, "api_user", None)
     user_id = user_id.id if user_id else None
+
+    # Verify user has personal credentials for this integration
+    # Without personal credentials, comments would be posted as the tenant token owner
+    if user_id and not user_has_integration_credentials(user_id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Comments would be posted as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
 
     try:
         provider = _get_issue_provider(integration)
@@ -704,6 +760,19 @@ def update_issue_comment(issue_id: int, comment_id: str):
 
     integration = issue.project_integration.integration
 
+    # Get authenticated user ID for user-specific credentials
+    user_id = getattr(g, "api_user", None)
+    user_id = user_id.id if user_id else None
+
+    # Verify user has personal credentials for this integration
+    if user_id and not user_has_integration_credentials(user_id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Comment updates would be made as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
+
     try:
         provider = _get_issue_provider(integration)
         # Check if provider supports update_comment
@@ -715,7 +784,7 @@ def update_issue_comment(issue_id: int, comment_id: str):
             issue_number=issue.external_id,
             comment_id=comment_id,
             body=body,
-            user_id=g.api_user.id if hasattr(g, "api_user") else None,
+            user_id=user_id,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -798,12 +867,26 @@ def assign_issue(issue_id: int):
     if not assignee:
         return jsonify({"error": "Either user_id or assignee must be provided"}), 400
 
+    # Get authenticated user for credential check
+    api_user = getattr(g, "api_user", None)
+    api_user_id = api_user.id if api_user else None
+
+    # Verify user has personal credentials for this integration
+    if api_user_id and not user_has_integration_credentials(api_user_id, integration.id):
+        return jsonify({
+            "error": "You don't have personal credentials configured for this integration. "
+                     "Assigning issues would be done as the system account instead of your account. "
+                     f"Please configure your personal API token for '{integration.name}' "
+                     "in Settings > Integration Credentials."
+        }), 403
+
     try:
         provider = _get_issue_provider(integration)
         provider.assign_issue(
             project_integration=issue.project_integration,
             issue_number=issue.external_id,
             assignee=assignee,
+            user_id=api_user_id,
         )
     except IssueSyncError as exc:
         return jsonify({"error": str(exc)}), 400

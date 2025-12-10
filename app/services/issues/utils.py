@@ -134,6 +134,24 @@ def get_effective_credentials(
     return api_token, base_url, settings
 
 
+def user_has_integration_credentials(user_id: int, integration_id: int) -> bool:
+    """Check if a user has personal credentials for an integration.
+
+    Args:
+        user_id: The user ID to check
+        integration_id: The integration ID to check
+
+    Returns:
+        bool: True if user has personal credentials, False otherwise
+    """
+    from ...models import UserIntegrationCredential
+
+    cred = UserIntegrationCredential.query.filter_by(
+        user_id=user_id, integration_id=integration_id
+    ).first()
+    return cred is not None
+
+
 def get_effective_integration(
     integration: TenantIntegration,
     project_integration: ProjectIntegration | None = None,

@@ -4392,6 +4392,354 @@ def yadm_init(ctx: click.Context) -> None:
         sys.exit(1)
 
 
+# =============================================================================
+# Semaphore Commands
+# =============================================================================
+
+
+@cli.group()
+def semaphore() -> None:
+    """Semaphore automation commands.
+
+    Run Ansible playbooks and other automation tasks via Semaphore.
+    """
+    pass
+
+
+@semaphore.command(name="projects")
+@click.option("--tenant", "-t", help="Tenant ID or slug")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_projects(
+    ctx: click.Context, tenant: Optional[str], output: Optional[str]
+) -> None:
+    """List Semaphore projects.
+
+    Shows all projects configured in the tenant's Semaphore instance.
+
+    Examples:
+        aiops semaphore projects
+        aiops semaphore projects --tenant floads
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        params = {}
+        if tenant:
+            params["tenant_id"] = resolve_tenant_id(client, tenant)
+
+        projects_data = client.get("semaphore/projects", params=params)
+        format_output(projects_data, output_format, console, title="Semaphore Projects")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="templates")
+@click.argument("project")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_templates(
+    ctx: click.Context, project: str, output: Optional[str]
+) -> None:
+    """List Semaphore templates for a project.
+
+    Shows all available templates (playbooks, scripts) for the project's
+    linked Semaphore project.
+
+    Examples:
+        aiops semaphore templates aiops
+        aiops semaphore templates 6 --output json
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        templates = client.get(f"projects/{project_id}/semaphore/templates")
+
+        if output_format == "table":
+            table = Table(title="Semaphore Templates")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Type")
+            table.add_column("Playbook/Script")
+            table.add_column("Description")
+
+            for t in templates:
+                table.add_row(
+                    str(t.get("id", "")),
+                    t.get("name", ""),
+                    t.get("type", ""),
+                    t.get("playbook", "") or t.get("script", ""),
+                    (t.get("description") or "")[:50],
+                )
+            console.print(table)
+        else:
+            format_output(templates, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="run")
+@click.argument("project")
+@click.argument("template_id", type=int)
+@click.option("--var", "-v", multiple=True, help="Variable in key=value format")
+@click.option("--wait", is_flag=True, help="Wait for task to complete")
+@click.option("--timeout", default=600, type=int, help="Wait timeout in seconds")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_run(
+    ctx: click.Context,
+    project: str,
+    template_id: int,
+    var: tuple,
+    wait: bool,
+    timeout: int,
+    output: Optional[str],
+) -> None:
+    """Run a Semaphore template.
+
+    Triggers execution of a template (playbook, script) in Semaphore.
+
+    Examples:
+        aiops semaphore run aiops 5
+        aiops semaphore run aiops 5 --var env=production --var limit=web
+        aiops semaphore run aiops 5 --wait --timeout 300
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+
+        # Parse variables
+        variables = {}
+        for v in var:
+            if "=" in v:
+                key, value = v.split("=", 1)
+                variables[key] = value
+            else:
+                error_console.print(f"[red]Error:[/red] Invalid variable format: {v}")
+                error_console.print("Use: --var key=value")
+                sys.exit(1)
+
+        payload = {"template_id": template_id}
+        if variables:
+            payload["variables"] = variables
+
+        task = client.post(f"projects/{project_id}/semaphore/run", json=payload)
+
+        task_id = task.get("id")
+        console.print(f"[green]✓[/green] Task started: ID {task_id}")
+
+        if wait:
+            console.print(f"[dim]Waiting for task to complete (timeout: {timeout}s)...[/dim]")
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+            ) as progress:
+                progress_task = progress.add_task("Running...", total=None)
+
+                final_task = client.post(
+                    f"projects/{project_id}/semaphore/tasks/{task_id}/wait",
+                    json={"timeout": timeout},
+                )
+                progress.stop_task(progress_task)
+
+            status = final_task.get("status", "unknown")
+            if status in ("success", "completed"):
+                console.print(f"[green]✓[/green] Task completed: {status}")
+            else:
+                console.print(f"[red]✗[/red] Task finished: {status}")
+
+            format_output(final_task, output_format, console)
+        else:
+            format_output(task, output_format, console)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="status")
+@click.argument("project")
+@click.argument("task_id", type=int)
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_status(
+    ctx: click.Context, project: str, task_id: int, output: Optional[str]
+) -> None:
+    """Get status of a Semaphore task.
+
+    Examples:
+        aiops semaphore status aiops 42
+        aiops semaphore status aiops 42 --output json
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        task = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}")
+
+        status = task.get("status", "unknown")
+        if status in ("success", "completed"):
+            console.print(f"[green]✓[/green] Status: {status}")
+        elif status in ("running", "waiting", "pending"):
+            console.print(f"[yellow]⏳[/yellow] Status: {status}")
+        else:
+            console.print(f"[red]✗[/red] Status: {status}")
+
+        format_output(task, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="logs")
+@click.argument("project")
+@click.argument("task_id", type=int)
+@click.option("--follow", "-f", is_flag=True, help="Follow logs (poll until complete)")
+@click.option("--poll", default=2, type=int, help="Poll interval in seconds")
+@click.pass_context
+def semaphore_logs(
+    ctx: click.Context, project: str, task_id: int, follow: bool, poll: int
+) -> None:
+    """Get logs/output of a Semaphore task.
+
+    Examples:
+        aiops semaphore logs aiops 42
+        aiops semaphore logs aiops 42 --follow
+    """
+    client = get_client(ctx)
+
+    try:
+        project_id = resolve_project_id(client, project)
+
+        if follow:
+            import time
+
+            last_output = ""
+            while True:
+                result = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}/logs")
+                logs = result.get("logs", "")
+
+                # Print only new content
+                if len(logs) > len(last_output):
+                    new_content = logs[len(last_output) :]
+                    console.print(new_content, end="")
+                    last_output = logs
+
+                # Check if task is complete
+                task = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}")
+                status = (task.get("status") or "").lower()
+                terminal = {
+                    "error",
+                    "failed",
+                    "success",
+                    "stopped",
+                    "warning",
+                    "timeout",
+                    "cancelled",
+                    "canceled",
+                    "completed",
+                    "unknown",
+                    "aborted",
+                }
+                if status in terminal:
+                    # One final fetch to get complete logs
+                    result = client.get(
+                        f"projects/{project_id}/semaphore/tasks/{task_id}/logs"
+                    )
+                    logs = result.get("logs", "")
+                    if len(logs) > len(last_output):
+                        console.print(logs[len(last_output) :], end="")
+                    console.print(f"\n[dim]Task finished: {status}[/dim]")
+                    break
+
+                time.sleep(poll)
+        else:
+            result = client.get(f"projects/{project_id}/semaphore/tasks/{task_id}/logs")
+            logs = result.get("logs", "")
+            console.print(logs)
+
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="tasks")
+@click.argument("project")
+@click.option("--limit", "-n", default=20, type=int, help="Number of tasks to show")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_tasks(
+    ctx: click.Context, project: str, limit: int, output: Optional[str]
+) -> None:
+    """List recent Semaphore tasks for a project.
+
+    Examples:
+        aiops semaphore tasks aiops
+        aiops semaphore tasks aiops --limit 50
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        tasks = client.get(f"projects/{project_id}/semaphore/tasks", params={"limit": limit})
+
+        if output_format == "table":
+            table = Table(title="Recent Semaphore Tasks")
+            table.add_column("ID", style="cyan")
+            table.add_column("Template")
+            table.add_column("Status")
+            table.add_column("Started")
+            table.add_column("Duration")
+
+            for t in tasks:
+                status = t.get("status", "unknown")
+                if status in ("success", "completed"):
+                    status_str = f"[green]{status}[/green]"
+                elif status in ("running", "waiting", "pending"):
+                    status_str = f"[yellow]{status}[/yellow]"
+                else:
+                    status_str = f"[red]{status}[/red]"
+
+                table.add_row(
+                    str(t.get("id", "")),
+                    t.get("template_alias") or str(t.get("template_id", "")),
+                    status_str,
+                    t.get("created") or t.get("start") or "",
+                    t.get("duration") or "",
+                )
+            console.print(table)
+        else:
+            format_output(tasks, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     cli(obj={})

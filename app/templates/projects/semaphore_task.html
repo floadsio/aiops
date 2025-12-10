@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Task {{ task.id }} | Semaphore | {{ project.name }}{% endblock %}
+{% block extra_head %}
+{{ super() }}
+<style>
+  .task-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .task-header h1 {
+    margin: 0;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 0.3rem 0.6rem;
+    border-radius: 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .status-badge.success { background: #10b981; color: white; }
+  .status-badge.running { background: #f59e0b; color: white; }
+  .status-badge.waiting { background: #6366f1; color: white; }
+  .status-badge.error, .status-badge.failed { background: #ef4444; color: white; }
+  .status-badge.stopped { background: #6b7280; color: white; }
+  .task-meta {
+    display: grid;
+    gap: 0.5rem 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.03);
+    border-radius: 0.5rem;
+  }
+  [data-theme="dark"] .task-meta {
+    background: rgba(148, 163, 184, 0.08);
+  }
+  .task-meta dt {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+  .task-meta dd {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+  }
+  .task-logs {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    font-family: monospace;
+    font-size: 0.85rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+  .refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .back-link {
+    margin-bottom: 1rem;
+    display: inline-block;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('projects.project_semaphore', project_id=project.id) }}" class="back-link">
+  &larr; Back to Semaphore
+</a>
+
+<div class="task-header">
+  <div>
+    <h1>Task #{{ task.id }}</h1>
+    <p>{{ project.name }}</p>
+  </div>
+  <div>
+    <span class="status-badge {{ task.status }}">{{ task.status }}</span>
+    {% if task.status in ['running', 'waiting', 'pending'] %}
+    <button onclick="location.reload()" class="secondary refresh-btn">
+      Refresh
+    </button>
+    {% endif %}
+  </div>
+</div>
+
+<dl class="task-meta">
+  <div>
+    <dt>Template ID</dt>
+    <dd>{{ task.template_id }}</dd>
+  </div>
+  <div>
+    <dt>Started</dt>
+    <dd>{{ task.start or task.created or '-' }}</dd>
+  </div>
+  {% if task.end %}
+  <div>
+    <dt>Ended</dt>
+    <dd>{{ task.end }}</dd>
+  </div>
+  {% endif %}
+  {% if task.commit_hash %}
+  <div>
+    <dt>Commit</dt>
+    <dd><code>{{ task.commit_hash[:12] }}</code></dd>
+  </div>
+  {% endif %}
+  {% if task.commit_message %}
+  <div>
+    <dt>Commit Message</dt>
+    <dd>{{ task.commit_message }}</dd>
+  </div>
+  {% endif %}
+  {% if task.playbook %}
+  <div>
+    <dt>Playbook</dt>
+    <dd>{{ task.playbook }}</dd>
+  </div>
+  {% endif %}
+  {% if task.limit %}
+  <div>
+    <dt>Limit</dt>
+    <dd>{{ task.limit }}</dd>
+  </div>
+  {% endif %}
+</dl>
+
+<section>
+  <h2>Output</h2>
+  <pre class="task-logs">{{ logs or 'No output available.' }}</pre>
+</section>
+
+{% if task.status in ['running', 'waiting', 'pending'] %}
+<script>
+  // Auto-refresh every 5 seconds while task is running
+  setTimeout(function() {
+    location.reload();
+  }, 5000);
+</script>
+{% endif %}
+{% endblock %}

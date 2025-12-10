@@ -118,6 +118,12 @@ class ProjectForm(FlaskForm):
     description = TextAreaField("Description", validators=[Length(max=1000)])
     tenant_id = SelectField("Tenant", coerce=int, validators=[DataRequired()])
     owner_id = SelectField("Owner", coerce=int, validators=[DataRequired()])
+    semaphore_project_id = SelectField(
+        "Semaphore Project",
+        coerce=lambda x: int(x) if x and x != "" else None,
+        validators=[Optional()],
+        render_kw={"aria-description": "Link to a Semaphore project for automation"},
+    )
 
 
 class SSHKeyForm(FlaskForm):
@@ -141,6 +147,7 @@ class TenantIntegrationForm(FlaskForm):
             ("github", "GitHub"),
             ("gitlab", "GitLab"),
             ("jira", "Jira"),
+            ("semaphore", "Semaphore"),
         ],
         validators=[DataRequired()],
     )

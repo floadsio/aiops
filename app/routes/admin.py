@@ -3493,12 +3493,30 @@ def refresh_all_issues():
 @admin_bp.route("/projects", methods=["GET", "POST"])
 @admin_required
 def manage_projects():
+    from ..services.semaphore_service import (
+        SemaphoreError,
+        list_semaphore_projects,
+    )
+
     form = ProjectForm()
     delete_form = ProjectDeleteForm()
     form.tenant_id.choices = [
         (t.id, t.name) for t in Tenant.query.order_by(Tenant.name)
     ]
     form.owner_id.choices = [(u.id, u.email) for u in User.query.order_by(User.email)]
+
+    # Build Semaphore project choices from all tenants with Semaphore integration
+    semaphore_choices: list[tuple[str, str]] = [("", "-- None --")]
+    for tenant in Tenant.query.all():
+        try:
+            sem_projects = list_semaphore_projects(tenant.id)
+            for sp in sem_projects:
+                semaphore_choices.append(
+                    (str(sp["id"]), f"{tenant.name}: {sp['name']}")
+                )
+        except SemaphoreError:
+            pass  # Tenant doesn't have Semaphore configured
+    form.semaphore_project_id.choices = semaphore_choices
 
     if not form.tenant_id.choices:
         flash("Create a tenant before adding projects.", "warning")
@@ -3571,6 +3589,7 @@ def manage_projects():
             tenant_id=form.tenant_id.data,
             owner_id=form.owner_id.data,
             local_path=str(local_path),
+            semaphore_project_id=form.semaphore_project_id.data,
         )
         db.session.add(project)
         db.session.commit()

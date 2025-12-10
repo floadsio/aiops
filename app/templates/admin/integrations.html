@@ -449,6 +449,7 @@
       <label>
         {{ integration_form.base_url.label }}
         {{ integration_form.base_url(placeholder="Optional override for self-hosted instances") }}
+        <small class="help-text" id="base-url-help">Required for Semaphore (e.g., http://semaphore.example.com:3000)</small>
         {% for error in integration_form.base_url.errors %}
           <span class="error">{{ error }}</span>
         {% endfor %}

@@ -19,6 +19,7 @@ from . import (  # noqa: E402, F401
     jira_proxy,
     notifications,
     projects,
+    semaphore,
     sessions,
     system,
     tenants,

@@ -227,6 +227,10 @@
             <span>{{ project.owner.email }}</span>
             <span>•</span>
             <span>{{ project.default_branch }}</span>
+            {% if project.semaphore_project_id %}
+            <span>•</span>
+            <span title="Semaphore Project ID">Semaphore: {{ project.semaphore_project_id }}</span>
+            {% endif %}
           </div>
           <div class="project-card__actions">
             <form method="post" class="inline-form">
@@ -290,6 +294,13 @@
           {{ form.owner_id.label }}
           {{ form.owner_id() }}
           {% for error in form.owner_id.errors %}
+            <span class="error">{{ error }}</span>
+          {% endfor %}
+        </label>
+        <label>
+          {{ form.semaphore_project_id.label }}
+          {{ form.semaphore_project_id() }}
+          {% for error in form.semaphore_project_id.errors %}
             <span class="error">{{ error }}</span>
           {% endfor %}
         </label>

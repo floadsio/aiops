@@ -1,0 +1,297 @@
+{% extends "base.html" %}
+{% block title %}Semaphore | {{ project.name }}{% endblock %}
+{% block extra_head %}
+{{ super() }}
+<style>
+  .semaphore-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .semaphore-header h1 {
+    margin: 0;
+  }
+  .semaphore-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+  }
+  .semaphore-status .badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+  .semaphore-status .badge.connected {
+    background: #10b981;
+    color: white;
+  }
+  .semaphore-status .badge.error {
+    background: #ef4444;
+    color: white;
+  }
+  .templates-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    margin-bottom: 2rem;
+  }
+  .template-card {
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.02);
+  }
+  [data-theme="dark"] .template-card {
+    background: rgba(148, 163, 184, 0.08);
+    border-color: rgba(148, 163, 184, 0.4);
+  }
+  .template-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+  }
+  .template-card .type-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366f1;
+    margin-bottom: 0.5rem;
+  }
+  [data-theme="dark"] .template-card .type-badge {
+    background: rgba(99, 102, 241, 0.25);
+    color: #a5b4fc;
+  }
+  .template-card .playbook {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: #64748b;
+    margin-bottom: 0.75rem;
+  }
+  .template-card .description {
+    font-size: 0.85rem;
+    color: #475569;
+    margin-bottom: 0.75rem;
+  }
+  [data-theme="dark"] .template-card .description {
+    color: rgba(226, 232, 240, 0.7);
+  }
+  .template-card .actions {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .template-card button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .tasks-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  .tasks-table th,
+  .tasks-table td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+  .tasks-table th {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+  [data-theme="dark"] .tasks-table th {
+    color: rgba(148, 163, 184, 0.8);
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+  .status-badge.success { background: #10b981; color: white; }
+  .status-badge.running { background: #f59e0b; color: white; }
+  .status-badge.waiting { background: #6366f1; color: white; }
+  .status-badge.error, .status-badge.failed { background: #ef4444; color: white; }
+  .status-badge.stopped { background: #6b7280; color: white; }
+  .run-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .run-modal.active {
+    display: flex;
+  }
+  .run-modal-content {
+    background: var(--pico-background-color);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .run-modal-content h2 {
+    margin: 0 0 1rem 0;
+  }
+  .run-modal-content .actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="semaphore-header">
+  <div>
+    <h1>Semaphore: {{ project.name }}</h1>
+    <p><code>{{ project.repo_url }}</code></p>
+  </div>
+  <div class="semaphore-status">
+    {% if semaphore_connected %}
+      <span class="badge connected">Connected</span>
+      <span>Project: {{ semaphore_project_name or project.semaphore_project_id }}</span>
+    {% else %}
+      <span class="badge error">Not Configured</span>
+    {% endif %}
+  </div>
+</div>
+
+{% if not semaphore_connected %}
+<article class="contrast">
+  <h2>Semaphore Not Configured</h2>
+  <p>{{ error_message or "This project is not linked to a Semaphore project. Configure it in Admin > Projects." }}</p>
+  <a href="{{ url_for('admin.manage_projects') }}" role="button">Configure Project</a>
+</article>
+{% else %}
+
+<section>
+  <h2>Templates</h2>
+  {% if templates %}
+  <div class="templates-grid">
+    {% for template in templates %}
+    <div class="template-card">
+      <span class="type-badge">{{ template.type or 'ansible' }}</span>
+      <h3>{{ template.name }}</h3>
+      <div class="playbook">{{ template.playbook or template.script or '-' }}</div>
+      {% if template.description %}
+      <div class="description">{{ template.description }}</div>
+      {% endif %}
+      <div class="actions">
+        <button class="contrast" onclick="openRunModal({{ template.id }}, '{{ template.name | e }}')">
+          Run
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p>No templates found in the linked Semaphore project.</p>
+  {% endif %}
+</section>
+
+<section>
+  <h2>Recent Tasks</h2>
+  {% if tasks %}
+  <table class="tasks-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Template</th>
+        <th>Status</th>
+        <th>Started</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for task in tasks %}
+      <tr>
+        <td>{{ task.id }}</td>
+        <td>{{ task.template_alias or task.template_id }}</td>
+        <td>
+          <span class="status-badge {{ task.status }}">{{ task.status }}</span>
+        </td>
+        <td>{{ task.created or task.start or '-' }}</td>
+        <td>
+          <a href="{{ url_for('projects.project_semaphore_task', project_id=project.id, task_id=task.id) }}">
+            View
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p>No recent tasks.</p>
+  {% endif %}
+</section>
+
+<!-- Run Modal -->
+<div id="runModal" class="run-modal">
+  <div class="run-modal-content">
+    <h2>Run Template: <span id="modalTemplateName"></span></h2>
+    <form id="runForm" method="post">
+      {{ form.hidden_tag() }}
+      <input type="hidden" name="template_id" id="modalTemplateId">
+
+      <label>
+        Message (optional)
+        <input type="text" name="message" placeholder="Triggered from aiops">
+      </label>
+
+      <label>
+        Limit (optional)
+        <input type="text" name="limit" placeholder="host1,host2 or group">
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" name="dry_run"> Dry Run
+      </label>
+
+      <div class="actions">
+        <button type="button" class="secondary" onclick="closeRunModal()">Cancel</button>
+        <button type="submit" class="contrast">Run</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openRunModal(templateId, templateName) {
+  document.getElementById('modalTemplateId').value = templateId;
+  document.getElementById('modalTemplateName').textContent = templateName;
+  document.getElementById('runModal').classList.add('active');
+}
+
+function closeRunModal() {
+  document.getElementById('runModal').classList.remove('active');
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeRunModal();
+});
+
+// Close modal on backdrop click
+document.getElementById('runModal').addEventListener('click', function(e) {
+  if (e.target === this) closeRunModal();
+});
+</script>
+
+{% endif %}
+{% endblock %}

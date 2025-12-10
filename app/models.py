@@ -149,6 +149,7 @@ class Project(BaseModel, TimestampMixin):
     ssh_key_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("ssh_keys.id"), nullable=True
     )
+    semaphore_project_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="projects")
     owner: Mapped["User"] = relationship("User", back_populates="projects")

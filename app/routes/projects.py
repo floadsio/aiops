@@ -1500,6 +1500,129 @@ def project_ansible_console(project_id: int):
     )
 
 
+@projects_bp.route("/<int:project_id>/semaphore", methods=["GET", "POST"])
+@login_required
+def project_semaphore(project_id: int):
+    """Semaphore integration page for a project."""
+    from flask_wtf import FlaskForm
+    from ..services.semaphore_service import (
+        SemaphoreError,
+        get_project_templates,
+        list_tasks,
+        run_template,
+        list_semaphore_projects,
+    )
+
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    # Simple form for CSRF
+    form = FlaskForm()
+
+    semaphore_connected = False
+    templates = []
+    tasks = []
+    error_message = None
+    semaphore_project_name = None
+
+    if not project.semaphore_project_id:
+        error_message = "This project is not linked to a Semaphore project."
+    else:
+        try:
+            templates = get_project_templates(project)
+            tasks = list_tasks(project, limit=10)
+            semaphore_connected = True
+
+            # Get project name from Semaphore
+            sem_projects = list_semaphore_projects(project.tenant_id)
+            for sp in sem_projects:
+                if sp.get("id") == project.semaphore_project_id:
+                    semaphore_project_name = sp.get("name")
+                    break
+        except SemaphoreError as e:
+            error_message = str(e)
+
+    # Handle POST (run template)
+    if request.method == "POST" and form.validate_on_submit():
+        template_id = request.form.get("template_id", type=int)
+        message = request.form.get("message")
+        limit = request.form.get("limit")
+        dry_run = request.form.get("dry_run") == "on"
+
+        if template_id:
+            try:
+                variables = {}
+                if message:
+                    variables["message"] = message
+                if limit:
+                    variables["limit"] = limit
+                if dry_run:
+                    variables["dry_run"] = True
+
+                task = run_template(
+                    project,
+                    template_id,
+                    variables=variables if variables else None,
+                )
+                flash(f"Task #{task.get('id')} started successfully.", "success")
+                return redirect(
+                    url_for(
+                        "projects.project_semaphore_task",
+                        project_id=project.id,
+                        task_id=task.get("id"),
+                    )
+                )
+            except SemaphoreError as e:
+                flash(f"Failed to start task: {e}", "danger")
+
+    return render_template(
+        "projects/semaphore.html",
+        project=project,
+        form=form,
+        templates=templates,
+        tasks=tasks,
+        semaphore_connected=semaphore_connected,
+        semaphore_project_name=semaphore_project_name,
+        error_message=error_message,
+    )
+
+
+@projects_bp.route("/<int:project_id>/semaphore/task/<int:task_id>")
+@login_required
+def project_semaphore_task(project_id: int, task_id: int):
+    """View details of a Semaphore task."""
+    from ..services.semaphore_service import (
+        SemaphoreError,
+        get_task_status,
+        get_task_logs,
+    )
+
+    project = Project.query.get_or_404(project_id)
+    if not _authorize(project):
+        flash("You do not have access to this project.", "danger")
+        return redirect(url_for("admin.dashboard"))
+
+    if not project.semaphore_project_id:
+        flash("This project is not linked to a Semaphore project.", "warning")
+        return redirect(url_for("projects.project_detail", project_id=project.id))
+
+    try:
+        task = get_task_status(project, task_id)
+        logs = get_task_logs(project, task_id)
+    except SemaphoreError as e:
+        flash(f"Failed to get task: {e}", "danger")
+        return redirect(url_for("projects.project_semaphore", project_id=project.id))
+
+    return render_template(
+        "projects/semaphore_task.html",
+        project=project,
+        task=task,
+        logs=logs,
+    )
+
+
 @projects_bp.route("/dotfiles", methods=["GET", "POST"])
 @login_required
 def manage_dotfiles():

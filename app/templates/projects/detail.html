@@ -490,8 +490,13 @@
     <a
       role="button"
       class="secondary"
+      href="{{ url_for('projects.project_semaphore', project_id=project.id) }}"
+    >Semaphore</a>
+    <a
+      role="button"
+      class="secondary outline"
       href="{{ url_for('projects.project_ansible_console', project_id=project.id) }}"
-    >Open Ansible Console</a>
+    >Ansible Console (legacy)</a>
   </p>
 </section>
 

@@ -5051,6 +5051,12 @@ def semaphore_template_get(
 )
 @click.option("--description", "-d", help="Template description")
 @click.option("--arg", multiple=True, help="Extra CLI argument (can be repeated)")
+@click.option("--limit", "-l", help="Host limitation pattern (e.g., 'webservers')")
+@click.option("--allow-override-args", is_flag=True, help="Allow arg override per task")
+@click.option("--suppress-alerts", is_flag=True, help="Disable success notifications")
+@click.option("--autorun", is_flag=True, help="Enable automatic execution")
+@click.option("--view-id", type=int, help="Dashboard/view ID")
+@click.option("--branch", help="Git branch to use")
 @click.option(
     "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
 )
@@ -5066,6 +5072,12 @@ def semaphore_template_create(
     app: str,
     description: Optional[str],
     arg: tuple,
+    limit: Optional[str],
+    allow_override_args: bool,
+    suppress_alerts: bool,
+    autorun: bool,
+    view_id: Optional[int],
+    branch: Optional[str],
     output: Optional[str],
 ) -> None:
     """Create a new Semaphore template.
@@ -5079,12 +5091,13 @@ def semaphore_template_create(
             --environment 1
 
         aiops semaphore template create aiops \\
-            --name "Run Script" \\
-            --playbook "scripts/run.sh" \\
+            --name "Deploy to Webservers" \\
+            --playbook "ansible/deploy.yml" \\
             --inventory 1 \\
             --repository 1 \\
             --environment 1 \\
-            --app bash
+            --limit "webservers" \\
+            --branch "main"
     """
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
@@ -5106,6 +5119,18 @@ def semaphore_template_create(
             payload["description"] = description
         if arg:
             payload["arguments"] = list(arg)
+        if limit:
+            payload["limit"] = limit
+        if allow_override_args:
+            payload["allow_override_args"] = True
+        if suppress_alerts:
+            payload["suppress_success_alerts"] = True
+        if autorun:
+            payload["autorun"] = True
+        if view_id is not None:
+            payload["view_id"] = view_id
+        if branch:
+            payload["git_branch"] = branch
 
         template = client.post(f"projects/{project_id}/semaphore/templates", json=payload)
 
@@ -5133,6 +5158,16 @@ def semaphore_template_create(
     help="New application type",
 )
 @click.option("--description", "-d", help="New template description")
+@click.option("--limit", "-l", help="Host limitation pattern (e.g., 'webservers')")
+@click.option(
+    "--allow-override-args/--no-allow-override-args", default=None, help="Allow arg override"
+)
+@click.option(
+    "--suppress-alerts/--no-suppress-alerts", default=None, help="Disable success alerts"
+)
+@click.option("--autorun/--no-autorun", default=None, help="Enable automatic execution")
+@click.option("--view-id", type=int, help="Dashboard/view ID")
+@click.option("--branch", help="Git branch to use")
 @click.option(
     "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
 )
@@ -5148,6 +5183,12 @@ def semaphore_template_update(
     environment: Optional[int],
     app: Optional[str],
     description: Optional[str],
+    limit: Optional[str],
+    allow_override_args: Optional[bool],
+    suppress_alerts: Optional[bool],
+    autorun: Optional[bool],
+    view_id: Optional[int],
+    branch: Optional[str],
     output: Optional[str],
 ) -> None:
     """Update an existing Semaphore template.
@@ -5155,6 +5196,7 @@ def semaphore_template_update(
     Examples:
         aiops semaphore template update aiops 1 --name "New Name"
         aiops semaphore template update aiops 1 --playbook "ansible/new.yml"
+        aiops semaphore template update aiops 1 --limit "webservers" --branch "main"
     """
     client = get_client(ctx)
     config: Config = ctx.obj["config"]
@@ -5178,6 +5220,18 @@ def semaphore_template_update(
             payload["app"] = app
         if description is not None:
             payload["description"] = description
+        if limit is not None:
+            payload["limit"] = limit
+        if allow_override_args is not None:
+            payload["allow_override_args"] = allow_override_args
+        if suppress_alerts is not None:
+            payload["suppress_success_alerts"] = suppress_alerts
+        if autorun is not None:
+            payload["autorun"] = autorun
+        if view_id is not None:
+            payload["view_id"] = view_id
+        if branch is not None:
+            payload["git_branch"] = branch
 
         if not payload:
             error_console.print("[yellow]No updates specified[/yellow]")

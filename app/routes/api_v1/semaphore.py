@@ -425,6 +425,12 @@ def project_semaphore_template_create(project_id: int):
         app: str - Application type (default: ansible)
         arguments: list[str] - Optional CLI arguments
         description: str - Optional description
+        limit: str - Host limitation pattern
+        allow_override_args: bool - Allow overriding args per task
+        suppress_success_alerts: bool - Disable success notifications
+        autorun: bool - Enable automatic execution
+        view_id: int - Dashboard/view ID
+        git_branch: str - Repository branch
 
     Returns:
         JSON created template details
@@ -452,6 +458,12 @@ def project_semaphore_template_create(project_id: int):
             app=data.get("app", "ansible"),
             arguments=data.get("arguments"),
             description=data.get("description"),
+            limit=data.get("limit"),
+            allow_override_args=data.get("allow_override_args"),
+            suppress_success_alerts=data.get("suppress_success_alerts"),
+            autorun=data.get("autorun"),
+            view_id=data.get("view_id"),
+            git_branch=data.get("git_branch"),
         )
         return jsonify(template), 201
     except SemaphoreConfigError as e:
@@ -481,6 +493,12 @@ def project_semaphore_template_update(project_id: int, template_id: int):
         app: str - New application type
         arguments: list[str] - New CLI arguments
         description: str - New description
+        limit: str - Host limitation pattern
+        allow_override_args: bool - Allow overriding args per task
+        suppress_success_alerts: bool - Disable success notifications
+        autorun: bool - Enable automatic execution
+        view_id: int - Dashboard/view ID
+        git_branch: str - Repository branch
 
     Returns:
         JSON updated template details
@@ -503,6 +521,12 @@ def project_semaphore_template_update(project_id: int, template_id: int):
             app=data.get("app"),
             arguments=data.get("arguments"),
             description=data.get("description"),
+            limit=data.get("limit"),
+            allow_override_args=data.get("allow_override_args"),
+            suppress_success_alerts=data.get("suppress_success_alerts"),
+            autorun=data.get("autorun"),
+            view_id=data.get("view_id"),
+            git_branch=data.get("git_branch"),
         )
         return jsonify(template)
     except SemaphoreConfigError as e:

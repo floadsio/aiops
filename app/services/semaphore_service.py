@@ -448,6 +448,12 @@ def create_template(
     app: str = "ansible",
     arguments: Optional[list[str]] = None,
     description: Optional[str] = None,
+    limit: Optional[str] = None,
+    allow_override_args: Optional[bool] = None,
+    suppress_success_alerts: Optional[bool] = None,
+    autorun: Optional[bool] = None,
+    view_id: Optional[int] = None,
+    git_branch: Optional[str] = None,
 ) -> dict[str, Any]:
     """Create a new Semaphore template.
 
@@ -461,6 +467,12 @@ def create_template(
         app: Application type (ansible, terraform, tofu, bash, powershell)
         arguments: Optional list of extra CLI arguments
         description: Optional template description
+        limit: Host limitation pattern (e.g., 'webservers' or 'host1,host2')
+        allow_override_args: Allow overriding arguments per task run
+        suppress_success_alerts: Disable success notifications
+        autorun: Enable automatic execution trigger
+        view_id: Dashboard/view ID for grouping
+        git_branch: Repository branch to use
 
     Returns:
         Created template details
@@ -487,6 +499,28 @@ def create_template(
         payload["arguments"] = json.dumps(arguments)
     if description:
         payload["description"] = description
+    if allow_override_args is not None:
+        payload["allow_override_args_in_task"] = allow_override_args
+    if suppress_success_alerts is not None:
+        payload["suppress_success_alerts"] = suppress_success_alerts
+    if autorun is not None:
+        payload["autorun"] = autorun
+    if view_id is not None:
+        payload["view_id"] = view_id
+    if git_branch:
+        payload["git_branch"] = git_branch
+
+    # Ansible-specific params go in task_params (limit must be array)
+    if limit and app == "ansible":
+        # Convert comma-separated string to array if needed
+        if isinstance(limit, str):
+            limit_array = [h.strip() for h in limit.split(",") if h.strip()]
+        else:
+            limit_array = list(limit)
+        payload["task_params"] = {
+            "limit": limit_array,
+            "allow_override_limit": True,
+        }
 
     response = client._request(
         "post",
@@ -516,6 +550,12 @@ def update_template(
     app: Optional[str] = None,
     arguments: Optional[list[str]] = None,
     description: Optional[str] = None,
+    limit: Optional[str] = None,
+    allow_override_args: Optional[bool] = None,
+    suppress_success_alerts: Optional[bool] = None,
+    autorun: Optional[bool] = None,
+    view_id: Optional[int] = None,
+    git_branch: Optional[str] = None,
 ) -> dict[str, Any]:
     """Update an existing Semaphore template.
 
@@ -530,6 +570,12 @@ def update_template(
         app: New application type
         arguments: New list of extra CLI arguments
         description: New template description
+        limit: Host limitation pattern
+        allow_override_args: Allow overriding arguments per task run
+        suppress_success_alerts: Disable success notifications
+        autorun: Enable automatic execution trigger
+        view_id: Dashboard/view ID for grouping
+        git_branch: Repository branch to use
 
     Returns:
         Updated template details
@@ -566,6 +612,49 @@ def update_template(
         payload["description"] = description
     elif current.get("description"):
         payload["description"] = current["description"]
+
+    # Handle limit in task_params for Ansible templates
+    current_app = app if app is not None else current.get("app", "ansible")
+    current_task_params = current.get("task_params", {}) or {}
+
+    if limit is not None and current_app == "ansible":
+        # Convert comma-separated string to array if needed
+        if isinstance(limit, str):
+            limit_array = [h.strip() for h in limit.split(",") if h.strip()]
+        else:
+            limit_array = list(limit)
+        payload["task_params"] = {
+            **current_task_params,
+            "limit": limit_array,
+            "allow_override_limit": True,
+        }
+    elif current_task_params:
+        payload["task_params"] = current_task_params
+
+    if allow_override_args is not None:
+        payload["allow_override_args_in_task"] = allow_override_args
+    elif current.get("allow_override_args_in_task") is not None:
+        payload["allow_override_args_in_task"] = current["allow_override_args_in_task"]
+
+    if suppress_success_alerts is not None:
+        payload["suppress_success_alerts"] = suppress_success_alerts
+    elif current.get("suppress_success_alerts") is not None:
+        payload["suppress_success_alerts"] = current["suppress_success_alerts"]
+
+    if autorun is not None:
+        payload["autorun"] = autorun
+    elif current.get("autorun") is not None:
+        payload["autorun"] = current["autorun"]
+
+    if view_id is not None:
+        payload["view_id"] = view_id
+    elif current.get("view_id") is not None:
+        payload["view_id"] = current["view_id"]
+
+    if git_branch is not None:
+        payload["git_branch"] = git_branch
+    elif current.get("git_branch"):
+        payload["git_branch"] = current["git_branch"]
 
     response = client._request(
         "put",

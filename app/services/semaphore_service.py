@@ -32,6 +32,15 @@ __all__ = [
     "get_task_logs",
     "list_semaphore_projects",
     "test_connection",
+    # Dependency listing
+    "list_inventories",
+    "list_environments",
+    "list_repositories",
+    "list_keys",
+    # Template CRUD
+    "create_template",
+    "update_template",
+    "delete_template",
 ]
 
 
@@ -317,3 +326,289 @@ def list_tasks(
     if not isinstance(data, list):
         raise SemaphoreAPIError("Unexpected response format for tasks")
     return data
+
+
+# -----------------------------------------------------------------------------
+# Dependency listing functions
+# -----------------------------------------------------------------------------
+
+
+def list_inventories(project: Project) -> list[dict[str, Any]]:
+    """List inventories for a project's Semaphore project.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+
+    Returns:
+        List of inventories
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+    response = client._request(
+        "get",
+        f"/project/{project.semaphore_project_id}/inventory",
+    )
+    data = client._read_json(response)
+    if not isinstance(data, list):
+        raise SemaphoreAPIError("Unexpected response format for inventories")
+    return data
+
+
+def list_environments(project: Project) -> list[dict[str, Any]]:
+    """List environments for a project's Semaphore project.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+
+    Returns:
+        List of environments
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+    response = client._request(
+        "get",
+        f"/project/{project.semaphore_project_id}/environment",
+    )
+    data = client._read_json(response)
+    if not isinstance(data, list):
+        raise SemaphoreAPIError("Unexpected response format for environments")
+    return data
+
+
+def list_repositories(project: Project) -> list[dict[str, Any]]:
+    """List repositories for a project's Semaphore project.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+
+    Returns:
+        List of repositories
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+    response = client._request(
+        "get",
+        f"/project/{project.semaphore_project_id}/repositories",
+    )
+    data = client._read_json(response)
+    if not isinstance(data, list):
+        raise SemaphoreAPIError("Unexpected response format for repositories")
+    return data
+
+
+def list_keys(project: Project) -> list[dict[str, Any]]:
+    """List SSH keys for a project's Semaphore project.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+
+    Returns:
+        List of SSH keys
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+    response = client._request(
+        "get",
+        f"/project/{project.semaphore_project_id}/keys",
+    )
+    data = client._read_json(response)
+    if not isinstance(data, list):
+        raise SemaphoreAPIError("Unexpected response format for keys")
+    return data
+
+
+# -----------------------------------------------------------------------------
+# Template CRUD functions
+# -----------------------------------------------------------------------------
+
+
+def create_template(
+    project: Project,
+    name: str,
+    playbook: str,
+    inventory_id: int,
+    repository_id: int,
+    environment_id: int,
+    app: str = "ansible",
+    arguments: Optional[list[str]] = None,
+    description: Optional[str] = None,
+) -> dict[str, Any]:
+    """Create a new Semaphore template.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+        name: Template display name
+        playbook: Path to playbook file (e.g., 'ansible/playbook.yml')
+        inventory_id: Semaphore inventory ID
+        repository_id: Semaphore repository ID
+        environment_id: Semaphore environment ID
+        app: Application type (ansible, terraform, tofu, bash, powershell)
+        arguments: Optional list of extra CLI arguments
+        description: Optional template description
+
+    Returns:
+        Created template details
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+
+    import json
+
+    payload: dict[str, Any] = {
+        "name": name,
+        "playbook": playbook,
+        "inventory_id": inventory_id,
+        "repository_id": repository_id,
+        "environment_id": environment_id,
+        "app": app,
+    }
+
+    if arguments:
+        payload["arguments"] = json.dumps(arguments)
+    if description:
+        payload["description"] = description
+
+    response = client._request(
+        "post",
+        f"/project/{project.semaphore_project_id}/templates",
+        json_body=payload,
+    )
+    template = client._read_json(response)
+
+    log.info(
+        "Created Semaphore template '%s' (ID %s) for project %s",
+        name,
+        template.get("id"),
+        project.name,
+    )
+
+    return template
+
+
+def update_template(
+    project: Project,
+    template_id: int,
+    name: Optional[str] = None,
+    playbook: Optional[str] = None,
+    inventory_id: Optional[int] = None,
+    repository_id: Optional[int] = None,
+    environment_id: Optional[int] = None,
+    app: Optional[str] = None,
+    arguments: Optional[list[str]] = None,
+    description: Optional[str] = None,
+) -> dict[str, Any]:
+    """Update an existing Semaphore template.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+        template_id: Semaphore template ID to update
+        name: New template display name
+        playbook: New path to playbook file
+        inventory_id: New Semaphore inventory ID
+        repository_id: New Semaphore repository ID
+        environment_id: New Semaphore environment ID
+        app: New application type
+        arguments: New list of extra CLI arguments
+        description: New template description
+
+    Returns:
+        Updated template details
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+
+    # Get current template to merge changes
+    current = get_template(project, template_id)
+
+    import json
+
+    payload: dict[str, Any] = {
+        "id": template_id,
+        "project_id": project.semaphore_project_id,
+        "name": name if name is not None else current.get("name"),
+        "playbook": playbook if playbook is not None else current.get("playbook"),
+        "inventory_id": inventory_id if inventory_id is not None else current.get("inventory_id"),
+        "repository_id": repository_id if repository_id is not None else current.get("repository_id"),
+        "environment_id": environment_id if environment_id is not None else current.get("environment_id"),
+        "app": app if app is not None else current.get("app", "ansible"),
+    }
+
+    if arguments is not None:
+        payload["arguments"] = json.dumps(arguments)
+    elif current.get("arguments"):
+        payload["arguments"] = current["arguments"]
+
+    if description is not None:
+        payload["description"] = description
+    elif current.get("description"):
+        payload["description"] = current["description"]
+
+    response = client._request(
+        "put",
+        f"/project/{project.semaphore_project_id}/templates/{template_id}",
+        json_body=payload,
+    )
+
+    # PUT may return empty, fetch the updated template
+    if response.status == 204 or not response.body:
+        template = get_template(project, template_id)
+    else:
+        template = client._read_json(response)
+
+    log.info(
+        "Updated Semaphore template %s for project %s",
+        template_id,
+        project.name,
+    )
+
+    return template
+
+
+def delete_template(project: Project, template_id: int) -> None:
+    """Delete a Semaphore template.
+
+    Args:
+        project: aiops Project with semaphore_project_id set
+        template_id: Semaphore template ID to delete
+    """
+    if not project.semaphore_project_id:
+        raise SemaphoreConfigError(
+            f"Project '{project.name}' has no Semaphore project linked"
+        )
+
+    client = get_semaphore_client(project.tenant_id)
+
+    client._request(
+        "delete",
+        f"/project/{project.semaphore_project_id}/templates/{template_id}",
+    )
+
+    log.info(
+        "Deleted Semaphore template %s for project %s",
+        template_id,
+        project.name,
+    )

@@ -13,14 +13,21 @@ from ...services.api_auth import require_api_auth
 from ...services.semaphore_service import (
     SemaphoreConfigError,
     SemaphoreError,
+    create_template,
+    delete_template,
     get_project_templates,
     get_task_logs,
     get_task_status,
     get_template,
+    list_environments,
+    list_inventories,
+    list_keys,
+    list_repositories,
     list_semaphore_projects,
     list_tasks,
     run_template,
     test_connection,
+    update_template,
     wait_for_task,
 )
 from . import api_v1_bp
@@ -289,6 +296,243 @@ def project_semaphore_task_wait(project_id: int, task_id: int):
             timeout=timeout,
         )
         return jsonify(task)
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# -----------------------------------------------------------------------------
+# Dependency listing endpoints
+# -----------------------------------------------------------------------------
+
+
+@api_v1_bp.route("/projects/<int:project_id>/semaphore/inventories", methods=["GET"])
+@require_api_auth(scopes=["read"])
+def project_semaphore_inventories(project_id: int):
+    """List Semaphore inventories for a project.
+
+    Args:
+        project_id: aiops Project ID
+
+    Returns:
+        JSON list of inventories
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    try:
+        inventories = list_inventories(project)
+        return jsonify(inventories)
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_v1_bp.route("/projects/<int:project_id>/semaphore/environments", methods=["GET"])
+@require_api_auth(scopes=["read"])
+def project_semaphore_environments(project_id: int):
+    """List Semaphore environments for a project.
+
+    Args:
+        project_id: aiops Project ID
+
+    Returns:
+        JSON list of environments
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    try:
+        environments = list_environments(project)
+        return jsonify(environments)
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_v1_bp.route("/projects/<int:project_id>/semaphore/repositories", methods=["GET"])
+@require_api_auth(scopes=["read"])
+def project_semaphore_repositories(project_id: int):
+    """List Semaphore repositories for a project.
+
+    Args:
+        project_id: aiops Project ID
+
+    Returns:
+        JSON list of repositories
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    try:
+        repositories = list_repositories(project)
+        return jsonify(repositories)
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_v1_bp.route("/projects/<int:project_id>/semaphore/keys", methods=["GET"])
+@require_api_auth(scopes=["read"])
+def project_semaphore_keys(project_id: int):
+    """List Semaphore SSH keys for a project.
+
+    Args:
+        project_id: aiops Project ID
+
+    Returns:
+        JSON list of SSH keys
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    try:
+        keys = list_keys(project)
+        return jsonify(keys)
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# -----------------------------------------------------------------------------
+# Template CRUD endpoints
+# -----------------------------------------------------------------------------
+
+
+@api_v1_bp.route("/projects/<int:project_id>/semaphore/templates", methods=["POST"])
+@require_api_auth(scopes=["write"])
+def project_semaphore_template_create(project_id: int):
+    """Create a new Semaphore template.
+
+    Args:
+        project_id: aiops Project ID
+
+    Request body:
+        name: str - Template display name
+        playbook: str - Path to playbook file
+        inventory_id: int - Semaphore inventory ID
+        repository_id: int - Semaphore repository ID
+        environment_id: int - Semaphore environment ID
+        app: str - Application type (default: ansible)
+        arguments: list[str] - Optional CLI arguments
+        description: str - Optional description
+
+    Returns:
+        JSON created template details
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    data = request.get_json() or {}
+
+    # Validate required fields
+    required = ["name", "playbook", "inventory_id", "repository_id", "environment_id"]
+    missing = [f for f in required if f not in data]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    try:
+        template = create_template(
+            project=project,
+            name=data["name"],
+            playbook=data["playbook"],
+            inventory_id=data["inventory_id"],
+            repository_id=data["repository_id"],
+            environment_id=data["environment_id"],
+            app=data.get("app", "ansible"),
+            arguments=data.get("arguments"),
+            description=data.get("description"),
+        )
+        return jsonify(template), 201
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_v1_bp.route(
+    "/projects/<int:project_id>/semaphore/templates/<int:template_id>",
+    methods=["PUT"],
+)
+@require_api_auth(scopes=["write"])
+def project_semaphore_template_update(project_id: int, template_id: int):
+    """Update an existing Semaphore template.
+
+    Args:
+        project_id: aiops Project ID
+        template_id: Semaphore template ID
+
+    Request body (all optional):
+        name: str - New template display name
+        playbook: str - New path to playbook file
+        inventory_id: int - New Semaphore inventory ID
+        repository_id: int - New Semaphore repository ID
+        environment_id: int - New Semaphore environment ID
+        app: str - New application type
+        arguments: list[str] - New CLI arguments
+        description: str - New description
+
+    Returns:
+        JSON updated template details
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    data = request.get_json() or {}
+
+    try:
+        template = update_template(
+            project=project,
+            template_id=template_id,
+            name=data.get("name"),
+            playbook=data.get("playbook"),
+            inventory_id=data.get("inventory_id"),
+            repository_id=data.get("repository_id"),
+            environment_id=data.get("environment_id"),
+            app=data.get("app"),
+            arguments=data.get("arguments"),
+            description=data.get("description"),
+        )
+        return jsonify(template)
+    except SemaphoreConfigError as e:
+        return jsonify({"error": str(e)}), 404
+    except SemaphoreError as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@api_v1_bp.route(
+    "/projects/<int:project_id>/semaphore/templates/<int:template_id>",
+    methods=["DELETE"],
+)
+@require_api_auth(scopes=["write"])
+def project_semaphore_template_delete(project_id: int, template_id: int):
+    """Delete a Semaphore template.
+
+    Args:
+        project_id: aiops Project ID
+        template_id: Semaphore template ID
+
+    Returns:
+        Empty response with 204 status
+    """
+    project = _get_project_or_404(project_id)
+    if not project:
+        return jsonify({"error": "Project not found"}), 404
+
+    try:
+        delete_template(project, template_id)
+        return "", 204
     except SemaphoreConfigError as e:
         return jsonify({"error": str(e)}), 404
     except SemaphoreError as e:

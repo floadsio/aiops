@@ -4740,6 +4740,446 @@ def semaphore_tasks(
         sys.exit(1)
 
 
+# -----------------------------------------------------------------------------
+# Semaphore dependency listing commands
+# -----------------------------------------------------------------------------
+
+
+@semaphore.command(name="inventories")
+@click.argument("project")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_inventories(
+    ctx: click.Context, project: str, output: Optional[str]
+) -> None:
+    """List Semaphore inventories for a project.
+
+    Examples:
+        aiops semaphore inventories aiops
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        inventories = client.get(f"projects/{project_id}/semaphore/inventories")
+
+        if output_format == "table":
+            table = Table(title="Semaphore Inventories")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name")
+            table.add_column("Type")
+            table.add_column("Inventory Path")
+            table.add_column("SSH Key ID")
+
+            for inv in inventories:
+                table.add_row(
+                    str(inv.get("id", "")),
+                    inv.get("name", ""),
+                    inv.get("type", ""),
+                    inv.get("inventory", ""),
+                    str(inv.get("ssh_key_id", "")),
+                )
+            console.print(table)
+        else:
+            format_output(inventories, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="environments")
+@click.argument("project")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_environments(
+    ctx: click.Context, project: str, output: Optional[str]
+) -> None:
+    """List Semaphore environments for a project.
+
+    Examples:
+        aiops semaphore environments aiops
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        environments = client.get(f"projects/{project_id}/semaphore/environments")
+
+        if output_format == "table":
+            table = Table(title="Semaphore Environments")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name")
+            table.add_column("JSON Variables")
+
+            for env in environments:
+                json_str = env.get("json", "{}")
+                # Truncate if too long
+                if len(json_str) > 50:
+                    json_str = json_str[:47] + "..."
+                table.add_row(
+                    str(env.get("id", "")),
+                    env.get("name", ""),
+                    json_str,
+                )
+            console.print(table)
+        else:
+            format_output(environments, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="repositories")
+@click.argument("project")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_repositories(
+    ctx: click.Context, project: str, output: Optional[str]
+) -> None:
+    """List Semaphore repositories for a project.
+
+    Examples:
+        aiops semaphore repositories aiops
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        repositories = client.get(f"projects/{project_id}/semaphore/repositories")
+
+        if output_format == "table":
+            table = Table(title="Semaphore Repositories")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name")
+            table.add_column("Git URL")
+            table.add_column("Branch")
+            table.add_column("SSH Key ID")
+
+            for repo in repositories:
+                table.add_row(
+                    str(repo.get("id", "")),
+                    repo.get("name", ""),
+                    repo.get("git_url", ""),
+                    repo.get("git_branch", ""),
+                    str(repo.get("ssh_key_id", "")),
+                )
+            console.print(table)
+        else:
+            format_output(repositories, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore.command(name="keys")
+@click.argument("project")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_keys(
+    ctx: click.Context, project: str, output: Optional[str]
+) -> None:
+    """List Semaphore SSH keys for a project.
+
+    Examples:
+        aiops semaphore keys aiops
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        keys = client.get(f"projects/{project_id}/semaphore/keys")
+
+        if output_format == "table":
+            table = Table(title="Semaphore SSH Keys")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name")
+            table.add_column("Type")
+
+            for key in keys:
+                table.add_row(
+                    str(key.get("id", "")),
+                    key.get("name", ""),
+                    key.get("type", ""),
+                )
+            console.print(table)
+        else:
+            format_output(keys, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+# -----------------------------------------------------------------------------
+# Semaphore template CRUD commands
+# -----------------------------------------------------------------------------
+
+
+@semaphore.group(name="template")
+def semaphore_template() -> None:
+    """Manage Semaphore templates."""
+    pass
+
+
+@semaphore_template.command(name="get")
+@click.argument("project")
+@click.argument("template_id", type=int)
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_template_get(
+    ctx: click.Context, project: str, template_id: int, output: Optional[str]
+) -> None:
+    """Get details of a Semaphore template.
+
+    Examples:
+        aiops semaphore template get aiops 1
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+        template = client.get(f"projects/{project_id}/semaphore/templates/{template_id}")
+
+        if output_format == "table":
+            table = Table(title=f"Template {template_id}")
+            table.add_column("Field", style="cyan")
+            table.add_column("Value")
+
+            table.add_row("ID", str(template.get("id", "")))
+            table.add_row("Name", template.get("name", ""))
+            table.add_row("Playbook", template.get("playbook", ""))
+            table.add_row("App", template.get("app", ""))
+            table.add_row("Inventory ID", str(template.get("inventory_id", "")))
+            table.add_row("Repository ID", str(template.get("repository_id", "")))
+            table.add_row("Environment ID", str(template.get("environment_id", "")))
+            table.add_row("Description", template.get("description", "") or "")
+            table.add_row("Arguments", template.get("arguments", "") or "")
+
+            console.print(table)
+        else:
+            format_output(template, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore_template.command(name="create")
+@click.argument("project")
+@click.option("--name", "-n", required=True, help="Template display name")
+@click.option("--playbook", "-p", required=True, help="Path to playbook file")
+@click.option("--inventory", "-i", required=True, type=int, help="Inventory ID")
+@click.option("--repository", "-r", required=True, type=int, help="Repository ID")
+@click.option("--environment", "-e", required=True, type=int, help="Environment ID")
+@click.option(
+    "--app",
+    "-a",
+    default="ansible",
+    type=click.Choice(["ansible", "terraform", "tofu", "bash", "powershell"]),
+    help="Application type",
+)
+@click.option("--description", "-d", help="Template description")
+@click.option("--arg", multiple=True, help="Extra CLI argument (can be repeated)")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_template_create(
+    ctx: click.Context,
+    project: str,
+    name: str,
+    playbook: str,
+    inventory: int,
+    repository: int,
+    environment: int,
+    app: str,
+    description: Optional[str],
+    arg: tuple,
+    output: Optional[str],
+) -> None:
+    """Create a new Semaphore template.
+
+    Examples:
+        aiops semaphore template create aiops \\
+            --name "Deploy App" \\
+            --playbook "ansible/deploy.yml" \\
+            --inventory 1 \\
+            --repository 1 \\
+            --environment 1
+
+        aiops semaphore template create aiops \\
+            --name "Run Script" \\
+            --playbook "scripts/run.sh" \\
+            --inventory 1 \\
+            --repository 1 \\
+            --environment 1 \\
+            --app bash
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+
+        payload: dict = {
+            "name": name,
+            "playbook": playbook,
+            "inventory_id": inventory,
+            "repository_id": repository,
+            "environment_id": environment,
+            "app": app,
+        }
+
+        if description:
+            payload["description"] = description
+        if arg:
+            payload["arguments"] = list(arg)
+
+        template = client.post(f"projects/{project_id}/semaphore/templates", json=payload)
+
+        if output_format == "table":
+            console.print(f"[green]Created template '{name}' with ID {template.get('id')}[/green]")
+        else:
+            format_output(template, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore_template.command(name="update")
+@click.argument("project")
+@click.argument("template_id", type=int)
+@click.option("--name", "-n", help="New template display name")
+@click.option("--playbook", "-p", help="New path to playbook file")
+@click.option("--inventory", "-i", type=int, help="New inventory ID")
+@click.option("--repository", "-r", type=int, help="New repository ID")
+@click.option("--environment", "-e", type=int, help="New environment ID")
+@click.option(
+    "--app",
+    "-a",
+    type=click.Choice(["ansible", "terraform", "tofu", "bash", "powershell"]),
+    help="New application type",
+)
+@click.option("--description", "-d", help="New template description")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def semaphore_template_update(
+    ctx: click.Context,
+    project: str,
+    template_id: int,
+    name: Optional[str],
+    playbook: Optional[str],
+    inventory: Optional[int],
+    repository: Optional[int],
+    environment: Optional[int],
+    app: Optional[str],
+    description: Optional[str],
+    output: Optional[str],
+) -> None:
+    """Update an existing Semaphore template.
+
+    Examples:
+        aiops semaphore template update aiops 1 --name "New Name"
+        aiops semaphore template update aiops 1 --playbook "ansible/new.yml"
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        project_id = resolve_project_id(client, project)
+
+        payload: dict = {}
+        if name is not None:
+            payload["name"] = name
+        if playbook is not None:
+            payload["playbook"] = playbook
+        if inventory is not None:
+            payload["inventory_id"] = inventory
+        if repository is not None:
+            payload["repository_id"] = repository
+        if environment is not None:
+            payload["environment_id"] = environment
+        if app is not None:
+            payload["app"] = app
+        if description is not None:
+            payload["description"] = description
+
+        if not payload:
+            error_console.print("[yellow]No updates specified[/yellow]")
+            return
+
+        template = client.put(
+            f"projects/{project_id}/semaphore/templates/{template_id}", json=payload
+        )
+
+        if output_format == "table":
+            console.print(f"[green]Updated template {template_id}[/green]")
+        else:
+            format_output(template, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@semaphore_template.command(name="delete")
+@click.argument("project")
+@click.argument("template_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def semaphore_template_delete(
+    ctx: click.Context,
+    project: str,
+    template_id: int,
+    yes: bool,
+) -> None:
+    """Delete a Semaphore template.
+
+    Examples:
+        aiops semaphore template delete aiops 1 --yes
+    """
+    client = get_client(ctx)
+
+    try:
+        project_id = resolve_project_id(client, project)
+
+        if not yes:
+            # Get template details for confirmation
+            template = client.get(f"projects/{project_id}/semaphore/templates/{template_id}")
+            template_name = template.get("name", f"ID {template_id}")
+
+            if not click.confirm(f"Delete template '{template_name}'?"):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        client.delete(f"projects/{project_id}/semaphore/templates/{template_id}")
+        console.print(f"[green]Deleted template {template_id}[/green]")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     cli(obj={})

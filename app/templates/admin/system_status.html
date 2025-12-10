@@ -219,7 +219,7 @@ function updateStatusDisplay(data) {
   const componentsGrid = document.getElementById('components-grid');
   componentsGrid.innerHTML = '';
 
-  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'database', 'tmux', 'git', 'ai_tools', 'ollama', 'workspaces', 'integrations', 'sessions', 'issue_sync'];
+  const componentOrder = ['cli_git_tools', 'ssh_connectivity', 'user_credentials', 'database', 'tmux', 'git', 'ai_tools', 'ollama', 'workspaces', 'integrations', 'sessions', 'issue_sync'];
 
   componentOrder.forEach(key => {
     if (data.components[key]) {
@@ -406,6 +406,26 @@ function createDetailsHTML(componentName, details) {
         </div>
       `;
     }
+  } else if (componentName === 'user_credentials' && details.users) {
+    details.users.forEach(user => {
+      const status = user.missing_count === 0 ? 'enabled' : 'disabled';
+      const icon = user.missing_count === 0 ? '✓' : '⚠';
+      const missingList = user.missing.map(m => m.name).join(', ');
+      const missingInfo = user.missing_count > 0
+        ? `<br><small style="color: var(--pico-del-color);">Missing: ${missingList}</small>`
+        : '';
+      html += `
+        <div class="detail-row ${status}">
+          <span class="detail-label">
+            <span>${icon}</span>
+            <span>${user.user_name}</span>
+          </span>
+          <span class="detail-value">
+            ${user.configured_count}/${user.total_integrations} configured${missingInfo}
+          </span>
+        </div>
+      `;
+    });
   } else {
     Object.entries(details).forEach(([key, value]) => {
       if (typeof value !== 'object') {

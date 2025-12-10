@@ -924,6 +924,91 @@ def check_sync_scheduler() -> dict[str, Any]:
         }
 
 
+def check_user_credentials() -> dict[str, Any]:
+    """Check personal integration credentials status for all users.
+
+    Shows which users have configured personal PATs for each integration,
+    which is required for correct authorship attribution on external systems.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    try:
+        from ..models import User, UserIntegrationCredential, TenantIntegration
+
+        users = User.query.all()
+        integrations = TenantIntegration.query.filter_by(enabled=True).all()
+
+        if not users or not integrations:
+            return {
+                "healthy": True,
+                "message": "No users or integrations configured",
+                "details": {"users": []}
+            }
+
+        user_status = []
+        total_missing = 0
+
+        for user in users:
+            # Get user's configured credentials
+            user_creds = {
+                c.integration_id
+                for c in UserIntegrationCredential.query.filter_by(user_id=user.id).all()
+            }
+
+            configured = []
+            missing = []
+
+            for integration in integrations:
+                if integration.id in user_creds:
+                    configured.append({
+                        "id": integration.id,
+                        "name": integration.name,
+                        "provider": integration.provider,
+                    })
+                else:
+                    missing.append({
+                        "id": integration.id,
+                        "name": integration.name,
+                        "provider": integration.provider,
+                    })
+
+            total_missing += len(missing)
+
+            user_status.append({
+                "user_id": user.id,
+                "user_name": user.name,
+                "user_email": user.email,
+                "configured_count": len(configured),
+                "missing_count": len(missing),
+                "total_integrations": len(integrations),
+                "configured": configured,
+                "missing": missing,
+            })
+
+        # Sort by missing count (most missing first)
+        user_status.sort(key=lambda x: x["missing_count"], reverse=True)
+
+        total_possible = len(users) * len(integrations)
+        total_configured = total_possible - total_missing
+
+        return {
+            "healthy": total_missing == 0,
+            "message": f"{total_configured}/{total_possible} user credentials configured",
+            "details": {
+                "users": user_status,
+                "summary": {
+                    "total_users": len(users),
+                    "total_integrations": len(integrations),
+                    "total_configured": total_configured,
+                    "total_missing": total_missing,
+                }
+            }
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {"healthy": False, "message": f"User credentials check error: {exc}"}
+
+
 def get_system_status() -> dict[str, Any]:
     """Get comprehensive system status for all components.
 
@@ -942,6 +1027,7 @@ def get_system_status() -> dict[str, Any]:
         "sessions": check_sessions(),
         "ollama": check_ollama(),
         "issue_sync": check_sync_scheduler(),
+        "user_credentials": check_user_credentials(),
     }
 
     # Calculate overall health

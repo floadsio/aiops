@@ -139,3 +139,51 @@ def test_credential_subcommands_work_via_singular():
     result = runner.invoke(cli, ["credential", "list", "--help"])
     assert result.exit_code == 0
     assert "List your personal integration credentials" in result.output
+
+
+def test_singular_issue_command_exists():
+    """Test that 'aiops issue' singular form is available."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issue", "--help"])
+    assert result.exit_code == 0
+    assert "Issue management commands" in result.output
+
+
+def test_plural_issue_command_still_works():
+    """Test that 'aiops issues' plural form still works."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issues", "--help"])
+    assert result.exit_code == 0
+    assert "Issue management commands" in result.output
+
+
+def test_singular_agent_command_exists():
+    """Test that 'aiops agent' singular form is available."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["agent", "--help"])
+    assert result.exit_code == 0
+    assert "Agent context management commands" in result.output
+
+
+def test_plural_agent_command_still_works():
+    """Test that 'aiops agents' plural form still works."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["agents", "--help"])
+    assert result.exit_code == 0
+    assert "Agent context management commands" in result.output
+
+
+def test_issue_subcommands_work_via_singular():
+    """Test that issue subcommands work via singular form."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["issue", "list", "--help"])
+    assert result.exit_code == 0
+    assert "List" in result.output
+
+
+def test_agent_subcommands_work_via_singular():
+    """Test that agent subcommands work via singular form."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["agent", "global", "--help"])
+    assert result.exit_code == 0
+    assert "Agent context" in result.output or "global" in result.output

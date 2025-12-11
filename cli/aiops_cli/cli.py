@@ -1471,6 +1471,18 @@ def plan_clear(ctx: click.Context, issue_id: int) -> None:
         sys.exit(1)
 
 
+# Create wrapper for issue (singular alias)
+_issue_singular = click.Group(
+    name="issue",
+    help=issues.help,
+    callback=issues.callback,
+)
+_issue_singular.hidden = True
+for cmd_name in issues.list_commands(None):
+    _issue_singular.add_command(issues.get_command(None, cmd_name))
+cli.add_command(_issue_singular)
+
+
 # ============================================================================
 # PROJECTS COMMANDS
 # ============================================================================
@@ -1478,7 +1490,7 @@ def plan_clear(ctx: click.Context, issue_id: int) -> None:
 
 @cli.group()
 def projects() -> None:
-    """Project management commands (aliases: project)."""
+    """Project management commands."""
 
 
 @projects.command(name="list")
@@ -2001,7 +2013,7 @@ def workflow_complete(ctx: click.Context, issue_id: int, summary: Optional[str])
 
 @cli.group()
 def sessions() -> None:
-    """Session management commands (aliases: session) - not tied to specific issues."""
+    """Session management commands (not tied to specific issues)."""
 
 
 @sessions.command(name="start")
@@ -2556,7 +2568,7 @@ cli.add_command(_session_singular)
 
 @cli.group()
 def tenants() -> None:
-    """Tenant management commands (aliases: tenant)."""
+    """Tenant management commands."""
 
 
 @tenants.command(name="list")
@@ -3858,6 +3870,18 @@ def agents_global_diff(
         sys.exit(1)
 
 
+# Create wrapper for agent (singular alias)
+_agent_singular = click.Group(
+    name="agent",
+    help=agents.help,
+    callback=agents.callback,
+)
+_agent_singular.hidden = True
+for cmd_name in agents.list_commands(None):
+    _agent_singular.add_command(agents.get_command(None, cmd_name))
+cli.add_command(_agent_singular)
+
+
 # ============================================================================
 # INTEGRATIONS COMMANDS
 # ============================================================================
@@ -3865,7 +3889,7 @@ def agents_global_diff(
 
 @cli.group()
 def integrations() -> None:
-    """Integration management commands (aliases: integration)."""
+    """Integration management commands."""
 
 
 @integrations.command(name="list")
@@ -3925,7 +3949,7 @@ cli.add_command(_integration_singular)
 
 @cli.group()
 def credentials() -> None:
-    """Manage personal integration credentials (aliases: credential) - for using your own tokens."""
+    """Manage personal integration credentials (for using your own tokens)."""
 
 
 @credentials.command(name="list")

@@ -1460,7 +1460,7 @@ def plan_clear(ctx: click.Context, issue_id: int) -> None:
 
 @cli.group()
 def projects() -> None:
-    """Project management commands."""
+    """Project management commands (use 'projects' or 'project')."""
 
 
 @projects.command(name="list")
@@ -1552,6 +1552,10 @@ def projects_status(ctx: click.Context, project: str, output: Optional[str]) -> 
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
+
+
+# Register singular alias for projects command
+cli.add_command(projects, name="project")
 
 
 # ============================================================================
@@ -1970,7 +1974,7 @@ def workflow_complete(ctx: click.Context, issue_id: int, summary: Optional[str])
 
 @cli.group()
 def sessions() -> None:
-    """Session management commands (not tied to specific issues)."""
+    """Session management commands - use 'sessions' or 'session' (not tied to specific issues)."""
 
 
 @sessions.command(name="start")
@@ -2506,6 +2510,10 @@ def sessions_upload(
         sys.exit(1)
 
 
+# Register singular alias for sessions command
+cli.add_command(sessions, name="session")
+
+
 # ============================================================================
 # TENANTS COMMANDS
 # ============================================================================
@@ -2513,7 +2521,7 @@ def sessions_upload(
 
 @cli.group()
 def tenants() -> None:
-    """Tenant management commands."""
+    """Tenant management commands (use 'tenants' or 'tenant')."""
 
 
 @tenants.command(name="list")
@@ -2577,6 +2585,10 @@ def tenants_create(
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
+
+
+# Register singular alias for tenants command
+cli.add_command(tenants, name="tenant")
 
 
 # ============================================================================
@@ -3810,7 +3822,7 @@ def agents_global_diff(
 
 @cli.group()
 def integrations() -> None:
-    """Integration management commands."""
+    """Integration management commands (use 'integrations' or 'integration')."""
 
 
 @integrations.command(name="list")
@@ -3851,6 +3863,10 @@ def integrations_list(ctx: click.Context, tenant: Optional[str], provider: Optio
         sys.exit(1)
 
 
+# Register singular alias for integrations command
+cli.add_command(integrations, name="integration")
+
+
 # ============================================================================
 # USER CREDENTIALS COMMANDS
 # ============================================================================
@@ -3858,7 +3874,7 @@ def integrations_list(ctx: click.Context, tenant: Optional[str], provider: Optio
 
 @cli.group()
 def credentials() -> None:
-    """Manage personal integration credentials (for using your own tokens)."""
+    """Manage personal integration credentials - use 'credentials' or 'credential' (for using your own tokens)."""
 
 
 @credentials.command(name="list")
@@ -3951,6 +3967,10 @@ def credentials_delete(ctx: click.Context, credential_id: int) -> None:
     except APIError as exc:
         error_console.print(f"[red]Error:[/red] {exc}")
         sys.exit(1)
+
+
+# Register singular alias for credentials command
+cli.add_command(credentials, name="credential")
 
 
 # ============================================================================

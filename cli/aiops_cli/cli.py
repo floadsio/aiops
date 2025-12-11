@@ -20,6 +20,24 @@ from .output import format_output
 console = Console()
 error_console = Console(stderr=True)
 
+
+class CustomGroup(click.Group):
+    """Custom Group class that hides specified commands from help."""
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Write all the commands to the formatter if they are not hidden."""
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            # Skip if command is None or explicitly marked as hidden
+            if cmd is None or getattr(cmd, 'hidden', False):
+                continue
+            commands.append((subcommand, cmd))
+
+        if commands:
+            with formatter.section("Commands"):
+                formatter.write_dl([(name, cmd.get_short_help_str(100)) for name, cmd in commands])
+
 AI_TOOL_LABELS = {
     "codex": "Codex CLI",
     "claude": "Claude CLI",
@@ -181,7 +199,7 @@ def attach_to_tmux_session(
         sys.exit(1)
 
 
-@click.group(invoke_without_command=True)
+@click.group(invoke_without_command=True, cls=CustomGroup)
 @click.option("--version", is_flag=True, help="Show version information")
 @click.pass_context
 def cli(ctx: click.Context, version: bool) -> None:
@@ -1460,7 +1478,7 @@ def plan_clear(ctx: click.Context, issue_id: int) -> None:
 
 @cli.group()
 def projects() -> None:
-    """Project management commands (use 'projects' or 'project')."""
+    """Project management commands (aliases: project)."""
 
 
 @projects.command(name="list")
@@ -1554,8 +1572,17 @@ def projects_status(ctx: click.Context, project: str, output: Optional[str]) -> 
         sys.exit(1)
 
 
-# Register singular alias for projects command
-cli.add_command(projects, name="project")
+# Register singular aliases (hidden from help) - creates lightweight wrapper groups
+# Create wrapper for project
+_project_singular = click.Group(
+    name="project",
+    help=projects.help,
+    callback=projects.callback,
+)
+_project_singular.hidden = True
+for cmd_name in projects.list_commands(None):
+    _project_singular.add_command(projects.get_command(None, cmd_name))
+cli.add_command(_project_singular)
 
 
 # ============================================================================
@@ -1974,7 +2001,7 @@ def workflow_complete(ctx: click.Context, issue_id: int, summary: Optional[str])
 
 @cli.group()
 def sessions() -> None:
-    """Session management commands - use 'sessions' or 'session' (not tied to specific issues)."""
+    """Session management commands (aliases: session) - not tied to specific issues."""
 
 
 @sessions.command(name="start")
@@ -2510,8 +2537,16 @@ def sessions_upload(
         sys.exit(1)
 
 
-# Register singular alias for sessions command
-cli.add_command(sessions, name="session")
+# Create wrapper for session
+_session_singular = click.Group(
+    name="session",
+    help=sessions.help,
+    callback=sessions.callback,
+)
+_session_singular.hidden = True
+for cmd_name in sessions.list_commands(None):
+    _session_singular.add_command(sessions.get_command(None, cmd_name))
+cli.add_command(_session_singular)
 
 
 # ============================================================================
@@ -2521,7 +2556,7 @@ cli.add_command(sessions, name="session")
 
 @cli.group()
 def tenants() -> None:
-    """Tenant management commands (use 'tenants' or 'tenant')."""
+    """Tenant management commands (aliases: tenant)."""
 
 
 @tenants.command(name="list")
@@ -2587,8 +2622,16 @@ def tenants_create(
         sys.exit(1)
 
 
-# Register singular alias for tenants command
-cli.add_command(tenants, name="tenant")
+# Create wrapper for tenant
+_tenant_singular = click.Group(
+    name="tenant",
+    help=tenants.help,
+    callback=tenants.callback,
+)
+_tenant_singular.hidden = True
+for cmd_name in tenants.list_commands(None):
+    _tenant_singular.add_command(tenants.get_command(None, cmd_name))
+cli.add_command(_tenant_singular)
 
 
 # ============================================================================
@@ -3822,7 +3865,7 @@ def agents_global_diff(
 
 @cli.group()
 def integrations() -> None:
-    """Integration management commands (use 'integrations' or 'integration')."""
+    """Integration management commands (aliases: integration)."""
 
 
 @integrations.command(name="list")
@@ -3863,8 +3906,16 @@ def integrations_list(ctx: click.Context, tenant: Optional[str], provider: Optio
         sys.exit(1)
 
 
-# Register singular alias for integrations command
-cli.add_command(integrations, name="integration")
+# Create wrapper for integration
+_integration_singular = click.Group(
+    name="integration",
+    help=integrations.help,
+    callback=integrations.callback,
+)
+_integration_singular.hidden = True
+for cmd_name in integrations.list_commands(None):
+    _integration_singular.add_command(integrations.get_command(None, cmd_name))
+cli.add_command(_integration_singular)
 
 
 # ============================================================================
@@ -3874,7 +3925,7 @@ cli.add_command(integrations, name="integration")
 
 @cli.group()
 def credentials() -> None:
-    """Manage personal integration credentials - use 'credentials' or 'credential' (for using your own tokens)."""
+    """Manage personal integration credentials (aliases: credential) - for using your own tokens."""
 
 
 @credentials.command(name="list")
@@ -3969,8 +4020,16 @@ def credentials_delete(ctx: click.Context, credential_id: int) -> None:
         sys.exit(1)
 
 
-# Register singular alias for credentials command
-cli.add_command(credentials, name="credential")
+# Create wrapper for credential
+_credential_singular = click.Group(
+    name="credential",
+    help=credentials.help,
+    callback=credentials.callback,
+)
+_credential_singular.hidden = True
+for cmd_name in credentials.list_commands(None):
+    _credential_singular.add_command(credentials.get_command(None, cmd_name))
+cli.add_command(_credential_singular)
 
 
 # ============================================================================

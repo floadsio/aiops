@@ -483,6 +483,31 @@ class SlackUserMapping(BaseModel, TimestampMixin):
         )
 
 
+class SlackProcessedMessage(BaseModel):
+    """Tracks Slack messages that have been processed (commands, not just issues).
+
+    This prevents duplicate processing of commands like list, help, close, etc.
+    Issues are tracked via ExternalIssue.slack_message_ts, but non-issue commands
+    need separate tracking.
+    """
+
+    __tablename__ = "slack_processed_messages"
+    __table_args__ = (
+        UniqueConstraint("channel_id", "message_ts", name="uq_slack_channel_message"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    message_ts: Mapped[str] = mapped_column(String(32), nullable=False)
+    command_type: Mapped[str] = mapped_column(String(32), nullable=False)  # create, list, help, etc.
+    processed_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+
+    def __repr__(self) -> str:
+        return f"<SlackProcessedMessage {self.channel_id}:{self.message_ts} ({self.command_type})>"
+
+
 class APIKey(BaseModel, TimestampMixin):
     """API keys for programmatic access to the AIops API.
 

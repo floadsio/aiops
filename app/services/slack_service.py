@@ -1,17 +1,20 @@
 """Slack integration service for polling-based issue creation and notifications.
 
 This service handles:
-- Polling Slack channels for messages with trigger emoji reactions
+- Polling Slack channels for messages with trigger emoji reactions or bot commands
 - Creating issues from flagged Slack messages
 - Posting updates to Slack threads when issue status changes
 - Managing Slack user to aiops user mappings
+- Bot commands: list, close, delete, help
 """
 
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from typing import Any, Optional
 
 from slack_sdk import WebClient
@@ -22,6 +25,7 @@ from ..models import (
     ExternalIssue,
     Project,
     ProjectIntegration,
+    SlackProcessedMessage,
     SlackUserMapping,
     TenantIntegration,
     User,
@@ -76,6 +80,95 @@ class SlackIntegrationConfig:
     notify_on_close: bool = True
     sync_comments: bool = False
     poll_interval_minutes: int = DEFAULT_POLL_INTERVAL
+
+
+class SlackCommandType(Enum):
+    """Types of bot commands."""
+
+    CREATE = "create"  # @aiops <message> or @aiops in <project> <message>
+    LIST = "list"  # @aiops list [project|all]
+    CLOSE = "close"  # @aiops close <id>
+    DELETE = "delete"  # @aiops delete <id>
+    HELP = "help"  # @aiops help
+
+
+@dataclass
+class SlackCommand:
+    """Parsed bot command from a Slack message."""
+
+    command_type: SlackCommandType
+    project_name: Optional[str] = None  # For create/list with specific project
+    issue_id: Optional[int] = None  # For close/delete
+    message_text: Optional[str] = None  # For create - the issue title/description
+    list_all: bool = False  # For list all tenant issues
+
+
+def parse_slack_command(text: str) -> SlackCommand:
+    """Parse a bot command from message text.
+
+    Supported formats:
+        <message>                    -> CREATE issue with message
+        in <project> <message>       -> CREATE issue in specific project
+        list                         -> LIST issues (default project)
+        list <project>               -> LIST issues for project
+        list all                     -> LIST all tenant issues
+        close <id>                   -> CLOSE issue
+        delete <id>                  -> DELETE issue
+        help                         -> HELP
+
+    Args:
+        text: Message text (already stripped of bot mention)
+
+    Returns:
+        SlackCommand with parsed details
+    """
+    text = text.strip()
+    text_lower = text.lower()
+
+    # Help command
+    if text_lower == "help" or text_lower == "?":
+        return SlackCommand(command_type=SlackCommandType.HELP)
+
+    # List command
+    if text_lower.startswith("list"):
+        remainder = text[4:].strip()
+        if not remainder:
+            return SlackCommand(command_type=SlackCommandType.LIST)
+        if remainder.lower() == "all":
+            return SlackCommand(command_type=SlackCommandType.LIST, list_all=True)
+        return SlackCommand(command_type=SlackCommandType.LIST, project_name=remainder)
+
+    # Close command
+    match = re.match(r"^close\s+(\d+)$", text_lower)
+    if match:
+        return SlackCommand(
+            command_type=SlackCommandType.CLOSE, issue_id=int(match.group(1))
+        )
+
+    # Delete command
+    match = re.match(r"^delete\s+(\d+)$", text_lower)
+    if match:
+        return SlackCommand(
+            command_type=SlackCommandType.DELETE, issue_id=int(match.group(1))
+        )
+
+    # Create with project: "in <project> <message>"
+    match = re.match(r"^in\s+(\S+)\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
+    if match:
+        return SlackCommand(
+            command_type=SlackCommandType.CREATE,
+            project_name=match.group(1),
+            message_text=match.group(2).strip(),
+        )
+
+    # Default: create issue with the message
+    if text:
+        return SlackCommand(
+            command_type=SlackCommandType.CREATE, message_text=text
+        )
+
+    # Empty message - show help
+    return SlackCommand(command_type=SlackCommandType.HELP)
 
 
 def get_slack_client(bot_token: str) -> WebClient:
@@ -354,20 +447,46 @@ def get_message_permalink(
 
 
 def is_message_processed(channel_id: str, message_ts: str) -> bool:
-    """Check if a message has already been processed into an issue.
+    """Check if a message has already been processed (as issue or command).
 
     Args:
         channel_id: Slack channel ID
         message_ts: Message timestamp
 
     Returns:
-        True if an issue exists with this Slack context
+        True if message has been processed
     """
-    existing = ExternalIssue.query.filter_by(
+    # Check if an issue was created from this message
+    existing_issue = ExternalIssue.query.filter_by(
         slack_channel_id=channel_id,
         slack_message_ts=message_ts,
     ).first()
-    return existing is not None
+    if existing_issue:
+        return True
+
+    # Check if this message was processed as a command
+    existing_command = SlackProcessedMessage.query.filter_by(
+        channel_id=channel_id,
+        message_ts=message_ts,
+    ).first()
+    return existing_command is not None
+
+
+def mark_message_processed(channel_id: str, message_ts: str, command_type: str) -> None:
+    """Mark a message as processed (for non-issue commands).
+
+    Args:
+        channel_id: Slack channel ID
+        message_ts: Message timestamp
+        command_type: Type of command that was processed
+    """
+    processed = SlackProcessedMessage(
+        channel_id=channel_id,
+        message_ts=message_ts,
+        command_type=command_type,
+    )
+    db.session.add(processed)
+    db.session.commit()
 
 
 def message_has_keyword_trigger(
@@ -671,6 +790,338 @@ def notify_issue_closed(
     )
 
 
+# ---------------------------------------------------------------------------
+# Bot Command Handlers
+# ---------------------------------------------------------------------------
+
+
+def handle_help_command(
+    client: WebClient,
+    channel_id: str,
+    thread_ts: str,
+) -> None:
+    """Send help message listing available commands.
+
+    Args:
+        client: Slack WebClient
+        channel_id: Channel to post to
+        thread_ts: Thread timestamp to reply to
+    """
+    help_text = """*Available Commands:*
+• `@aiops <message>` - Create issue with message
+• `@aiops in <project> <message>` - Create issue in specific project
+• `@aiops list` - List open issues (default project)
+• `@aiops list <project>` - List open issues for a project
+• `@aiops list all` - List all open issues
+• `@aiops close <id>` - Close an issue
+• `@aiops delete <id>` - Delete an issue
+• `@aiops help` - Show this help
+
+You can also add a :ticket: reaction to any message to create an issue from it."""
+
+    post_thread_reply(client, channel_id, thread_ts, help_text)
+
+
+def handle_list_command(
+    client: WebClient,
+    channel_id: str,
+    thread_ts: str,
+    tenant_id: int,
+    project_name: Optional[str],
+    list_all: bool,
+    default_project_id: Optional[int],
+) -> None:
+    """List issues and post results to Slack.
+
+    Args:
+        client: Slack WebClient
+        channel_id: Channel to post to
+        thread_ts: Thread timestamp to reply to
+        tenant_id: Tenant ID to filter issues
+        project_name: Optional project name to filter by
+        list_all: If True, list all tenant issues
+        default_project_id: Default project ID if no project specified
+    """
+    from ..models import Tenant
+
+    query = ExternalIssue.query.filter(
+        ExternalIssue.status.in_(["open", "opened", "in_progress"])
+    )
+
+    # Determine which project(s) to list
+    if list_all:
+        # All tenant issues - filter by tenant via project
+        tenant = Tenant.query.get(tenant_id)
+        if tenant:
+            project_ids = [p.id for p in tenant.projects]
+            query = query.filter(ExternalIssue.project_id.in_(project_ids))
+        project_label = "all projects"
+    elif project_name:
+        # Specific project by name
+        project = Project.query.filter(
+            Project.name.ilike(f"%{project_name}%")
+        ).first()
+        if not project:
+            post_thread_reply(
+                client, channel_id, thread_ts,
+                f":warning: Project `{project_name}` not found."
+            )
+            return
+        query = query.filter(ExternalIssue.project_id == project.id)
+        project_label = project.name
+    elif default_project_id:
+        # Default project
+        project = Project.query.get(default_project_id)
+        query = query.filter(ExternalIssue.project_id == default_project_id)
+        project_label = project.name if project else "default project"
+    else:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            ":warning: No default project configured. Use `list <project>` or `list all`."
+        )
+        return
+
+    issues = query.order_by(ExternalIssue.created_at.desc()).limit(20).all()
+
+    if not issues:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            f":white_check_mark: No open issues in {project_label}."
+        )
+        return
+
+    # Format issue list
+    lines = [f"*Open Issues in {project_label}:* ({len(issues)} shown)"]
+    for issue in issues:
+        assignee = ""
+        if issue.assignee:
+            assignee = f" → {issue.assignee.name}"
+        title = issue.title[:50] + "..." if len(issue.title) > 50 else issue.title
+        lines.append(f"• `#{issue.id}` {title}{assignee}")
+
+    post_thread_reply(client, channel_id, thread_ts, "\n".join(lines))
+
+
+def handle_close_command(
+    client: WebClient,
+    channel_id: str,
+    thread_ts: str,
+    issue_id: int,
+    tenant_id: int,
+) -> None:
+    """Close an issue and post confirmation.
+
+    Args:
+        client: Slack WebClient
+        channel_id: Channel to post to
+        thread_ts: Thread timestamp to reply to
+        issue_id: Issue ID to close
+        tenant_id: Tenant ID for authorization check
+    """
+    issue = ExternalIssue.query.get(issue_id)
+
+    if not issue:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            f":warning: Issue `#{issue_id}` not found."
+        )
+        return
+
+    # Verify tenant access
+    if issue.project and issue.project.tenant_id != tenant_id:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            f":no_entry: You don't have access to issue `#{issue_id}`."
+        )
+        return
+
+    if issue.status in ["closed", "done", "resolved"]:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            f":information_source: Issue `#{issue_id}` is already closed."
+        )
+        return
+
+    # Close the issue
+    issue.status = "closed"
+    issue.status_label = "Closed"
+    db.session.commit()
+
+    post_thread_reply(
+        client, channel_id, thread_ts,
+        f":white_check_mark: Closed issue `#{issue_id}`: {issue.title}"
+    )
+
+
+def handle_delete_command(
+    client: WebClient,
+    channel_id: str,
+    thread_ts: str,
+    issue_id: int,
+    tenant_id: int,
+) -> None:
+    """Delete an issue and post confirmation.
+
+    Args:
+        client: Slack WebClient
+        channel_id: Channel to post to
+        thread_ts: Thread timestamp to reply to
+        issue_id: Issue ID to delete
+        tenant_id: Tenant ID for authorization check
+    """
+    issue = ExternalIssue.query.get(issue_id)
+
+    if not issue:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            f":warning: Issue `#{issue_id}` not found."
+        )
+        return
+
+    # Verify tenant access
+    if issue.project and issue.project.tenant_id != tenant_id:
+        post_thread_reply(
+            client, channel_id, thread_ts,
+            f":no_entry: You don't have access to issue `#{issue_id}`."
+        )
+        return
+
+    title = issue.title
+    db.session.delete(issue)
+    db.session.commit()
+
+    post_thread_reply(
+        client, channel_id, thread_ts,
+        f":wastebasket: Deleted issue `#{issue_id}`: {title}"
+    )
+
+
+def handle_slack_command(
+    client: WebClient,
+    command: SlackCommand,
+    slack_msg: SlackMessage,
+    config: SlackIntegrationConfig,
+    project_integration: ProjectIntegration,
+) -> Optional[ExternalIssue]:
+    """Handle a parsed Slack command.
+
+    Args:
+        client: Slack WebClient
+        command: Parsed command
+        slack_msg: Original Slack message
+        config: Integration configuration
+        project_integration: Project integration for issue creation
+
+    Returns:
+        Created issue if command was CREATE, None otherwise
+    """
+    thread_ts = slack_msg.thread_ts or slack_msg.message_ts
+
+    if command.command_type == SlackCommandType.HELP:
+        handle_help_command(client, slack_msg.channel_id, thread_ts)
+        mark_message_processed(
+            slack_msg.channel_id, slack_msg.message_ts, "help"
+        )
+        return None
+
+    if command.command_type == SlackCommandType.LIST:
+        handle_list_command(
+            client,
+            slack_msg.channel_id,
+            thread_ts,
+            config.tenant_id,
+            command.project_name,
+            command.list_all,
+            config.default_project_id,
+        )
+        mark_message_processed(
+            slack_msg.channel_id, slack_msg.message_ts, "list"
+        )
+        return None
+
+    if command.command_type == SlackCommandType.CLOSE:
+        handle_close_command(
+            client,
+            slack_msg.channel_id,
+            thread_ts,
+            command.issue_id,
+            config.tenant_id,
+        )
+        mark_message_processed(
+            slack_msg.channel_id, slack_msg.message_ts, "close"
+        )
+        return None
+
+    if command.command_type == SlackCommandType.DELETE:
+        handle_delete_command(
+            client,
+            slack_msg.channel_id,
+            thread_ts,
+            command.issue_id,
+            config.tenant_id,
+        )
+        mark_message_processed(
+            slack_msg.channel_id, slack_msg.message_ts, "delete"
+        )
+        return None
+
+    if command.command_type == SlackCommandType.CREATE:
+        # Determine target project
+        target_integration = project_integration
+
+        if command.project_name:
+            # Find project by name within tenant
+            project = Project.query.filter(
+                Project.tenant_id == config.tenant_id,
+                Project.name.ilike(f"%{command.project_name}%"),
+            ).first()
+
+            if not project:
+                post_thread_reply(
+                    client,
+                    slack_msg.channel_id,
+                    thread_ts,
+                    f":warning: Project `{command.project_name}` not found. "
+                    f"Creating issue in default project.",
+                )
+            else:
+                # Get or create project integration for this project
+                target_integration = ProjectIntegration.query.filter_by(
+                    project_id=project.id,
+                    provider="slack",
+                ).first()
+
+                if not target_integration:
+                    target_integration = ProjectIntegration(
+                        project_id=project.id,
+                        provider="slack",
+                        provider_key="slack",
+                        name=f"Slack ({project.name})",
+                        enabled=True,
+                        settings={
+                            "tenant_integration_id": config.integration_id,
+                        },
+                    )
+                    db.session.add(target_integration)
+                    db.session.commit()
+
+        # Update message text with parsed content
+        slack_msg_with_text = SlackMessage(
+            channel_id=slack_msg.channel_id,
+            message_ts=slack_msg.message_ts,
+            user_id=slack_msg.user_id,
+            text=command.message_text or slack_msg.text,
+            thread_ts=slack_msg.thread_ts,
+            permalink=slack_msg.permalink,
+        )
+
+        return create_issue_from_slack(
+            slack_msg_with_text, target_integration, config, client
+        )
+
+    return None
+
+
 def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
     """Poll a single Slack integration for new messages to process.
 
@@ -730,17 +1181,25 @@ def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
 
             for slack_msg in triggered_messages:
                 try:
-                    issue = create_issue_from_slack(
-                        slack_msg,
-                        project_integration,
-                        config,
+                    # Parse command from message text
+                    command = parse_slack_command(slack_msg.text)
+
+                    # Handle the command
+                    issue = handle_slack_command(
                         client,
+                        command,
+                        slack_msg,
+                        config,
+                        project_integration,
                     )
-                    notify_issue_created(client, issue, config)
-                    results["processed"] += 1
+
+                    # Only notify and count for CREATE commands that succeeded
+                    if issue:
+                        notify_issue_created(client, issue, config)
+                        results["processed"] += 1
 
                 except Exception as e:
-                    error_msg = f"Failed to create issue from {slack_msg.message_ts}: {e}"
+                    error_msg = f"Failed to process message {slack_msg.message_ts}: {e}"
                     logger.error(error_msg)
                     results["errors"].append(error_msg)
 

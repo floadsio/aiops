@@ -227,6 +227,38 @@ def get_slack_integrations() -> list[SlackIntegrationConfig]:
     return configs
 
 
+def get_thread_replies(
+    client: WebClient,
+    channel_id: str,
+    thread_ts: str,
+    oldest: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    """Fetch replies in a thread.
+
+    Args:
+        client: Slack WebClient
+        channel_id: Channel ID
+        thread_ts: Thread parent timestamp
+        oldest: Only messages after this timestamp
+
+    Returns:
+        List of reply message objects (excluding parent)
+    """
+    try:
+        response = client.conversations_replies(
+            channel=channel_id,
+            ts=thread_ts,
+            oldest=oldest,
+            limit=100,
+        )
+        messages = response.get("messages", [])
+        # First message is the parent, skip it
+        return messages[1:] if len(messages) > 1 else []
+    except SlackApiError as e:
+        logger.warning("Failed to fetch thread replies: %s", e)
+        return []
+
+
 def get_channel_history(
     client: WebClient,
     channel_id: str,
@@ -531,6 +563,8 @@ def find_messages_with_trigger(
 ) -> list[SlackMessage]:
     """Find all messages in a channel with the trigger emoji, keyword, or bot mention.
 
+    Also checks thread replies for bot mentions (commands in threads).
+
     Args:
         client: Slack WebClient
         channel_id: Channel to search
@@ -545,7 +579,18 @@ def find_messages_with_trigger(
     messages = get_channel_history(client, channel_id, oldest=oldest)
     triggered = []
 
+    # Collect all messages to check (top-level + thread replies)
+    all_messages = []
     for msg in messages:
+        all_messages.append(msg)
+        # If message has replies, fetch them too
+        reply_count = msg.get("reply_count", 0)
+        if reply_count > 0:
+            thread_ts = msg.get("ts")
+            replies = get_thread_replies(client, channel_id, thread_ts, oldest=oldest)
+            all_messages.extend(replies)
+
+    for msg in all_messages:
         message_ts = msg.get("ts")
         if not message_ts:
             continue

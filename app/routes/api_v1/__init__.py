@@ -21,6 +21,7 @@ from . import (  # noqa: E402, F401
     projects,
     semaphore,
     sessions,
+    slack,
     system,
     tenants,
     users,

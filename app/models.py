@@ -278,6 +278,16 @@ class ExternalIssue(BaseModel, TimestampMixin):
     manually_assigned: Mapped[bool] = mapped_column(
         db.Boolean, default=False, nullable=False, server_default=db.false()
     )
+    # Slack context for issues created from Slack messages
+    slack_channel_id: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )  # e.g., "C0123ABC"
+    slack_message_ts: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )  # e.g., "1234567890.123456"
+    slack_requester_id: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True
+    )  # e.g., "U0123XYZ"
 
     project_integration: Mapped["ProjectIntegration"] = relationship(
         "ProjectIntegration", back_populates="issues"
@@ -434,6 +444,42 @@ class UserIdentityMap(BaseModel, TimestampMixin):
             f"github={self.github_username} "
             f"gitlab={self.gitlab_username} "
             f"jira={self.jira_account_id}>"
+        )
+
+
+class SlackUserMapping(BaseModel, TimestampMixin):
+    """Maps Slack users to aiops users for a tenant.
+
+    Used for auto-assigning issues created from Slack, displaying
+    human-readable names, and enabling bidirectional @mentions.
+    """
+
+    __tablename__ = "slack_user_mappings"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "slack_user_id", name="uq_tenant_slack_user"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    slack_user_id: Mapped[str] = mapped_column(
+        String(32), nullable=False, index=True
+    )  # e.g., "U0123XYZ"
+    slack_display_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    slack_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    aiops_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+    tenant: Mapped["Tenant"] = relationship("Tenant")
+    aiops_user: Mapped[Optional["User"]] = relationship("User")
+
+    def __repr__(self) -> str:
+        return (
+            f"<SlackUserMapping tenant_id={self.tenant_id} "
+            f"slack_user={self.slack_user_id} "
+            f"aiops_user_id={self.aiops_user_id}>"
         )
 
 

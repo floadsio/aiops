@@ -5430,6 +5430,416 @@ def semaphore_template_delete(
         sys.exit(1)
 
 
+# =============================================================================
+# SLACK COMMANDS
+# =============================================================================
+
+
+@cli.group()
+def slack() -> None:
+    """Slack integration commands.
+
+    Manage Slack integrations for creating issues from Slack messages.
+    """
+    pass
+
+
+@slack.command(name="list")
+@click.option("--tenant", "-t", required=True, help="Tenant ID or slug")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def slack_list(ctx: click.Context, tenant: str, output: Optional[str]) -> None:
+    """List Slack integrations for a tenant.
+
+    Examples:
+        aiops slack list --tenant floads
+        aiops slack list --tenant 4 -o json
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        tenant_id = resolve_tenant_id(client, tenant)
+        data = client.get(f"tenants/{tenant_id}/slack")
+        integrations = data.get("integrations", [])
+
+        if output_format == "table":
+            table = Table(title="Slack Integrations")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Enabled")
+            table.add_column("Channels")
+            table.add_column("Project")
+            table.add_column("Trigger")
+
+            for i in integrations:
+                channels = ", ".join(i.get("channels", [])[:3])
+                if len(i.get("channels", [])) > 3:
+                    channels += "..."
+                table.add_row(
+                    str(i.get("id", "")),
+                    i.get("name", ""),
+                    "Yes" if i.get("enabled") else "No",
+                    channels,
+                    str(i.get("default_project_id", "")),
+                    f":{i.get('trigger_emoji', 'ticket')}:",
+                )
+            console.print(table)
+        else:
+            format_output(integrations, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="get")
+@click.argument("integration_id", type=int)
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def slack_get(ctx: click.Context, integration_id: int, output: Optional[str]) -> None:
+    """Get details of a Slack integration.
+
+    Examples:
+        aiops slack get 1
+        aiops slack get 1 -o json
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        data = client.get(f"slack/integrations/{integration_id}")
+        integration = data.get("integration", {})
+        format_output(integration, output_format, console, title="Slack Integration")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="create")
+@click.option("--tenant", "-t", required=True, help="Tenant ID or slug")
+@click.option("--name", "-n", required=True, help="Integration name")
+@click.option("--token", required=True, help="Slack Bot OAuth token (xoxb-...)")
+@click.option("--channel", "-c", multiple=True, required=True, help="Channel ID to monitor")
+@click.option("--project", "-p", required=True, help="Default project ID for issues")
+@click.option("--emoji", default="ticket", help="Trigger emoji (default: ticket)")
+@click.pass_context
+def slack_create(
+    ctx: click.Context,
+    tenant: str,
+    name: str,
+    token: str,
+    channel: tuple[str, ...],
+    project: str,
+    emoji: str,
+) -> None:
+    """Create a new Slack integration.
+
+    Examples:
+        aiops slack create --tenant floads --name slack-floads \\
+            --token xoxb-xxx --channel C0123ABC --project 6
+
+        aiops slack create -t floads -n my-slack \\
+            --token xoxb-xxx -c C0123ABC -c C0456DEF -p aiops
+    """
+    client = get_client(ctx)
+
+    try:
+        tenant_id = resolve_tenant_id(client, tenant)
+        project_id = resolve_project_id(client, project)
+
+        payload = {
+            "name": name,
+            "bot_token": token,
+            "channels": list(channel),
+            "default_project_id": project_id,
+            "trigger_emoji": emoji,
+        }
+
+        result = client.post(f"tenants/{tenant_id}/slack", payload)
+        integration = result.get("integration", {})
+        message = result.get("message", "")
+
+        console.print(f"[green]Created Slack integration:[/green] {integration.get('name')}")
+        if message:
+            console.print(f"[dim]{message}[/dim]")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="update")
+@click.argument("integration_id", type=int)
+@click.option("--name", "-n", help="Integration name")
+@click.option("--token", help="New Slack Bot OAuth token")
+@click.option("--channel", "-c", multiple=True, help="Channel IDs (replaces all)")
+@click.option("--project", "-p", help="Default project ID")
+@click.option("--emoji", help="Trigger emoji")
+@click.option("--enable/--disable", default=None, help="Enable or disable integration")
+@click.pass_context
+def slack_update(
+    ctx: click.Context,
+    integration_id: int,
+    name: Optional[str],
+    token: Optional[str],
+    channel: tuple[str, ...],
+    project: Optional[str],
+    emoji: Optional[str],
+    enable: Optional[bool],
+) -> None:
+    """Update a Slack integration.
+
+    Examples:
+        aiops slack update 1 --name new-name
+        aiops slack update 1 --disable
+        aiops slack update 1 --channel C0123ABC --channel C0456DEF
+    """
+    client = get_client(ctx)
+
+    try:
+        payload: dict[str, Any] = {}
+
+        if name:
+            payload["name"] = name
+        if token:
+            payload["bot_token"] = token
+        if channel:
+            payload["channels"] = list(channel)
+        if project:
+            payload["default_project_id"] = resolve_project_id(client, project)
+        if emoji:
+            payload["trigger_emoji"] = emoji
+        if enable is not None:
+            payload["enabled"] = enable
+
+        if not payload:
+            error_console.print("[yellow]No changes specified[/yellow]")
+            return
+
+        result = client.put(f"slack/integrations/{integration_id}", payload)
+        integration = result.get("integration", {})
+        console.print(f"[green]Updated:[/green] {integration.get('name')}")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="delete")
+@click.argument("integration_id", type=int)
+@click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
+@click.pass_context
+def slack_delete(ctx: click.Context, integration_id: int, yes: bool) -> None:
+    """Delete a Slack integration.
+
+    Examples:
+        aiops slack delete 1
+        aiops slack delete 1 --yes
+    """
+    client = get_client(ctx)
+
+    try:
+        if not yes:
+            # Get integration details for confirmation
+            data = client.get(f"slack/integrations/{integration_id}")
+            integration = data.get("integration", {})
+            name = integration.get("name", f"ID {integration_id}")
+
+            if not click.confirm(f"Delete Slack integration '{name}'?"):
+                console.print("[yellow]Cancelled[/yellow]")
+                return
+
+        result = client.delete(f"slack/integrations/{integration_id}")
+        console.print(f"[green]{result.get('message', 'Deleted')}[/green]")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="test")
+@click.option("--token", required=True, help="Slack Bot OAuth token to test")
+@click.pass_context
+def slack_test(ctx: click.Context, token: str) -> None:
+    """Test a Slack API connection.
+
+    Examples:
+        aiops slack test --token xoxb-xxx-xxx
+    """
+    client = get_client(ctx)
+
+    try:
+        result = client.post("slack/test-connection", {"bot_token": token})
+
+        if result.get("ok"):
+            console.print("[green]Connection successful![/green]")
+            console.print(f"  Team: {result.get('team')}")
+            console.print(f"  Bot User: {result.get('bot_user')}")
+        else:
+            error_console.print(f"[red]Connection failed:[/red] {result.get('error')}")
+            sys.exit(1)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="channels")
+@click.argument("integration_id", type=int)
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def slack_channels(ctx: click.Context, integration_id: int, output: Optional[str]) -> None:
+    """List channels the Slack bot can access.
+
+    Shows channels the bot is a member of.
+
+    Examples:
+        aiops slack channels 1
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        data = client.get(f"slack/integrations/{integration_id}/channels")
+        channels = data.get("channels", [])
+
+        if output_format == "table":
+            table = Table(title="Accessible Slack Channels")
+            table.add_column("ID", style="cyan")
+            table.add_column("Name", style="bold")
+            table.add_column("Private")
+
+            for ch in channels:
+                table.add_row(
+                    ch.get("id", ""),
+                    ch.get("name", ""),
+                    "Yes" if ch.get("is_private") else "No",
+                )
+            console.print(table)
+            console.print(f"\n[dim]Total: {len(channels)} channels[/dim]")
+        else:
+            format_output(channels, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="poll")
+@click.option("--integration", "-i", type=int, help="Poll specific integration ID only")
+@click.pass_context
+def slack_poll(ctx: click.Context, integration: Optional[int]) -> None:
+    """Manually trigger a Slack poll.
+
+    Polls Slack channels for messages with the trigger emoji and creates issues.
+
+    Examples:
+        aiops slack poll              # Poll all integrations
+        aiops slack poll -i 1         # Poll specific integration
+    """
+    client = get_client(ctx)
+
+    try:
+        if integration:
+            result = client.post(f"slack/integrations/{integration}/poll", {})
+            processed = result.get("processed", 0)
+            errors = result.get("errors", [])
+
+            console.print(f"[green]Poll complete:[/green] {processed} issues created")
+            if errors:
+                for err in errors:
+                    error_console.print(f"[yellow]Warning:[/yellow] {err}")
+        else:
+            result = client.post("slack/poll", {})
+            console.print(f"[green]{result.get('message', 'Poll triggered')}[/green]")
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="users")
+@click.option("--tenant", "-t", required=True, help="Tenant ID or slug")
+@click.option(
+    "--output", "-o", type=click.Choice(["table", "json", "yaml"]), help="Output format"
+)
+@click.pass_context
+def slack_users(ctx: click.Context, tenant: str, output: Optional[str]) -> None:
+    """List Slack user mappings for a tenant.
+
+    Shows discovered Slack users and their mappings to aiops users.
+
+    Examples:
+        aiops slack users --tenant floads
+    """
+    client = get_client(ctx)
+    config: Config = ctx.obj["config"]
+    output_format = output or config.output_format
+
+    try:
+        tenant_id = resolve_tenant_id(client, tenant)
+        data = client.get(f"tenants/{tenant_id}/slack/users")
+        mappings = data.get("mappings", [])
+
+        if output_format == "table":
+            table = Table(title="Slack User Mappings")
+            table.add_column("ID", style="cyan")
+            table.add_column("Slack User", style="bold")
+            table.add_column("Email")
+            table.add_column("AIops User")
+
+            for m in mappings:
+                aiops_user = m.get("aiops_user_name") or "[not mapped]"
+                table.add_row(
+                    str(m.get("id", "")),
+                    m.get("slack_display_name", m.get("slack_user_id", "")),
+                    m.get("slack_email", ""),
+                    aiops_user,
+                )
+            console.print(table)
+            console.print(f"\n[dim]Total: {len(mappings)} users[/dim]")
+        else:
+            format_output(mappings, output_format, console)
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
+@slack.command(name="map-user")
+@click.argument("mapping_id", type=int)
+@click.option("--user", "-u", type=int, help="AIops user ID to link (omit to unlink)")
+@click.pass_context
+def slack_map_user(ctx: click.Context, mapping_id: int, user: Optional[int]) -> None:
+    """Link or unlink a Slack user to an aiops user.
+
+    Examples:
+        aiops slack map-user 1 --user 5     # Link Slack user to aiops user 5
+        aiops slack map-user 1              # Unlink (clear mapping)
+    """
+    client = get_client(ctx)
+
+    try:
+        payload = {"aiops_user_id": user}
+        result = client.put(f"slack/users/{mapping_id}", payload)
+        mapping = result.get("mapping", {})
+
+        if user:
+            console.print(
+                f"[green]Linked:[/green] {mapping.get('slack_display_name')} → "
+                f"{mapping.get('aiops_user_name')}"
+            )
+        else:
+            console.print(
+                f"[green]Unlinked:[/green] {mapping.get('slack_display_name')}"
+            )
+    except APIError as exc:
+        error_console.print(f"[red]Error:[/red] {exc}")
+        sys.exit(1)
+
+
 def main() -> None:
     """Main entry point."""
     cli(obj={})

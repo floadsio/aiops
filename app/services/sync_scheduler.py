@@ -43,19 +43,23 @@ def init_scheduler(app: Flask) -> Optional[BackgroundScheduler]:
             logger.warning("Scheduler already initialized")
             return _scheduler
 
-        # Check if auto-sync is enabled
-        if not app.config.get("ISSUE_SYNC_ENABLED", False):
-            logger.info("Automatic issue sync is disabled")
+        # Check if any sync is enabled
+        issue_sync_enabled = app.config.get("ISSUE_SYNC_ENABLED", False)
+        slack_poll_enabled = app.config.get("SLACK_POLL_ENABLED", False)
+
+        if not issue_sync_enabled and not slack_poll_enabled:
+            logger.info("Automatic sync and Slack polling are both disabled")
             return None
 
         # Get configuration
         sync_interval = app.config.get("ISSUE_SYNC_INTERVAL", 900)  # 15 minutes default
         sync_on_startup = app.config.get("ISSUE_SYNC_ON_STARTUP", True)
+        slack_poll_interval = app.config.get("SLACK_POLL_INTERVAL", 300)  # 5 minutes default
 
         logger.info(
-            "Initializing issue sync scheduler (interval=%ds, sync_on_startup=%s)",
-            sync_interval,
-            sync_on_startup,
+            "Initializing scheduler (issue_sync=%s, slack_poll=%s)",
+            issue_sync_enabled,
+            slack_poll_enabled,
         )
 
         # Create scheduler
@@ -68,22 +72,36 @@ def init_scheduler(app: Flask) -> Optional[BackgroundScheduler]:
             },
         )
 
-        # Add the sync job
-        _scheduler.add_job(
-            func=_run_sync_all,
-            trigger=IntervalTrigger(seconds=sync_interval),
-            id="issue_sync_all",
-            name="Sync all issues from external providers",
-            replace_existing=True,
-            kwargs={"app": app},
-        )
+        # Add the issue sync job if enabled
+        if issue_sync_enabled:
+            _scheduler.add_job(
+                func=_run_sync_all,
+                trigger=IntervalTrigger(seconds=sync_interval),
+                id="issue_sync_all",
+                name="Sync all issues from external providers",
+                replace_existing=True,
+                kwargs={"app": app},
+            )
+            logger.info("Issue sync job added (interval=%ds)", sync_interval)
+
+        # Add Slack polling job if enabled
+        if slack_poll_enabled:
+            _scheduler.add_job(
+                func=_run_slack_poll,
+                trigger=IntervalTrigger(seconds=slack_poll_interval),
+                id="slack_poll_all",
+                name="Poll Slack channels for issue triggers",
+                replace_existing=True,
+                kwargs={"app": app},
+            )
+            logger.info("Slack poll job added (interval=%ds)", slack_poll_interval)
 
         # Start the scheduler
         _scheduler.start()
-        logger.info("Issue sync scheduler started")
+        logger.info("Background scheduler started")
 
         # Run initial sync if configured
-        if sync_on_startup:
+        if issue_sync_enabled and sync_on_startup:
             # Delay initial sync by 30 seconds to let the app fully start
             _scheduler.add_job(
                 func=_run_sync_all,
@@ -93,7 +111,7 @@ def init_scheduler(app: Flask) -> Optional[BackgroundScheduler]:
                 name="Initial issue sync on startup",
                 kwargs={"app": app},
             )
-            logger.info("Scheduled initial sync in 30 seconds")
+            logger.info("Scheduled initial issue sync in 30 seconds")
 
         return _scheduler
 
@@ -225,6 +243,56 @@ def _run_sync_all(app: Flask) -> dict:
         )
 
         return results
+
+
+def _run_slack_poll(app: Flask) -> dict:
+    """Poll all Slack integrations for messages with trigger reactions.
+
+    Args:
+        app: Flask application instance
+
+    Returns:
+        Dict with poll results summary
+    """
+    with app.app_context():
+        from .slack_service import poll_all_integrations
+
+        try:
+            results = poll_all_integrations()
+            logger.info(
+                "Slack poll completed: %d issues created, %d errors",
+                results["total_processed"],
+                len(results["errors"]),
+            )
+            return results
+        except Exception as e:
+            logger.exception("Slack polling failed: %s", e)
+            return {"total_processed": 0, "errors": [str(e)]}
+
+
+def trigger_slack_poll_now(app: Flask) -> None:
+    """Manually trigger an immediate Slack poll.
+
+    Args:
+        app: Flask application instance
+    """
+    global _scheduler
+
+    if _scheduler is None:
+        logger.warning("Scheduler not running, executing Slack poll directly")
+        _run_slack_poll(app)
+        return
+
+    # Add a one-time job to run immediately
+    _scheduler.add_job(
+        func=_run_slack_poll,
+        trigger="date",
+        run_date=datetime.now(),
+        id=f"slack_poll_manual_{datetime.now().timestamp()}",
+        name="Manual Slack poll trigger",
+        kwargs={"app": app},
+    )
+    logger.info("Manual Slack poll triggered")
 
 
 def trigger_sync_now(app: Flask) -> None:

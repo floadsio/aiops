@@ -161,10 +161,7 @@ def create_slack_integration(tenant_id: int):
         return jsonify({"error": "bot_token is required"}), 400
     if not bot_token.startswith("xoxb-"):
         return jsonify({"error": "bot_token must be a Bot OAuth token (starts with xoxb-)"}), 400
-    if not channels:
-        return jsonify({"error": "channels is required (list of channel IDs)"}), 400
-    if not default_project_id:
-        return jsonify({"error": "default_project_id is required"}), 400
+    # channels and default_project_id can be configured later via update
 
     # Test the connection first
     test_result = test_slack_connection(bot_token)

@@ -5525,8 +5525,8 @@ def slack_get(ctx: click.Context, integration_id: int, output: Optional[str]) ->
 @click.option("--tenant", "-t", required=True, help="Tenant ID or slug")
 @click.option("--name", "-n", required=True, help="Integration name")
 @click.option("--token", required=True, help="Slack Bot OAuth token (xoxb-...)")
-@click.option("--channel", "-c", multiple=True, required=True, help="Channel ID to monitor")
-@click.option("--project", "-p", required=True, help="Default project ID for issues")
+@click.option("--channel", "-c", multiple=True, help="Channel ID to monitor (can add later)")
+@click.option("--project", "-p", help="Default project for issues (can add later)")
 @click.option("--emoji", default="ticket", help="Trigger emoji (default: ticket)")
 @click.pass_context
 def slack_create(
@@ -5535,31 +5535,35 @@ def slack_create(
     name: str,
     token: str,
     channel: tuple[str, ...],
-    project: str,
+    project: Optional[str],
     emoji: str,
 ) -> None:
     """Create a new Slack integration.
 
-    Examples:
-        aiops slack create --tenant floads --name slack-floads \\
-            --token xoxb-xxx --channel C0123ABC --project 6
+    After creating, use 'aiops slack channels <id>' to see available channels,
+    then 'aiops slack update <id> --channel <channel_id>' to configure.
 
-        aiops slack create -t floads -n my-slack \\
-            --token xoxb-xxx -c C0123ABC -c C0456DEF -p aiops
+    Examples:
+        aiops slack create --tenant floads --name slack-floads --token xoxb-xxx
+
+        aiops slack create -t floads -n my-slack --token xoxb-xxx \\
+            -c C0123ABC -c C0456DEF -p aiops
     """
     client = get_client(ctx)
 
     try:
         tenant_id = resolve_tenant_id(client, tenant)
-        project_id = resolve_project_id(client, project)
 
-        payload = {
+        payload: dict[str, Any] = {
             "name": name,
             "bot_token": token,
-            "channels": list(channel),
-            "default_project_id": project_id,
             "trigger_emoji": emoji,
         }
+
+        if channel:
+            payload["channels"] = list(channel)
+        if project:
+            payload["default_project_id"] = resolve_project_id(client, project)
 
         result = client.post(f"tenants/{tenant_id}/slack", payload)
         integration = result.get("integration", {})

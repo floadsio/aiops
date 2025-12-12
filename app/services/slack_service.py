@@ -961,14 +961,21 @@ def handle_list_command(
         )
         return
 
-    # Format issue list
+    # Format issue list with clickable links
+    from flask import current_app
+
+    base_url = current_app.config.get("AIOPS_BASE_URL", "").rstrip("/")
     lines = [f"*Open Issues in {project_label}:* ({len(issues)} shown)"]
     for issue in issues:
         assignee = ""
         if issue.assignee:
             assignee = f" → {issue.assignee}"  # assignee is a string field
         title = issue.title[:50] + "..." if len(issue.title) > 50 else issue.title
-        lines.append(f"• `#{issue.id}` {title}{assignee}")
+        if base_url:
+            issue_url = f"{base_url}/admin/issues?highlight={issue.id}"
+            lines.append(f"• <{issue_url}|#{issue.id}> {title}{assignee}")
+        else:
+            lines.append(f"• `#{issue.id}` {title}{assignee}")
 
     post_thread_reply(client, channel_id, thread_ts, "\n".join(lines))
 

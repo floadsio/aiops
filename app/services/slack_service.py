@@ -778,7 +778,14 @@ def notify_issue_created(
     if not issue.slack_channel_id or not issue.slack_message_ts:
         return False
 
-    message = f"Created issue #{issue.id}: {issue.title}"
+    from flask import current_app
+
+    base_url = current_app.config.get("AIOPS_BASE_URL", "").rstrip("/")
+    if base_url:
+        issue_url = f"{base_url}/admin/issues?highlight={issue.id}"
+        message = f"Created issue <{issue_url}|#{issue.id}>: {issue.title}"
+    else:
+        message = f"Created issue #{issue.id}: {issue.title}"
 
     return post_thread_reply(
         client,

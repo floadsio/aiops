@@ -69,6 +69,7 @@ class SlackIntegrationConfig:
     bot_token: str
     channels: list[str]
     trigger_emoji: str = DEFAULT_TRIGGER_EMOJI
+    trigger_keyword: Optional[str] = None  # e.g., "@aiops" or "!issue"
     default_project_id: Optional[int] = None
     notify_on_status_change: bool = True
     notify_on_close: bool = True
@@ -117,6 +118,7 @@ def get_slack_integrations() -> list[SlackIntegrationConfig]:
                 bot_token=integration.api_token,
                 channels=channels,
                 trigger_emoji=settings.get("trigger_emoji", DEFAULT_TRIGGER_EMOJI),
+                trigger_keyword=settings.get("trigger_keyword"),
                 default_project_id=settings.get("default_project_id"),
                 notify_on_status_change=settings.get("notify_on_status_change", True),
                 notify_on_close=settings.get("notify_on_close", True),
@@ -366,22 +368,39 @@ def is_message_processed(channel_id: str, message_ts: str) -> bool:
     return existing is not None
 
 
+def message_has_keyword_trigger(text: str, trigger_keyword: Optional[str]) -> bool:
+    """Check if message text starts with the trigger keyword.
+
+    Args:
+        text: Message text
+        trigger_keyword: Keyword to look for (e.g., "@aiops", "!issue")
+
+    Returns:
+        True if message starts with keyword (case-insensitive)
+    """
+    if not trigger_keyword:
+        return False
+    return text.strip().lower().startswith(trigger_keyword.lower())
+
+
 def find_messages_with_trigger(
     client: WebClient,
     channel_id: str,
     trigger_emoji: str,
+    trigger_keyword: Optional[str] = None,
     oldest: Optional[str] = None,
 ) -> list[SlackMessage]:
-    """Find all messages in a channel with the trigger emoji reaction.
+    """Find all messages in a channel with the trigger emoji or keyword.
 
     Args:
         client: Slack WebClient
         channel_id: Channel to search
         trigger_emoji: Emoji name that triggers issue creation
+        trigger_keyword: Optional keyword prefix (e.g., "@aiops", "!issue")
         oldest: Only check messages after this timestamp
 
     Returns:
-        List of SlackMessage objects for messages with trigger reaction
+        List of SlackMessage objects for triggered messages
     """
     messages = get_channel_history(client, channel_id, oldest=oldest)
     triggered = []
@@ -395,16 +414,27 @@ def find_messages_with_trigger(
         if is_message_processed(channel_id, message_ts):
             continue
 
-        # Check for trigger reaction
-        reactions = get_message_reactions(client, channel_id, message_ts)
-        if has_trigger_reaction(reactions, trigger_emoji):
-            user_id = msg.get("user", "")
-            text = msg.get("text", "")
-            thread_ts = msg.get("thread_ts")
+        user_id = msg.get("user", "")
+        text = msg.get("text", "")
+        thread_ts = msg.get("thread_ts")
+        requester_id = user_id
 
-            # Get the user who added the reaction (requester)
-            requester_id = get_trigger_user(reactions, trigger_emoji) or user_id
+        # Check for keyword trigger first (message starts with keyword)
+        is_triggered = False
+        if message_has_keyword_trigger(text, trigger_keyword):
+            is_triggered = True
+            # Strip the keyword from the text for the issue title
+            if trigger_keyword:
+                text = text.strip()[len(trigger_keyword):].strip()
+        else:
+            # Fall back to emoji reaction trigger
+            reactions = get_message_reactions(client, channel_id, message_ts)
+            if has_trigger_reaction(reactions, trigger_emoji):
+                is_triggered = True
+                # Get the user who added the reaction (requester)
+                requester_id = get_trigger_user(reactions, trigger_emoji) or user_id
 
+        if is_triggered:
             permalink = get_message_permalink(client, channel_id, message_ts)
 
             triggered.append(
@@ -667,6 +697,7 @@ def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
                 client,
                 channel_id,
                 config.trigger_emoji,
+                config.trigger_keyword,
             )
 
             for slack_msg in triggered_messages:

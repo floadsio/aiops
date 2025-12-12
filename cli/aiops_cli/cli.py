@@ -5528,6 +5528,7 @@ def slack_get(ctx: click.Context, integration_id: int, output: Optional[str]) ->
 @click.option("--channel", "-c", multiple=True, help="Channel ID to monitor (can add later)")
 @click.option("--project", "-p", help="Default project for issues (can add later)")
 @click.option("--emoji", default="ticket", help="Trigger emoji (default: ticket)")
+@click.option("--keyword", "-k", help="Trigger keyword (e.g., @aiops or !issue)")
 @click.pass_context
 def slack_create(
     ctx: click.Context,
@@ -5537,8 +5538,13 @@ def slack_create(
     channel: tuple[str, ...],
     project: Optional[str],
     emoji: str,
+    keyword: Optional[str],
 ) -> None:
     """Create a new Slack integration.
+
+    Messages can trigger issue creation via:
+    - Emoji reaction (default: :ticket:)
+    - Keyword prefix (e.g., "@aiops Fix the login bug")
 
     After creating, use 'aiops slack channels <id>' to see available channels,
     then 'aiops slack update <id> --channel <channel_id>' to configure.
@@ -5547,7 +5553,7 @@ def slack_create(
         aiops slack create --tenant floads --name slack-floads --token xoxb-xxx
 
         aiops slack create -t floads -n my-slack --token xoxb-xxx \\
-            -c C0123ABC -c C0456DEF -p aiops
+            --keyword "@aiops" -c C0123ABC -p aiops
     """
     client = get_client(ctx)
 
@@ -5560,6 +5566,8 @@ def slack_create(
             "trigger_emoji": emoji,
         }
 
+        if keyword:
+            payload["trigger_keyword"] = keyword
         if channel:
             payload["channels"] = list(channel)
         if project:
@@ -5584,6 +5592,7 @@ def slack_create(
 @click.option("--channel", "-c", multiple=True, help="Channel IDs (replaces all)")
 @click.option("--project", "-p", help="Default project ID")
 @click.option("--emoji", help="Trigger emoji")
+@click.option("--keyword", "-k", help="Trigger keyword (e.g., @aiops)")
 @click.option("--enable/--disable", default=None, help="Enable or disable integration")
 @click.pass_context
 def slack_update(
@@ -5594,13 +5603,14 @@ def slack_update(
     channel: tuple[str, ...],
     project: Optional[str],
     emoji: Optional[str],
+    keyword: Optional[str],
     enable: Optional[bool],
 ) -> None:
     """Update a Slack integration.
 
     Examples:
         aiops slack update 1 --name new-name
-        aiops slack update 1 --disable
+        aiops slack update 1 --keyword "@aiops"
         aiops slack update 1 --channel C0123ABC --channel C0456DEF
     """
     client = get_client(ctx)
@@ -5618,6 +5628,8 @@ def slack_update(
             payload["default_project_id"] = resolve_project_id(client, project)
         if emoji:
             payload["trigger_emoji"] = emoji
+        if keyword:
+            payload["trigger_keyword"] = keyword
         if enable is not None:
             payload["enabled"] = enable
 

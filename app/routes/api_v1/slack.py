@@ -43,6 +43,7 @@ def _slack_integration_to_dict(integration: TenantIntegration) -> dict[str, Any]
         "enabled": integration.enabled,
         "channels": settings.get("channels", []),
         "trigger_emoji": settings.get("trigger_emoji", DEFAULT_TRIGGER_EMOJI),
+        "trigger_keyword": settings.get("trigger_keyword"),
         "default_project_id": settings.get("default_project_id"),
         "notify_on_status_change": settings.get("notify_on_status_change", True),
         "notify_on_close": settings.get("notify_on_close", True),
@@ -176,6 +177,7 @@ def create_slack_integration(tenant_id: int):
         "channels": channels,
         "default_project_id": default_project_id,
         "trigger_emoji": data.get("trigger_emoji", DEFAULT_TRIGGER_EMOJI),
+        "trigger_keyword": data.get("trigger_keyword"),  # e.g., "@aiops" or "!issue"
         "notify_on_status_change": data.get("notify_on_status_change", True),
         "notify_on_close": data.get("notify_on_close", True),
         "sync_comments": data.get("sync_comments", False),
@@ -263,6 +265,8 @@ def update_slack_integration(integration_id: int):
         settings["default_project_id"] = data["default_project_id"]
     if "trigger_emoji" in data:
         settings["trigger_emoji"] = data["trigger_emoji"]
+    if "trigger_keyword" in data:
+        settings["trigger_keyword"] = data["trigger_keyword"]
     if "notify_on_status_change" in data:
         settings["notify_on_status_change"] = data["notify_on_status_change"]
     if "notify_on_close" in data:

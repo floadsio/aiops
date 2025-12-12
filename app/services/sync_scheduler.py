@@ -263,10 +263,10 @@ def _run_slack_poll(app: Flask) -> dict:
         from flask import current_app
         from .slack_service import poll_all_integrations
 
-        current_app.logger.info("Starting automatic Slack poll...")
+        current_app.logger.error("Starting automatic Slack poll...")  # Using ERROR for visibility
         try:
             results = poll_all_integrations()
-            current_app.logger.info(
+            current_app.logger.error(
                 "Slack poll completed: %d issues created, %d errors",
                 results["total_processed"],
                 len(results["errors"]),

@@ -440,6 +440,12 @@ def find_messages_with_trigger(
         thread_ts = msg.get("thread_ts")
         requester_id = user_id
 
+        # Skip bot's own messages and system messages (subtypes like channel_join)
+        if bot_user_id and user_id == bot_user_id:
+            continue
+        if msg.get("subtype"):  # Skip system messages (channel_join, bot_message, etc.)
+            continue
+
         # Check for bot mention or keyword trigger first
         is_triggered, cleaned_text = message_has_keyword_trigger(
             text, trigger_keyword, bot_user_id

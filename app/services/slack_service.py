@@ -1286,8 +1286,121 @@ def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
     return results
 
 
+def get_bot_dm_channels(client: WebClient) -> list[str]:
+    """Get list of DM channel IDs where users have messaged the bot.
+
+    Args:
+        client: Slack WebClient
+
+    Returns:
+        List of DM channel IDs (im channels)
+    """
+    try:
+        # List all IM (direct message) conversations the bot is part of
+        response = client.conversations_list(
+            types="im",
+            limit=100,
+        )
+        channels = response.get("channels", [])
+        # Return channel IDs for DMs that are open
+        return [ch["id"] for ch in channels if not ch.get("is_archived", False)]
+    except SlackApiError as e:
+        logger.warning("Failed to list bot DM channels: %s", e)
+        return []
+
+
+def poll_dm_messages(
+    client: WebClient,
+    config: SlackIntegrationConfig,
+    project_integration: ProjectIntegration,
+) -> dict[str, Any]:
+    """Poll bot's DM channels for commands.
+
+    In DMs, users don't need to use @aiops prefix - all messages are treated as commands.
+
+    Args:
+        client: Slack WebClient
+        config: Slack integration configuration
+        project_integration: Project integration for issue operations
+
+    Returns:
+        Dict with polling results: {processed: int, errors: list}
+    """
+    results = {"processed": 0, "errors": []}
+
+    dm_channels = get_bot_dm_channels(client)
+    if not dm_channels:
+        return results
+
+    logger.debug("Polling %d DM channels", len(dm_channels))
+
+    for channel_id in dm_channels:
+        try:
+            # Get recent messages from DM
+            messages = get_channel_history(client, channel_id, limit=10)
+
+            for msg in messages:
+                message_ts = msg.get("ts", "")
+                user_id = msg.get("user", "")
+                text = msg.get("text", "").strip()
+
+                # Skip if no text or no user
+                if not text or not user_id:
+                    continue
+
+                # Skip bot's own messages
+                if config.bot_user_id and user_id == config.bot_user_id:
+                    continue
+
+                # Skip already processed messages
+                if is_message_processed(channel_id, message_ts):
+                    continue
+
+                # In DMs, treat all messages as commands (no @mention needed)
+                # Parse the command directly
+                command = parse_slack_command(text)
+
+                # Create SlackMessage for the handler
+                permalink = get_message_permalink(client, channel_id, message_ts)
+                slack_msg = SlackMessage(
+                    channel_id=channel_id,
+                    message_ts=message_ts,
+                    user_id=user_id,
+                    text=text,
+                    thread_ts=None,  # DMs don't have threads in the same way
+                    permalink=permalink,
+                )
+
+                try:
+                    # Handle the command
+                    issue = handle_slack_command(
+                        client,
+                        command,
+                        slack_msg,
+                        config,
+                        project_integration,
+                    )
+
+                    # Only count CREATE commands that succeeded
+                    if issue:
+                        notify_issue_created(client, issue, config)
+                        results["processed"] += 1
+
+                except Exception as e:
+                    error_msg = f"Failed to process DM message {message_ts}: {e}"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+
+        except Exception as e:
+            error_msg = f"Error polling DM channel {channel_id}: {e}"
+            logger.warning(error_msg)
+            results["errors"].append(error_msg)
+
+    return results
+
+
 def poll_all_integrations() -> dict[str, Any]:
-    """Poll all enabled Slack integrations.
+    """Poll all enabled Slack integrations including DMs.
 
     Returns:
         Dict with overall results: {total_processed: int, errors: list}
@@ -1304,9 +1417,26 @@ def poll_all_integrations() -> dict[str, Any]:
 
     for config in configs:
         try:
+            # Poll configured channels
             results = poll_integration(config)
             total_results["total_processed"] += results["processed"]
             total_results["errors"].extend(results["errors"])
+
+            # Also poll DMs for this integration
+            try:
+                client = get_slack_client(config.bot_token)
+                # Get or create project integration for DM commands
+                if config.default_project_id:
+                    project_integration = ProjectIntegration.query.filter_by(
+                        project_id=config.default_project_id,
+                        integration_id=config.integration_id,
+                    ).first()
+                    if project_integration:
+                        dm_results = poll_dm_messages(client, config, project_integration)
+                        total_results["total_processed"] += dm_results["processed"]
+                        total_results["errors"].extend(dm_results["errors"])
+            except Exception as e:
+                logger.warning("Failed to poll DMs for integration %s: %s", config.integration_id, e)
 
         except Exception as e:
             error_msg = f"Failed to poll integration {config.integration_id}: {e}"

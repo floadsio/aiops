@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from flask import current_app, jsonify, request
+from sqlalchemy.orm.attributes import flag_modified
 
 from ...extensions import db
 from ...models import SlackUserMapping, Tenant, TenantIntegration, User
@@ -277,6 +278,7 @@ def update_slack_integration(integration_id: int):
         settings["poll_interval_minutes"] = data["poll_interval_minutes"]
 
     integration.settings = settings
+    flag_modified(integration, "settings")
 
     # Update enabled status
     if "enabled" in data:

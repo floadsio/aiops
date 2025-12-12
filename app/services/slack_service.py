@@ -263,7 +263,7 @@ def get_channel_history(
     client: WebClient,
     channel_id: str,
     oldest: Optional[str] = None,
-    limit: int = 100,
+    limit: int = 20,  # Reduced from 100 to avoid rate limits on reactions.get
 ) -> list[dict[str, Any]]:
     """Fetch message history from a Slack channel.
 
@@ -312,6 +312,8 @@ def get_message_reactions(
     Returns:
         List of reaction objects with 'name' and 'users' keys
     """
+    import time
+
     try:
         response = client.reactions_get(
             channel=channel_id,
@@ -320,6 +322,20 @@ def get_message_reactions(
         message = response.get("message", {})
         return message.get("reactions", [])
     except SlackApiError as e:
+        if e.response.get("error") == "ratelimited":
+            retry_after = int(e.response.headers.get("Retry-After", 5))
+            logger.warning("Rate limited on reactions.get, waiting %ds", retry_after)
+            time.sleep(retry_after)
+            # Retry once after waiting
+            try:
+                response = client.reactions_get(
+                    channel=channel_id,
+                    timestamp=message_ts,
+                )
+                message = response.get("message", {})
+                return message.get("reactions", [])
+            except SlackApiError:
+                return []
         logger.warning(
             "Failed to get reactions for message %s in %s: %s",
             message_ts,

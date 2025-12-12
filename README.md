@@ -246,6 +246,81 @@ Press `Ctrl+B` then `D` to detach and return to your local shell. Run the same c
 - Ensure Homebrew-installed binaries are picked up by setting `CLI_EXTRA_PATHS` (defaults to `/opt/homebrew/bin:/usr/local/bin`), which aiops prepends to `PATH` whenever it checks or updates Codex or Claude.
 - CLI status cards first run the configured `codex` and `claude` binaries (falling back to npm metadata, or `brew info --json` for Claude) so version checks work whether you installed the tools via Homebrew on macOS or npm on Debian. Override `CLAUDE_BREW_PACKAGE` if you use a different tap name.
 
+## Slack Integration
+
+Create issues directly from Slack messages by configuring a Slack integration. The bot monitors channels for trigger messages and automatically creates issues in your configured project.
+
+### Slack App Setup
+
+1. Create a Slack App at https://api.slack.com/apps
+2. Go to **OAuth & Permissions** and add these Bot Token Scopes:
+   - `channels:history` - Read messages in public channels
+   - `channels:read` - List channels
+   - `chat:write` - Post replies to threads
+   - `reactions:read` - Detect emoji triggers
+   - `users:read` - Get user display names
+   - `users:read.email` - Auto-match users by email
+3. Install the app to your workspace and copy the **Bot User OAuth Token** (starts with `xoxb-`)
+4. Invite the bot to channels you want to monitor: `/invite @YourBotName`
+
+### Configuration
+
+```bash
+# Create a Slack integration
+aiops slack create --tenant floads --name "Floads Slack" --token xoxb-YOUR-TOKEN
+
+# List channels the bot can see
+aiops slack channels <integration_id>
+
+# Configure which channel to monitor and where to create issues
+aiops slack update <integration_id> --channel C0ABC123 --project aiops
+```
+
+### Triggering Issue Creation
+
+Two ways to create issues from Slack:
+
+**1. Keyword trigger** (recommended):
+```
+@aiops The login page is broken when using Safari
+```
+Set up with: `aiops slack update <id> --keyword "@aiops"`
+
+**2. Emoji reaction**:
+React to any message with 🎫 (`:ticket:`) and the bot creates an issue from it.
+
+### Environment Variables
+
+Enable background polling in `.env`:
+```bash
+SLACK_POLL_ENABLED=true      # Enable Slack polling
+SLACK_POLL_INTERVAL=300      # Poll every 5 minutes (default)
+```
+
+### CLI Commands
+
+```bash
+aiops slack list --tenant <tenant>       # List integrations
+aiops slack get <id>                     # Get details
+aiops slack create --tenant <t> --name <n> --token <token> [--keyword "@aiops"]
+aiops slack update <id> [--channel C...] [--project ...] [--keyword ...]
+aiops slack delete <id>                  # Delete integration
+aiops slack test --token <token>         # Test connection
+aiops slack channels <id>                # List bot's channels
+aiops slack poll                         # Manual poll trigger
+aiops slack users --tenant <tenant>      # List user mappings
+aiops slack map-user <id> --user <uid>   # Link Slack user to aiops user
+```
+
+### User Mapping
+
+The bot automatically maps Slack users to aiops users by email. When a match is found, issues are auto-assigned. View and manage mappings:
+
+```bash
+aiops slack users --tenant floads
+aiops slack map-user 1 --user 5    # Manually link Slack user to aiops user
+```
+
 ## Semaphore Integration
 
 Configure aiops to trigger Ansible automation through Semaphore by setting the following environment variables (for local development place them in `.env`):

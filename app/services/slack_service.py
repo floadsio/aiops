@@ -1095,7 +1095,13 @@ def handle_slack_command(
     Returns:
         Created issue if command was CREATE, None otherwise
     """
-    thread_ts = slack_msg.thread_ts or slack_msg.message_ts
+    # For DMs (channel starts with 'D'), don't use thread_ts - reply directly
+    # For channels, use thread to keep conversations organized
+    is_dm = slack_msg.channel_id.startswith("D")
+    if is_dm:
+        thread_ts = None  # Reply directly in DM, not as thread
+    else:
+        thread_ts = slack_msg.thread_ts or slack_msg.message_ts
 
     if command.command_type == SlackCommandType.HELP:
         handle_help_command(client, slack_msg.channel_id, thread_ts)

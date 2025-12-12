@@ -56,10 +56,6 @@ def init_scheduler(app: Flask) -> Optional[BackgroundScheduler]:
         sync_on_startup = app.config.get("ISSUE_SYNC_ON_STARTUP", True)
         slack_poll_interval = app.config.get("SLACK_POLL_INTERVAL", 300)  # 5 minutes default
 
-        # Use print for immediate visibility since logger may not be configured yet
-        print(
-            f"Initializing scheduler (issue_sync={issue_sync_enabled}, slack_poll={slack_poll_enabled})"
-        )
         logger.info(
             "Initializing scheduler (issue_sync=%s, slack_poll=%s)",
             issue_sync_enabled,
@@ -98,7 +94,6 @@ def init_scheduler(app: Flask) -> Optional[BackgroundScheduler]:
                 replace_existing=True,
                 kwargs={"app": app},
             )
-            print(f"Slack poll job added (interval={slack_poll_interval}s)")
             logger.info("Slack poll job added (interval=%ds)", slack_poll_interval)
 
         # Start the scheduler
@@ -263,10 +258,10 @@ def _run_slack_poll(app: Flask) -> dict:
         from flask import current_app
         from .slack_service import poll_all_integrations
 
-        current_app.logger.error("Starting automatic Slack poll...")  # Using ERROR for visibility
+        current_app.logger.info("Starting automatic Slack poll...")
         try:
             results = poll_all_integrations()
-            current_app.logger.error(
+            current_app.logger.info(
                 "Slack poll completed: %d issues created, %d errors",
                 results["total_processed"],
                 len(results["errors"]),

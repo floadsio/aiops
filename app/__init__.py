@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional, Type
 
@@ -43,6 +44,18 @@ def create_app(
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     repo_root = Path(app.config["REPO_STORAGE_PATH"])
     repo_root.mkdir(parents=True, exist_ok=True)
+
+    # Configure logging to capture INFO level for background tasks
+    if not app.debug:
+        app.logger.setLevel(logging.INFO)
+        # Add a stream handler if none exist
+        if not app.logger.handlers:
+            handler = logging.StreamHandler()
+            handler.setLevel(logging.INFO)
+            handler.setFormatter(logging.Formatter(
+                '[%(asctime)s] %(levelname)s in %(module)s: %(message)s'
+            ))
+            app.logger.addHandler(handler)
 
     register_extensions(app)
     register_blueprints(app)

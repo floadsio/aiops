@@ -238,3 +238,11 @@ class Config:
         "yes",
     }
     ISSUE_SYNC_MAX_CONCURRENT = _get_int_env_var("ISSUE_SYNC_MAX_CONCURRENT", 3)
+
+    # Slack Polling Configuration
+    SLACK_POLL_ENABLED = os.getenv("SLACK_POLL_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    SLACK_POLL_INTERVAL = _get_int_env_var("SLACK_POLL_INTERVAL", 300)  # 5 minutes

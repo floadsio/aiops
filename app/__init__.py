@@ -92,7 +92,8 @@ def create_app(
         """Initialize issue sync scheduler on first request."""
         if not hasattr(app, "_sync_scheduler_initialized"):
             app._sync_scheduler_initialized = True
-            if app.config.get("ISSUE_SYNC_ENABLED", False):
+            # Start scheduler if either issue sync or Slack polling is enabled
+            if app.config.get("ISSUE_SYNC_ENABLED", False) or app.config.get("SLACK_POLL_ENABLED", False):
                 try:
                     from .services.sync_scheduler import init_scheduler
                     init_scheduler(app)

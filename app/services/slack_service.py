@@ -844,8 +844,11 @@ def handle_list_command(
     """
     from ..models import Tenant
 
-    query = ExternalIssue.query.filter(
-        ExternalIssue.status.in_(["open", "opened", "in_progress"])
+    # ExternalIssue -> ProjectIntegration -> Project, so we need to join
+    query = (
+        ExternalIssue.query
+        .join(ProjectIntegration)
+        .filter(ExternalIssue.status.in_(["open", "opened", "in_progress"]))
     )
 
     # Determine which project(s) to list
@@ -854,7 +857,7 @@ def handle_list_command(
         tenant = Tenant.query.get(tenant_id)
         if tenant:
             project_ids = [p.id for p in tenant.projects]
-            query = query.filter(ExternalIssue.project_id.in_(project_ids))
+            query = query.filter(ProjectIntegration.project_id.in_(project_ids))
         project_label = "all projects"
     elif project_name:
         # Specific project by name
@@ -867,12 +870,12 @@ def handle_list_command(
                 f":warning: Project `{project_name}` not found."
             )
             return
-        query = query.filter(ExternalIssue.project_id == project.id)
+        query = query.filter(ProjectIntegration.project_id == project.id)
         project_label = project.name
     elif default_project_id:
         # Default project
         project = Project.query.get(default_project_id)
-        query = query.filter(ExternalIssue.project_id == default_project_id)
+        query = query.filter(ProjectIntegration.project_id == default_project_id)
         project_label = project.name if project else "default project"
     else:
         post_thread_reply(
@@ -895,7 +898,7 @@ def handle_list_command(
     for issue in issues:
         assignee = ""
         if issue.assignee:
-            assignee = f" → {issue.assignee.name}"
+            assignee = f" → {issue.assignee}"  # assignee is a string field
         title = issue.title[:50] + "..." if len(issue.title) > 50 else issue.title
         lines.append(f"• `#{issue.id}` {title}{assignee}")
 
@@ -927,8 +930,9 @@ def handle_close_command(
         )
         return
 
-    # Verify tenant access
-    if issue.project and issue.project.tenant_id != tenant_id:
+    # Verify tenant access via project_integration -> project -> tenant
+    project = issue.project_integration.project if issue.project_integration else None
+    if project and project.tenant_id != tenant_id:
         post_thread_reply(
             client, channel_id, thread_ts,
             f":no_entry: You don't have access to issue `#{issue_id}`."
@@ -978,8 +982,9 @@ def handle_delete_command(
         )
         return
 
-    # Verify tenant access
-    if issue.project and issue.project.tenant_id != tenant_id:
+    # Verify tenant access via project_integration -> project -> tenant
+    project = issue.project_integration.project if issue.project_integration else None
+    if project and project.tenant_id != tenant_id:
         post_thread_reply(
             client, channel_id, thread_ts,
             f":no_entry: You don't have access to issue `#{issue_id}`."

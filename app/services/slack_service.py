@@ -1229,6 +1229,11 @@ def handle_slack_command(
         ollama_enabled = current_app.config.get("SLACK_OLLAMA_ENABLED", False)
 
         if ollama_enabled:
+            # Mark message as processed BEFORE calling Ollama (which is slow)
+            # to prevent duplicate processing on subsequent polls
+            mark_message_processed(
+                slack_msg.channel_id, slack_msg.message_ts, "ollama_preview"
+            )
             # Use Ollama to elaborate and show preview
             return handle_create_with_ollama_preview(
                 client,

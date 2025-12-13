@@ -358,6 +358,46 @@ def get_scheduler_status() -> dict:
     }
 
 
+def get_slack_poll_status() -> dict:
+    """Get Slack poll job status.
+
+    Returns:
+        Dict with Slack poll status information
+    """
+    global _scheduler
+
+    if _scheduler is None:
+        return {
+            "running": False,
+            "enabled": False,
+            "next_run": None,
+            "interval_seconds": None,
+        }
+
+    # Find the Slack poll job
+    slack_job = _scheduler.get_job("slack_poll_all")
+
+    if slack_job is None:
+        return {
+            "running": _scheduler.running,
+            "enabled": False,
+            "next_run": None,
+            "interval_seconds": None,
+        }
+
+    # Get interval from trigger
+    interval_seconds = None
+    if hasattr(slack_job.trigger, "interval"):
+        interval_seconds = int(slack_job.trigger.interval.total_seconds())
+
+    return {
+        "running": _scheduler.running,
+        "enabled": True,
+        "next_run": slack_job.next_run_time.isoformat() if slack_job.next_run_time else None,
+        "interval_seconds": interval_seconds,
+    }
+
+
 def reconfigure_scheduler(enabled: bool, interval_minutes: int) -> None:
     """Reconfigure the scheduler with new settings.
 

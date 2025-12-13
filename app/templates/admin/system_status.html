@@ -302,6 +302,7 @@ function updateStatusDisplay(data) {
     'integrations': { name: 'Integrations', icon: '🔗' },
     'sessions': { name: 'Sessions', icon: '💻' },
     'issue_sync': { name: 'Issue Sync', icon: '🔄' },
+    'slack_poller': { name: 'Slack Poller', icon: '💬' },
   };
 
   const componentOrder = Object.keys(componentConfig);
@@ -517,6 +518,44 @@ function createDetailsHTML(componentName, details) {
         </div>
       `;
     }
+  } else if (componentName === 'slack_poller') {
+    html += `
+      <div class="detail-row">
+        <span class="detail-label">Status</span>
+        <span class="detail-value">${details.enabled ? (details.running ? '🟢 Active' : '🔴 Stopped') : '⚪ Disabled'}</span>
+      </div>
+    `;
+    if (details.interval_seconds) {
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Interval</span>
+          <span class="detail-value">${details.interval_seconds} seconds</span>
+        </div>
+      `;
+    }
+    if (details.next_run) {
+      const nextRun = new Date(details.next_run);
+      html += `
+        <div class="detail-row">
+          <span class="detail-label">Next Run</span>
+          <span class="detail-value">${nextRun.toLocaleTimeString()}</span>
+        </div>
+      `;
+    }
+    html += `
+      <div class="detail-row">
+        <span class="detail-label">Slack Integrations</span>
+        <span class="detail-value">${details.slack_integrations || 0}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Ollama Preview</span>
+        <span class="detail-value">${details.ollama_preview ? '✅ Enabled' : '⚪ Disabled'}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Pending Issues</span>
+        <span class="detail-value">${details.pending_issues || 0}</span>
+      </div>
+    `;
   } else if (componentName === 'user_credentials' && details.users) {
     details.users.forEach(user => {
       const status = user.missing_count === 0 ? 'enabled' : 'disabled';

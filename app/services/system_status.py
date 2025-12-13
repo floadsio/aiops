@@ -1009,6 +1009,94 @@ def check_user_credentials() -> dict[str, Any]:
         return {"healthy": False, "message": f"User credentials check error: {exc}"}
 
 
+def check_slack_poller() -> dict[str, Any]:
+    """Check Slack polling status and health.
+
+    Returns:
+        Status dict with 'healthy', 'message', and 'details'
+    """
+    try:
+        from .sync_scheduler import get_slack_poll_status
+        from ..models import TenantIntegration, SlackPendingIssue
+
+        status = get_slack_poll_status()
+        enabled = current_app.config.get("SLACK_POLL_ENABLED", False)
+        interval = current_app.config.get("SLACK_POLL_INTERVAL", 300)
+        ollama_enabled = current_app.config.get("SLACK_OLLAMA_ENABLED", False)
+
+        # Count Slack integrations
+        slack_integrations = TenantIntegration.query.filter_by(
+            provider="slack", enabled=True
+        ).count()
+
+        # Count pending issues (awaiting confirmation)
+        pending_count = SlackPendingIssue.query.count()
+
+        if not enabled:
+            return {
+                "healthy": True,
+                "message": "Slack polling disabled",
+                "details": {
+                    "enabled": False,
+                    "interval_seconds": interval,
+                    "slack_integrations": slack_integrations,
+                    "ollama_preview": ollama_enabled,
+                    "pending_issues": pending_count,
+                }
+            }
+
+        if slack_integrations == 0:
+            return {
+                "healthy": True,
+                "message": "No Slack integrations configured",
+                "details": {
+                    "enabled": True,
+                    "running": status.get("running", False),
+                    "interval_seconds": interval,
+                    "slack_integrations": 0,
+                    "ollama_preview": ollama_enabled,
+                    "pending_issues": pending_count,
+                }
+            }
+
+        if status.get("running") and status.get("enabled"):
+            message = f"Running (every {interval}s)"
+            if ollama_enabled:
+                message += " with Ollama preview"
+            return {
+                "healthy": True,
+                "message": message,
+                "details": {
+                    "enabled": True,
+                    "running": True,
+                    "interval_seconds": interval,
+                    "next_run": status.get("next_run"),
+                    "slack_integrations": slack_integrations,
+                    "ollama_preview": ollama_enabled,
+                    "pending_issues": pending_count,
+                }
+            }
+
+        return {
+            "healthy": False,
+            "message": "Enabled but not running",
+            "details": {
+                "enabled": True,
+                "running": False,
+                "interval_seconds": interval,
+                "slack_integrations": slack_integrations,
+                "ollama_preview": ollama_enabled,
+                "pending_issues": pending_count,
+            }
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "healthy": False,
+            "message": f"Slack poller error: {exc}",
+            "details": {"error": str(exc)}
+        }
+
+
 def get_system_status() -> dict[str, Any]:
     """Get comprehensive system status for all components.
 
@@ -1027,6 +1115,7 @@ def get_system_status() -> dict[str, Any]:
         "sessions": check_sessions(),
         "ollama": check_ollama(),
         "issue_sync": check_sync_scheduler(),
+        "slack_poller": check_slack_poller(),
         "user_credentials": check_user_credentials(),
     }
 

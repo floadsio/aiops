@@ -1444,8 +1444,8 @@ def handle_create_with_ollama_preview(
     db.session.add(pending)
     db.session.commit()
 
-    # Mark original message as processed
-    mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "create_preview")
+    # Note: message was already marked as processed before calling Ollama
+    # to prevent duplicate processing during the slow Ollama call
 
     logger.info(
         "Posted Ollama preview for issue creation (pending_id=%d, preview_ts=%s)",

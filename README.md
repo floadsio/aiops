@@ -248,7 +248,9 @@ Press `Ctrl+B` then `D` to detach and return to your local shell. Run the same c
 
 ## Slack Integration
 
-Create issues directly from Slack messages by configuring a Slack integration. The bot monitors channels for trigger messages and automatically creates issues in your configured project.
+The aiops Slack bot provides two main capabilities:
+1. **AI Q&A** - Ask the bot questions and get AI-powered answers (via Ollama)
+2. **Issue Creation** - Create tracked issues from Slack messages with AI-enhanced descriptions
 
 ### Slack App Setup
 
@@ -260,8 +262,44 @@ Create issues directly from Slack messages by configuring a Slack integration. T
    - `reactions:read` - Detect emoji triggers
    - `users:read` - Get user display names
    - `users:read.email` - Auto-match users by email
+   - `im:read` - Read direct messages (for 1:1 DMs)
+   - `im:history` - Access DM history
+   - `mpim:read` - Read group DMs
+   - `mpim:history` - Access group DM history
+   - `mpim:write` - Post in group DMs
 3. Install the app to your workspace and copy the **Bot User OAuth Token** (starts with `xoxb-`)
 4. Invite the bot to channels you want to monitor: `/invite @YourBotName`
+
+### Bot Commands
+
+**Ask Questions (AI Q&A):**
+```
+@aiops what is the distance between NY and Boston?
+@aiops how do I configure nginx reverse proxy?
+@aiops explain kubernetes pod networking
+```
+The bot shows a 🤔 thinking indicator, queries Ollama, and replies with the answer.
+
+**Create Issues:**
+```
+@aiops issue The login page is broken when using Safari
+@aiops create Add dark mode to the dashboard
+@aiops issue in myproject Fix the authentication bug
+```
+When Ollama preview is enabled, you'll see a formatted preview with an AI-enhanced description. React with ✅ to create or ❌ to cancel.
+
+**Manage Issues:**
+```
+@aiops list                    # List open issues (default project)
+@aiops list myproject          # List issues for specific project
+@aiops list all                # List all tenant issues
+@aiops close 123               # Close issue #123
+@aiops delete 123              # Delete issue #123
+@aiops help                    # Show available commands
+```
+
+**Create Issues via Reactions:**
+React to any message with 🎫 (`:ticket:`) to create an issue from it.
 
 ### Configuration
 
@@ -276,26 +314,25 @@ aiops slack channels <integration_id>
 aiops slack update <integration_id> --channel C0ABC123 --project aiops
 ```
 
-### Triggering Issue Creation
-
-Two ways to create issues from Slack:
-
-**1. Keyword trigger** (recommended):
-```
-@aiops The login page is broken when using Safari
-```
-Set up with: `aiops slack update <id> --keyword "@aiops"`
-
-**2. Emoji reaction**:
-React to any message with 🎫 (`:ticket:`) and the bot creates an issue from it.
-
 ### Environment Variables
 
-Enable background polling in `.env`:
+Enable background polling and Ollama features in `.env`:
 ```bash
-SLACK_POLL_ENABLED=true      # Enable Slack polling
-SLACK_POLL_INTERVAL=300      # Poll every 5 minutes (default)
+SLACK_POLL_ENABLED=true       # Enable Slack polling
+SLACK_POLL_INTERVAL=60        # Poll every 60 seconds (default)
+SLACK_OLLAMA_ENABLED=true     # Enable Ollama for Q&A and issue previews
+
+# Ollama configuration
+OLLAMA_API_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_TIMEOUT=120
 ```
+
+### DM Behavior
+
+- **1:1 DMs**: All messages are treated as commands (no @mention required)
+- **Group DMs**: Requires explicit @mention (e.g., `@aiops what time is it?`)
+- **Channels**: Use @mention or 🎫 reaction to trigger the bot
 
 ### CLI Commands
 

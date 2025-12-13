@@ -517,6 +517,7 @@ def ask_ollama(
     question: str,
     context: str | None = None,
     requester_name: str | None = None,
+    conversation_history: list[dict[str, str]] | None = None,
 ) -> str:
     """Ask Ollama a general question and get a response.
 
@@ -524,6 +525,8 @@ def ask_ollama(
         question: The question or prompt to send to Ollama
         context: Optional context (e.g., global agent context, project info)
         requester_name: Optional name of the person asking
+        conversation_history: Optional list of prior messages in the thread
+            Each item: {"role": "user"|"assistant", "content": "..."}
 
     Returns:
         The response text from Ollama
@@ -553,19 +556,26 @@ Keep responses focused and actionable."""
     if context:
         system_prompt += f"\n\nAdditional context:\n{context}"
 
+    # Build messages list
+    messages = [{"role": "system", "content": system_prompt}]
+
+    # Add conversation history if provided (for thread context)
+    if conversation_history:
+        messages.extend(conversation_history)
+
+    # Add current question
     user_prompt = question
-    if requester_name:
+    if requester_name and not conversation_history:
+        # Only add name prefix for first message, not follow-ups
         user_prompt = f"Question from {requester_name}:\n\n{question}"
+    messages.append({"role": "user", "content": user_prompt})
 
     logger.info("Calling Ollama for general question")
 
     try:
         response = client.chat(
             model=config.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
+            messages=messages,
             options={"temperature": 0.7},
         )
 

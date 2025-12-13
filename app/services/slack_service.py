@@ -1176,6 +1176,70 @@ def handle_ask_command(
     except Exception:
         pass
 
+    # Get conversation history if this is a thread reply
+    conversation_history = None
+    if slack_msg.thread_ts:
+        try:
+            # Fetch thread messages for context
+            thread_messages = get_thread_replies(
+                client, slack_msg.channel_id, slack_msg.thread_ts
+            )
+            # Also get the parent message
+            parent_response = client.conversations_history(
+                channel=slack_msg.channel_id,
+                latest=slack_msg.thread_ts,
+                limit=1,
+                inclusive=True,
+            )
+            parent_msgs = parent_response.get("messages", [])
+
+            # Build conversation history
+            conversation_history = []
+            all_thread_msgs = parent_msgs + thread_messages
+
+            for msg in all_thread_msgs:
+                msg_ts = msg.get("ts", "")
+                msg_user = msg.get("user", "")
+                msg_text = msg.get("text", "").strip()
+
+                # Skip the current message (we'll add it as the question)
+                if msg_ts == slack_msg.message_ts:
+                    continue
+
+                # Skip empty messages
+                if not msg_text:
+                    continue
+
+                # Determine role: bot messages are "assistant", user messages are "user"
+                if config.bot_user_id and msg_user == config.bot_user_id:
+                    # Strip any bot mention patterns from bot's own messages
+                    conversation_history.append({
+                        "role": "assistant",
+                        "content": msg_text,
+                    })
+                else:
+                    # User message - strip bot mention if present
+                    if config.bot_user_id:
+                        mention_pattern = f"<@{config.bot_user_id}>"
+                        msg_text = msg_text.replace(mention_pattern, "").strip()
+                    conversation_history.append({
+                        "role": "user",
+                        "content": msg_text,
+                    })
+
+            # Limit history to last 10 messages to avoid token limits
+            if len(conversation_history) > 10:
+                conversation_history = conversation_history[-10:]
+
+            logger.debug(
+                "Thread context: %d messages for thread %s",
+                len(conversation_history),
+                slack_msg.thread_ts,
+            )
+        except Exception as e:
+            logger.warning("Failed to fetch thread history: %s", e)
+            conversation_history = None
+
     start_time = time.time()
 
     try:
@@ -1183,6 +1247,7 @@ def handle_ask_command(
             question=question,
             context=context,
             requester_name=requester_name,
+            conversation_history=conversation_history,
         )
         elapsed_time = time.time() - start_time
 

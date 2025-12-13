@@ -2034,8 +2034,21 @@ def poll_dm_messages(
                 if is_message_processed(channel_id, message_ts):
                     continue
 
-                # In DMs, treat all messages as commands (no @mention needed)
-                # Parse the command directly
+                # For group DMs (G prefix), require bot mention
+                # For 1:1 DMs (D prefix), all messages are treated as commands
+                is_group_dm = channel_id.startswith("G")
+                if is_group_dm:
+                    # Check if bot is mentioned
+                    if not config.bot_user_id:
+                        continue
+                    mention_pattern = f"<@{config.bot_user_id}>"
+                    if mention_pattern not in text:
+                        # Not addressed to the bot, skip
+                        continue
+                    # Strip the mention from the text for parsing
+                    text = text.replace(mention_pattern, "").strip()
+
+                # Parse the command
                 command = parse_slack_command(text)
 
                 # Create SlackMessage for the handler

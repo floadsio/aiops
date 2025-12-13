@@ -1127,8 +1127,18 @@ def handle_ask_command(
     from .ollama_service import OllamaServiceError, ask_ollama
 
     # Get the thread_ts for replies
+    # If we're replying to a thread, reply in that thread
+    # Otherwise, for DMs reply directly, for channels reply in thread
     is_dm = slack_msg.channel_id.startswith(("D", "G"))
-    thread_ts = None if is_dm else (slack_msg.thread_ts or slack_msg.message_ts)
+    if slack_msg.thread_ts:
+        # This is a reply in a thread - keep the thread going
+        thread_ts = slack_msg.thread_ts
+    elif is_dm:
+        # Top-level DM message - reply directly (no thread)
+        thread_ts = None
+    else:
+        # Top-level channel message - create a thread
+        thread_ts = slack_msg.message_ts
 
     # Get requester name
     requester_name = None
@@ -2177,6 +2187,7 @@ def poll_dm_messages(
                 message_ts = msg.get("ts", "")
                 user_id = msg.get("user", "")
                 text = msg.get("text", "").strip()
+                thread_ts = msg.get("thread_ts")  # None if not a thread reply
 
                 # Skip if no text or no user
                 if not text or not user_id:
@@ -2190,19 +2201,24 @@ def poll_dm_messages(
                 if is_message_processed(channel_id, message_ts):
                     continue
 
-                # For group DMs (G prefix), require bot mention
+                # For group DMs (G prefix), require bot mention OR be a thread reply
                 # For 1:1 DMs (D prefix), all messages are treated as commands
                 is_group_dm = channel_id.startswith("G")
                 if is_group_dm:
-                    # Check if bot is mentioned
                     if not config.bot_user_id:
                         continue
                     mention_pattern = f"<@{config.bot_user_id}>"
-                    if mention_pattern not in text:
-                        # Not addressed to the bot, skip
+                    is_mentioned = mention_pattern in text
+                    is_thread_reply = thread_ts is not None
+
+                    # Allow if: mentioned OR replying in a thread (conversational follow-up)
+                    if not is_mentioned and not is_thread_reply:
+                        # Not addressed to the bot and not a thread reply, skip
                         continue
-                    # Strip the mention from the text for parsing
-                    text = text.replace(mention_pattern, "").strip()
+
+                    # Strip the mention from the text for parsing (if present)
+                    if is_mentioned:
+                        text = text.replace(mention_pattern, "").strip()
 
                 # Parse the command
                 command = parse_slack_command(text)
@@ -2214,7 +2230,7 @@ def poll_dm_messages(
                     message_ts=message_ts,
                     user_id=user_id,
                     text=text,
-                    thread_ts=None,  # DMs don't have threads in the same way
+                    thread_ts=thread_ts,  # Include thread_ts for proper reply threading
                     permalink=permalink,
                 )
 

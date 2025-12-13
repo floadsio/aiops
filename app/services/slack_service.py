@@ -1113,7 +1113,7 @@ def handle_slack_command(
     """
     # For DMs (channel starts with 'D'), don't use thread_ts - reply directly
     # For channels, use thread to keep conversations organized
-    is_dm = slack_msg.channel_id.startswith("D")
+    is_dm = slack_msg.channel_id.startswith(("D", "G"))  # D=DM, G=group DM
     if is_dm:
         thread_ts = None  # Reply directly in DM, not as thread
     else:
@@ -1408,7 +1408,7 @@ def handle_create_with_ollama_preview(
 
     try:
         # Post the preview - for DMs, no thread_ts
-        is_dm = slack_msg.channel_id.startswith("D")
+        is_dm = slack_msg.channel_id.startswith(("D", "G"))  # D=DM, G=group DM
         response = client.chat_postMessage(
             channel=slack_msg.channel_id,
             text=fallback_text,
@@ -1663,7 +1663,7 @@ def handle_confirm_pending(
 
     if not pending:
         # No pending issue found - inform user
-        is_dm = slack_msg.channel_id.startswith("D")
+        is_dm = slack_msg.channel_id.startswith(("D", "G"))  # D=DM, G=group DM
         thread_ts = None if is_dm else (slack_msg.thread_ts or slack_msg.message_ts)
         client.chat_postMessage(
             channel=slack_msg.channel_id,
@@ -1679,7 +1679,7 @@ def handle_confirm_pending(
         notify_issue_created(client, issue, config)
 
         # Reply to confirm
-        is_dm = slack_msg.channel_id.startswith("D")
+        is_dm = slack_msg.channel_id.startswith(("D", "G"))  # D=DM, G=group DM
         client.chat_postMessage(
             channel=slack_msg.channel_id,
             text=f"✅ Issue created: #{issue.id}",
@@ -1725,7 +1725,7 @@ def handle_cancel_pending(
 
     if not pending:
         # No pending issue found - inform user
-        is_dm = slack_msg.channel_id.startswith("D")
+        is_dm = slack_msg.channel_id.startswith(("D", "G"))  # D=DM, G=group DM
         thread_ts = None if is_dm else (slack_msg.thread_ts or slack_msg.message_ts)
         client.chat_postMessage(
             channel=slack_msg.channel_id,
@@ -1736,7 +1736,7 @@ def handle_cancel_pending(
         return
 
     # Delete pending and confirm
-    is_dm = slack_msg.channel_id.startswith("D")
+    is_dm = slack_msg.channel_id.startswith(("D", "G"))  # D=DM, G=group DM
     client.chat_postMessage(
         channel=slack_msg.channel_id,
         text="❌ Issue creation cancelled.",
@@ -1973,9 +1973,10 @@ def get_bot_dm_channels(client: WebClient) -> list[str]:
         List of DM channel IDs (im channels)
     """
     try:
-        # List all IM (direct message) conversations the bot is part of
+        # List all IM (direct message) and MPIM (group DM) conversations the bot is part of
+        # Requires scopes: im:read, mpim:read
         response = client.conversations_list(
-            types="im",
+            types="im,mpim",
             limit=100,
         )
         channels = response.get("channels", [])

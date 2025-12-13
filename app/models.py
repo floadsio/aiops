@@ -508,6 +508,56 @@ class SlackProcessedMessage(BaseModel):
         return f"<SlackProcessedMessage {self.channel_id}:{self.message_ts} ({self.command_type})>"
 
 
+class SlackPendingIssue(BaseModel):
+    """Tracks pending issue previews awaiting user confirmation via reaction.
+
+    When SLACK_OLLAMA_ENABLED is true, issue creation goes through a preview flow:
+    1. User requests issue creation via Slack
+    2. Ollama elaborates the description
+    3. Bot posts preview and stores it here
+    4. User reacts with ✅ to confirm or ❌ to cancel
+    5. Bot polls reactions and creates/cancels accordingly
+    """
+
+    __tablename__ = "slack_pending_issues"
+    __table_args__ = (
+        db.Index("ix_pending_integration_expires", "integration_id", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    channel_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    preview_message_ts: Mapped[str] = mapped_column(String(64), nullable=False)  # For reaction polling
+    original_message_ts: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)  # User's original message
+
+    # Elaborated content from Ollama
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Context
+    project_integration_id: Mapped[int] = mapped_column(
+        ForeignKey("project_integrations.id", ondelete="CASCADE"), nullable=False
+    )
+    integration_id: Mapped[int] = mapped_column(
+        ForeignKey("tenant_integrations.id", ondelete="CASCADE"), nullable=False
+    )
+    created_by_slack_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    requester_name: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    requester_email: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+
+    # Timestamps
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, default=datetime.utcnow
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    # Relationships
+    project_integration: Mapped["ProjectIntegration"] = relationship("ProjectIntegration")
+    integration: Mapped["TenantIntegration"] = relationship("TenantIntegration")
+
+    def __repr__(self) -> str:
+        return f"<SlackPendingIssue {self.id} '{self.title[:30]}...'>"
+
+
 class APIKey(BaseModel, TimestampMixin):
     """API keys for programmatic access to the AIops API.
 

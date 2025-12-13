@@ -248,3 +248,10 @@ class Config:
         "yes",
     }
     SLACK_POLL_INTERVAL = _get_int_env_var("SLACK_POLL_INTERVAL", 300)  # 5 minutes
+
+    # Slack Ollama Preview: Use Ollama to elaborate issue descriptions with confirmation flow
+    SLACK_OLLAMA_ENABLED = os.getenv("SLACK_OLLAMA_ENABLED", "false").lower() in {
+        "1",
+        "true",
+        "yes",
+    }

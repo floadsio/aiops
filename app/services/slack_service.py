@@ -25,6 +25,7 @@ from ..models import (
     ExternalIssue,
     Project,
     ProjectIntegration,
+    SlackPendingIssue,
     SlackProcessedMessage,
     SlackUserMapping,
     TenantIntegration,
@@ -90,6 +91,8 @@ class SlackCommandType(Enum):
     CLOSE = "close"  # @aiops close <id>
     DELETE = "delete"  # @aiops delete <id>
     HELP = "help"  # @aiops help
+    CONFIRM_PENDING = "confirm_pending"  # ok, yes, confirm - accept pending issue
+    CANCEL_PENDING = "cancel_pending"  # cancel, no, reject - cancel pending issue
 
 
 @dataclass
@@ -115,6 +118,8 @@ def parse_slack_command(text: str) -> SlackCommand:
         close <id>                   -> CLOSE issue
         delete <id>                  -> DELETE issue
         help                         -> HELP
+        ok/yes/confirm               -> CONFIRM_PENDING (accept pending issue)
+        cancel/no/reject             -> CANCEL_PENDING (reject pending issue)
 
     Args:
         text: Message text (already stripped of bot mention)
@@ -124,6 +129,14 @@ def parse_slack_command(text: str) -> SlackCommand:
     """
     text = text.strip()
     text_lower = text.lower()
+
+    # Confirm pending issue
+    if text_lower in ("ok", "yes", "confirm", "approve", "y"):
+        return SlackCommand(command_type=SlackCommandType.CONFIRM_PENDING)
+
+    # Cancel pending issue
+    if text_lower in ("cancel", "no", "reject", "n"):
+        return SlackCommand(command_type=SlackCommandType.CANCEL_PENDING)
 
     # Help command
     if text_lower == "help" or text_lower == "?":
@@ -885,7 +898,10 @@ def handle_help_command(
 • `@aiops delete <id>` - Delete an issue
 • `@aiops help` - Show this help
 
-You can also add a :ticket: reaction to any message to create an issue from it."""
+*Issue Creation:*
+You can also add a :ticket: reaction to any message to create an issue from it.
+
+When Ollama preview is enabled, you'll see a preview before the issue is created. Confirm with :white_check_mark: or cancel with :x: reactions. You can also reply with `ok` or `cancel` instead of using reactions."""
 
     post_thread_reply(client, channel_id, thread_ts, help_text)
 
@@ -1151,9 +1167,25 @@ def handle_slack_command(
         )
         return None
 
+    if command.command_type == SlackCommandType.CONFIRM_PENDING:
+        issue = handle_confirm_pending(client, slack_msg, config)
+        if issue:
+            mark_message_processed(
+                slack_msg.channel_id, slack_msg.message_ts, "confirm_pending"
+            )
+        return issue
+
+    if command.command_type == SlackCommandType.CANCEL_PENDING:
+        handle_cancel_pending(client, slack_msg, config)
+        mark_message_processed(
+            slack_msg.channel_id, slack_msg.message_ts, "cancel_pending"
+        )
+        return None
+
     if command.command_type == SlackCommandType.CREATE:
         # Determine target project
         target_integration = project_integration
+        target_project = Project.query.get(config.default_project_id)
 
         if command.project_name:
             # Find project by name within tenant
@@ -1171,6 +1203,7 @@ def handle_slack_command(
                     f"Creating issue in default project.",
                 )
             else:
+                target_project = project
                 # Get or create project integration for this project
                 target_integration = ProjectIntegration.query.filter_by(
                     project_id=project.id,
@@ -1191,7 +1224,23 @@ def handle_slack_command(
                     db.session.add(target_integration)
                     db.session.commit()
 
-        # Update message text with parsed content
+        # Check if Ollama preview is enabled
+        from flask import current_app
+        ollama_enabled = current_app.config.get("SLACK_OLLAMA_ENABLED", False)
+
+        if ollama_enabled:
+            # Use Ollama to elaborate and show preview
+            return handle_create_with_ollama_preview(
+                client,
+                slack_msg,
+                command,
+                config,
+                target_integration,
+                target_project,
+                thread_ts,
+            )
+
+        # Standard flow: create issue directly
         slack_msg_with_text = SlackMessage(
             channel_id=slack_msg.channel_id,
             message_ts=slack_msg.message_ts,
@@ -1206,6 +1255,597 @@ def handle_slack_command(
         )
 
     return None
+
+
+def handle_create_with_ollama_preview(
+    client: WebClient,
+    slack_msg: SlackMessage,
+    command: SlackCommand,
+    config: SlackIntegrationConfig,
+    project_integration: ProjectIntegration,
+    project: Project,
+    thread_ts: str | None,
+) -> None:
+    """Handle CREATE command with Ollama elaboration and preview.
+
+    Posts a preview of the elaborated issue and stores it for confirmation.
+
+    Args:
+        client: Slack WebClient
+        slack_msg: Original Slack message
+        command: Parsed command
+        config: Slack integration config
+        project_integration: Target project integration
+        project: Target project
+        thread_ts: Thread timestamp for replies
+    """
+    from datetime import timedelta
+
+    from .ollama_service import (
+        OllamaServiceError,
+        SlackIssueContext,
+        elaborate_issue_for_slack,
+    )
+
+    brief_text = command.message_text or slack_msg.text
+
+    # Get user info
+    requester_name, requester_email = get_slack_user_info(client, slack_msg.user_id)
+
+    # Get channel name
+    channel_name = get_slack_channel_name(client, slack_msg.channel_id)
+
+    # Get project context
+    recent_issues = get_recent_project_issues(project.id, limit=10)
+    common_labels = get_common_project_labels(project.id, limit=10)
+
+    # Get tenant
+    tenant = project.tenant
+
+    # Get integration provider
+    integration = TenantIntegration.query.get(config.integration_id)
+    provider = integration.provider if integration else "slack"
+
+    # Get global agent context
+    from ..models import GlobalAgentContext
+    global_context = GlobalAgentContext.query.order_by(
+        GlobalAgentContext.updated_at.desc()
+    ).first()
+    global_agent_content = global_context.content if global_context else None
+
+    # Get project AGENTS.md from repo
+    project_agents_md = None
+    try:
+        from .git_service import read_file_from_repo
+        project_agents_md = read_file_from_repo(project.id, "AGENTS.md")
+    except Exception as e:
+        logger.debug("Could not read AGENTS.md for project %s: %s", project.name, e)
+
+    # Build context
+    context = SlackIssueContext(
+        brief_text=brief_text,
+        requester_name=requester_name,
+        requester_email=requester_email,
+        channel_name=channel_name,
+        channel_id=slack_msg.channel_id,
+        timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+        thread_context=None,  # TODO: Get parent message if in thread
+        project_name=project.name,
+        project_description=project.description,
+        tenant_name=tenant.name if tenant else "Unknown",
+        integration_provider=provider,
+        recent_issue_titles=recent_issues,
+        common_labels=common_labels,
+        global_agent_context=global_agent_content,
+        project_agents_md=project_agents_md,
+    )
+
+    try:
+        # Call Ollama to elaborate (with timing)
+        import time
+        start_time = time.time()
+        elaborated = elaborate_issue_for_slack(context)
+        elapsed_time = time.time() - start_time
+        title = elaborated["title"]
+        description = elaborated["description"]
+        logger.info("Ollama elaboration completed in %.2fs", elapsed_time)
+    except OllamaServiceError as e:
+        logger.warning("Ollama elaboration failed, falling back to direct creation: %s", e)
+        # Fall back to direct creation
+        slack_msg_with_text = SlackMessage(
+            channel_id=slack_msg.channel_id,
+            message_ts=slack_msg.message_ts,
+            user_id=slack_msg.user_id,
+            text=brief_text,
+            thread_ts=slack_msg.thread_ts,
+            permalink=slack_msg.permalink,
+        )
+        issue = create_issue_from_slack(
+            slack_msg_with_text, project_integration, config, client
+        )
+        if issue:
+            notify_issue_created(client, issue, config)
+        return
+
+    # Post preview message using Slack blocks for better formatting
+    # Convert markdown-style formatting to Slack mrkdwn
+    # Slack uses *bold*, _italic_, ~strikethrough~, `code`, ```code block```
+    slack_description = description.replace("##", "*").replace("- [ ]", "☐")
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": "📝 Issue Preview", "emoji": True}
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Title:*\n{title}"}
+        },
+        {"type": "divider"},
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"*Description:*\n{slack_description}"}
+        },
+        {"type": "divider"},
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"React with ✅ to create this issue, or ❌ to cancel • _Generated in {elapsed_time:.1f}s_"
+                }
+            ]
+        }
+    ]
+
+    # Fallback text for notifications
+    fallback_text = f"Issue Preview: {title}"
+
+    try:
+        # Post the preview - for DMs, no thread_ts
+        is_dm = slack_msg.channel_id.startswith("D")
+        response = client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text=fallback_text,
+            blocks=blocks,
+            thread_ts=None if is_dm else thread_ts,
+        )
+        preview_message_ts = response["ts"]
+    except SlackApiError as e:
+        logger.error("Failed to post preview message: %s", e)
+        post_thread_reply(
+            client,
+            slack_msg.channel_id,
+            thread_ts,
+            f":x: Failed to create issue preview: {e}",
+        )
+        return
+
+    # Store pending issue
+    pending = SlackPendingIssue(
+        channel_id=slack_msg.channel_id,
+        preview_message_ts=preview_message_ts,
+        original_message_ts=slack_msg.message_ts,
+        title=title,
+        description=description,
+        project_integration_id=project_integration.id,
+        integration_id=config.integration_id,
+        created_by_slack_id=slack_msg.user_id,
+        requester_name=requester_name,
+        requester_email=requester_email,
+        created_at=datetime.utcnow(),
+        expires_at=datetime.utcnow() + timedelta(minutes=10),
+    )
+    db.session.add(pending)
+    db.session.commit()
+
+    # Mark original message as processed
+    mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "create_preview")
+
+    logger.info(
+        "Posted Ollama preview for issue creation (pending_id=%d, preview_ts=%s)",
+        pending.id,
+        preview_message_ts,
+    )
+
+
+def get_recent_project_issues(project_id: int, limit: int = 10) -> list[str]:
+    """Get recent issue titles for a project.
+
+    Args:
+        project_id: Project ID
+        limit: Maximum number of issues to return
+
+    Returns:
+        List of recent issue titles
+    """
+    # ExternalIssue links to ProjectIntegration, which links to Project
+    issues = (
+        ExternalIssue.query.join(ProjectIntegration)
+        .filter(ProjectIntegration.project_id == project_id)
+        .order_by(ExternalIssue.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    return [i.title for i in issues]
+
+
+def get_common_project_labels(project_id: int, limit: int = 10) -> list[str]:
+    """Get commonly used labels for a project.
+
+    Args:
+        project_id: Project ID
+        limit: Maximum number of labels to return
+
+    Returns:
+        List of common labels
+    """
+    # ExternalIssue links to ProjectIntegration, which links to Project
+    issues = (
+        ExternalIssue.query.join(ProjectIntegration)
+        .filter(ProjectIntegration.project_id == project_id)
+        .filter(ExternalIssue.labels.isnot(None))
+        .order_by(ExternalIssue.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    # Count label occurrences
+    label_counts: dict[str, int] = {}
+    for issue in issues:
+        if issue.labels:
+            for label in issue.labels:
+                label_counts[label] = label_counts.get(label, 0) + 1
+
+    # Sort by count and return top labels
+    sorted_labels = sorted(label_counts.items(), key=lambda x: x[1], reverse=True)
+    return [label for label, _ in sorted_labels[:limit]]
+
+
+def get_slack_user_info(client: WebClient, user_id: str) -> tuple[str, str | None]:
+    """Get Slack user's name and email.
+
+    Args:
+        client: Slack WebClient
+        user_id: Slack user ID
+
+    Returns:
+        Tuple of (display_name, email or None)
+    """
+    try:
+        response = client.users_info(user=user_id)
+        user = response.get("user", {})
+        profile = user.get("profile", {})
+
+        # Prefer real_name, fall back to display_name
+        name = profile.get("real_name") or profile.get("display_name") or user.get("name", "Unknown")
+        email = profile.get("email")
+
+        return name, email
+    except SlackApiError as e:
+        logger.warning("Failed to get user info for %s: %s", user_id, e)
+        return "Unknown", None
+
+
+def get_slack_channel_name(client: WebClient, channel_id: str) -> str:
+    """Get Slack channel name.
+
+    Args:
+        client: Slack WebClient
+        channel_id: Slack channel ID
+
+    Returns:
+        Channel name or channel ID if lookup fails
+    """
+    try:
+        response = client.conversations_info(channel=channel_id)
+        channel = response.get("channel", {})
+        return channel.get("name", channel_id)
+    except SlackApiError as e:
+        logger.warning("Failed to get channel info for %s: %s", channel_id, e)
+        return channel_id
+
+
+def create_issue_from_pending(
+    pending: SlackPendingIssue,
+    client: WebClient,
+    config: SlackIntegrationConfig,
+) -> ExternalIssue:
+    """Create an issue from a pending issue preview.
+
+    Args:
+        pending: SlackPendingIssue with elaborated content
+        client: Slack WebClient
+        config: Slack integration config
+
+    Returns:
+        Created ExternalIssue
+    """
+    # Get the project integration
+    project_integration = ProjectIntegration.query.get(pending.project_integration_id)
+    if not project_integration:
+        raise SlackServiceError(f"Project integration {pending.project_integration_id} not found")
+
+    # Create the issue
+    issue = ExternalIssue(
+        external_id=f"slack-{pending.preview_message_ts}",
+        provider="slack",
+        title=pending.title,
+        description=pending.description,
+        status="open",
+        project_id=project_integration.project_id,
+        integration_id=pending.integration_id,
+        slack_channel_id=pending.channel_id,
+        slack_message_ts=pending.original_message_ts or pending.preview_message_ts,
+        created_at=datetime.utcnow(),
+        raw_data={
+            "created_via": "ollama_preview",
+            "requester_slack_id": pending.created_by_slack_id,
+            "requester_name": pending.requester_name,
+            "requester_email": pending.requester_email,
+        },
+    )
+
+    # Try to assign to the Slack user if mapped
+    if pending.requester_email:
+        user = User.query.filter_by(email=pending.requester_email).first()
+        if user:
+            issue.assignee = user.display_name or user.email
+
+    db.session.add(issue)
+    db.session.commit()
+
+    logger.info("Created issue #%d from pending preview %s", issue.id, pending.preview_message_ts)
+    return issue
+
+
+def find_pending_issue_for_user(
+    channel_id: str,
+    user_id: str,
+    thread_ts: str | None,
+) -> SlackPendingIssue | None:
+    """Find the pending issue a user is responding to.
+
+    Args:
+        channel_id: Slack channel ID
+        user_id: Slack user ID
+        thread_ts: Thread timestamp if replying in thread
+
+    Returns:
+        SlackPendingIssue or None if not found
+    """
+    if thread_ts:
+        # In a thread - the thread_ts is the preview message timestamp
+        pending = SlackPendingIssue.query.filter_by(
+            preview_message_ts=thread_ts,
+            created_by_slack_id=user_id,
+        ).first()
+        if pending:
+            return pending
+
+    # In DM or channel - find most recent non-expired pending for this user in this channel
+    return (
+        SlackPendingIssue.query.filter(
+            SlackPendingIssue.channel_id == channel_id,
+            SlackPendingIssue.created_by_slack_id == user_id,
+            SlackPendingIssue.expires_at > datetime.utcnow(),
+        )
+        .order_by(SlackPendingIssue.created_at.desc())
+        .first()
+    )
+
+
+def handle_confirm_pending(
+    client: WebClient,
+    slack_msg: SlackMessage,
+    config: SlackIntegrationConfig,
+) -> ExternalIssue | None:
+    """Handle confirm command (ok/yes) for pending issue.
+
+    Args:
+        client: Slack WebClient
+        slack_msg: The confirm message
+        config: Slack integration config
+
+    Returns:
+        Created ExternalIssue or None if no pending found
+    """
+    pending = find_pending_issue_for_user(
+        slack_msg.channel_id,
+        slack_msg.user_id,
+        slack_msg.thread_ts,
+    )
+
+    if not pending:
+        # No pending issue found - inform user
+        is_dm = slack_msg.channel_id.startswith("D")
+        thread_ts = None if is_dm else (slack_msg.thread_ts or slack_msg.message_ts)
+        client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text="No pending issue preview found. Create one first with a message.",
+            thread_ts=thread_ts,
+        )
+        mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "confirm_no_pending")
+        return None
+
+    try:
+        # Create the issue
+        issue = create_issue_from_pending(pending, client, config)
+        notify_issue_created(client, issue, config)
+
+        # Reply to confirm
+        is_dm = slack_msg.channel_id.startswith("D")
+        client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text=f"✅ Issue created: #{issue.id}",
+            thread_ts=None if is_dm else pending.preview_message_ts,
+        )
+
+        # Delete pending
+        db.session.delete(pending)
+        db.session.commit()
+
+        mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "confirm_pending")
+        logger.info("Created issue #%d from text confirm", issue.id)
+        return issue
+
+    except Exception as e:
+        logger.error("Failed to create issue from text confirm: %s", e)
+        client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text=f"❌ Failed to create issue: {e}",
+            thread_ts=slack_msg.thread_ts or slack_msg.message_ts,
+        )
+        mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "confirm_error")
+        return None
+
+
+def handle_cancel_pending(
+    client: WebClient,
+    slack_msg: SlackMessage,
+    config: SlackIntegrationConfig,
+) -> None:
+    """Handle cancel command (cancel/no) for pending issue.
+
+    Args:
+        client: Slack WebClient
+        slack_msg: The cancel message
+        config: Slack integration config
+    """
+    pending = find_pending_issue_for_user(
+        slack_msg.channel_id,
+        slack_msg.user_id,
+        slack_msg.thread_ts,
+    )
+
+    if not pending:
+        # No pending issue found - inform user
+        is_dm = slack_msg.channel_id.startswith("D")
+        thread_ts = None if is_dm else (slack_msg.thread_ts or slack_msg.message_ts)
+        client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text="No pending issue preview to cancel.",
+            thread_ts=thread_ts,
+        )
+        mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "cancel_no_pending")
+        return
+
+    # Delete pending and confirm
+    is_dm = slack_msg.channel_id.startswith("D")
+    client.chat_postMessage(
+        channel=slack_msg.channel_id,
+        text="❌ Issue creation cancelled.",
+        thread_ts=None if is_dm else pending.preview_message_ts,
+    )
+
+    db.session.delete(pending)
+    db.session.commit()
+
+    mark_message_processed(slack_msg.channel_id, slack_msg.message_ts, "cancel_pending")
+    logger.info("Cancelled pending issue %d via text command", pending.id)
+
+
+def poll_pending_issue_reactions(
+    client: WebClient,
+    config: SlackIntegrationConfig,
+    project_integration: ProjectIntegration,
+) -> dict[str, Any]:
+    """Poll reactions on pending issue previews.
+
+    Checks for ✅ (confirm) or ❌ (cancel) reactions on preview messages
+    and creates or cancels issues accordingly.
+
+    Args:
+        client: Slack WebClient
+        config: Slack integration config
+        project_integration: Project integration for issue creation
+
+    Returns:
+        Dict with results: {created: int, cancelled: int, expired: int, errors: list}
+    """
+    results = {"created": 0, "cancelled": 0, "expired": 0, "errors": []}
+
+    # Get all non-expired pending issues for this integration
+    pending_issues = SlackPendingIssue.query.filter(
+        SlackPendingIssue.integration_id == config.integration_id,
+        SlackPendingIssue.expires_at > datetime.utcnow(),
+    ).all()
+
+    for pending in pending_issues:
+        try:
+            # Get reactions on the preview message
+            reactions = get_message_reactions(
+                client, pending.channel_id, pending.preview_message_ts
+            )
+
+            reaction_names = [r.get("name", "") for r in reactions]
+
+            if "white_check_mark" in reaction_names:  # ✅
+                # Create the issue
+                try:
+                    issue = create_issue_from_pending(pending, client, config)
+                    notify_issue_created(client, issue, config)
+
+                    # Reply in thread to confirm
+                    client.chat_postMessage(
+                        channel=pending.channel_id,
+                        text=f"✅ Issue created: #{issue.id}",
+                        thread_ts=pending.preview_message_ts,
+                    )
+
+                    db.session.delete(pending)
+                    db.session.commit()
+                    results["created"] += 1
+                    logger.info("Created issue from pending %s", pending.id)
+                except Exception as e:
+                    error_msg = f"Failed to create issue from pending {pending.id}: {e}"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+
+            elif "x" in reaction_names:  # ❌
+                # Cancel
+                try:
+                    client.chat_postMessage(
+                        channel=pending.channel_id,
+                        text="❌ Issue creation cancelled.",
+                        thread_ts=pending.preview_message_ts,
+                    )
+                except SlackApiError as e:
+                    logger.warning("Failed to post cancellation message: %s", e)
+
+                db.session.delete(pending)
+                db.session.commit()
+                results["cancelled"] += 1
+                logger.info("Cancelled pending issue %s", pending.id)
+
+        except Exception as e:
+            error_msg = f"Error checking reactions for pending {pending.id}: {e}"
+            logger.warning(error_msg)
+            results["errors"].append(error_msg)
+
+    # Clean up expired pending issues
+    expired_issues = SlackPendingIssue.query.filter(
+        SlackPendingIssue.expires_at <= datetime.utcnow()
+    ).all()
+
+    for expired in expired_issues:
+        try:
+            client.chat_postMessage(
+                channel=expired.channel_id,
+                text="⏰ Issue preview expired (10 minute timeout). Please create a new request.",
+                thread_ts=expired.preview_message_ts,
+            )
+        except SlackApiError as e:
+            logger.warning("Failed to post expiration message: %s", e)
+
+        db.session.delete(expired)
+        results["expired"] += 1
+        logger.info("Expired pending issue %s", expired.id)
+
+    if expired_issues:
+        db.session.commit()
+
+    return results
 
 
 def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
@@ -1295,6 +1935,25 @@ def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
             error_msg = f"Error polling channel {channel_id}: {e}"
             logger.error(error_msg)
             results["errors"].append(error_msg)
+
+    # Poll reactions on pending issue previews (Ollama flow)
+    try:
+        from flask import current_app
+        if current_app.config.get("SLACK_OLLAMA_ENABLED", False):
+            pending_results = poll_pending_issue_reactions(
+                client, config, project_integration
+            )
+            results["processed"] += pending_results.get("created", 0)
+            results["errors"].extend(pending_results.get("errors", []))
+            if pending_results.get("created", 0) > 0:
+                logger.info(
+                    "Pending issues: %d created, %d cancelled, %d expired",
+                    pending_results.get("created", 0),
+                    pending_results.get("cancelled", 0),
+                    pending_results.get("expired", 0),
+                )
+    except Exception as e:
+        logger.warning("Failed to poll pending issue reactions: %s", e)
 
     return results
 

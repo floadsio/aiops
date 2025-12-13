@@ -1397,7 +1397,7 @@ def handle_create_with_ollama_preview(
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"React with ✅ to create this issue, or ❌ to cancel • _Generated in {elapsed_time:.1f}s_"
+                    "text": f"📁 *{project.name}* • React with ✅ to create this issue, or ❌ to cancel • _Generated in {elapsed_time:.1f}s_"
                 }
             ]
         }

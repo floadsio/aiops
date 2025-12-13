@@ -2183,7 +2183,17 @@ def poll_dm_messages(
             # Get recent messages from DM
             messages = get_channel_history(client, channel_id, limit=10)
 
+            # Also fetch thread replies for messages that have them
+            all_messages = []
             for msg in messages:
+                all_messages.append(msg)
+                reply_count = msg.get("reply_count", 0)
+                if reply_count > 0:
+                    parent_ts = msg.get("ts")
+                    replies = get_thread_replies(client, channel_id, parent_ts)
+                    all_messages.extend(replies)
+
+            for msg in all_messages:
                 message_ts = msg.get("ts", "")
                 user_id = msg.get("user", "")
                 text = msg.get("text", "").strip()

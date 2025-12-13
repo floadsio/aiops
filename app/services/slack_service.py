@@ -86,13 +86,14 @@ class SlackIntegrationConfig:
 class SlackCommandType(Enum):
     """Types of bot commands."""
 
-    CREATE = "create"  # @aiops <message> or @aiops in <project> <message>
+    CREATE = "create"  # @aiops issue <message> or @aiops create <message>
     LIST = "list"  # @aiops list [project|all]
     CLOSE = "close"  # @aiops close <id>
     DELETE = "delete"  # @aiops delete <id>
     HELP = "help"  # @aiops help
     CONFIRM_PENDING = "confirm_pending"  # ok, yes, confirm - accept pending issue
     CANCEL_PENDING = "cancel_pending"  # cancel, no, reject - cancel pending issue
+    ASK = "ask"  # @aiops <question> - ask Ollama a general question
 
 
 @dataclass
@@ -110,8 +111,10 @@ def parse_slack_command(text: str) -> SlackCommand:
     """Parse a bot command from message text.
 
     Supported formats:
-        <message>                    -> CREATE issue with message
-        in <project> <message>       -> CREATE issue in specific project
+        issue <message>              -> CREATE issue with message
+        create <message>             -> CREATE issue with message
+        issue in <project> <message> -> CREATE issue in specific project
+        create in <project> <message>-> CREATE issue in specific project
         list                         -> LIST issues (default project)
         list <project>               -> LIST issues for project
         list all                     -> LIST all tenant issues
@@ -120,6 +123,7 @@ def parse_slack_command(text: str) -> SlackCommand:
         help                         -> HELP
         ok/yes/confirm               -> CONFIRM_PENDING (accept pending issue)
         cancel/no/reject             -> CANCEL_PENDING (reject pending issue)
+        <question>                   -> ASK Ollama a general question
 
     Args:
         text: Message text (already stripped of bot mention)
@@ -165,19 +169,26 @@ def parse_slack_command(text: str) -> SlackCommand:
             command_type=SlackCommandType.DELETE, issue_id=int(match.group(1))
         )
 
-    # Create with project: "in <project> <message>"
-    match = re.match(r"^in\s+(\S+)\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
+    # Create issue with explicit prefix: "issue <message>" or "create <message>"
+    match = re.match(r"^(?:issue|create)\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
     if match:
+        remainder = match.group(1).strip()
+        # Check for project specification: "issue in <project> <message>"
+        project_match = re.match(r"^in\s+(\S+)\s+(.+)$", remainder, re.IGNORECASE | re.DOTALL)
+        if project_match:
+            return SlackCommand(
+                command_type=SlackCommandType.CREATE,
+                project_name=project_match.group(1),
+                message_text=project_match.group(2).strip(),
+            )
         return SlackCommand(
-            command_type=SlackCommandType.CREATE,
-            project_name=match.group(1),
-            message_text=match.group(2).strip(),
+            command_type=SlackCommandType.CREATE, message_text=remainder
         )
 
-    # Default: create issue with the message
+    # Default: ask Ollama a general question
     if text:
         return SlackCommand(
-            command_type=SlackCommandType.CREATE, message_text=text
+            command_type=SlackCommandType.ASK, message_text=text
         )
 
     # Empty message - show help
@@ -889,8 +900,13 @@ def handle_help_command(
         thread_ts: Thread timestamp to reply to
     """
     help_text = """*Available Commands:*
-• `@aiops <message>` - Create issue with message
-• `@aiops in <project> <message>` - Create issue in specific project
+
+*Ask a Question:*
+• `@aiops <question>` - Ask me anything (powered by Ollama)
+
+*Issue Management:*
+• `@aiops issue <message>` - Create an issue
+• `@aiops issue in <project> <message>` - Create issue in specific project
 • `@aiops list` - List open issues (default project)
 • `@aiops list <project>` - List open issues for a project
 • `@aiops list all` - List all open issues
@@ -898,10 +914,10 @@ def handle_help_command(
 • `@aiops delete <id>` - Delete an issue
 • `@aiops help` - Show this help
 
-*Issue Creation:*
-You can also add a :ticket: reaction to any message to create an issue from it.
+*Issue Creation via Reactions:*
+Add a :ticket: reaction to any message to create an issue from it.
 
-When Ollama preview is enabled, you'll see a preview before the issue is created. Confirm with :white_check_mark: or cancel with :x: reactions. You can also reply with `ok` or `cancel` instead of using reactions."""
+When creating issues, you'll see a preview first. Confirm with :white_check_mark: or cancel with :x: reactions (or reply `ok`/`cancel`)."""
 
     post_thread_reply(client, channel_id, thread_ts, help_text)
 
@@ -1092,6 +1108,133 @@ def handle_delete_command(
     )
 
 
+def handle_ask_command(
+    client: WebClient,
+    slack_msg: SlackMessage,
+    question: str,
+    config: SlackIntegrationConfig,
+) -> None:
+    """Handle a general question to Ollama and post the response.
+
+    Args:
+        client: Slack WebClient
+        slack_msg: Original Slack message
+        question: The question to ask Ollama
+        config: Slack integration config
+    """
+    import time
+
+    from .ollama_service import OllamaServiceError, ask_ollama
+
+    # Get the thread_ts for replies
+    is_dm = slack_msg.channel_id.startswith(("D", "G"))
+    thread_ts = None if is_dm else (slack_msg.thread_ts or slack_msg.message_ts)
+
+    # Get requester name
+    requester_name = None
+    try:
+        user_info = client.users_info(user=slack_msg.user_id)
+        if user_info.get("ok"):
+            user = user_info.get("user", {})
+            requester_name = user.get("real_name") or user.get("name")
+    except Exception:
+        pass
+
+    # Post a "thinking" message
+    try:
+        thinking_response = client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text=":thinking_face: Thinking...",
+            thread_ts=thread_ts,
+        )
+        thinking_ts = thinking_response.get("ts")
+    except Exception as e:
+        logger.warning("Failed to post thinking message: %s", e)
+        thinking_ts = None
+
+    # Get global context for Ollama (optional)
+    context = None
+    try:
+        from ..models import GlobalAgentContext
+
+        global_ctx = GlobalAgentContext.query.order_by(
+            GlobalAgentContext.updated_at.desc()
+        ).first()
+        if global_ctx and global_ctx.content:
+            # Truncate if too long
+            context = global_ctx.content[:2000]
+    except Exception:
+        pass
+
+    start_time = time.time()
+
+    try:
+        response = ask_ollama(
+            question=question,
+            context=context,
+            requester_name=requester_name,
+        )
+        elapsed_time = time.time() - start_time
+
+        # Convert markdown to Slack mrkdwn
+        slack_response = response.replace("**", "*").replace("__", "_")
+
+        # Delete the thinking message and post the response
+        if thinking_ts:
+            try:
+                client.chat_delete(
+                    channel=slack_msg.channel_id,
+                    ts=thinking_ts,
+                )
+            except Exception:
+                pass
+
+        # Post the response
+        client.chat_postMessage(
+            channel=slack_msg.channel_id,
+            text=slack_response,
+            thread_ts=thread_ts,
+        )
+
+        # Add a reaction to show it's done
+        try:
+            client.reactions_add(
+                channel=slack_msg.channel_id,
+                timestamp=slack_msg.message_ts,
+                name="white_check_mark",
+            )
+        except Exception:
+            pass
+
+        logger.info(
+            "Answered Ollama question in %.1fs for user %s",
+            elapsed_time,
+            requester_name or slack_msg.user_id,
+        )
+
+    except OllamaServiceError as e:
+        elapsed_time = time.time() - start_time
+        logger.error("Ollama error answering question: %s", e)
+
+        # Delete thinking message
+        if thinking_ts:
+            try:
+                client.chat_delete(
+                    channel=slack_msg.channel_id,
+                    ts=thinking_ts,
+                )
+            except Exception:
+                pass
+
+        # Post error message
+        post_thread_reply(
+            client,
+            slack_msg.channel_id,
+            thread_ts,
+            f":x: Sorry, I couldn't process your question: {e}",
+        )
+
+
 def handle_slack_command(
     client: WebClient,
     command: SlackCommand,
@@ -1179,6 +1322,19 @@ def handle_slack_command(
         handle_cancel_pending(client, slack_msg, config)
         mark_message_processed(
             slack_msg.channel_id, slack_msg.message_ts, "cancel_pending"
+        )
+        return None
+
+    if command.command_type == SlackCommandType.ASK:
+        # Mark as processed before calling Ollama (slow operation)
+        mark_message_processed(
+            slack_msg.channel_id, slack_msg.message_ts, "ask"
+        )
+        handle_ask_command(
+            client,
+            slack_msg,
+            command.message_text or "",
+            config,
         )
         return None
 

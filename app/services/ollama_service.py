@@ -511,3 +511,73 @@ def check_ollama_health() -> tuple[bool, str | None]:
         return False, f"Ollama error: {exc}"
     except Exception as exc:
         return False, f"Unexpected error: {exc}"
+
+
+def ask_ollama(
+    question: str,
+    context: str | None = None,
+    requester_name: str | None = None,
+) -> str:
+    """Ask Ollama a general question and get a response.
+
+    Args:
+        question: The question or prompt to send to Ollama
+        context: Optional context (e.g., global agent context, project info)
+        requester_name: Optional name of the person asking
+
+    Returns:
+        The response text from Ollama
+
+    Raises:
+        OllamaServiceError: If there's an error communicating with Ollama
+    """
+    config = _get_ollama_config()
+    client = _get_ollama_client()
+
+    # Build the prompt
+    system_prompt = """You are a helpful AI assistant integrated into a Slack workspace for a DevOps/SysOps team.
+You help with technical questions about:
+- Infrastructure, servers, and networking
+- Ansible, Docker, Kubernetes
+- CI/CD pipelines and automation
+- Git and version control
+- Linux administration
+- Cloud services (AWS, GCP, Azure)
+- Scripting (Bash, Python)
+- Monitoring and observability
+
+Be concise but helpful. Use markdown formatting when appropriate.
+If you're unsure about something, say so rather than making things up.
+Keep responses focused and actionable."""
+
+    if context:
+        system_prompt += f"\n\nAdditional context:\n{context}"
+
+    user_prompt = question
+    if requester_name:
+        user_prompt = f"Question from {requester_name}:\n\n{question}"
+
+    logger.info("Calling Ollama for general question")
+
+    try:
+        response = client.chat(
+            model=config.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            options={"temperature": 0.7},
+        )
+
+        generated_text = response.get("message", {}).get("content", "")
+        if not generated_text:
+            raise OllamaServiceError("Ollama returned empty response")
+
+        logger.info("Ollama response successful")
+        return generated_text.strip()
+
+    except OllamaServiceError:
+        raise
+    except Exception as exc:
+        logger.error(f"Error asking Ollama: {exc}", exc_info=True)
+        raise OllamaServiceError(f"Error asking Ollama: {exc}") from exc

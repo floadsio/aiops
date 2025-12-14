@@ -1156,6 +1156,7 @@ def handle_ask_command(
             channel=slack_msg.channel_id,
             text=":thinking_face: Thinking...",
             thread_ts=thread_ts,
+            icon_emoji=":robot_face:",
         )
         thinking_ts = thinking_response.get("ts")
     except Exception as e:
@@ -1270,6 +1271,7 @@ def handle_ask_command(
             channel=slack_msg.channel_id,
             text=response_with_timing,
             thread_ts=thread_ts,
+            icon_emoji=":robot_face:",
         )
 
         # Add a reaction to show it's done

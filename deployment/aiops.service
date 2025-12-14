@@ -27,6 +27,9 @@ ExecStart=/home/syseng/aiops/.venv/bin/gunicorn \
     --log-level info \
     "manage:app"
 
+# Trigger app initialization to start background scheduler
+ExecStartPost=/bin/bash -c 'sleep 2 && /usr/bin/curl -s http://localhost:8060/ > /dev/null'
+
 # Restart policy
 Restart=on-failure
 RestartSec=5

@@ -465,6 +465,9 @@ def find_messages_with_ask_reaction(
     - Don't already have the bot's checkmark reaction (already answered)
     - Are not from the bot itself
 
+    Optimized to use inline reactions from conversations.history instead of
+    calling reactions.get for each message (reduces API calls significantly).
+
     Args:
         client: Slack WebClient
         channel_id: Channel to search
@@ -507,8 +510,12 @@ def find_messages_with_ask_reaction(
             if bot_user_id and f"<@{bot_user_id}>" in text:
                 continue
 
-            # Get reactions for this message
-            reactions = get_message_reactions(client, channel_id, message_ts)
+            # Use inline reactions from message (no extra API call needed)
+            reactions = message.get("reactions", [])
+
+            # Skip messages without any reactions (fast path)
+            if not reactions:
+                continue
 
             # Check if it has the ask emoji
             if not has_trigger_reaction(reactions, ask_emoji):
@@ -521,7 +528,7 @@ def find_messages_with_ask_reaction(
             # Get who triggered the ask
             requester_id = get_trigger_user(reactions, ask_emoji) or user_id
 
-            # Get permalink
+            # Get permalink (only for messages we'll process)
             permalink = get_message_permalink(client, channel_id, message_ts)
 
             triggered_messages.append(

@@ -1264,10 +1264,11 @@ def handle_ask_command(
             except Exception:
                 pass
 
-        # Post the response
+        # Post the response with timing footer
+        response_with_timing = f"{slack_response}\n\n_⏱️ {elapsed_time:.1f}s_"
         client.chat_postMessage(
             channel=slack_msg.channel_id,
-            text=slack_response,
+            text=response_with_timing,
             thread_ts=thread_ts,
         )
 

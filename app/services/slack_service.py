@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -36,6 +37,9 @@ logger = logging.getLogger(__name__)
 
 # Default trigger emoji (ticket emoji)
 DEFAULT_TRIGGER_EMOJI = "ticket"
+
+# Default Q&A trigger emoji (brain emoji for AI questions)
+DEFAULT_ASK_EMOJI = "brain"
 
 # Default polling interval in minutes
 DEFAULT_POLL_INTERVAL = 5
@@ -114,6 +118,7 @@ class SlackIntegrationConfig:
     bot_token: str
     channels: list[str]
     trigger_emoji: str = DEFAULT_TRIGGER_EMOJI
+    ask_emoji: str = DEFAULT_ASK_EMOJI  # Emoji to trigger Q&A responses
     trigger_keyword: Optional[str] = None  # e.g., "@aiops" or "!issue"
     bot_user_id: Optional[str] = None  # Bot's Slack user ID for mention detection
     default_project_id: Optional[int] = None
@@ -276,6 +281,7 @@ def get_slack_integrations() -> list[SlackIntegrationConfig]:
                 bot_token=integration.api_token,
                 channels=channels,
                 trigger_emoji=settings.get("trigger_emoji", DEFAULT_TRIGGER_EMOJI),
+                ask_emoji=settings.get("ask_emoji", DEFAULT_ASK_EMOJI),
                 trigger_keyword=settings.get("trigger_keyword"),
                 bot_user_id=settings.get("bot_user_id"),
                 default_project_id=settings.get("default_project_id"),
@@ -443,6 +449,97 @@ def get_trigger_user(
             if users:
                 return users[0]
     return None
+
+
+def find_messages_with_ask_reaction(
+    client: WebClient,
+    channel_id: str,
+    ask_emoji: str,
+    bot_user_id: Optional[str] = None,
+    oldest: Optional[str] = None,
+) -> list[SlackMessage]:
+    """Find messages in a channel that have the ask emoji reaction.
+
+    Only returns messages that:
+    - Have the ask_emoji reaction
+    - Don't already have the bot's checkmark reaction (already answered)
+    - Are not from the bot itself
+
+    Args:
+        client: Slack WebClient
+        channel_id: Channel to search
+        ask_emoji: Emoji name that triggers Q&A (e.g., "brain")
+        bot_user_id: Bot's Slack user ID to exclude bot messages
+        oldest: Only check messages after this timestamp
+
+    Returns:
+        List of SlackMessage objects to process
+    """
+    triggered_messages = []
+
+    try:
+        # Get recent messages from the channel
+        params: dict[str, Any] = {
+            "channel": channel_id,
+            "limit": 100,
+        }
+        if oldest:
+            params["oldest"] = oldest
+
+        response = client.conversations_history(**params)
+        messages = response.get("messages", [])
+
+        for message in messages:
+            message_ts = message.get("ts", "")
+            user_id = message.get("user", "")
+            text = message.get("text", "").strip()
+            thread_ts = message.get("thread_ts")
+
+            # Skip bot messages
+            if bot_user_id and user_id == bot_user_id:
+                continue
+
+            # Skip empty messages
+            if not text:
+                continue
+
+            # Skip messages that are bot commands (starting with mention)
+            if bot_user_id and f"<@{bot_user_id}>" in text:
+                continue
+
+            # Get reactions for this message
+            reactions = get_message_reactions(client, channel_id, message_ts)
+
+            # Check if it has the ask emoji
+            if not has_trigger_reaction(reactions, ask_emoji):
+                continue
+
+            # Check if already answered (has white_check_mark from bot)
+            if has_trigger_reaction(reactions, "white_check_mark"):
+                continue
+
+            # Get who triggered the ask
+            requester_id = get_trigger_user(reactions, ask_emoji) or user_id
+
+            # Get permalink
+            permalink = get_message_permalink(client, channel_id, message_ts)
+
+            triggered_messages.append(
+                SlackMessage(
+                    channel_id=channel_id,
+                    message_ts=message_ts,
+                    thread_ts=thread_ts,
+                    user_id=user_id,
+                    text=text,
+                    permalink=permalink,
+                    requester_id=requester_id,
+                )
+            )
+
+    except SlackApiError as e:
+        logger.error("Failed to fetch messages from channel %s: %s", channel_id, e)
+
+    return triggered_messages
 
 
 def get_user_info(client: WebClient, user_id: str) -> dict[str, Any]:
@@ -2233,6 +2330,161 @@ def poll_integration(config: SlackIntegrationConfig) -> dict[str, Any]:
                 )
     except Exception as e:
         logger.warning("Failed to poll pending issue reactions: %s", e)
+
+    # Poll for ask emoji reactions (Q&A via reaction)
+    try:
+        ask_results = poll_ask_reactions(client, config)
+        results["errors"].extend(ask_results.get("errors", []))
+        if ask_results.get("answered", 0) > 0:
+            logger.info(
+                "Ask reactions: %d questions answered",
+                ask_results.get("answered", 0),
+            )
+    except Exception as e:
+        logger.warning("Failed to poll ask reactions: %s", e)
+
+    return results
+
+
+def poll_ask_reactions(
+    client: WebClient,
+    config: SlackIntegrationConfig,
+) -> dict[str, Any]:
+    """Poll channels for messages with ask emoji reaction and answer them.
+
+    Args:
+        client: Slack WebClient
+        config: Slack integration configuration
+
+    Returns:
+        Dict with results: {answered: int, errors: list}
+    """
+    from .ollama_service import ask_ollama
+
+    results: dict[str, Any] = {"answered": 0, "errors": []}
+
+    for channel_id in config.channels:
+        try:
+            # Find messages with ask reaction that haven't been answered
+            ask_messages = find_messages_with_ask_reaction(
+                client,
+                channel_id,
+                config.ask_emoji,
+                config.bot_user_id,
+            )
+
+            for slack_msg in ask_messages:
+                try:
+                    # Get requester name
+                    requester_name = None
+                    try:
+                        user = get_user_info(client, slack_msg.user_id)
+                        requester_name = user.get("real_name") or user.get("name")
+                    except Exception:
+                        pass
+
+                    # Post thinking message in thread
+                    thread_ts = slack_msg.message_ts  # Reply in thread to original
+                    try:
+                        thinking_response = client.chat_postMessage(
+                            channel=slack_msg.channel_id,
+                            text=":thinking_face: Thinking...",
+                            thread_ts=thread_ts,
+                            icon_emoji=":robot_face:",
+                        )
+                        thinking_ts = thinking_response.get("ts")
+                    except Exception as e:
+                        logger.warning("Failed to post thinking message: %s", e)
+                        thinking_ts = None
+
+                    # Call Ollama
+                    start_time = time.time()
+                    try:
+                        response = ask_ollama(
+                            question=slack_msg.text,
+                            requester_name=requester_name,
+                        )
+                        elapsed_time = time.time() - start_time
+
+                        # Convert markdown to Slack format
+                        slack_response = _convert_markdown_to_slack(response)
+
+                        # Delete thinking message
+                        if thinking_ts:
+                            try:
+                                client.chat_delete(
+                                    channel=slack_msg.channel_id,
+                                    ts=thinking_ts,
+                                )
+                            except Exception:
+                                pass
+
+                        # Post response with timing
+                        response_with_timing = f"{slack_response}\n\n_⏱️ {elapsed_time:.1f}s_"
+                        client.chat_postMessage(
+                            channel=slack_msg.channel_id,
+                            text=response_with_timing,
+                            thread_ts=thread_ts,
+                            icon_emoji=":robot_face:",
+                        )
+
+                        # Mark as answered with checkmark reaction
+                        try:
+                            client.reactions_add(
+                                channel=slack_msg.channel_id,
+                                timestamp=slack_msg.message_ts,
+                                name="white_check_mark",
+                            )
+                        except SlackApiError:
+                            pass  # Reaction might already exist
+
+                        results["answered"] += 1
+                        logger.info(
+                            "Answered ask reaction in channel %s (%.1fs)",
+                            channel_id,
+                            elapsed_time,
+                        )
+
+                    except Exception as e:
+                        # Delete thinking message on error
+                        if thinking_ts:
+                            try:
+                                client.chat_delete(
+                                    channel=slack_msg.channel_id,
+                                    ts=thinking_ts,
+                                )
+                            except Exception:
+                                pass
+
+                        # Post error message
+                        client.chat_postMessage(
+                            channel=slack_msg.channel_id,
+                            text=f"Sorry, I couldn't process that question: {e}",
+                            thread_ts=thread_ts,
+                            icon_emoji=":robot_face:",
+                        )
+
+                        # Still mark as processed to avoid retrying
+                        try:
+                            client.reactions_add(
+                                channel=slack_msg.channel_id,
+                                timestamp=slack_msg.message_ts,
+                                name="x",
+                            )
+                        except SlackApiError:
+                            pass
+
+                        raise
+
+                except Exception as e:
+                    error_msg = f"Failed to answer message {slack_msg.message_ts}: {e}"
+                    logger.error(error_msg)
+                    results["errors"].append(error_msg)
+
+        except Exception as e:
+            error_msg = f"Error polling ask reactions in channel {channel_id}: {e}"
+            logger.error(error_msg)
+            results["errors"].append(error_msg)
 
     return results
 

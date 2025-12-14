@@ -802,8 +802,8 @@ def find_messages_with_trigger(
         if is_triggered:
             text = cleaned_text
         else:
-            # Fall back to emoji reaction trigger
-            reactions = get_message_reactions(client, channel_id, message_ts)
+            # Fall back to emoji reaction trigger - use inline reactions (no API call)
+            reactions = msg.get("reactions", [])
             if has_trigger_reaction(reactions, trigger_emoji):
                 is_triggered = True
                 # Get the user who added the reaction (requester)

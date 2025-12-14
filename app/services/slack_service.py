@@ -236,13 +236,15 @@ def parse_slack_command(text: str) -> SlackCommand:
             command_type=SlackCommandType.CREATE, message_text=remainder
         )
 
-    # Default: ask Ollama a general question
-    if text:
+    # Ask Ollama with explicit prefix: "ask <question>"
+    # Brain emoji reaction also triggers Ollama (handled separately in poll_ask_reactions)
+    match = re.match(r"^ask\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
+    if match:
         return SlackCommand(
-            command_type=SlackCommandType.ASK, message_text=text
+            command_type=SlackCommandType.ASK, message_text=match.group(1).strip()
         )
 
-    # Empty message - show help
+    # Empty message or unrecognized command - show help
     return SlackCommand(command_type=SlackCommandType.HELP)
 
 
@@ -1051,8 +1053,9 @@ def handle_help_command(
     """
     help_text = """*Available Commands:*
 
-*Ask a Question:*
-• `@aiops <question>` - Ask me anything (powered by Ollama)
+*Ask a Question (Ollama):*
+• `@aiops ask <question>` - Ask me anything (powered by Ollama)
+• Or add a :brain: reaction to any message to get an AI answer
 
 *Issue Management:*
 • `@aiops issue <message>` - Create an issue
@@ -1064,8 +1067,9 @@ def handle_help_command(
 • `@aiops delete <id>` - Delete an issue
 • `@aiops help` - Show this help
 
-*Issue Creation via Reactions:*
-Add a :ticket: reaction to any message to create an issue from it.
+*Reactions:*
+• :ticket: - Create an issue from a message
+• :brain: - Get an AI answer for a message
 
 When creating issues, you'll see a preview first. Confirm with :white_check_mark: or cancel with :x: reactions (or reply `ok`/`cancel`)."""
 
@@ -2584,14 +2588,15 @@ def poll_dm_messages(
                 if is_message_processed(channel_id, message_ts):
                     continue
 
-                # For group DMs (G prefix), require bot mention OR be a thread reply
+                # For group DMs (G prefix) or mpim channels (C prefix with multiple users),
+                # require bot mention OR be a thread reply
                 # For 1:1 DMs (D prefix), all messages are treated as commands
-                is_group_dm = channel_id.startswith("G")
-                if is_group_dm:
-                    if not config.bot_user_id:
-                        continue
-                    mention_pattern = f"<@{config.bot_user_id}>"
-                    is_mentioned = mention_pattern in text
+                is_direct_dm = channel_id.startswith("D")
+                mention_pattern = f"<@{config.bot_user_id}>" if config.bot_user_id else None
+                is_mentioned = mention_pattern and mention_pattern in text if mention_pattern else False
+
+                if not is_direct_dm:
+                    # Group DM or channel - require mention or thread reply
                     is_thread_reply = thread_ts is not None
 
                     # Allow if: mentioned OR replying in a thread (conversational follow-up)
@@ -2599,12 +2604,17 @@ def poll_dm_messages(
                         # Not addressed to the bot and not a thread reply, skip
                         continue
 
-                    # Strip the mention from the text for parsing (if present)
-                    if is_mentioned:
-                        text = text.replace(mention_pattern, "").strip()
+                # Strip the mention from the text for parsing (if present)
+                if is_mentioned and mention_pattern:
+                    text = text.replace(mention_pattern, "").strip()
 
                 # Parse the command
                 command = parse_slack_command(text)
+                logger.info(
+                    "DM command parsed: text=%r -> command_type=%s",
+                    text[:50] if text else "",
+                    command.command_type.name,
+                )
 
                 # Create SlackMessage for the handler
                 permalink = get_message_permalink(client, channel_id, message_ts)

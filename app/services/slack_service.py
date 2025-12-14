@@ -52,13 +52,19 @@ def _convert_markdown_to_slack(text: str) -> str:
     - Headers (### -> *bold*)
     - Bold (**text** -> *text*)
     - Code blocks with language (```sh -> ```)
+    - Code blocks cleanup (remove extra newlines)
     - Inline code (`code` -> `code`) - unchanged
     - Lists (- item -> • item)
     - Numbered lists (1. item -> 1. item) - unchanged
     """
-    # First, handle code blocks with language identifiers
+    # Handle code blocks with language identifiers
     # ```sh\ncode\n``` -> ```\ncode\n```
     text = re.sub(r"```\w+\n", "```\n", text)
+
+    # Clean up code blocks - remove empty lines after ``` and before ```
+    # ```\n\ncode\n\n``` -> ```\ncode\n```
+    text = re.sub(r"```\n\s*\n", "```\n", text)
+    text = re.sub(r"\n\s*\n```", "\n```", text)
 
     lines = text.split("\n")
     result = []

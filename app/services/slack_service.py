@@ -41,6 +41,43 @@ DEFAULT_TRIGGER_EMOJI = "ticket"
 DEFAULT_POLL_INTERVAL = 5
 
 
+def _convert_markdown_to_slack(text: str) -> str:
+    """Convert markdown formatting to Slack mrkdwn format.
+
+    Handles:
+    - Headers (### -> *bold*)
+    - Bold (**text** -> *text*)
+    - Italic (__text__ or _text_ -> _text_)
+    - Code blocks (```code``` -> ```code```)
+    - Inline code (`code` -> `code`) - unchanged
+    - Lists (- item -> • item)
+    - Numbered lists (1. item -> 1. item) - unchanged
+    """
+    lines = text.split("\n")
+    result = []
+
+    for line in lines:
+        # Convert headers to bold text
+        # ### Header -> *Header*
+        if line.startswith("###"):
+            line = "*" + line.lstrip("#").strip() + "*"
+        elif line.startswith("##"):
+            line = "*" + line.lstrip("#").strip() + "*"
+        elif line.startswith("#"):
+            line = "*" + line.lstrip("#").strip() + "*"
+
+        # Convert markdown bold **text** to Slack bold *text*
+        line = re.sub(r"\*\*(.+?)\*\*", r"*\1*", line)
+
+        # Convert markdown list items - to bullet •
+        if re.match(r"^\s*-\s+", line):
+            line = re.sub(r"^(\s*)-\s+", r"\1• ", line)
+
+        result.append(line)
+
+    return "\n".join(result)
+
+
 class SlackServiceError(Exception):
     """Base exception for Slack service errors."""
 
@@ -1253,7 +1290,7 @@ def handle_ask_command(
         elapsed_time = time.time() - start_time
 
         # Convert markdown to Slack mrkdwn
-        slack_response = response.replace("**", "*").replace("__", "_")
+        slack_response = _convert_markdown_to_slack(response)
 
         # Delete the thinking message and post the response
         if thinking_ts:

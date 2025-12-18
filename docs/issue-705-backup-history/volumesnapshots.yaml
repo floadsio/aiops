@@ -1,0 +1,278 @@
+apiVersion: v1
+items:
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    creationTimestamp: "2025-12-18T10:46:15Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-luftlabor-v2-
+    generation: 1
+    labels:
+      velero.io/backup-name: test-revised-config-1766054770
+    name: velero-luftlabor-v2-rvvlx
+    namespace: bafu
+    resourceVersion: "97553478"
+    uid: 77892b0f-3dd7-4d05-a914-95bd09aca7e3
+  spec:
+    source:
+      persistentVolumeClaimName: luftlabor-v2
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-77892b0f-3dd7-4d05-a914-95bd09aca7e3
+    creationTime: "2025-12-18T11:19:02Z"
+    readyToUse: true
+    restoreSize: 434524Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    creationTimestamp: "2025-12-18T10:23:11Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-luftlabor-v2-
+    generation: 1
+    labels:
+      velero.io/backup-name: test-flow-aligned-config-1766053381
+    name: velero-luftlabor-v2-zzk56
+    namespace: bafu
+    resourceVersion: "97553501"
+    uid: b2a9c665-266a-437f-872f-fce8efa97c79
+  spec:
+    source:
+      persistentVolumeClaimName: luftlabor-v2
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-b2a9c665-266a-437f-872f-fce8efa97c79
+    creationTime: "2025-12-18T11:19:03Z"
+    readyToUse: true
+    restoreSize: 434564Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"snapshot.storage.k8s.io/v1","kind":"VolumeSnapshot","metadata":{"annotations":{},"name":"direct-test-snapshot","namespace":"cerebral"},"spec":{"source":{"persistentVolumeClaimName":"hilfsangebote-v2"},"volumeSnapshotClassName":"velero-csi-snapclass"}}
+    creationTimestamp: "2025-12-18T11:25:54Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generation: 1
+    name: direct-test-snapshot
+    namespace: cerebral
+    resourceVersion: "97555255"
+    uid: 1073767b-1f20-4b9e-924c-6d06f9c0d5e6
+  spec:
+    source:
+      persistentVolumeClaimName: hilfsangebote-v2
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-1073767b-1f20-4b9e-924c-6d06f9c0d5e6
+    creationTime: "2025-12-18T11:25:58Z"
+    readyToUse: true
+    restoreSize: 5392Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    annotations:
+      velero.io/csi-driver-name: csi.trident.netapp.io
+      velero.io/csi-volumesnapshot-handle: pvc-6b262775-fa55-4f2c-b08a-8d79000abd3e/snapshot-01309339-aa57-445f-8049-998eee52e639
+      velero.io/csi-volumesnapshot-restore-size: 4912Ki
+      velero.io/csi-vsc-deletion-policy: Retain
+    creationTimestamp: "2025-12-18T09:27:32Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-hilfsangebote-v2-
+    generation: 1
+    labels:
+      velero.io/backup-name: test-phase2-concurrency4-1766048477
+    name: velero-hilfsangebote-v2-tkjxw
+    namespace: cerebral
+    resourceVersion: "97553495"
+    uid: 01309339-aa57-445f-8049-998eee52e639
+  spec:
+    source:
+      persistentVolumeClaimName: hilfsangebote-v2
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-01309339-aa57-445f-8049-998eee52e639
+    creationTime: "2025-12-18T09:56:07Z"
+    readyToUse: true
+    restoreSize: 4912Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    annotations:
+      velero.io/csi-driver-name: csi.trident.netapp.io
+      velero.io/csi-volumesnapshot-handle: pvc-65fbb45c-85f4-4d55-84fd-f43d2137c3eb/snapshot-fb6de642-4627-4f9c-b05b-9c4b8e87d654
+      velero.io/csi-volumesnapshot-restore-size: 892Ki
+      velero.io/csi-vsc-deletion-policy: Retain
+    creationTimestamp: "2025-12-16T08:57:36Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-cache-volume-snapshot-controller-0-
+    generation: 1
+    labels:
+      app.kubernetes.io/name: snapshot-controller
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251216064255
+    name: velero-cache-volume-snapshot-controller-0-f2zpj
+    namespace: csi-snapshot-controller
+    resourceVersion: "97553393"
+    uid: fb6de642-4627-4f9c-b05b-9c4b8e87d654
+  spec:
+    source:
+      persistentVolumeClaimName: cache-volume-snapshot-controller-0
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-fb6de642-4627-4f9c-b05b-9c4b8e87d654
+    creationTime: "2025-12-16T11:23:38Z"
+    readyToUse: true
+    restoreSize: 892Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    creationTimestamp: "2025-12-18T09:27:32Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-cache-volume-snapshot-controller-0-
+    generation: 1
+    labels:
+      app.kubernetes.io/name: snapshot-controller
+      velero.io/backup-name: test-phase2-concurrency4-1766048477
+    name: velero-cache-volume-snapshot-controller-0-n8zk6
+    namespace: csi-snapshot-controller
+    resourceVersion: "97553450"
+    uid: f7d725bd-9d49-4539-8939-bcb4474b660d
+  spec:
+    source:
+      persistentVolumeClaimName: cache-volume-snapshot-controller-0
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-f7d725bd-9d49-4539-8939-bcb4474b660d
+    creationTime: "2025-12-18T09:56:14Z"
+    readyToUse: true
+    restoreSize: 1368Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    creationTimestamp: "2025-12-18T08:40:20Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-brennpunkt-landschaft-de-
+    generation: 1
+    labels:
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+    name: velero-brennpunkt-landschaft-de-llgmx
+    namespace: phbern
+    resourceVersion: "97553452"
+    uid: 7e3ea581-b92e-49d1-a9e1-1f6632a19fc9
+  spec:
+    source:
+      persistentVolumeClaimName: brennpunkt-landschaft-de
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-7e3ea581-b92e-49d1-a9e1-1f6632a19fc9
+    creationTime: "2025-12-18T09:27:09Z"
+    readyToUse: true
+    restoreSize: 17672352Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    creationTimestamp: "2025-12-18T08:42:19Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-brennpunkt-landschaft-fr-
+    generation: 1
+    labels:
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+    name: velero-brennpunkt-landschaft-fr-nmtbb
+    namespace: phbern
+    resourceVersion: "97553432"
+    uid: 58049ccd-749b-4b63-8298-e09c64192690
+  spec:
+    source:
+      persistentVolumeClaimName: brennpunkt-landschaft-fr
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-58049ccd-749b-4b63-8298-e09c64192690
+    creationTime: "2025-12-18T09:27:12Z"
+    readyToUse: true
+    restoreSize: 3852Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    annotations:
+      velero.io/csi-driver-name: csi.trident.netapp.io
+      velero.io/csi-volumesnapshot-handle: pvc-0c6b37fb-7e38-4f3f-8631-67a7a098d2ed/snapshot-e3a542ee-7ad3-4995-9bd4-951b5c7654b6
+      velero.io/csi-volumesnapshot-restore-size: 1136028Ki
+      velero.io/csi-vsc-deletion-policy: Retain
+    creationTimestamp: "2025-12-16T09:07:14Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-conflict-sensitivity-v2-
+    generation: 1
+    labels:
+      velero.io/backup-name: test-swisspeace-backup
+    name: velero-conflict-sensitivity-v2-b9j57
+    namespace: swisspeace
+    resourceVersion: "97553483"
+    uid: e3a542ee-7ad3-4995-9bd4-951b5c7654b6
+  spec:
+    source:
+      persistentVolumeClaimName: conflict-sensitivity-v2
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-e3a542ee-7ad3-4995-9bd4-951b5c7654b6
+    creationTime: "2025-12-16T11:23:35Z"
+    readyToUse: true
+    restoreSize: 1136028Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    annotations:
+      velero.io/csi-driver-name: csi.trident.netapp.io
+      velero.io/csi-volumesnapshot-handle: pvc-0c6b37fb-7e38-4f3f-8631-67a7a098d2ed/snapshot-0ac00db4-942f-4399-88d7-2534e70ead7c
+      velero.io/csi-volumesnapshot-restore-size: 1136076Ki
+      velero.io/csi-vsc-deletion-policy: Retain
+    creationTimestamp: "2025-12-16T09:20:48Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    generateName: velero-conflict-sensitivity-v2-
+    generation: 1
+    labels:
+      velero.io/backup-name: test-swisspeace-backup-v2
+    name: velero-conflict-sensitivity-v2-qwxw8
+    namespace: swisspeace
+    resourceVersion: "97553465"
+    uid: 0ac00db4-942f-4399-88d7-2534e70ead7c
+  spec:
+    source:
+      persistentVolumeClaimName: conflict-sensitivity-v2
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: snapcontent-0ac00db4-942f-4399-88d7-2534e70ead7c
+    creationTime: "2025-12-16T11:23:36Z"
+    readyToUse: true
+    restoreSize: 1136076Ki
+- apiVersion: snapshot.storage.k8s.io/v1
+  kind: VolumeSnapshot
+  metadata:
+    creationTimestamp: "2025-12-18T11:19:04Z"
+    finalizers:
+    - snapshot.storage.kubernetes.io/volumesnapshot-as-source-protection
+    - snapshot.storage.kubernetes.io/volumesnapshot-bound-protection
+    generation: 1
+    name: test-2a-cerebral-single-7dvpj
+    namespace: velero
+    resourceVersion: "97553525"
+    uid: 8fd7b8bd-2d7b-4e44-b7d9-8ce1be749bdf
+  spec:
+    source:
+      volumeSnapshotContentName: test-2a-cerebral-single-7dvpj
+    volumeSnapshotClassName: velero-csi-snapclass
+  status:
+    boundVolumeSnapshotContentName: test-2a-cerebral-single-7dvpj
+    creationTime: "2025-12-18T11:18:58Z"
+    readyToUse: true
+    restoreSize: 5196Ki
+kind: List
+metadata:
+  resourceVersion: ""

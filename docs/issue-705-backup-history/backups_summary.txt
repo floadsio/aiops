@@ -1,0 +1,10 @@
+NAME                                                     AGE
+test-conservative-1766025496                             8h
+test-full-cluster                                        32h
+test-full-cluster-phase1                                 32h
+test-full-cluster-phase2-1766027289                      8h
+test-phase2-conservative-1766026854                      8h
+velero-full-cluster-daily-backup-20251217053010          30h
+velero-full-cluster-daily-backup-20251218053053          6h1m
+velero-sealed-secrets-keys-daily-backup-20251217053010   30h
+velero-sealed-secrets-keys-daily-backup-20251218053053   6h1m

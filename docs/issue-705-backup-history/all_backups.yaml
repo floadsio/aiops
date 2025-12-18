@@ -1,0 +1,475 @@
+apiVersion: v1
+items:
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-18T02:38:16Z"
+    generation: 11
+    labels:
+      velero.io/storage-location: default
+    name: test-conservative-1766025496
+    namespace: velero
+    resourceVersion: "97404224"
+    uid: 7c34d1ee-8853-4424-82cb-89bb30d1f5dd
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: true
+    includedNamespaces:
+    - default
+    - velero
+    itemOperationTimeout: 4h0m0s
+    snapshotMoveData: false
+    snapshotVolumes: false
+    storageLocation: default
+    ttl: 24h
+    volumeSnapshotLocations:
+    - default
+  status:
+    completionTimestamp: "2025-12-18T02:38:45Z"
+    expiration: "2025-12-19T02:38:16Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 580
+      totalItems: 580
+    startTimestamp: "2025-12-18T02:38:16Z"
+    version: 1
+    warnings: 180
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Backup","metadata":{"annotations":{},"name":"test-full-cluster","namespace":"velero"},"spec":{"csiSnapshotTimeout":"3h","defaultVolumesToFsBackup":false,"excludedNamespaces":["begasoft-argocd","begasoft-bokelonet","begasoft-config","begasoft-flux2","begasoft-litestar","begasoft-monitoring","begasoft-netapp-trident","kube-node-lease","kube-public","kube-system","argocd","monitoring","trident"],"snapshotMoveData":true,"snapshotVolumes":true,"storageLocation":"default","ttl":"48h","volumeSnapshotLocations":["default"]}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-17T03:30:10Z"
+    generation: 1
+    labels:
+      velero.io/storage-location: default
+    name: test-full-cluster
+    namespace: velero
+    resourceVersion: "97029822"
+    uid: 693dc377-4663-4d96-95a4-490ce17386e3
+  spec:
+    csiSnapshotTimeout: 3h0m0s
+    defaultVolumesToFsBackup: false
+    excludedNamespaces:
+    - begasoft-argocd
+    - begasoft-bokelonet
+    - begasoft-config
+    - begasoft-flux2
+    - begasoft-litestar
+    - begasoft-monitoring
+    - begasoft-netapp-trident
+    - kube-node-lease
+    - kube-public
+    - kube-system
+    - argocd
+    - monitoring
+    - trident
+    hooks: {}
+    itemOperationTimeout: 4h0m0s
+    metadata: {}
+    snapshotMoveData: true
+    snapshotVolumes: true
+    storageLocation: default
+    ttl: 48h0m0s
+    volumeSnapshotLocations:
+    - default
+  status:
+    backupItemOperationsAttempted: 40
+    backupItemOperationsCompleted: 39
+    backupItemOperationsFailed: 1
+    completionTimestamp: "2025-12-16T20:15:02Z"
+    errors: 1
+    expiration: "2025-12-18T13:28:59Z"
+    formatVersion: 1.1.0
+    phase: PartiallyFailed
+    progress:
+      itemsBackedUp: 9435
+      totalItems: 9435
+    startTimestamp: "2025-12-16T13:28:59Z"
+    version: 1
+    warnings: 3413
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Backup","metadata":{"annotations":{},"name":"test-full-cluster-phase1","namespace":"velero"},"spec":{"excludedNamespaces":["velero","kube-system","kube-public","kube-node-lease","begasoft-*","argocd","monitoring","trident"],"includedNamespaces":["*"],"snapshotMoveData":true,"snapshotVolumes":true,"ttl":"48h0m0s"}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-17T03:30:18Z"
+    generation: 60
+    labels:
+      velero.io/storage-location: default
+    name: test-full-cluster-phase1
+    namespace: velero
+    resourceVersion: "97047380"
+    uid: b5de044c-0b46-48f8-a95a-f0651abe210b
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: true
+    excludedNamespaces:
+    - velero
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - begasoft-*
+    - argocd
+    - monitoring
+    - trident
+    includedNamespaces:
+    - '*'
+    itemOperationTimeout: 4h0m0s
+    snapshotMoveData: true
+    snapshotVolumes: true
+    storageLocation: default
+    ttl: 48h0m0s
+    volumeSnapshotLocations:
+    - default
+  status:
+    backupItemOperationsAttempted: 15
+    backupItemOperationsCompleted: 15
+    completionTimestamp: "2025-12-17T04:25:43Z"
+    expiration: "2025-12-19T03:30:18Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 8691
+      totalItems: 8691
+    startTimestamp: "2025-12-17T03:30:18Z"
+    version: 1
+    warnings: 78
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Backup","metadata":{"annotations":{},"name":"test-full-cluster-phase2-1766027289","namespace":"velero"},"spec":{"excludedNamespaces":["velero","kube-system","kube-public","kube-node-lease","begasoft-*"],"includedNamespaces":["*"],"includedResources":["*"],"snapshotMoveData":true,"snapshotVolumes":true,"ttl":"24h"}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-18T03:08:09Z"
+    generation: 41
+    labels:
+      velero.io/storage-location: default
+    name: test-full-cluster-phase2-1766027289
+    namespace: velero
+    resourceVersion: "97417601"
+    uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: true
+    excludedNamespaces:
+    - velero
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - begasoft-*
+    includedNamespaces:
+    - '*'
+    includedResources:
+    - '*'
+    itemOperationTimeout: 4h0m0s
+    snapshotMoveData: true
+    snapshotVolumes: true
+    storageLocation: default
+    ttl: 24h
+    volumeSnapshotLocations:
+    - default
+  status:
+    backupItemOperationsAttempted: 14
+    backupItemOperationsCompleted: 14
+    completionTimestamp: "2025-12-18T03:22:23Z"
+    expiration: "2025-12-19T03:08:09Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 8981
+      totalItems: 8981
+    startTimestamp: "2025-12-18T03:08:09Z"
+    version: 1
+    warnings: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Backup","metadata":{"annotations":{},"name":"test-phase2-conservative-1766026854","namespace":"velero"},"spec":{"includedNamespaces":["default"],"snapshotVolumes":false,"ttl":"24h"}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-18T03:00:54Z"
+    generation: 6
+    labels:
+      velero.io/storage-location: default
+    name: test-phase2-conservative-1766026854
+    namespace: velero
+    resourceVersion: "97409948"
+    uid: cf44b8b7-86e1-40cb-baf3-cb7d25681bb9
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: true
+    includedNamespaces:
+    - default
+    itemOperationTimeout: 4h0m0s
+    snapshotMoveData: false
+    snapshotVolumes: false
+    storageLocation: default
+    ttl: 24h
+    volumeSnapshotLocations:
+    - default
+  status:
+    completionTimestamp: "2025-12-18T03:00:56Z"
+    expiration: "2025-12-19T03:00:54Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 26
+      totalItems: 26
+    startTimestamp: "2025-12-18T03:00:54Z"
+    version: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: lern-velero:velero.io/Schedule:velero/velero-full-cluster-daily-backup
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Schedule","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"lern-velero:velero.io/Schedule:velero/velero-full-cluster-daily-backup"},"labels":{"app.kubernetes.io/instance":"velero","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"velero","helm.sh/chart":"velero-10.0.10"},"name":"velero-full-cluster-daily-backup","namespace":"velero"},"spec":{"schedule":"30 5 * * *","template":{"csiSnapshotTimeout":"1h","excludedNamespaces":["velero","kube-system","kube-public","kube-node-lease","begasoft-*"],"includedNamespaces":["*"],"includedResources":["*"],"snapshotMoveData":true,"snapshotVolumes":true,"ttl":"168h"}}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-17T05:30:10Z"
+    generation: 67
+    labels:
+      app.kubernetes.io/instance: velero
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: velero
+      helm.sh/chart: velero-10.0.10
+      velero.io/schedule-name: velero-full-cluster-daily-backup
+      velero.io/storage-location: default
+    name: velero-full-cluster-daily-backup-20251217053010
+    namespace: velero
+    resourceVersion: "97102562"
+    uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+  spec:
+    csiSnapshotTimeout: 1h0m0s
+    defaultVolumesToFsBackup: true
+    excludedNamespaces:
+    - velero
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - begasoft-*
+    hooks: {}
+    includedNamespaces:
+    - '*'
+    includedResources:
+    - '*'
+    itemOperationTimeout: 4h0m0s
+    metadata: {}
+    snapshotMoveData: true
+    snapshotVolumes: true
+    storageLocation: default
+    ttl: 168h0m0s
+    volumeSnapshotLocations:
+    - default
+  status:
+    backupItemOperationsAttempted: 15
+    backupItemOperationsCompleted: 15
+    completionTimestamp: "2025-12-17T07:40:34Z"
+    expiration: "2025-12-24T05:30:10Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 9060
+      totalItems: 9060
+    startTimestamp: "2025-12-17T05:30:10Z"
+    version: 1
+    warnings: 408
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: lern-velero:velero.io/Schedule:velero/velero-full-cluster-daily-backup
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Schedule","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"lern-velero:velero.io/Schedule:velero/velero-full-cluster-daily-backup"},"labels":{"app.kubernetes.io/instance":"velero","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"velero","helm.sh/chart":"velero-10.0.10"},"name":"velero-full-cluster-daily-backup","namespace":"velero"},"spec":{"schedule":"30 5 * * *","template":{"csiSnapshotTimeout":"1h","excludedNamespaces":["velero","kube-system","kube-public","kube-node-lease","begasoft-*"],"includedNamespaces":["*"],"includedResources":["*"],"snapshotMoveData":true,"snapshotVolumes":true,"ttl":"168h"}}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-18T05:30:53Z"
+    generation: 26
+    labels:
+      app.kubernetes.io/instance: velero
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: velero
+      helm.sh/chart: velero-10.0.10
+      velero.io/abort-request: "true"
+      velero.io/schedule-name: velero-full-cluster-daily-backup
+      velero.io/storage-location: default
+    name: velero-full-cluster-daily-backup-20251218053053
+    namespace: velero
+    resourceVersion: "97513658"
+    uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+  spec:
+    csiSnapshotTimeout: 1h0m0s
+    defaultVolumesToFsBackup: false
+    excludedNamespaces:
+    - velero
+    - kube-system
+    - kube-public
+    - kube-node-lease
+    - begasoft-*
+    hooks: {}
+    includedNamespaces:
+    - '*'
+    includedResources:
+    - '*'
+    itemOperationTimeout: 4h0m0s
+    metadata: {}
+    snapshotMoveData: true
+    snapshotVolumes: true
+    storageLocation: default
+    ttl: 168h0m0s
+    volumeSnapshotLocations:
+    - default
+  status:
+    completionTimestamp: "2025-12-18T08:56:36Z"
+    expiration: "2025-12-25T06:01:08Z"
+    failureReason: found a backup with status "InProgress" during the server starting,
+      mark it as "Failed"
+    formatVersion: 1.1.0
+    phase: Failed
+    progress:
+      itemsBackedUp: 535
+      totalItems: 10492
+    startTimestamp: "2025-12-18T06:01:08Z"
+    version: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: lern-velero:velero.io/Schedule:velero/velero-sealed-secrets-keys-daily-backup
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Schedule","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"lern-velero:velero.io/Schedule:velero/velero-sealed-secrets-keys-daily-backup"},"labels":{"app.kubernetes.io/instance":"velero","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"velero","helm.sh/chart":"velero-10.0.10"},"name":"velero-sealed-secrets-keys-daily-backup","namespace":"velero"},"spec":{"schedule":"30 5 * * *","template":{"includedNamespaces":["kube-system"],"includedResources":["secrets"],"labelSelector":{"matchExpressions":[{"key":"sealedsecrets.bitnami.com/sealed-secrets-key","operator":"Exists"}]},"snapshotMoveData":false,"snapshotVolumes":false,"ttl":"168h"}}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-17T05:30:10Z"
+    generation: 6
+    labels:
+      app.kubernetes.io/instance: velero
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: velero
+      helm.sh/chart: velero-10.0.10
+      velero.io/schedule-name: velero-sealed-secrets-keys-daily-backup
+      velero.io/storage-location: default
+    name: velero-sealed-secrets-keys-daily-backup-20251217053010
+    namespace: velero
+    resourceVersion: "97085251"
+    uid: 7511bd1e-8eb2-486d-b22f-f7d942be4cbe
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: true
+    hooks: {}
+    includedNamespaces:
+    - kube-system
+    includedResources:
+    - secrets
+    itemOperationTimeout: 4h0m0s
+    labelSelector:
+      matchExpressions:
+      - key: sealedsecrets.bitnami.com/sealed-secrets-key
+        operator: Exists
+    metadata: {}
+    snapshotMoveData: false
+    snapshotVolumes: false
+    storageLocation: default
+    ttl: 168h0m0s
+    volumeSnapshotLocations:
+    - default
+  status:
+    completionTimestamp: "2025-12-17T06:38:16Z"
+    expiration: "2025-12-24T06:38:14Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 46
+      totalItems: 46
+    startTimestamp: "2025-12-17T06:38:14Z"
+    version: 1
+    warnings: 1
+- apiVersion: velero.io/v1
+  kind: Backup
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: lern-velero:velero.io/Schedule:velero/velero-sealed-secrets-keys-daily-backup
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"velero.io/v1","kind":"Schedule","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"lern-velero:velero.io/Schedule:velero/velero-sealed-secrets-keys-daily-backup"},"labels":{"app.kubernetes.io/instance":"velero","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"velero","helm.sh/chart":"velero-10.0.10"},"name":"velero-sealed-secrets-keys-daily-backup","namespace":"velero"},"spec":{"schedule":"30 5 * * *","template":{"includedNamespaces":["kube-system"],"includedResources":["secrets"],"labelSelector":{"matchExpressions":[{"key":"sealedsecrets.bitnami.com/sealed-secrets-key","operator":"Exists"}]},"snapshotMoveData":false,"snapshotVolumes":false,"ttl":"168h"}}}
+      velero.io/resource-timeout: 10m0s
+      velero.io/source-cluster-k8s-gitversion: v1.33.6
+      velero.io/source-cluster-k8s-major-version: "1"
+      velero.io/source-cluster-k8s-minor-version: "33"
+    creationTimestamp: "2025-12-18T05:30:53Z"
+    generation: 6
+    labels:
+      app.kubernetes.io/instance: velero
+      app.kubernetes.io/managed-by: Helm
+      app.kubernetes.io/name: velero
+      helm.sh/chart: velero-10.0.10
+      velero.io/schedule-name: velero-sealed-secrets-keys-daily-backup
+      velero.io/storage-location: default
+    name: velero-sealed-secrets-keys-daily-backup-20251218053053
+    namespace: velero
+    resourceVersion: "97513718"
+    uid: bd65546a-ba2a-4074-9318-3cdefc6fc25d
+  spec:
+    csiSnapshotTimeout: 10m0s
+    defaultVolumesToFsBackup: false
+    hooks: {}
+    includedNamespaces:
+    - kube-system
+    includedResources:
+    - secrets
+    itemOperationTimeout: 4h0m0s
+    labelSelector:
+      matchExpressions:
+      - key: sealedsecrets.bitnami.com/sealed-secrets-key
+        operator: Exists
+    metadata: {}
+    snapshotMoveData: false
+    snapshotVolumes: false
+    storageLocation: default
+    ttl: 168h0m0s
+    volumeSnapshotLocations:
+    - default
+  status:
+    completionTimestamp: "2025-12-18T08:56:38Z"
+    expiration: "2025-12-25T08:56:36Z"
+    formatVersion: 1.1.0
+    phase: Completed
+    progress:
+      itemsBackedUp: 46
+      totalItems: 46
+    startTimestamp: "2025-12-18T08:56:36Z"
+    version: 1
+    warnings: 1
+kind: List
+metadata:
+  resourceVersion: ""

@@ -1,0 +1,1664 @@
+apiVersion: v1
+items:
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:09:24Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.0c124eaf-843d-45da7ac64
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: 0c124eaf-843d-45de-aa63-22f33af61fd2
+    name: test-full-cluster-phase2-1766027289-m2k6m
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97413437"
+    uid: 5c5771a9-034a-4a48-afd3-bcab7290e6f0
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-lernetz-schule-v2-dwj9w
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: lernetz
+    sourcePVC: lernetz-schule-v2
+  status:
+    completionTimestamp: "2025-12-18T03:11:22Z"
+    node: lern-test-k8sw-04
+    path: /5c5771a9-034a-4a48-afd3-bcab7290e6f0
+    phase: Completed
+    progress: {}
+    snapshotID: 2a362c7f56bf54416274d671cbd9fd42
+    startTimestamp: "2025-12-18T03:10:17Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:09:25Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.68658d8e-1a5c-41a4a3375
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: 68658d8e-1a5c-41ab-bf59-bf2b9f59a750
+    name: test-full-cluster-phase2-1766027289-pjc97
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97413450"
+    uid: 5244895e-5c26-4e3d-82b7-f48661130a12
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-tasker-mhk64
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: lernetz
+    sourcePVC: tasker
+  status:
+    completionTimestamp: "2025-12-18T03:11:23Z"
+    node: lern-test-k8sw-02
+    path: /5244895e-5c26-4e3d-82b7-f48661130a12
+    phase: Completed
+    progress:
+      bytesDone: 2213941
+      totalBytes: 2213941
+    snapshotID: e5f1661d07230f660d6b5c0330fb63c1
+    startTimestamp: "2025-12-18T03:10:18Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:09:20Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.2465ee5f-079d-48be2650b
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: 2465ee5f-079d-48b0-8f4d-46511913af6b
+    name: test-full-cluster-phase2-1766027289-qfctr
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97413456"
+    uid: de33a51f-51a5-4ee9-80eb-fe329dd418d0
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-kp-remake-v2-qv7bv
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: haldimann
+    sourcePVC: kp-remake-v2
+  status:
+    completionTimestamp: "2025-12-18T03:11:24Z"
+    node: lern-test-k8sw-03
+    path: /de33a51f-51a5-4ee9-80eb-fe329dd418d0
+    phase: Completed
+    progress:
+      bytesDone: 10061602
+      totalBytes: 10061602
+    snapshotID: f43df588df72938439ef77aae497c99a
+    startTimestamp: "2025-12-18T03:10:19Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:14:50Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.44a4d0f1-5d6d-4bb5463e7
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: 44a4d0f1-5d6d-4bbe-b6e5-a9d64be608dc
+    name: test-full-cluster-phase2-1766027289-qrjgw
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97417003"
+    uid: 5f6c1e64-71bf-4f94-841a-f4832c084e87
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-verhaltenskodex-nx927
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: ssb
+    sourcePVC: verhaltenskodex
+  status:
+    completionTimestamp: "2025-12-18T03:20:54Z"
+    node: lern-test-k8sw-06
+    path: /5f6c1e64-71bf-4f94-841a-f4832c084e87
+    phase: Completed
+    progress:
+      bytesDone: 905604015
+      totalBytes: 905604015
+    snapshotID: 2a87c76ffe6855eb581d52f99b2fa63d
+    startTimestamp: "2025-12-18T03:20:09Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:11:15Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.53d0f31d-b642-409426c5f
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: 53d0f31d-b642-4095-b054-f942b76fb1cc
+    name: test-full-cluster-phase2-1766027289-qtwcd
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97417540"
+    uid: e1f31f02-541f-4d89-961d-6ae5a13c1a10
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-brennpunkt-landschaft-it-c2wpf
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: phbern
+    sourcePVC: brennpunkt-landschaft-it
+  status:
+    completionTimestamp: "2025-12-18T03:22:14Z"
+    node: lern-test-k8sw-02
+    path: /e1f31f02-541f-4d89-961d-6ae5a13c1a10
+    phase: Completed
+    progress: {}
+    snapshotID: 8e7314b7db2dc104adffd8ada5deb4a2
+    startTimestamp: "2025-12-18T03:21:09Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:19:15Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.c9d2ba33-19bb-4d7cdd377
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: c9d2ba33-19bb-4d7d-853a-9d356e16d1d3
+    name: test-full-cluster-phase2-1766027289-qwvhn
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97417548"
+    uid: 3a4ee5fb-2fed-4f2c-89ac-901e62e0d3f2
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-escoresheet-v2-d7cmt
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: swissvolley
+    sourcePVC: escoresheet-v2
+  status:
+    completionTimestamp: "2025-12-18T03:22:15Z"
+    node: lern-test-k8sw-06
+    path: /3a4ee5fb-2fed-4f2c-89ac-901e62e0d3f2
+    phase: Completed
+    progress:
+      bytesDone: 175802222
+      totalBytes: 175802222
+    snapshotID: f8ea15c9dd06ad5f594ee4b2fdbd2d9f
+    startTimestamp: "2025-12-18T03:21:09Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:16:40Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.0c6b37fb-7e38-4f347b8d3
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: 0c6b37fb-7e38-4f3f-8631-67a7a098d2ed
+    name: test-full-cluster-phase2-1766027289-rw2gf
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97417271"
+    uid: 952b2a7b-aeff-441b-b8fd-a8d2dca0e697
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-conflict-sensitivity-v2-9g2sz
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: swisspeace
+    sourcePVC: conflict-sensitivity-v2
+  status:
+    completionTimestamp: "2025-12-18T03:21:24Z"
+    node: lern-test-k8sw-01
+    path: /952b2a7b-aeff-441b-b8fd-a8d2dca0e697
+    phase: Completed
+    progress:
+      bytesDone: 1143454168
+      totalBytes: 1143454168
+    snapshotID: 8793c7c78c0324908e4e0172c835eeaf
+    startTimestamp: "2025-12-18T03:20:19Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T03:09:50Z"
+    generateName: test-full-cluster-phase2-1766027289-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-ec2f328e-d18c-47af-a0d5-47d8c605bf88.cd9cd1f5-7a42-4dbc30889
+      velero.io/backup-name: test-full-cluster-phase2-1766027289
+      velero.io/backup-uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+      velero.io/pvc-uid: cd9cd1f5-7a42-4db2-88dd-29f8edbee583
+    name: test-full-cluster-phase2-1766027289-tq64c
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: test-full-cluster-phase2-1766027289
+      uid: ec2f328e-d18c-47af-a0d5-47d8c605bf88
+    resourceVersion: "97414186"
+    uid: 4b969f84-b188-4d50-a1e5-4af2bf6a134a
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-luzern-nmg-test-6p5tr
+    operationTimeout: 10m0s
+    snapshotType: CSI
+    sourceNamespace: luzern
+    sourcePVC: luzern-nmg-test
+  status:
+    completionTimestamp: "2025-12-18T03:12:47Z"
+    node: lern-test-k8sw-03
+    path: /4b969f84-b188-4d50-a1e5-4af2bf6a134a
+    phase: Completed
+    progress:
+      bytesDone: 9870192
+      totalBytes: 9870192
+    snapshotID: 37b493de2cf2b9b8e9f20f8d666cdd60
+    startTimestamp: "2025-12-18T03:11:42Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T06:37:54Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.c9d2ba33-19bb-4d700d4bc
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: c9d2ba33-19bb-4d7d-853a-9d356e16d1d3
+    name: velero-full-cluster-daily-backup-20251217053010-2lwl6
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97085591"
+    uid: 1dce1156-f52c-4717-9e25-ed1f33063b49
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-escoresheet-v2-55qfx
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: swissvolley
+    sourcePVC: escoresheet-v2
+  status:
+    completionTimestamp: "2025-12-17T06:38:59Z"
+    node: lern-test-k8sw-04
+    path: /1dce1156-f52c-4717-9e25-ed1f33063b49
+    phase: Completed
+    progress:
+      bytesDone: 175802222
+      totalBytes: 175802222
+    snapshotID: 60612b1a280bd4d2cb8d23a81d9e42b6
+    startTimestamp: "2025-12-17T06:38:20Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:34:52Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.be9ad6ed-68df-44d2a4a8d
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: be9ad6ed-68df-44d3-951b-d90317bf5db1
+    name: velero-full-cluster-daily-backup-20251217053010-5sfrk
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97072601"
+    uid: 17e3f366-6e8f-4f56-a5a8-c6fc4fabdbed
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-website-vxjs9
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: lernetz
+    sourcePVC: website
+  status:
+    completionTimestamp: "2025-12-17T05:54:42Z"
+    node: lern-test-k8sw-03
+    path: /17e3f366-6e8f-4f56-a5a8-c6fc4fabdbed
+    phase: Completed
+    progress:
+      bytesDone: 276248522
+      totalBytes: 276248522
+    snapshotID: f002a45a7cb7ccafab70fe44d9aa5b97
+    startTimestamp: "2025-12-17T05:53:37Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T06:37:08Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.6fc7eea3-d8a5-4445422a8
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 6fc7eea3-d8a5-4440-8751-f446a2bfa1f0
+    name: velero-full-cluster-daily-backup-20251217053010-5wbsr
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97085722"
+    uid: 072cd6e3-b90b-4f93-b8ad-3b2e01a5b29a
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-gender-elearning-v2-xkzfp
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: swisspeace
+    sourcePVC: gender-elearning-v2
+  status:
+    completionTimestamp: "2025-12-17T06:39:21Z"
+    node: lern-test-k8sw-01
+    path: /072cd6e3-b90b-4f93-b8ad-3b2e01a5b29a
+    phase: Completed
+    progress:
+      bytesDone: 201403587
+      totalBytes: 201403587
+    snapshotID: 91acc4025fed14030eb790f76235ede5
+    startTimestamp: "2025-12-17T06:38:32Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:34:27Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.0c124eaf-843d-45db69bde
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 0c124eaf-843d-45de-aa63-22f33af61fd2
+    name: velero-full-cluster-daily-backup-20251217053010-644xv
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97067147"
+    uid: 7499d15e-7f72-4d7b-9a59-196422fa11e1
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-lernetz-schule-v2-q82zh
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: lernetz
+    sourcePVC: lernetz-schule-v2
+  status:
+    completionTimestamp: "2025-12-17T05:36:46Z"
+    node: lern-test-k8sw-03
+    path: /7499d15e-7f72-4d7b-9a59-196422fa11e1
+    phase: Completed
+    progress: {}
+    snapshotID: a16f14b75eef7d69756cca23b8b0dd83
+    startTimestamp: "2025-12-17T05:35:41Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:54:43Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.53d0f31d-b642-409ea93d7
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 53d0f31d-b642-4095-b054-f942b76fb1cc
+    name: velero-full-cluster-daily-backup-20251217053010-d2skn
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97085687"
+    uid: c3b0b65e-ef3c-47b9-ba8e-0bf00826b6b2
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-brennpunkt-landschaft-it-7pnbq
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: phbern
+    sourcePVC: brennpunkt-landschaft-it
+  status:
+    completionTimestamp: "2025-12-17T06:39:16Z"
+    node: lern-test-k8sw-05
+    path: /c3b0b65e-ef3c-47b9-ba8e-0bf00826b6b2
+    phase: Completed
+    progress: {}
+    snapshotID: bb240ccd7db542f650846d065a917be4
+    startTimestamp: "2025-12-17T06:38:29Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:58:18Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.84d7dafa-51f7-450e17265
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 84d7dafa-51f7-450d-996b-5c68855a71f1
+    name: velero-full-cluster-daily-backup-20251217053010-dblst
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97078044"
+    uid: b5a5e7b4-176f-4055-b901-c7d31ce19622
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-rassismus-v2-wpqb5
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: srk
+    sourcePVC: rassismus-v2
+  status:
+    completionTimestamp: "2025-12-17T06:13:13Z"
+    node: lern-test-k8sw-06
+    path: /b5a5e7b4-176f-4055-b901-c7d31ce19622
+    phase: Completed
+    progress:
+      bytesDone: 36460564
+      totalBytes: 36460564
+    snapshotID: af43baaed15b8e7147290adfc79cc7b6
+    startTimestamp: "2025-12-17T06:12:08Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:53:33Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.d1702b00-bef7-42ce4d437
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: d1702b00-bef7-42c4-bce5-99af6bd81caf
+    name: velero-full-cluster-daily-backup-20251217053010-h7b87
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97078664"
+    uid: eb708279-c090-4c72-976d-2de0897e5c3a
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-brennpunkt-landschaft-fr-bcl2x
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: phbern
+    sourcePVC: brennpunkt-landschaft-fr
+  status:
+    completionTimestamp: "2025-12-17T06:15:24Z"
+    node: lern-test-k8sw-03
+    path: /eb708279-c090-4c72-976d-2de0897e5c3a
+    phase: Completed
+    progress:
+      bytesDone: 2440114
+      totalBytes: 2440114
+    snapshotID: 643c087e05157848305eeaa2867fedf4
+    startTimestamp: "2025-12-17T06:14:18Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T06:37:59Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.ed59c413-f593-48b4550be
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: ed59c413-f593-48bc-a5b9-3e19aaad95eb
+    name: velero-full-cluster-daily-backup-20251217053010-kh658
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97085992"
+    uid: 288927cf-cfd2-4d37-8c9e-773457dfc506
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-brennpunkt-wug-9ntdn
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: verlagskv
+    sourcePVC: brennpunkt-wug
+  status:
+    completionTimestamp: "2025-12-17T06:40:03Z"
+    node: lern-test-k8sw-04
+    path: /288927cf-cfd2-4d37-8c9e-773457dfc506
+    phase: Completed
+    progress:
+      bytesDone: 18938952039
+      totalBytes: 18938952039
+    snapshotID: a7f8bdb424ed3d24f6a9089c3904b0a8
+    startTimestamp: "2025-12-17T06:38:54Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:34:22Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.2465ee5f-079d-48ba78b2d
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 2465ee5f-079d-48b0-8f4d-46511913af6b
+    name: velero-full-cluster-daily-backup-20251217053010-nvq94
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97066881"
+    uid: 8441e66c-4e35-4375-82f3-567a95b3109d
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-kp-remake-v2-txtd8
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: haldimann
+    sourcePVC: kp-remake-v2
+  status:
+    completionTimestamp: "2025-12-17T05:35:56Z"
+    node: lern-test-k8sw-03
+    path: /8441e66c-4e35-4375-82f3-567a95b3109d
+    phase: Completed
+    progress:
+      bytesDone: 10061602
+      totalBytes: 10061602
+    snapshotID: 9dc8401042ce0daee906cb6061e70c37
+    startTimestamp: "2025-12-17T05:34:51Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:34:37Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.68658d8e-1a5c-41a98e2cb
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 68658d8e-1a5c-41ab-bf59-bf2b9f59a750
+    name: velero-full-cluster-daily-backup-20251217053010-qznkq
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97067215"
+    uid: fb69297b-89a9-4228-9085-b1cc4ee30d23
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-tasker-wjqjw
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: lernetz
+    sourcePVC: tasker
+  status:
+    completionTimestamp: "2025-12-17T05:37:01Z"
+    node: lern-test-k8sw-02
+    path: /fb69297b-89a9-4228-9085-b1cc4ee30d23
+    phase: Completed
+    progress:
+      bytesDone: 2213941
+      totalBytes: 2213941
+    snapshotID: 508a730727c15c5347e3702b1a16c29e
+    startTimestamp: "2025-12-17T05:35:55Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:35:37Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.49741196-ebe0-40997bdbb
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 49741196-ebe0-4094-a842-9fe752185093
+    name: velero-full-cluster-daily-backup-20251217053010-rxbz2
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97086166"
+    uid: b62290e4-4d10-45e6-b79e-beb314dfe44b
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-media-24n9m
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: lmz
+    sourcePVC: media
+  status:
+    completionTimestamp: "2025-12-17T06:40:30Z"
+    node: lern-test-k8sw-02
+    path: /b62290e4-4d10-45e6-b79e-beb314dfe44b
+    phase: Completed
+    progress:
+      bytesDone: 54523496297
+      totalBytes: 54523496297
+    snapshotID: 57060cdfc154876ce543a3fa4a79df30
+    startTimestamp: "2025-12-17T06:39:23Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T06:10:38Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.44a4d0f1-5d6d-4bbca304a
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 44a4d0f1-5d6d-4bbe-b6e5-a9d64be608dc
+    name: velero-full-cluster-daily-backup-20251217053010-s5md8
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97102530"
+    uid: b3f60876-d10f-4927-a279-9bfb3c5b71b2
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-verhaltenskodex-jwrt4
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: ssb
+    sourcePVC: verhaltenskodex
+  status:
+    completionTimestamp: "2025-12-17T07:40:28Z"
+    node: lern-test-k8sw-06
+    path: /b3f60876-d10f-4927-a279-9bfb3c5b71b2
+    phase: Completed
+    progress:
+      bytesDone: 905604015
+      totalBytes: 905604015
+    snapshotID: 9f48e2a4e4c4e5d2ce8e9d1e56736799
+    startTimestamp: "2025-12-17T07:39:49Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:41:43Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.ff4aa905-63fe-4aca644f7
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: ff4aa905-63fe-4ac1-a6f5-85f4b4266807
+    name: velero-full-cluster-daily-backup-20251217053010-sxn58
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97072605"
+    uid: 552a81aa-788f-4606-9914-9df343b671ba
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-brennpunkt-landschaft-de-zn9fb
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: phbern
+    sourcePVC: brennpunkt-landschaft-de
+  status:
+    completionTimestamp: "2025-12-17T05:54:43Z"
+    node: lern-test-k8sw-05
+    path: /552a81aa-788f-4606-9914-9df343b671ba
+    phase: Completed
+    progress:
+      bytesDone: 17733608929
+      totalBytes: 17733608929
+    snapshotID: 06560d85b9d9d365b77fe7ea877f367c
+    startTimestamp: "2025-12-17T05:53:35Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T05:37:07Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.cd9cd1f5-7a42-4dbb2ea62
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: cd9cd1f5-7a42-4db2-88dd-29f8edbee583
+    name: velero-full-cluster-daily-backup-20251217053010-tgwkn
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97078271"
+    uid: 7f57cdd1-7fce-4130-bee2-84cfba06ade9
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-luzern-nmg-test-rw99q
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: luzern
+    sourcePVC: luzern-nmg-test
+  status:
+    completionTimestamp: "2025-12-17T06:14:03Z"
+    node: lern-test-k8sw-04
+    path: /7f57cdd1-7fce-4130-bee2-84cfba06ade9
+    phase: Completed
+    progress:
+      bytesDone: 9870192
+      totalBytes: 9870192
+    snapshotID: 0ef45b6da89122a03e5ca0cbe6af5177
+    startTimestamp: "2025-12-17T06:12:58Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-17T06:12:08Z"
+    generateName: velero-full-cluster-daily-backup-20251217053010-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-75a3afbc-4c19-4c58-a6ef-619bc1367bdf.0c6b37fb-7e38-4f373188e
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251217053010
+      velero.io/backup-uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+      velero.io/pvc-uid: 0c6b37fb-7e38-4f3f-8631-67a7a098d2ed
+    name: velero-full-cluster-daily-backup-20251217053010-znjcf
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251217053010
+      uid: 75a3afbc-4c19-4c58-a6ef-619bc1367bdf
+    resourceVersion: "97086304"
+    uid: 6ee23fbd-2cff-42a3-8a29-bbaceb561e0a
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-conflict-sensitivity-v2-kq5rk
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: swisspeace
+    sourcePVC: conflict-sensitivity-v2
+  status:
+    completionTimestamp: "2025-12-17T06:40:59Z"
+    node: lern-test-k8sw-03
+    path: /6ee23fbd-2cff-42a3-8a29-bbaceb561e0a
+    phase: Completed
+    progress:
+      bytesDone: 1143454168
+      totalBytes: 1143454168
+    snapshotID: 459dcee0bde05084467bd20e8380db2b
+    startTimestamp: "2025-12-17T06:39:54Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:39:14Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.e42c7c89-1733-4723480d3
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: e42c7c89-1733-4727-a5ea-1d8ce8d01c48
+    name: velero-full-cluster-daily-backup-20251218053053-522dt
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477896"
+    uid: 167033da-8130-445d-b09c-1d9d542b5f85
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-sjo-eventmanager-kgr5h
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: tobias-friedli
+    sourcePVC: sjo-eventmanager
+  status:
+    completionTimestamp: "2025-12-18T06:42:19Z"
+    node: lern-test-k8sw-03
+    path: /167033da-8130-445d-b09c-1d9d542b5f85
+    phase: Completed
+    progress:
+      bytesDone: 38365879
+      totalBytes: 38365879
+    snapshotID: 927b2d4958ab9b41dc115fd8581c79f8
+    startTimestamp: "2025-12-18T06:41:13Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:28:19Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.28b5d071-9fa2-46ad98f07
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 28b5d071-9fa2-46a3-9cac-ecf962ccd644
+    name: velero-full-cluster-daily-backup-20251218053053-5d9ms
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477400"
+    uid: 1927ab7d-eee2-4c4f-87a0-ae9f006f8fd6
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-nextcloud-xrm27
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: swiss-olympic
+    sourcePVC: nextcloud
+  status:
+    completionTimestamp: "2025-12-18T06:41:04Z"
+    node: lern-test-k8sw-03
+    path: /1927ab7d-eee2-4c4f-87a0-ae9f006f8fd6
+    phase: Completed
+    progress:
+      bytesDone: 1178761272
+      totalBytes: 1178761272
+    snapshotID: 16466146b113a51ba03fd3b479e74494
+    startTimestamp: "2025-12-18T06:39:56Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:07:28Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.2f28ed2b-4c10-4c50c2b70
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 2f28ed2b-4c10-4c52-af67-63fd2e7bd371
+    name: velero-full-cluster-daily-backup-20251218053053-69jl7
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97467618"
+    uid: bda23a10-4876-43ce-8707-f8d24be87721
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-luftlabor-v2-x9zqv
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: bafu
+    sourcePVC: luftlabor-v2
+  status:
+    completionTimestamp: "2025-12-18T06:10:26Z"
+    node: lern-test-k8sw-04
+    path: /bda23a10-4876-43ce-8707-f8d24be87721
+    phase: Completed
+    progress:
+      bytesDone: 438178004
+      totalBytes: 438178004
+    snapshotID: fdfac9366728572b5ddb56a0fb0482d0
+    startTimestamp: "2025-12-18T06:09:21Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:10:24Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.f001615a-e2cc-4cfcd2f95
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: f001615a-e2cc-4cf5-bb59-8e30606be795
+    name: velero-full-cluster-daily-backup-20251218053053-6b8ht
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477630"
+    uid: b599e2ff-943f-4b68-b088-e4162af72176
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-trainingsplaner-volleyball-twj4r
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: funvo
+    sourcePVC: trainingsplaner-volleyball
+  status:
+    completionTimestamp: "2025-12-18T06:41:34Z"
+    node: lern-test-k8sw-06
+    path: /b599e2ff-943f-4b68-b088-e4162af72176
+    phase: Completed
+    progress:
+      bytesDone: 74609892
+      totalBytes: 74609892
+    snapshotID: ef08485ebe3965a95fcbffcce659385e
+    startTimestamp: "2025-12-18T06:40:28Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:08:08Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.0f792884-4523-4c1fcc5ba
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 0f792884-4523-4c1a-8e50-d4a05a84082f
+    name: velero-full-cluster-daily-backup-20251218053053-7x8jp
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97467644"
+    uid: bf2d064e-a38c-43d4-b93b-19b87547d480
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-luftlabor-it-v2-s4z2j
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: bafu
+    sourcePVC: luftlabor-it-v2
+  status:
+    completionTimestamp: "2025-12-18T06:10:28Z"
+    node: lern-test-k8sw-02
+    path: /bf2d064e-a38c-43d4-b93b-19b87547d480
+    phase: Completed
+    progress:
+      bytesDone: 494260616
+      totalBytes: 494260616
+    snapshotID: b7688c061fd2e36c38d9b635a2963a5c
+    startTimestamp: "2025-12-18T06:09:23Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:09:23Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.a60cf272-7025-4a0857c73
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: a60cf272-7025-4a08-b187-2c854f9c540b
+    name: velero-full-cluster-daily-backup-20251218053053-9r864
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477930"
+    uid: 9225ac19-4094-4858-bb8c-4f11543de545
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-cache-volume-snapshot-controller-2-fc7ls
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: csi-snapshot-controller
+    sourcePVC: cache-volume-snapshot-controller-2
+  status:
+    completionTimestamp: "2025-12-18T06:42:21Z"
+    node: lern-test-k8sw-02
+    path: /9225ac19-4094-4858-bb8c-4f11543de545
+    phase: Completed
+    progress: {}
+    snapshotID: f4a493b10b498567d3406bd53d282b3a
+    startTimestamp: "2025-12-18T06:41:16Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:39:44Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 4
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.12e00b28-becf-4fa6c9628
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 12e00b28-becf-4fa4-baeb-e087390e25d4
+    name: velero-full-cluster-daily-backup-20251218053053-cvcgb
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97513662"
+    uid: d3fb985e-d5cd-4498-8135-4ebf884d6967
+  spec:
+    backupStorageLocation: default
+    cancel: true
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-meilisearch-data-master-pxxml
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: zebis-oer-review
+    sourcePVC: meilisearch-data-master
+  status:
+    completionTimestamp: "2025-12-18T08:56:36Z"
+    message: Dataupload is in status "Accepted" during the velero server starting,
+      mark it as cancel
+    phase: Canceled
+    progress: {}
+    startTimestamp: "2025-12-18T08:56:36Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:26:09Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.4301bc2e-4a68-429565e56
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 4301bc2e-4a68-4292-853b-23364f3e2df8
+    name: velero-full-cluster-daily-backup-20251218053053-dxbfx
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477247"
+    uid: c13ab263-d749-44a3-9cfc-f59424c6da0d
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-moneyfit-2023-logs-sp599
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: postfinance-moneyfit
+    sourcePVC: moneyfit-2023-logs
+  status:
+    completionTimestamp: "2025-12-18T06:40:53Z"
+    node: lern-test-k8sw-01
+    path: /c13ab263-d749-44a3-9cfc-f59424c6da0d
+    phase: Completed
+    progress:
+      bytesDone: 538959
+      totalBytes: 538959
+    snapshotID: b2ab1aff7eccddf39e106c4238b9ca6a
+    startTimestamp: "2025-12-18T06:39:48Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:40:20Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 4
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.1d0f6795-726c-461cd5b3c
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 1d0f6795-726c-4619-ac33-275a736b6014
+    name: velero-full-cluster-daily-backup-20251218053053-dz8r2
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97513667"
+    uid: 4fb58e20-0ec7-4022-b641-d0b8cfe319a5
+  spec:
+    backupStorageLocation: default
+    cancel: true
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-meilisearch-data-l97b7
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: zebis-oer
+    sourcePVC: meilisearch-data
+  status:
+    completionTimestamp: "2025-12-18T08:56:36Z"
+    message: Dataupload is in status "Accepted" during the velero server starting,
+      mark it as cancel
+    phase: Canceled
+    progress: {}
+    startTimestamp: "2025-12-18T08:56:36Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:08:13Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.cf04483e-a219-4e32e462c
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: cf04483e-a219-4e3b-adb3-af3c139b993e
+    name: velero-full-cluster-daily-backup-20251218053053-fjp8z
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97468129"
+    uid: 44f53cb9-63df-4722-ae28-cfc43ff75240
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-nextcloud-tcds6
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: berufscockpit-base
+    sourcePVC: nextcloud
+  status:
+    completionTimestamp: "2025-12-18T06:11:46Z"
+    node: lern-test-k8sw-04
+    path: /44f53cb9-63df-4722-ae28-cfc43ff75240
+    phase: Completed
+    progress:
+      bytesDone: 922798214
+      totalBytes: 922798214
+    snapshotID: 609b48f9e5a25af2ffd9d4b9aed73a8a
+    startTimestamp: "2025-12-18T06:10:38Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:39:24Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.8a1ccb79-5336-432833aba
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 8a1ccb79-5336-432c-ba8a-6777d2e06c54
+    name: velero-full-cluster-daily-backup-20251218053053-gqgh8
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477707"
+    uid: c34a9873-b1cd-468c-a2df-cf36ddcd2caa
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-vbv-kursverwaltung-test-kzdcs
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: vbv
+    sourcePVC: vbv-kursverwaltung-test
+  status:
+    completionTimestamp: "2025-12-18T06:41:49Z"
+    node: lern-test-k8sw-01
+    path: /c34a9873-b1cd-468c-a2df-cf36ddcd2caa
+    phase: Completed
+    progress:
+      bytesDone: 455081260
+      totalBytes: 455081260
+    snapshotID: e1d2c0b78d0687bc1968ac9fca5bb57f
+    startTimestamp: "2025-12-18T06:40:44Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:09:18Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.9fd8899a-487e-4c753250e
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 9fd8899a-487e-4c7d-b56d-3f34d811e1c3
+    name: velero-full-cluster-daily-backup-20251218053053-h6rcf
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97478143"
+    uid: ff894523-0e95-42ae-aa4c-43e35059e568
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-cache-volume-snapshot-controller-1-ws2dh
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: csi-snapshot-controller
+    sourcePVC: cache-volume-snapshot-controller-1
+  status:
+    completionTimestamp: "2025-12-18T06:42:59Z"
+    node: lern-test-k8sw-04
+    path: /ff894523-0e95-42ae-aa4c-43e35059e568
+    phase: Completed
+    progress: {}
+    snapshotID: bb861b6230d483738bb0bfcdf22142ef
+    startTimestamp: "2025-12-18T06:41:54Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:39:25Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 4
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.c7113fb2-8d1c-434ff8dbf
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: c7113fb2-8d1c-4341-b4e6-90a366843587
+    name: velero-full-cluster-daily-backup-20251218053053-j5b4h
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97513674"
+    uid: e9a322af-54f1-4388-859e-a2410d8d6878
+  spec:
+    backupStorageLocation: default
+    cancel: true
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-meilisearch-data-feature-ki-chatbot-glfxr
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: zebis-oer-review
+    sourcePVC: meilisearch-data-feature-ki-chatbot
+  status:
+    completionTimestamp: "2025-12-18T08:56:36Z"
+    message: Dataupload is in status "Accepted" during the velero server starting,
+      mark it as cancel
+    phase: Canceled
+    progress: {}
+    startTimestamp: "2025-12-18T08:56:36Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:42:19Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 4
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.2465ee5f-079d-48b8396ae
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 2465ee5f-079d-48b0-8f4d-46511913af6b
+    name: velero-full-cluster-daily-backup-20251218053053-prc7s
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97513679"
+    uid: b981e2b4-47c7-4081-8aa4-3e3c511d2057
+  spec:
+    backupStorageLocation: default
+    cancel: true
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-kp-remake-v2-5xddp
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: haldimann
+    sourcePVC: kp-remake-v2
+  status:
+    completionTimestamp: "2025-12-18T08:56:36Z"
+    message: Dataupload is in status "Accepted" during the velero server starting,
+      mark it as cancel
+    phase: Canceled
+    progress: {}
+    startTimestamp: "2025-12-18T08:56:36Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:09:54Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.11fc3aca-774f-43722e67b
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 11fc3aca-774f-437f-9d1b-542a12d7d80f
+    name: velero-full-cluster-daily-backup-20251218053053-q4zjw
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477798"
+    uid: d23b895b-27c1-4063-87e4-6829e5674a42
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-trainingsplaner-unihockey-pwrpt
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: funvo
+    sourcePVC: trainingsplaner-unihockey
+  status:
+    completionTimestamp: "2025-12-18T06:42:01Z"
+    node: lern-test-k8sw-05
+    path: /d23b895b-27c1-4063-87e4-6829e5674a42
+    phase: Completed
+    progress:
+      bytesDone: 89068353
+      totalBytes: 89068353
+    snapshotID: 86d47af983033e559f7cdc4c7c0f547a
+    startTimestamp: "2025-12-18T06:40:56Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:07:28Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 7
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.3d2a298b-56fd-4b200bf18
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 3d2a298b-56fd-4b2f-8d4e-baeb29ce336b
+    name: velero-full-cluster-daily-backup-20251218053053-rwb5q
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97467538"
+    uid: bd6beebe-6129-461c-9836-db8ac8b26acb
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-luftlabor-fr-v2-f8klz
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: bafu
+    sourcePVC: luftlabor-fr-v2
+  status:
+    completionTimestamp: "2025-12-18T06:10:20Z"
+    node: lern-test-k8sw-03
+    path: /bd6beebe-6129-461c-9836-db8ac8b26acb
+    phase: Completed
+    progress:
+      bytesDone: 584912840
+      totalBytes: 584912840
+    snapshotID: 93bf318e5ca12bf6a79c76bab540b7b6
+    startTimestamp: "2025-12-18T06:09:17Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:08:33Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 5
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.65fbb45c-85f4-4d5a08f82
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 65fbb45c-85f4-4d55-84fd-f43d2137c3eb
+    name: velero-full-cluster-daily-backup-20251218053053-thklx
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97477296"
+    uid: 3353fb20-b19a-4a60-a208-79d7941da1d1
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-cache-volume-snapshot-controller-0-gmrgb
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: csi-snapshot-controller
+    sourcePVC: cache-volume-snapshot-controller-0
+  status:
+    completionTimestamp: "2025-12-18T06:40:56Z"
+    node: lern-test-k8sw-03
+    path: /3353fb20-b19a-4a60-a208-79d7941da1d1
+    phase: Completed
+    progress: {}
+    snapshotID: ac3307656585f7ef3d4ba1437cc2d9e0
+    startTimestamp: "2025-12-18T06:39:51Z"
+- apiVersion: velero.io/v2alpha1
+  kind: DataUpload
+  metadata:
+    creationTimestamp: "2025-12-18T06:08:28Z"
+    generateName: velero-full-cluster-daily-backup-20251218053053-
+    generation: 6
+    labels:
+      velero.io/async-operation-id: du-424eb1f1-91e0-464b-80db-747e4ddf6bae.6b262775-fa55-4f2c5f7a0
+      velero.io/backup-name: velero-full-cluster-daily-backup-20251218053053
+      velero.io/backup-uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+      velero.io/pvc-uid: 6b262775-fa55-4f2c-b08a-8d79000abd3e
+    name: velero-full-cluster-daily-backup-20251218053053-vk7qg
+    namespace: velero
+    ownerReferences:
+    - apiVersion: velero.io/v1
+      controller: true
+      kind: Backup
+      name: velero-full-cluster-daily-backup-20251218053053
+      uid: 424eb1f1-91e0-464b-80db-747e4ddf6bae
+    resourceVersion: "97467830"
+    uid: a4d02610-d7b3-4d47-be25-8f2341af52fd
+  spec:
+    backupStorageLocation: default
+    csiSnapshot:
+      snapshotClass: velero-csi-snapclass
+      storageClass: standard
+      volumeSnapshot: velero-hilfsangebote-v2-6ppkp
+    operationTimeout: 1h0m0s
+    snapshotType: CSI
+    sourceNamespace: cerebral
+    sourcePVC: hilfsangebote-v2
+  status:
+    completionTimestamp: "2025-12-18T06:10:53Z"
+    node: lern-test-k8sw-03
+    path: /a4d02610-d7b3-4d47-be25-8f2341af52fd
+    phase: Completed
+    progress:
+      bytesDone: 3817000
+      totalBytes: 3817000
+    snapshotID: a074196e068d5b1054a5236fe5d4a037
+    startTimestamp: "2025-12-18T06:09:48Z"
+kind: List
+metadata:
+  resourceVersion: ""

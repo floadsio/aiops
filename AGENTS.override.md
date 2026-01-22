@@ -1,151 +1,229 @@
+Global Agent Context
+
+Updated: 2026-01-15T21:08:52.590915
+
 Content:
 Global Agent Context
 
-Updated: 2025-12-02T15:57:46.768679
+Updated: 2026-01-15T16:25:00.824159
 
 Content:
-## Issue Implementation Plans
+Global Agent Context
 
-**CRITICAL: Use issue plans to document and resume complex implementation work**
+Updated: 2026-01-15T16:23:07.533557
 
-### When to Create Plans
-- **Multi-step features** requiring careful coordination
-- **Complex refactoring** with multiple affected components
-- **Breaking changes** needing detailed migration strategy
-- **Large features** that span multiple sessions or days
-- **Architectural decisions** that need documentation
+Content:
+Global Agent Context
 
-### Creating and Managing Plans
+Updated: 2026-01-15T16:19:25.125292
 
-```bash
-# Create/update a plan for an issue
-aiops issues plan set <issue-id> -f PLAN.md
+Content:
+Global Agent Context
 
-# Or pipe from stdin
-cat PLAN.md | aiops issues plan set <issue-id> --stdin
+Updated: 2026-01-15T16:15:44.708949
 
-# View existing plan
-aiops issues plan get <issue-id>
+Content:
+Global Agent Context
 
-# Remove plan
-aiops issues plan clear <issue-id>
-```
+Updated: 2026-01-15T16:13:26.058160
 
-### Plan Structure
+Content:
+Global Agent Context
 
-Implementation plans should follow this structure:
+Updated: 2026-01-15T16:13:04.495972
 
-```markdown
-# Implementation Plan: [Feature Name]
+Content:
+Global Agent Context
 
-## Overview
-Brief description of what needs to be built and why.
+Updated: 2025-12-21T00:48:37.883032
 
-## Architecture
-Key architectural decisions and design patterns to use.
+Content:
+Global Agent Context
 
-## Implementation Phases
+Updated: 2025-12-18T23:29:47.985010
 
-### Phase 1: [Name]
-**Files to modify:**
-- `path/to/file.py` - What changes are needed
-- `path/to/template.html` - What changes are needed
+Content:
+Global Agent Context
 
-**Tasks:**
-1. Task description
-2. Task description
+Updated: 2025-12-14T21:40:43.277155
 
-### Phase 2: [Name]
-...
+Content:
+Global Agent Context
 
-## API Design (if applicable)
-Document new API endpoints, request/response formats.
+Updated: 2025-12-14T18:50:11.443717
 
-## Testing Strategy
-How to test each phase.
+Content:
+Global Agent Context
 
-## Rollout Plan
-Steps for deploying to production.
-```
+Updated: 2025-12-12T12:14:45.124096
 
-### How Plans Work
+Content:
+Global Agent Context
 
-1. **Storage**: Plans are stored in the database, associated with issues
-2. **Visibility**: Issues list shows 📋 indicator when a plan exists
-3. **Auto-injection**: When you start work on an issue with a plan, the plan is 
-automatically included in `AGENTS.override.md`
-4. **Resume capability**: Plans allow you to resume work exactly where you left 
-off
-5. **Collaboration**: Multiple agents or developers can follow the same plan
+Updated: 2025-12-12T07:41:33.205268
 
-### Best Practices
+Content:
+Global Agent Context
 
-- ✅ **Create plans BEFORE starting complex work** - think through the 
-implementation first
-- ✅ **Update plans as you work** - document decisions and discoveries
-- ✅ **Mark phases complete** - track progress through the implementation
-- ✅ **Include file paths** - make it easy to find what needs changing
-- ✅ **Document decisions** - explain WHY, not just WHAT
-- ❌ **Don't create plans for trivial tasks** - simple one-file changes don't 
-need plans
-- ❌ **Don't let plans go stale** - update or delete them when no longer 
-relevant
+Updated: 2025-12-12T07:37:47.902136
 
-### Example Workflow
+Content:
+Global Agent Context
 
-```bash
-# Step 1: Create issue for new feature
-aiops issues create --project myproject --integration 1 \
-  --title "Feature: Add user authentication" \
-  --description "Implement JWT-based authentication..."
+Updated: 2025-12-12T06:04:50.557497
 
-# Step 2: Create implementation plan
-cat > PLAN.md <<'EOF'
-# Implementation Plan: User Authentication
+Content:
+Global Agent Context
 
-## Overview
-Add JWT-based authentication to API endpoints.
+Updated: 2025-12-12T06:00:18.795160
 
-## Implementation Phases
+Content:
+Global Agent Context
 
-### Phase 1: Database Models
-- Add User model with hashed passwords
-- Add APIKey model for token management
+Updated: 2025-12-12T05:57:17.897981
 
-### Phase 2: Authentication Service
-- Create auth_service.py with JWT handling
-- Add password hashing and verification
+Content:
+Global Agent Context
 
-### Phase 3: API Endpoints
-- POST /api/v1/auth/login
-- POST /api/v1/auth/logout
-- Protect existing endpoints with @require_auth
+Updated: 2025-12-10T16:59:11.126242
 
-### Phase 4: Testing
-- Unit tests for auth service
-- Integration tests for protected endpoints
-EOF
+Content:
 
-aiops issues plan set 123 -f PLAN.md
-
-# Step 3: Start work (plan auto-loads in AGENTS.override.md)
-aiops issues work 123
-
-# Step 4: Update plan as you progress
-# Edit PLAN.md to mark Phase 1 complete, add notes
-aiops issues plan set 123 -f PLAN.md
-
-# Step 5: When done, close issue (plan remains for reference)
-aiops issues close 123
-```
 
 ---
 
+## Repository Management & Issue Tracking Guidelines
+
+### Understanding Repository Structure
+
+This project involves **multiple independent repositories** with different 
+purposes:
+
+**Internal Development Repositories (Floads):**
+- `/home/michael/workspace/floads/aiops/` - AIOps application and tools 
+(internal)
+- `/home/michael/workspace/floads/syseng/` - Systems engineering infrastructure 
+(internal)
+
+**Client Repositories:**
+- `/home/michael/workspace/lnz/k8s-infra/` - LerNetz infrastructure (CLIENT REPO
+- read-only for documentation)
+- `https://gitlab.com/floads/syseng/customer-lnz/` - Internal Floads project 
+tracking for LerNetz issues
+
+### Critical Rule: Issue Location vs Repository Type
+
+**Each issue exists in EXACTLY ONE correct location. Verify before updating.**
+
+| Issue Type | Location | Action |
+|-----------|----------|--------|
+| Internal project tracking | `floads/syseng/customer-lnz` (GitLab) | ✅ Update 
+with findings |
+| Client-specific setup | `lnz/k8s-infra` (local client repo) | ❌ DO NOT UPDATE
+|
+| General infrastructure docs | aiops global agents file | ✅ Update for future 
+reference |
+| Development work | floads/aiops or floads/syseng | ✅ Update appropriately |
+
+### Issue Relationships Example: Issue #705 (Velero Backup Setup)
+
+**Correct Flow:**
+1. **Internal tracking issue:** 
+https://gitlab.com/floads/syseng/customer-lnz/-/issues/1
+   - External ID: #705 (references GitLab issue #705)
+   - Status: Phase 2 complete, Phase 3 ready
+   - Updates: Post findings, track progress here ✅
+
+2. **Client repo documentation:** 
+`/home/michael/workspace/lnz/k8s-infra/ISSUE_705.agents.md`
+   - Purpose: Local documentation for client context
+   - Status: DO NOT UPDATE - client owns this file
+   - Action: Read-only reference only ❌
+
+3. **Internal documentation:** aiops global agents file
+   - Purpose: How to access clusters, remember procedures, store credentials
+   - Status: Actively maintain this for future sessions
+   - Action: Update with new findings and methods ✅
+
+### How to Verify the Correct Repository
+
+**When an issue is mentioned:**
+
+1. **Check the URL explicitly provided:**
+   - If user gives: `https://gitlab.com/floads/syseng/customer-lnz/-/issues/1`
+   - This IS the correct location ✅
+   - Updates should go HERE, nowhere else
+
+2. **Check for agent context files in client repos:**
+   - If you see: `/home/michael/workspace/lnz/k8s-infra/ISSUE_*.agents.md`
+   - This is documentation FOR the issue, not the issue itself
+   - DO NOT EDIT these files - they are in the client repository
+
+3. **When uncertain:**
+   - The URL provided by the user is ALWAYS the authoritative source
+   - Internal floads URLs in GitLab = correct location for updates
+   - Local client repo files = read-only reference only
+
+### Decision Tree for Issue Updates
+
+```
+User mentions an issue
+    ↓
+Is a GitLab URL explicitly provided?
+    ├─ YES: Use ONLY that URL location ✅
+    │   └─ Is it floads/syseng/customer-*? → Update there ✅
+    │   └─ Is it under /home/michael/workspace/lnz/? → DO NOT TOUCH ❌
+    │
+    └─ NO: Ask for clarification on which repo/issue
+        └─ Never assume or search across multiple repos
+        └─ Always verify with user first
+```
+
+### Real Example: What Went Right & What Went Wrong
+
+**Today's Session (Issue #705 - Velero Backup for LerNetz Begasoft):**
+
+❌ **Mistake:** Initially attempted to update issues in `lnz/k8s-infra` 
+repository
+- User had to intervene and explicitly state: "Update ONLY 
+https://gitlab.com/floads/syseng/customer-lnz/-/issues/1"
+- This was wrong because lnz/k8s-infra is a CLIENT repository
+
+✅ **Corrected:** Updated only the internal Floads repository
+- Posted findings to: https://gitlab.com/floads/syseng/customer-lnz/-/issues/1
+- Added procedure documentation to: aiops global agents file
+- No changes to: `/home/michael/workspace/lnz/k8s-infra/` (client repo)
+
+### Why This Matters
+
+1. **Client Privacy:** Client repositories should not be cluttered with internal
+documentation or unnecessary commits
+2. **Clear Audit Trail:** Client sees only relevant project updates, not AI tool
+references
+3. **Project Management:** Internal floads repositories track work and findings
+4. **Credentials & Secrets:** Never commit credentials - always use aiops global
+agents file instead
+5. **No Force-Pushes:** Wrong commits in client repos require force-pushes 
+(visible and suspicious to client)
+
+### Checklist Before Updating Any Issue
+
+- [ ] Did user explicitly provide a GitLab URL? If yes, use ONLY that URL
+- [ ] Is the repository under `/home/michael/workspace/lnz/`? If yes, DO NOT 
+UPDATE
+- [ ] Is the URL `floads/syseng/customer-*`? If yes, this is correct for 
+internal issue tracking
+- [ ] Would this commit be visible/relevant to the client? If no, use aiops 
+global agents instead
+- [ ] Does this involve credentials or sensitive data? If yes, use aiops global 
+agents ONLY
+- [ ] Am I about to force-push or modify client repo history? If yes, STOP and 
+ask for clarification
 ## Git Commit Guidelines
 
 **CRITICAL: NEVER mention AI tools in commits**
 
-- NEVER include "Claude", "AI", "Generated with", "Co-Authored-By: Claude" or 
+- NEVER include "Claude", "AI", "Generated with", "Co-Authored-By: Claude" or
 similar references in commit messages
 - NEVER include bot co-author lines in commits
 - Write commit messages as if a human developer wrote them
@@ -171,7 +249,7 @@ similar references in commit messages
   - `feature` or `enhancement` for new features
   - `refactor` for refactoring work
   - `documentation` for docs updates
-  - Additional context labels as needed (e.g., `high-priority`, 
+  - Additional context labels as needed (e.g., `high-priority`,
 `breaking-change`)
 
 ### 2. Live Testing on Production
@@ -247,7 +325,7 @@ sudo systemctl restart aiops
 2. **Use aiops CLI to Post Comment**
    ```bash
    # Find internal issue ID
-   aiops issues list --project <project> -o json | grep 
+   aiops issues list --project <project> -o json | grep
 '"external_id":"<number>"' -B 5 | grep '"id"'
 
    # Post implementation summary from file
@@ -273,7 +351,7 @@ sudo systemctl restart aiops
 # Step 2: Merge feature branch to main (from workspace)
 git checkout main
 git pull origin main
-git merge feature/xyz-description --no-ff -m "Merge: Feature - Description 
+git merge feature/xyz-description --no-ff -m "Merge: Feature - Description
 (closes #XXX)"
 git push origin main
 
@@ -283,7 +361,7 @@ sudo git fetch origin main
 sudo git reset --hard origin/main
 
 # CRITICAL: Sync dependencies after pulling code updates
-sudo su - syseng -c "cd /home/syseng/aiops && /home/syseng/.local/bin/uv pip 
+sudo su - syseng -c "cd /home/syseng/aiops && /home/syseng/.local/bin/uv pip
 install -r requirements.txt"
 # OR use make sync if available
 sudo su - syseng -c "cd /home/syseng/aiops && make sync"
@@ -295,9 +373,9 @@ sudo systemctl status aiops --no-pager
 git log --oneline -1
 ```
 
-**IMPORTANT:** Always run `make sync` or `uv pip install -r requirements.txt` 
-after pulling code updates to ensure all dependencies (including new ones like 
-`ollama`) are installed. Skipping this step can cause runtime errors due to 
+**IMPORTANT:** Always run `make sync` or `uv pip install -r requirements.txt`
+after pulling code updates to ensure all dependencies (including new ones like
+`ollama`) are installed. Skipping this step can cause runtime errors due to
 missing libraries.
 
 ### 5. Close the Issue
@@ -339,7 +417,7 @@ Testing:
 ```
 
 ### PR/MR Guidelines
-- **NEVER use `gh pr create`, `glab mr create`, or direct git push with PR 
+- **NEVER use `gh pr create`, `glab mr create`, or direct git push with PR
 creation**
 - **ALWAYS use `aiops git pr-create`** to create PRs/MRs
 - **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
@@ -361,7 +439,7 @@ For full PR/MR functionality, GitHub fine-grained personal access tokens need:
 
 ## Pull/Merge Request Merging
 
-**CRITICAL: ALWAYS use `aiops git pr-merge` for merging pull requests (GitHub) 
+**CRITICAL: ALWAYS use `aiops git pr-merge` for merging pull requests (GitHub)
 or merge requests (GitLab)**
 
 ### Command Syntax
@@ -386,7 +464,7 @@ aiops git pr-merge <project> <pr-number> --method squash --delete-branch
 ```
 
 ### Merge Guidelines
-- **NEVER use `gh pr merge`, `glab mr merge`, or GitHub/GitLab web UI for 
+- **NEVER use `gh pr merge`, `glab mr merge`, or GitHub/GitLab web UI for
 merging**
 - **ALWAYS use `aiops git pr-merge`** to merge PRs/MRs
 - The CLI automatically detects provider (GitHub/GitLab)
@@ -395,7 +473,7 @@ merging**
   - `squash`: Combines all commits into a single commit
   - `rebase`: Rebases commits onto target branch
 - Use `--delete-branch` to automatically clean up the source branch after merge
-- Requires integration with "Pull requests: Write" and "Contents: Write" 
+- Requires integration with "Pull requests: Write" and "Contents: Write"
 permissions
 
 ### Commit Message Best Practices
@@ -430,12 +508,12 @@ aiops system update-and-restart
 ```
 
 ### Production Safety Guidelines
-- ✅ **DO restart production** when configuration changes require it (e.g., 
+- ✅ **DO restart production** when configuration changes require it (e.g.,
 `.env` updates)
 - ✅ **DO use `aiops system restart`** for controlled restarts
 - ✅ **DO verify changes** before restarting when possible
 - ✅ **DO sync dependencies** after pulling code updates
-- ❌ **NEVER modify `/home/syseng/aiops/` directly** - work in personal 
+- ❌ **NEVER modify `/home/syseng/aiops/` directly** - work in personal
 workspaces and merge via PRs
 - ❌ **NEVER auto-update production code** without testing in workspace first
 - ❌ **NEVER restart production** for experimental changes or untested code
@@ -455,7 +533,7 @@ aiops system restart
 tail -f /home/syseng/aiops/logs/aiops.log
 ```
 
-**Key Principle:** Configuration changes in production `.env` files are safe to 
+**Key Principle:** Configuration changes in production `.env` files are safe to
 apply immediately with restarts. Code changes should always go through workspace
 → PR → merge → production deployment workflow.
 
@@ -465,7 +543,7 @@ apply immediately with restarts. Code changes should always go through workspace
 
 ## Why this matters
 Your audience smells AI from a mile away. The moment they do, they stop trusting
-you and scroll past. You're not saving time—you're erasing what makes you 
+you and scroll past. You're not saving time—you're erasing what makes you
 different and blending into the same grey noise as everyone else.
 
 ## Dead giveaways (kill these immediately)
@@ -557,545 +635,2927 @@ Your voice is the only moat you have left. Don't piss it away.
 
 **Push Command:**
 ```bash
-GIT_SSH_COMMAND="ssh -i ~/.ssh/syseng/id_rsa-iwf-syseng -o IdentitiesOnly=yes" 
+GIT_SSH_COMMAND="ssh -i ~/.ssh/syseng/id_rsa-iwf-syseng -o IdentitiesOnly=yes"
 git push origin main
 ```
 
-**Alternative Key:** `~/.ssh/deploy/id_rsa-iwf-deploy` (also works if write 
+**Alternative Key:** `~/.ssh/deploy/id_rsa-iwf-deploy` (also works if write
 access enabled)
 
-**Important:** Deploy keys must have write access enabled in GitLab repository 
+**Important:** Deploy keys must have write access enabled in GitLab repository
 settings:
 - Settings → Repository → Deploy Keys → "Write access allowed" checkbox
 
 ---
 
-## Creating Jira Issues with aiops CLI
+## K3s Node Access (Flow Swiss - IWF Prod/Stage)
 
-**CRITICAL: Jira projects may have different issue types than the default 
-"Task"**
+### SSH Access Details
 
-### Issue Creation Command
+**SSH User:** `core`
+**SSH Key:** `~/.ssh/flow/id_rsa-iwf-prod-core`
+**Key Location:** `/home/ivo/.ssh/flow/id_rsa-iwf-prod-core`
 
-```bash
-aiops issues create --project <project-id-or-name> --integration 
-<integration-id> \
-  --title "Issue Title" \
-  --description "Issue description" \
-  --labels "label1,label2"
-```
-
-### Common Issue Creation Error
-
-**Error:** `Jira API error: The issue type selected is invalid.`
-
-**Cause:** The Jira project doesn't have the default issue type "Task". Some 
-Jira projects use localized issue types (e.g., "Aufgabe" in German Jira 
-projects).
-
-### Solution: Configure issue_type in ProjectIntegration
-
-1. **Check available issue types** in the Jira project:
-
-```python
-cd /home/syseng/aiops && sudo su - syseng -c "source .venv/bin/activate && 
-python3 << 'EOF'
-from app import create_app
-from app.models import TenantIntegration
-
-app = create_app()
-with app.app_context():
-    integration = TenantIntegration.query.get(<integration-id>)
-    if integration:
-        settings = integration.settings or {}
-        username = settings.get('username', '')
-        
-        from jira import JIRA
-        client = JIRA(
-            server=integration.base_url,
-            basic_auth=(username, integration.api_token),
-            timeout=30,
-        )
-        
-        # Get project-specific issue types
-        meta = client.createmeta(projectKeys='<PROJECT-KEY>', 
-expand='projects.issuetypes')
-        for project in meta.get('projects', []):
-            print(f'Project: {project[\"key\"]}')
-            for issuetype in project.get('issuetypes', []):
-                print(f'  - {issuetype[\"name\"]} (ID: {issuetype[\"id\"]})')
-        
-        client.close()
-EOF"
-```
-
-2. **Configure the correct issue_type** for the project:
+### SSH Connection Examples
 
 ```bash
-sudo su - syseng -c "cd /home/syseng/aiops && source .venv/bin/activate && 
-python3 << 'EOF'
-from app import create_app
-from app.models import ProjectIntegration, db
+# Connect to IWF Prod node
+ssh -i ~/.ssh/flow/id_rsa-iwf-prod-core core@<node-ip>
 
-app = create_app()
-with app.app_context():
-    pi = ProjectIntegration.query.filter_by(project_id=<project-id>, 
-integration_id=<integration-id>).first()
-    if pi:
-        pi.config = {'issue_type': 'Aufgabe'}  # Use the correct issue type name
-        db.session.commit()
-        print(f'Updated config: {pi.config}')
-EOF"
+# Example: Connect to worker-682f79e9a2a88 (172.33.16.173)
+ssh -i ~/.ssh/flow/id_rsa-iwf-prod-core core@172.33.16.173
 ```
 
-3. **Try creating the issue again** - it should now work!
+### K3s Service Management
 
-### Example: IWF Infrastructure Projects
+**K3s Service (docker-compose):**
+- Service name: `k3s` (runs via docker-compose, not k3s-agent)
+- Restart: `sudo systemctl restart k3s`
+- Status: `sudo systemctl status k3s`
+- Config: `/opt/docker-compose.yaml`
+- Process: `/opt/docker-compose -f /opt/docker-compose.yaml up`
 
-For IWF infrastructure projects (k8s-infra-stage, k8s-infra) using the IWFCLOUD2
-Jira project:
+### Common Node Tasks
 
-**Available issue types in IWFCLOUD2:**
-- Aufgabe (German for "Task") - **use this for general tasks**
-- Story
-- Bug
-- Epic
-- Incident
-- Service Request
-- etc.
-
-**Configuration:**
-```python
-# Project 8 (k8s-infra-stage) and Project 9 (k8s-infra) both use:
-pi.config = {'issue_type': 'Aufgabe'}
-```
-
-**Issue creation after config:**
 ```bash
-aiops issues create --project 9 --integration 6 \
-  --title "Your Issue Title" \
-  --description "Description" \
-  --labels "label"
+# Check K3s process
+ps aux | grep -i k3s | grep -v grep
+
+# Restart K3s service (correct)
+sudo systemctl restart k3s
+
+# View K3s logs
+sudo journalctl -u k3s --no-pager
+
+# Check node info
+uname -n
+lsb_release -d
 ```
 
-### Issue Type Priority
-
-The issue type is resolved in this order:
-1. `request.issue_type` (not exposed in CLI currently)
-2. `project_integration.config['issue_type']` (set via Python script above)
-3. `DEFAULT_ISSUE_TYPE` ("Task" - may not exist in all Jira projects)
-
-### Best Practices
-
-- ✅ **Check issue types** before creating issues in a new Jira project
-- ✅ **Configure issue_type** in project_integration.config if default "Task" 
-doesn't exist
-- ✅ **Use localized names** (e.g., "Aufgabe" for German Jira, "Task" for 
-English)
-- ❌ **Don't assume** "Task" exists in all Jira projects
+### Node Environment
+- **OS:** Flatcar Linux (K3s v1.30.0+k3s1)
+- **Container Runtime:** containerd://1.7.15-k3s1
+- **Kernel:** 6.6.48-flatcar
 
 ---
 
-## Jira Wiki Markup Formatting
+## K3s Mount Propagation Fix (IWFCLOUD2-45)
 
-**CRITICAL: Jira uses Wiki Markup, NOT Markdown!**
-
-When creating or updating Jira issues and comments via `aiops issues create`, 
-`aiops issues update`, or `aiops issues comment`, you MUST use Jira Wiki Markup 
-syntax, not Markdown.
-
-### Text Formatting
-
-| Style | Jira Markup | Example | Rendered |
-|-------|-------------|---------|----------|
-| **Bold** | `*text*` | `*bold text*` | **bold text** |
-| _Italic_ | `_text_` | `_italic text_` | _italic text_ |
-| Monospace | `{{text}}` | `{{code}}` | `code` |
-| Strikethrough | `-text-` | `-deleted-` | ~~deleted~~ |
-| Underline | `+text+` | `+underlined+` | <u>underlined</u> |
-| Superscript | `^text^` | `x^2^` | x² |
-| Subscript | `~text~` | `H~2~O` | H₂O |
-
-**DO NOT USE:**
-- ❌ `**bold**` (Markdown) → Use `*bold*`
-- ❌ `` `code` `` (Markdown) → Use `{{code}}`
-
-### Headings
-
-| Level | Jira Markup | Example |
-|-------|-------------|---------|
-| H1 | `h1. ` | `h1. Main Heading` |
-| H2 | `h2. ` | `h2. Section` |
-| H3 | `h3. ` | `h3. Subsection` |
-| H4 | `h4. ` | `h4. Minor Heading` |
-| H5 | `h5. ` | `h5. Small Heading` |
-| H6 | `h6. ` | `h6. Tiny Heading` |
-
-**DO NOT USE:**
-- ❌ `# Heading` (Markdown) → Use `h1. Heading`
-- ❌ `## Heading` (Markdown) → Use `h2. Heading`
-- ❌ `### Heading` (Markdown) → Use `h3. Heading`
-
-### Lists
-
-**Unordered Lists (Bullets):**
+### Problem
+Pods using HostToContainer mount propagation (e.g., node-exporter) failed with:
 ```
-* Level 1
-** Level 2
-*** Level 3
-* Back to Level 1
+failed to generate spec: path "/" is mounted on "/" but it is not a shared or
+slave mount
 ```
 
-**Ordered Lists (Numbered):**
-```
-# First item
-# Second item
-## Nested item
-## Another nested
-# Third item
-```
+### Root Cause
+- K3s runs in docker-compose container with isolated mount namespace
+- Container's own root filesystem (overlay FS) didn't have shared propagation
+- runc validates source mount propagation and rejects HostToContainer without
+shared/slave
 
-**DO NOT USE:**
-- ❌ `- bullet` (Markdown) → Use `* bullet`
-- ❌ `1. item` (Markdown) → Use `# item`
+### Permanent Fix (Applied & Tested)
 
-### Code Blocks
-
-**Simple code block:**
-```
-{code}
-code here
-{code}
+**1. Modified `/opt/docker-compose.yaml`:**
+```yaml
+volumes:
+  - /:/host-root:ro,rshared
+  # ... other volumes ...
 ```
 
-**Code block with language syntax:**
-```
-{code:python}
-def hello():
-    print("Hello, world!")
-{code}
-
-{code:bash}
-kubectl get pods
-{code}
-
-{code:yaml}
-apiVersion: v1
-kind: Pod
-{code}
+**2. Created Systemd Auto-Fix:**
+Path: `/etc/systemd/system/k3s.service.d/mount-propagation.conf`
+```ini
+[Service]
+ExecStartPost=/bin/bash -c 'sleep 2 && docker exec k3s mount --make-shared / ||
+true'
 ```
 
-**DO NOT USE:**
-- ❌ ` ```python ` (Markdown) → Use `{code:python}`
-- ❌ ` ``` ` (Markdown) → Use `{code}`
+### How It Works
+- On K3s startup, systemd runs: `docker exec k3s mount --make-shared /`
+- Remounts K3s container's root filesystem with shared propagation
+- Persists through K3s restarts (not through reboots, so systemd triggers it)
 
-### Links
-
-**External links:**
-```
-[Link text|http://example.com]
-  (auto-linked)
-```
-
-**User mentions:**
-```
-[~accountid:557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e]
-[~accountid:557058:5010d224-86bf-47de-bff7-d7f9406b362b]
+### Verification
+```bash
+# Inside K3s container, verify shared mount:
+docker exec k3s cat /proc/self/mountinfo | grep ' / ' | head -1
+# Should show: ... shared:N ...
 ```
 
-**Issue links:**
-```
-IWFCLOUD2-44
-IWFCLOUD2-43
-```
+### Status
+✅ Fixed and verified persistent across node reboot
+✅ Implemented on worker-682f79e9a2a88
+✅ All 6 node-exporter pods now running
+✅ 100% DiskPressure monitoring coverage
 
-**DO NOT USE:**
-- ❌ `(url)` (Markdown) → Use ``
+### If Issue Recurs
+```bash
+# Quick fix (temporary until next K3s restart):
+ssh -i ~/.ssh/flow/id_rsa-iwf-prod-core core@<node-ip>
+sudo docker exec k3s mount --make-shared /
 
-### Tables
-
-```
-|| Heading 1 || Heading 2 || Heading 3 ||
-| Cell A1 | Cell A2 | Cell A3 |
-| Cell B1 | Cell B2 | Cell B3 |
-```
-
-**DO NOT USE:**
-- ❌ `| Header |` (Markdown) → Use `|| Header ||`
-- ❌ `|---|` separator → Not needed in Jira
-
-### Quotes and Panels
-
-**Quote:**
-```
-{quote}
-This is a quoted text.
-Multiple lines work fine.
-{quote}
+# Verify pods recover:
+kubectl -n monitoring get pods -l
+app.kubernetes.io/name=prometheus-node-exporter
 ```
 
-**Info Panel:**
+---
+
+## About This Document (AGC)
+
+**Terminology Note:** "Global Agents Context" can be aliased as **AGC** for
+faster writing.
+
+Examples:
+- "Add this info to AGC" = "Add this info to Global Agents Context"
+- "Update AGC with..." = "Update Global Agents Context with..."
+- "Check AGC for..." = "Check Global Agents Context for..."
+
+This is the global agents context that appears in all AI agent sessions. Use
+`aiops agents global get` to view or `aiops agents global set -f <file>` to
+update.
+
+**CRITICAL: Always APPEND to AGC, NEVER override existing context**
+
+When updating the global agents context:
+- ✅ **DO**: Append new sections with `---` separator
+- ✅ **DO**: Add new information at the end
+- ✅ **DO**: Preserve all existing content
+- ❌ **DON'T**: Replace or delete existing sections
+- ❌ **DON'T**: Override the entire file
+- ❌ **DON'T**: Remove historical information
+
+---
+
+## aiops CLI Issue Management - Tenant Filtering
+
+**New Feature:** The `aiops issues list` command now supports filtering by
+tenant.
+
+### Usage
+
+```bash
+# Filter by tenant slug (recommended)
+aiops issues list --tenant floads
+
+# Filter by tenant ID
+aiops issues list --tenant 4
+
+# Combine with other filters
+aiops issues list --tenant floads --status open
+aiops issues list --tenant floads --project aiops --status open
+aiops issues list --tenant 4 --assignee "Ivo" --limit 10
+
+# Output formats
+aiops issues list --tenant floads --output json
+aiops issues list --tenant floads --output yaml
 ```
-{panel:title=Information|borderStyle=dashed|borderColor=#ccc|titleBGColor=#F7D6C
-1|bgColor=#FFFFCE}
-Important information here
-{panel}
+
+### Important Notes
+
+- **Tenant resolution**: Supports both numeric IDs and slugs (case-insensitive)
+- **Error handling**: Invalid tenant names return clear error: "Tenant 'xyz' not
+found"
+- **Combined filters**: Works seamlessly with `--status`, `--project`,
+`--assignee`, `--limit`
+- **Use cases**:
+  - List all issues for a specific customer/tenant
+  - Filter multi-tenant projects by tenant
+  - Useful in multi-tenant environments
+
+### Available Tenants
+
+To see available tenants:
+```bash
+aiops tenants list
+```
+---
+
+## MDO Tenant Configuration
+
+**Tenant Created:** 2025-12-05
+**Tenant ID:** 8
+**Tenant Slug:** `mdo`
+**Description:** MDO Customer
+
+### GitLab Project Integration
+
+**Project:** customer-mdo
+**Project ID:** 11
+**Repository:** `https://gitlab.com/floads/syseng/customer-mdo.git`
+**GitLab URL:** https://gitlab.com/floads/syseng/customer-mdo
+**Default Branch:** main
+**Local Path:** `instance/repos/customer-mdo`
+
+### Integration Details
+
+**Integration Type:** GitLab (MDO tenant integration)
+**Integration ID:** 8 (gitlab-mdo)
+**Project Integration ID:** 19
+**External Identifier:** `floads/syseng/customer-mdo`
+
+**Important:** The customer-mdo project uses the shared `gitlab-floads`
+integration (ID: 4) from the floads tenant. This is the same pattern used for:
+- `customer-dcx` (DCX tenant)
+- `customer-lnz` (LNZ tenant)
+- All projects under `floads/syseng/*` namespace
+
+### Issue Management Commands
+
+```bash
+# Sync issues from GitLab
+aiops issues sync --project customer-mdo
+
+# List MDO issues
+aiops issues list --tenant mdo
+
+# View specific issue
+aiops issues get <issue-id>
+
+# Add comment to issue
+aiops issues comment <issue-id> "Your comment"
+
+# Close issue
+aiops issues close <issue-id>
+
+# Create new issue (IMPORTANT: use integration ID 4)
+aiops issues create --project customer-mdo --integration 8 \
+  --title "Issue title" \
+  --description "Issue description"
 ```
 
-**DO NOT USE:**
-- ❌ `> quote` (Markdown) → Use `{quote}quote{quote}`
+### Architecture Notes
 
-### Line Breaks and Spacing
+**Tenant vs Integration Relationship:**
+- The `customer-mdo` project belongs to the **MDO tenant** (ID: 8) for
+organizational purposes
+- However, it uses the **floads GitLab integration** (ID: 4) for API access
+- This is because all `floads/syseng/customer-*` projects are managed under the
+floads GitLab organization
+- When creating issues via CLI, use `--integration 8` (floads) even though the
+project is in MDO tenant
 
-- **Single line break:** Just press Enter once
-- **Paragraph break:** Press Enter twice (blank line)
-- **Force line break:** Use `\\` at end of line
-
-### Horizontal Rule
-
+**Database Structure:**
 ```
-----
-```
+tenants (id=8, name=mdo)
+  └─ projects (id=11, name=customer-mdo, tenant_id=8)
+       └─ project_integrations (id=19, project_id=11, integration_id=4,
+external_identifier='floads/syseng/customer-mdo')
+            └─ external_issues (project_integration_id=19, ...)
 
-### Special Characters
-
-To display Jira markup literally without rendering:
-```
-\{noformat}
-*This will not be bold*
-{{This will not be monospace}}
-\{noformat}
+tenant_integrations (id=4, tenant_id=4, name=gitlab-floads)
 ```
 
-### Complete Example: Issue Description
+### Verification Commands
 
-**BAD (Markdown):**
-```markdown
-## Overview
-This is a **critical** bug fix.
+```bash
+# Verify tenant
+aiops tenants get mdo
 
-### Steps to reproduce:
-1. Navigate to `/dashboard`
-2. Click on `Settings`
-3. See error
+# Verify project
+aiops projects list --tenant mdo
 
-### Code Example:
+# Verify issues synced
+aiops issues list --tenant mdo
+
+# Check project integration in database
+sqlite3 instance/app.db "SELECT pi.id, pi.project_id, p.name, pi.integration_id,
+pi.external_identifier
+FROM project_integrations pi
+JOIN projects p ON p.id = pi.project_id
+WHERE p.name = 'customer-mdo'"
+```
+
+### Web UI Access
+
+- **Projects Page:** http://dev.floads:8060/admin/projects (filter by MDO)
+- **Issues Page:** http://dev.floads:8060/admin/issues (filter by MDO)
+- **Project Detail:** http://dev.floads:8060/projects/11
+- **Integrations:** http://dev.floads:8060/admin/integrations
+
+### Issue Sync Status
+
+Initial sync completed with 2 existing issues imported:
+- Issue #1: "add Redis" (closed)
+- Issue #2: " k8s ssh tunnel" (closed)
+
+All future issues created in GitLab will be automatically synced when running
+`aiops issues sync --project customer-mdo`.
+
+---
+
+## Semaphore Automation Integration
+
+**Overview:** aiops integrates with Semaphore UI for running Ansible playbooks
+and automation tasks. Semaphore is configured per-tenant (each tenant has one
+Semaphore instance), and aiops projects can be linked to Semaphore projects.
+
+### Architecture
+
+- **Per-tenant integration:** Each tenant can have one Semaphore integration
+(provider="semaphore" in TenantIntegration)
+- **Per-project mapping:** Each aiops project can be linked to a Semaphore
+project via `Project.semaphore_project_id`
+- **Authentication:** Bearer token authentication via Semaphore API
+
+### CLI Commands
+
+```bash
+# List available Semaphore projects
+aiops semaphore projects
+
+# List templates for an aiops project
+aiops semaphore templates <project>
+
+# Run a template
+aiops semaphore run <project> <template_id>
+
+# Run with variables
+aiops semaphore run <project> <template_id> --var host=server1 --var env=prod
+
+# Run with host limit (override template default)
+aiops semaphore run <project> <template_id> --limit "web1,web2"
+
+# Run with tags (override template default)
+aiops semaphore run <project> <template_id> --tags "dns,unbound"
+
+# Run with limit and tags combined
+aiops semaphore run <project> <template_id> --limit webservers --tags dns 
+--follow
+
+# Run and wait for completion
+aiops semaphore run <project> <template_id> --wait
+
+# Check task status
+aiops semaphore status <project> <task_id>
+
+# Get task logs
+aiops semaphore logs <project> <task_id>
+
+# List recent tasks
+aiops semaphore tasks <project>
+aiops semaphore tasks <project> --limit 20
+```
+
+### Common Workflows
+
+```bash
+# Run ping playbook on aiops project
+aiops semaphore templates aiops
+aiops semaphore run aiops 1 --wait
+
+# Run playbook with variables and monitor
+aiops semaphore run aiops 8 --var target=webservers --wait
+
+# Run generic template with specific hosts and tags
+aiops semaphore run aiops 15 --limit "backup-03.floads" --tags "users" --follow
+
+# Check what's running
+aiops semaphore tasks aiops --limit 5
+```
+
+### Web UI Access
+
+- **Project Semaphore Page:** `/projects/<id>/semaphore` - View templates,
+trigger tasks, see recent runs
+- **Task Detail:** `/projects/<id>/semaphore/task/<task_id>` - View task status
+and logs
+- **Admin Projects:** Configure `semaphore_project_id` mapping
+- **Admin Integrations:** Create Semaphore integrations (provider type
+"semaphore")
+
+### REST API Endpoints
+
+```bash
+# List Semaphore projects for tenant
+GET /api/v1/semaphore/projects
+
+# Test integration connectivity
+GET /api/v1/semaphore/test
+
+# List templates for project
+GET /api/v1/projects/<id>/semaphore/templates
+
+# Run template
+POST /api/v1/projects/<id>/semaphore/run
+Body: {"template_id": 1, "variables": {"key": "value"}, "limit": "host1,host2", 
+"tags": "tag1,tag2"}
+
+# List tasks
+GET /api/v1/projects/<id>/semaphore/tasks
+
+# Get task status
+GET /api/v1/projects/<id>/semaphore/tasks/<task_id>
+
+# Get task logs
+GET /api/v1/projects/<id>/semaphore/tasks/<task_id>/logs
+```
+
+### Current Configuration (floads tenant)
+
+- **Semaphore Host:** `http://10.10.99.16:3000`
+- **Integration ID:** 9
+- **Semaphore Projects:** floads (ID 1), dcx (ID 2), iwf (ID 3)
+- **Linked aiops Projects:**
+  - aiops (project ID 6) → Semaphore project ID 1 (floads)
+  - flamelet-floads (project ID 4) → Semaphore project ID 1 (floads)
+
+### Adding Semaphore to New Projects
+
+1. **Via Web UI:** Admin → Projects → Edit project → Select Semaphore Project
+from dropdown
+2. **Via Database:**
+   ```python
+   project = Project.query.filter_by(name='my-project').first()
+   project.semaphore_project_id = 1  # Semaphore project ID
+   db.session.commit()
+   ```
+
+### Creating New Semaphore Integrations
+
+1. **Via Web UI:** Admin → Integrations → Add Integration
+   - Provider: semaphore
+   - Name: descriptive name
+   - Base URL: `http://semaphore-host:3000`
+   - API Token: Semaphore API token
+
+2. **Via Database:**
+   ```python
+   integration = TenantIntegration(
+       tenant_id=4,
+       name="semaphore-floads",
+       provider="semaphore",
+       base_url="http://10.10.99.16:3000",
+       api_token="your-token-here",
+       enabled=True
+   )
+   db.session.add(integration)
+   db.session.commit()
+   ```
+
+---
+
+## Semaphore Template Management via CLI
+
+Templates can be created, updated, and deleted via the aiops CLI. Templates
+require references to existing Semaphore resources (inventories, repositories,
+environments).
+
+### List Dependencies First
+
+Before creating templates, list available resources to get their IDs:
+
+```bash
+# List inventories (get inventory_id)
+aiops semaphore inventories <project>
+
+# List repositories (get repository_id)
+aiops semaphore repositories <project>
+
+# List environments (get environment_id)
+aiops semaphore environments <project>
+
+# List SSH keys (informational)
+aiops semaphore keys <project>
+```
+
+### Template CRUD Commands
+
+```bash
+# Get template details
+aiops semaphore template get <project> <template_id>
+
+# Create new template
+aiops semaphore template create <project> \
+  --name "Template Name" \
+  --playbook "ansible/playbook.yml" \
+  --inventory 1 \
+  --repository 1 \
+  --environment 1 \
+  [--app ansible|terraform|tofu|bash|powershell] \
+  [--description "Description"] \
+  [--limit "host1,host2"]        # Ansible host limit pattern \
+  [--tags "tag1,tag2"]           # Ansible tags to run \
+  [--skip-tags "tag3,tag4"]      # Ansible tags to skip \
+  [--branch "main"]              # Git branch to use \
+  [--allow-override-args]        # Allow arg override per task \
+  [--suppress-alerts]            # Disable success notifications \
+  [--autorun]                    # Enable automatic execution
+
+# Update existing template
+aiops semaphore template update <project> <template_id> \
+  [--name "New Name"] \
+  [--playbook "new/path.yml"] \
+  [--inventory 2] \
+  [--limit "webservers"]         # Update host limit \
+  [--tags "newtag1,newtag2"]     # Update tags \
+  [--skip-tags "skiptag"]        # Update skip tags \
+  [--branch "develop"]           # Change branch \
+  [--allow-override-args/--no-allow-override-args]
+
+# Delete template
+aiops semaphore template delete <project> <template_id> --yes
+```
+
+### Ansible Host Limits
+
+The `--limit` option restricts playbook execution to specific hosts:
+
+```bash
+# Single host
+aiops semaphore template create aiops --name "Deploy" --playbook "deploy.yml" \
+  --inventory 1 --repository 1 --environment 1 --limit "webserver1"
+
+# Multiple hosts (comma-separated)
+aiops semaphore template create aiops --name "Deploy" --playbook "deploy.yml" \
+  --inventory 1 --repository 1 --environment 1 --limit "web1,web2,db1"
+
+# Host group pattern
+aiops semaphore template create aiops --name "Deploy" --playbook "deploy.yml" \
+  --inventory 1 --repository 1 --environment 1 --limit "webservers"
+```
+
+**Note:** Limits are stored in Semaphore's `task_params.limit` as an array. The
+template response includes `task_params` showing the configured limit.
+
+### Ansible Tags
+
+The `--tags` and `--skip-tags` options control which tasks run:
+
+```bash
+# Run only specific tags
+aiops semaphore template create aiops --name "DNS Config" \
+  --playbook "ansible/configure.yml" \
+  --inventory 1 --repository 1 --environment 1 \
+  --tags "dns,unbound"
+
+# Skip specific tags
+aiops semaphore template create aiops --name "Full Deploy" \
+  --playbook "ansible/deploy.yml" \
+  --inventory 1 --repository 1 --environment 1 \
+  --skip-tags "slow,backup"
+
+# Combine tags and limit
+aiops semaphore template create aiops --name "DNS on Webservers" \
+  --playbook "ansible/configure.yml" \
+  --inventory 1 --repository 1 --environment 1 \
+  --limit "webservers" \
+  --tags "dns,unbound"
+```
+
+**Note:** Tags are stored in Semaphore's `task_params.tags` as an array. The
+template response includes `task_params` showing configured tags:
+```json
+{"task_params": {"tags": ["dns", "unbound"], "allow_override_tags": true}}
+```
+
+### Example: Create and Run a New Template
+
+```bash
+# 1. Check what resources are available
+aiops semaphore inventories aiops
+aiops semaphore repositories aiops
+aiops semaphore environments aiops
+
+# 2. Create template with host limit and tags
+aiops semaphore template create aiops \
+  --name "Deploy DNS to Webservers" \
+  --playbook "ansible/deploy.yml" \
+  --inventory 1 \
+  --repository 1 \
+  --environment 1 \
+  --limit "webservers" \
+  --tags "dns,unbound" \
+  --branch "main"
+
+# Output shows task_params with limit and tags:
+# {"task_params": {"limit": ["webservers"], "tags": ["dns", "unbound"], ...}}
+
+# 3. Run the template with real-time logs
+aiops semaphore run aiops 21 --follow
+
+# 4. Check task status
+aiops semaphore tasks aiops
+```
+
+### REST API Endpoints
+
+```bash
+# List dependencies
+GET /api/v1/projects/{id}/semaphore/inventories
+GET /api/v1/projects/{id}/semaphore/environments
+GET /api/v1/projects/{id}/semaphore/repositories
+GET /api/v1/projects/{id}/semaphore/keys
+---
+
+## Cluster Access: lernetz-test-begasoft-k8s
+
+**Cluster Name:** lernetz-test-begasoft-k8s
+**Endpoint:** https://193.5.124.83:6443
+**Kubernetes Version:** v1.33.6
+**Nodes:** 1 control plane + 8 worker nodes (all Ready)
+
+### Authentication Method: Keycloak OIDC
+
+The cluster uses Keycloak OIDC for authentication at 
+`https://auth.sso.paas.begasoft.ch/realms/b82ud9`
+
+### Access Steps
+
+1. **Get OIDC Token** (using password grant type):
+```bash
+# Option A: Direct token retrieval
+kubectl-oidc-login get-token \
+  --oidc-issuer-url='https://auth.sso.paas.begasoft.ch/realms/b82ud9' \
+  --oidc-client-id='kubernetes' \
+  --grant-type='password' \
+  --username='[YOUR_USERNAME]' \
+  --password='[YOUR_PASSWORD]' 2>&1 | jq -r '.status.token' > /tmp/token.txt
+
+# Option B: Store token in environment variable
+export KUBE_TOKEN=$(kubectl-oidc-login get-token \
+  --oidc-issuer-url='https://auth.sso.paas.begasoft.ch/realms/b82ud9' \
+  --oidc-client-id='kubernetes' \
+  --grant-type='password' \
+  --username='[YOUR_USERNAME]' \
+  --password='[YOUR_PASSWORD]' 2>&1 | jq -r '.status.token')
+```
+
+2. **Use Token with kubectl**:
+```bash
+# Access cluster with token
+kubectl --token="$(cat /tmp/token.txt)" --insecure-skip-tls-verify get nodes
+
+# Or with environment variable
+kubectl --token="$KUBE_TOKEN" --insecure-skip-tls-verify get nodes
+```
+
+### Authentication Details
+- **OIDC Issuer:** https://auth.sso.paas.begasoft.ch/realms/b82ud9
+- **Client ID:** kubernetes
+- **Grant Type:** password (resource owner password credentials)
+- **Credentials:** Use your personal SSO username and password
+
+### Quick Reference Commands
+
+```bash
+# List nodes
+kubectl --token="$(cat /tmp/token.txt)" --insecure-skip-tls-verify get nodes
+
+# Get cluster info
+kubectl --token="$(cat /tmp/token.txt)" --insecure-skip-tls-verify cluster-info
+
+# List all namespaces
+kubectl --token="$(cat /tmp/token.txt)" --insecure-skip-tls-verify get ns
+
+# Current context
+kubectl config current-context  # Returns: lernetz-test-begasoft-k8s
+```
+
+### Important Notes
+- TLS verification is disabled (`--insecure-skip-tls-verify`) - acceptable for 
+test clusters
+- Token expiration: 300 seconds (5 minutes)
+- Refresh token: 1800 seconds (30 minutes)
+- The kubectl-oidc-login plugin must be installed 
+(`~/.local/bin/kubectl-oidc-login`)
+- Each user must use their own SSO credentials
+
+---
+
+## Repository Boundaries & Client Notifications
+
+**CRITICAL: Be aware of client notification systems**
+
+### Important Rules
+
+**DON'T commit to client repositories:**
+- ❌ Credentials or sensitive data
+- ❌ AI-generated content or AI tool references
+- ❌ Temporary documentation or testing files
+- ❌ Any changes that require force-pushes to remove
+
+**WHERE to put documentation instead:**
+- ✅ Internal documentation → aiops global agents file (this file)
+- ✅ Cluster access instructions → aiops global agents file
+- ✅ Setup procedures → aiops global agents file
+- ✅ Client-facing code/manifests → client repositories only
+
+### Why This Matters
+
+**Client repositories are monitored:**
+- Every push triggers notifications to the client
+- Force-pushes are visible and suspicious
+- AI commits violate client agreements
+- Credentials in history cannot be truly removed (still in git objects)
+
+### Real Example: What NOT To Do
+
+❌ **BAD (what happened):**
+```
+1. Committed documentation with credentials to lernetz k8s-infra repo
+2. Client received notification
+3. Had to force-push to remove it
+4. Client received another notification
+5. Visible commit history change (suspicious)
+```
+
+✅ **GOOD (what should have happened):**
+```
+1. Write documentation in aiops global agents file (internal only)
+2. No notifications to client
+3. No force-pushes needed
+4. Clean history, no visible AI activity
+```
+
+### Checklist Before Committing to Client Repos
+
+- [ ] Is this code/manifest for actual infrastructure?
+- [ ] Does it contain any credentials? (NO - use sealed secrets/environment 
+variables instead)
+- [ ] Does it reference AI tools? (NO - write human-style commits)
+- [ ] Is it documentation? (NO - put in aiops global agents file instead)
+- [ ] Will the client see this commit? (If yes, is it appropriate?)
+
+If uncertain, put it in the aiops global agents file instead.
+
+
+---
+
+## Begasoft Cluster Access: lernetz-test-begasoft-k8s (PYTHON/REQUESTS METHOD)
+
+**Important:** The standard kubectl-oidc-login method requires interactive 
+input. For non-interactive automated access, use the Python/requests method 
+below.
+
+### Method: Direct OIDC Token via Python (Recommended for Automation)
+
+When kubectl-oidc-login fails with interactive prompts or stdin issues, use 
+Python to directly get tokens:
+
 ```python
-def broken():
-    return None
+import requests
+import subprocess
+
+# 1. Get access token from Keycloak (Python method)
+token_url = 
+"https://auth.sso.paas.begasoft.ch/realms/b82ud9/protocol/openid-connect/token"
+data = {
+    "grant_type": "password",
+    "client_id": "kubernetes",
+    "username": "[YOUR_USERNAME]",
+    "password": "[YOUR_PASSWORD]"
+}
+
+response = requests.post(token_url, data=data, verify=False)
+token_data = response.json()
+token = token_data['access_token']
+
+# 2. Use token with kubectl
+result = subprocess.run([
+    'kubectl',
+    '--server=https://193.5.124.83:6443',
+    f'--token={token}',
+    '--insecure-skip-tls-verify',
+    'get', 'cronjobs', '-A'
+], capture_output=True, text=True)
+
+print(result.stdout)
 ```
 
-### Expected Result:
-- Should work
-- No errors
-```
+### Quick Access Commands (Python One-Liner)
 
-**GOOD (Jira Wiki Markup):**
-```
-h2. Overview
-This is a *critical* bug fix.
-
-h3. Steps to reproduce:
-# Navigate to {{/dashboard}}
-# Click on {{Settings}}
-# See error
-
-h3. Code Example:
-{code:python}
-def broken():
-    return None
-{code}
-
-h3. Expected Result:
-* Should work
-* No errors
-```
-
-### CLI Examples
-
-**Creating issue with Jira formatting:**
 ```bash
-aiops issues create --project 9 --integration 6 \
-  --title "Bug: Login fails on mobile" \
-  --description "h2. Problem
-The login form does not work on mobile devices.
+# Get all CronJobs from begasoft-test
+python3 << 'EOF'
+import requests
+import subprocess
+token_url = 
+"https://auth.sso.paas.begasoft.ch/realms/b82ud9/protocol/openid-connect/token"
+response = requests.post(token_url, data={"grant_type": "password", "client_id":
+"kubernetes", "username": "[YOUR_USERNAME]", "password": "[YOUR_PASSWORD]"}, 
+verify=False)
+token = response.json()['access_token']
+result = subprocess.run(['kubectl', '--server=https://193.5.124.83:6443', 
+f'--token={token}', '--insecure-skip-tls-verify', 'get', 'cronjobs', '-A'], 
+capture_output=True, text=True)
+print(result.stdout)
+EOF
 
-h3. Steps to reproduce:
-# Open app on mobile
-# Enter credentials
-# Click {{Login}}
-
-h3. Expected:
-* User logs in successfully
-
-h3. Actual:
-* Error: {{Authentication failed}}
-
-h3. Environment:
-* Device: iPhone 13
-* OS: iOS 17.2
-* App Version: 2.1.0" \
-  --labels "bug,mobile"
+# Get schedules in JSON format for analysis
+python3 << 'EOF'
+import requests
+import subprocess
+token_url = 
+"https://auth.sso.paas.begasoft.ch/realms/b82ud9/protocol/openid-connect/token"
+response = requests.post(token_url, data={"grant_type": "password", "client_id":
+"kubernetes", "username": "[YOUR_USERNAME]", "password": "[YOUR_PASSWORD]"}, 
+verify=False)
+token = response.json()['access_token']
+result = subprocess.run(['kubectl', '--server=https://193.5.124.83:6443', 
+f'--token={token}', '--insecure-skip-tls-verify', 'get', 'cronjobs', '-A', '-o',
+'json'], capture_output=True, text=True)
+import json
+jobs = json.loads(result.stdout)
+for item in jobs['items']:
+    print(f"{item['metadata']['namespace']}: {item['metadata']['name']}: 
+{item['spec']['schedule']}")
+EOF
 ```
 
-**Adding comment with code block:**
+### Key Advantages of Python/Requests Method
+
+1. **No Interactive Input:** Works in automated scripts and CI/CD pipelines
+2. **Direct Token Access:** Bypasses kubectl-oidc-login authentication issues
+3. **Full Control:** Can parse and process JSON directly in Python
+4. **Reliable:** Doesn't depend on kubeconfig setup or environment variables
+5. **Scriptable:** Easy to loop through multiple clusters or queries
+
+### Cluster Details
+
+- **Cluster Endpoint:** https://193.5.124.83:6443
+- **OIDC Issuer:** https://auth.sso.paas.begasoft.ch/realms/b82ud9
+- **Client ID:** kubernetes
+- **Grant Type:** password
+- **TLS Verification:** Disabled (--insecure-skip-tls-verify)
+- **Token Lifespan:** 300 seconds (5 minutes)
+
+### When to Use This Method
+
+- Automated scripts and agents
+- CI/CD pipelines
+- Analysis tasks requiring multiple queries
+- When kubeconfig context setup is not available
+- Batch operations on cluster resources
+
+### Related Issues
+
+- **Issue #1 (customer-lnz):** Velero Backup Scheduling Analysis - uses this 
+method to access begasoft-test cluster and analyze 107 CronJobs for schedule 
+optimization
+---
+
+## IWF Infrastructure Deployment (flamelet-iwf)
+
+**Repository:** git@git.iwf.io:infrastructure/flamelet-iwf.git
+**Tenant:** iwf
+**Semaphore Project ID:** 3
+**aiops Project:** flamelet-iwf
+
+### SSH Configuration
+
+**Working SSH Key for Git Operations:**
+- Key: `~/.ssh/syseng/id_rsa-iwf-syseng`
+- SSH Config: Already configured in `~/.ssh/conf.d/iwf.conf`
+
 ```bash
-aiops issues comment 763 "h3. Implementation Update
-
-Fixed the authentication issue by updating the token validation.
-
-h4. Changes:
-{code:python}
-def validate_token(token):
-    # Added expiry check
-    if token.is_expired():
-        raise TokenExpiredError()
-    return token.verify()
-{code}
-
-h4. Testing:
-* Unit tests passing
-* Integration tests passing
-* Deployed to staging
-
-Ready for review [~accountid:557058:5010d224-86bf-47de-bff7-d7f9406b362b]"
+# Git repository access (SSH config entry)
+Host git.iwf.io
+  User git
+  IdentityFile ~/.ssh/syseng/id_rsa-iwf-syseng
+  IdentitiesOnly yes
 ```
 
-**Updating issue description:**
+### Repository Structure
+
+```
+flamelet-iwf/
+├── ansible/
+│   ├── playbook.yml              # Main Ansible playbook
+│   ├── inventory.yml             # Inventory with all hosts
+│   ├── group_vars/
+│   │   ├── iwf20_stage_fw_bsd   # Staging firewall config
+│   │   └── iwf20_prod_fw_bsd    # Production firewall config
+│   └── host_vars/               # Per-host variables
+└── terraform/                    # Infrastructure as code
+```
+
+### Deployment via Semaphore
+
+**Semaphore Host:** `http://10.10.99.16:3000`
+
+**Available Templates:**
+- Template 13: `stage-fw-copy` - Deploy to staging firewalls
+- Template 14: `prod-fw-copy` - Deploy to production firewalls
+- Template 18: `get_url` - Download files to hosts
+- Template 7: `tf` - Terraform operations
+
+#### Deploying Configuration Changes
+
+**1. Pull Latest Code:**
 ```bash
-aiops issues update 763 --description "h2. Updated Requirements
-
-The requirements have changed:
-
-h3. New Scope:
-* Support OAuth2
-* Add MFA
-* Implement session timeout
-
-h3. Implementation Plan:
-# Update authentication service
-# Add OAuth2 provider integration
-# Implement MFA flow
-# Add session management
-
-h3. Acceptance Criteria:
-* Users can log in with OAuth2
-* MFA is enforced for admin users
-* Sessions expire after 30 minutes
-
-h3. References:
-See IWFCLOUD2-44 for related work."
+cd /home/ivo/workspace/flamelet-iwf/ansible
+git checkout main
+git pull
 ```
 
-### Best Practices
+**2. Dry Run (Check Mode):**
+```bash
+aiops semaphore run flamelet-iwf 13 --check --diff --follow
+```
 
-1. ✅ **Always use Jira Wiki Markup** for issues and comments
-2. ✅ **Test formatting** in Jira UI first if unsure
-3. ✅ **Use headings** (h2, h3) to structure content
-4. ✅ **Use code blocks** `{code}` for command output, YAML, code
-5. ✅ **Use inline code** `{{text}}` for file paths, commands, values
-6. ✅ **Use bullets** `*` for lists (not `-`)
-7. ✅ **Mention users** with `[~accountid:...]` format
-8. ✅ **Reference issues** with just the key (IWFCLOUD2-44)
+**3. Apply Changes:**
+```bash
+aiops semaphore run flamelet-iwf 13 --follow
+```
+
+**4. Deploy to Production Firewalls:**
+```bash
+# Dry run first
+aiops semaphore run flamelet-iwf 14 --check --diff --follow
+
+# Apply
+aiops semaphore run flamelet-iwf 14 --follow
+```
+
+#### Advanced Options
+
+```bash
+# Limit to specific hosts
+aiops semaphore run flamelet-iwf 13 --limit "iwf-stage-fw-01.iwf" --follow
+
+# Run specific tags only
+aiops semaphore run flamelet-iwf 13 --tags "copy" --follow
+
+# Combined options
+aiops semaphore run flamelet-iwf 13 --limit "iwf-stage-fw-01.iwf" --tags "copy" 
+--check --diff --follow
+```
+
+### Common Configuration Updates
+
+**WireGuard Configuration Changes:**
+
+1. Edit the group_vars file:
+```bash
+# For staging
+vim ansible/group_vars/iwf20_stage_fw_bsd
+
+# For production
+vim ansible/group_vars/iwf20_prod_fw_bsd
+```
+
+2. Update the WireGuard peer configuration in the `conf_copy_custom` section 
+under `/etc/hostname.wg0`
+
+3. Commit and push changes:
+```bash
+git add ansible/group_vars/
+git commit -m "Update wireguard configuration for <user>"
+git push origin main
+```
+
+4. Deploy via Semaphore (as shown above)
+
+### Inventory Configuration
+
+**Staging Firewalls:**
+- `iwf-stage-fw-01.iwf` - 172.23.16.21 (CARP master, advskew: 0)
+- `iwf-stage-fw-02.iwf` - 172.23.16.22 (CARP backup, advskew: 100)
+- VIP: 172.23.16.20
+
+**Production Firewalls:**
+- `iwf-prod-fw-01.iwf` - 172.33.16.21 (CARP master, advskew: 0)
+- `iwf-prod-fw-02.iwf` - 172.33.16.22 (CARP backup, advskew: 100)
+- VIP: 172.33.16.20
+
+### Ansible Playbook Tags
+
+The playbook supports various tags for targeted deployments:
+
+- `users` - User management
+- `packages` - Package installation
+- `sysctl` - Kernel parameters
+- `pf` - Packet filter (firewall rules)
+- `unbound` - DNS resolver
+- `monit` - Monitoring
+- `post` - Post-configuration tasks
+- `copy` - File copy operations
+
+**Example: Deploy only firewall config changes:**
+```bash
+aiops semaphore run flamelet-iwf 13 --tags "pf" --follow
+```
+
+### Troubleshooting
+
+**DNS Resolution Issues:**
+If Semaphore can't resolve `.iwf` hostnames:
+- The Semaphore server at 10.10.99.16 needs DNS configured for the `.iwf` domain
+- Alternative: Uncomment IP addresses in inventory.yml (not recommended)
+
+**SSH Key Issues:**
+```bash
+# Test SSH connection
+ssh -i ~/.ssh/syseng/id_rsa-iwf-syseng git@git.iwf.io
+
+# Verify SSH agent
+ssh-add -l
+
+# Add key if needed
+ssh-add ~/.ssh/syseng/id_rsa-iwf-syseng
+```
+
+**Task Logs:**
+```bash
+# List recent tasks
+aiops semaphore tasks flamelet-iwf --limit 10
+
+# Get task status
+aiops semaphore status flamelet-iwf <task-id>
+
+# View task logs
+aiops semaphore logs flamelet-iwf <task-id>
+```
+
+### Recent Deployments
+
+**2025-12-12:** Updated Christian Huber's wireguard keys
+- Task ID: 293
+- Template: stage-fw-copy (ID: 13)
+- Changes: Updated wgpeer configuration with new public key
+- Status: Successfully deployed to both staging firewalls
+- Commit: 6c85ab5 "added christian huber to wireguard list (not active yet!)"
+
+---
+
+## DCX Tenant Configuration
+
+**Tenant ID:** 1
+**Tenant Name:** `dcx`
+
+### customer-dcx Project (Internal Issue Tracking)
+
+**Purpose:** Internal GitLab project for tracking DCX-related work that should 
+NOT be visible to the customer. Use this for internal tasks, planning, and 
+documentation instead of the customer-facing Jira.
+
+**Project Details:**
+- **Project ID:** 12
+- **Project Name:** `customer-dcx`
+- **Repository:** https://gitlab.com/floads/syseng/customer-dcx.git
+- **GitLab URL:** https://gitlab.com/floads/syseng/customer-dcx
+- **Default Branch:** main
+- **Tenant:** dcx (ID: 1)
+
+**Integration Details:**
+- **Integration Name:** `gitlab-dcx`
+- **Integration ID:** 12
+- **Provider:** gitlab
+- **Base URL:** https://gitlab.com
+- **External Identifier:** `floads/syseng/customer-dcx`
+
+### Issue Management Commands
+
+```bash
+# Create internal DCX issue (not customer-facing)
+aiops issues create --project 12 --integration 12 \
+  --title "Issue title" \
+  --description "Issue description"
+
+# Or by project name
+aiops issues create --project customer-dcx --integration 12 \
+  --title "Issue title" \
+  --description "Issue description"
+
+# Sync issues from GitLab
+aiops issues sync --project 12
+
+# List DCX issues
+aiops issues list --tenant dcx
+aiops issues list --project customer-dcx
+
+# View specific issue
+aiops issues get <issue-id>
+
+# Add comment
+aiops issues comment <issue-id> "Your comment"
+
+# Close issue
+aiops issues close <issue-id>
+```
+
+### When to Use customer-dcx vs jira-dcx
+
+| Use Case | Where to Create Issue |
+|----------|----------------------|
+| Internal planning/tracking | `customer-dcx` (GitLab, ID 12) |
+| Technical notes not for customer | `customer-dcx` (GitLab, ID 12) |
+| Customer-facing tickets | `jira-dcx` (Jira, ID 3) |
+| Support requests from customer | `jira-dcx` (Jira, ID 3) |
+
+### Architecture Notes
+
+**Similar Pattern to customer-mdo:**
+- Both `customer-dcx` and `customer-mdo` follow the same pattern
+- GitLab repos under `floads/syseng/customer-*` namespace
+- Separate tenant integrations for proper isolation
+- Internal-only issue tracking parallel to customer Jira
+
+**Database Structure:**
+```
+tenants (id=1, name=dcx)
+  └─ projects (id=12, name=customer-dcx, tenant_id=1)
+       └─ project_integrations (project_id=12, integration_id=12,
+            external_identifier='floads/syseng/customer-dcx')
+
+tenant_integrations (id=12, tenant_id=1, name=gitlab-dcx, provider=gitlab)
+tenant_integrations (id=13, tenant_id=1, name=semaphore-dcx, provider=semaphore)
+```
+
+### Semaphore Integration
+
+**Integration Details:**
+- **Integration Name:** `semaphore-dcx`
+- **Integration ID:** 13
+- **Provider:** semaphore
+- **Semaphore Server:** http://10.10.99.16:3000
+- **Semaphore Project ID:** 2 (dcx)
+
+**Linked Project:**
+- `flamelet-dcx` (ID 1) → Semaphore project 2
+
+### Semaphore Commands for DCX
+
+```bash
+# List available templates
+aiops semaphore templates flamelet-dcx
+
+# Run a template
+aiops semaphore run flamelet-dcx <template_id> --follow
+
+# Run with options
+aiops semaphore run flamelet-dcx <template_id> --limit "hostname" --tags 
+"tag1,tag2" --follow
+
+# Dry run (check mode)
+aiops semaphore run flamelet-dcx <template_id> --check --diff --follow
+
+# List recent tasks
+aiops semaphore tasks flamelet-dcx
+
+# Get task status/logs
+aiops semaphore status flamelet-dcx <task_id>
+aiops semaphore logs flamelet-dcx <task_id>
+```
+
+### Available DCX Templates (Semaphore Project 2)
+
+| ID | Name | Description |
+|----|------|-------------|
+| 12 | all-healthchecksio | Healthchecks.io monitoring |
+| 2 | all-shell | Shell commands |
+| 5 | all-timezone-file-copy-linux | Timezone file copy |
+| 10 | docker | Docker operations |
+| 3 | prod-packages | Package management |
+| 6 | tf | Terraform |
+| 9 | unbound | DNS resolver config |
+---
+
+## Terraform/OpenTofu Usage for DCX Infrastructure
+
+**Tool:** OpenTofu v1.11.1 (open-source Terraform fork)
+**Working Directory:** `/home/ivo/workspace/flamelet-dcx/terraform`
+**Provider:** Flow Swiss (`registry.opentofu.org/flowswiss/flow` v1.1.0)
+
+### Installation
+
+```bash
+# Install OpenTofu (one-time setup)
+curl -fsSL https://get.opentofu.org/install-opentofu.sh > 
+/tmp/install-opentofu.sh
+sudo bash /tmp/install-opentofu.sh
+
+# Verify installation
+tofu version
+# OpenTofu v1.11.1
+```
+
+### AWS Credentials for DCX
+
+**Location:** `~/.zshrc.floads`
+
+**Export Command:**
+```bash
+# Use this alias before running tofu commands
+export_aws_dcx
+
+# Or export manually:
+export AWS_ACCESS_KEY_ID="f956c16386abf12eSHKO"
+export AWS_SECRET_ACCESS_KEY="l7lqJaMfI08qApbQwDTEHGAIcdeRVpUgIM0AnhuE"
+```
+
+**Important:** Always export AWS credentials before running tofu commands for 
+DCX infrastructure.
+
+### Standard Workflow
+
+```bash
+# 1. Navigate to terraform directory
+cd /home/ivo/workspace/flamelet-dcx/terraform
+
+# 2. Export AWS credentials
+export_aws_dcx
+
+# 3. Initialize (first time or after provider changes)
+tofu init -var-file=$HOME/.terraform/dcx.tfvars
+
+# 4. Plan changes
+tofu plan -var-file=$HOME/.terraform/dcx.tfvars
+
+# 5. Apply changes
+tofu apply -var-file=$HOME/.terraform/dcx.tfvars
+```
+
+### Makefile Targets
+
+The `terraform/Makefile` provides convenient targets for common operations:
+
+```bash
+# General operations
+make init          # Initialize Terraform with DCX vars
+make validate      # Validate Terraform configuration
+make plan          # Run terraform plan
+make apply         # Plan and apply changes (with confirmation)
+make apply-approve # Plan and apply changes (auto-approve)
+
+# Targeted provisioning examples
+make dcx-test-flow-alp1-db-04-drtest  # Provision DR test host
+make backup-volume-all                 # Update all backup volumes
+
+# State management
+make state-pull    # Pull remote state to .terraform/remote.tfstate
+make state-push    # Push local state to remote
+```
+
+### Targeted Resource Operations
+
+For provisioning specific resources (e.g., DR test host):
+
+```bash
+# Using Makefile target (recommended)
+cd /home/ivo/workspace/flamelet-dcx/terraform
+export_aws_dcx
+make dcx-test-flow-alp1-db-04-drtest
+
+# Or using tofu directly with targets
+tofu plan -var-file=$HOME/.terraform/dcx.tfvars \
+  -target=flow_compute_server.DCX_TEST_FLOW_ALP1_DB_04_DRTEST \
+  -target=flow_compute_volume.Root_Volume_DCX_TEST_FLOW_ALP1_DB_04_DRTEST \
+  -target=flow_compute_volume.Backup_Volume_DCX_TEST_FLOW_ALP1_DB_04_DRTEST \
+  -target=flow_compute_volume_attachment.Attachment_DCX_TEST_FLOW_ALP1_DB_04_DRT
+EST \
+  -target=flow_compute_volume_attachment.Attachment_Backup_DCX_TEST_FLOW_ALP1_DB
+_04_DRTEST
+
+tofu apply -var-file=$HOME/.terraform/dcx.tfvars \
+  
+```
+
+### Backend Configuration
+
+**Backend Type:** S3-compatible (Flow Swiss Object Storage)
+**Location:** `terraform/backend.tf`
+
+```hcl
+terraform {
+  backend "s3" {
+    endpoints                   = { s3 = "https://os.zrh1.flow.swiss" }
+    bucket                      = "terraform"
+    key                         = "state.tfstate"
+    region                      = "main"
+    skip_credentials_validation = true
+    skip_requesting_account_id  = true
+    skip_metadata_api_check     = true
+    use_path_style              = true
+  }
+}
+```
+
+### Common Tasks
+
+**Provision new infrastructure:**
+```bash
+cd /home/ivo/workspace/flamelet-dcx/terraform
+export_aws_dcx
+make dcx-test-flow-alp1-db-04-drtest  # Or other Makefile target
+```
+
+**Destroy specific resources:**
+```bash
+cd /home/ivo/workspace/flamelet-dcx/terraform
+export_aws_dcx
+tofu destroy -var-file=$HOME/.terraform/dcx.tfvars \
+  -target=flow_compute_server.DCX_TEST_FLOW_ALP1_DB_04_DRTEST \
+  -target=flow_compute_volume.Root_Volume_DCX_TEST_FLOW_ALP1_DB_04_DRTEST \
+  -target=flow_compute_volume.Backup_Volume_DCX_TEST_FLOW_ALP1_DB_04_DRTEST \
+  -target=flow_compute_volume_attachment.Attachment_DCX_TEST_FLOW_ALP1_DB_04_DRT
+EST \
+  -target=flow_compute_volume_attachment.Attachment_Backup_DCX_TEST_FLOW_ALP1_DB
+_04_DRTEST
+```
+
+**View current state:**
+```bash
+cd /home/ivo/workspace/flamelet-dcx/terraform
+export_aws_dcx
+tofu show
+```
+
+### Key Files
+
+- `terraform/backend.tf` - S3 backend configuration
+- `terraform/dr_test.tf` - DR test infrastructure 
+(dcx-test-flow-alp1-db-04-drtest)
+- `terraform/Makefile` - Convenience targets for common operations
+- `~/.terraform/dcx.tfvars` - DCX-specific variable values (NOT in git)
+- `.terraform.lock.hcl` - Provider version lock file
+
+### Important Notes
+
+- **ALWAYS export AWS credentials** before running tofu commands
+(`export_aws_dcx`)
+- **Use var-file:** All commands require `-var-file=$HOME/.terraform/dcx.tfvars`
+- **State is remote:** Stored in Flow Swiss S3, shared across team
+- **Targeted operations:** Use `-target=` flags or Makefile targets to operate
+on specific resources
+- **Exit codes:** `tofu plan` exits with code 2 when changes exist (not an
+error)
+- **Provider:** Flow Swiss provider v1.1.0 is locked in `.terraform.lock.hcl`
+
+### CRITICAL: Terraform `-target=` Flag Gotcha (GLOBAL RULE)
+
+**LESSON LEARNED (Dec 17, 2025):** When using `-target=` flags in 
+Terraform/OpenTofu, **ALWAYS include dependent resources**, not just the primary
+resources.
+
+**The Mistake:**
+```bash
+# ❌ WRONG - Only targets volumes, attachments get removed from state
+tofu apply -var-file=$HOME/.terraform/dcx.tfvars \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_01 \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_02
+  # Missing: -target=flow_compute_volume_attachment.*
+```
+
+**What Happens:**
+1. Volumes are updated in state ✅
+2. Attachment resources NOT in targets are **removed from state** ❌
+3. Terraform "forgets" attachment management
+4. Next `tofu plan` wants to recreate attachments (destructive)
+5. Causes unintended resource cycling
+
+**The Fix:**
+```bash
+# ✅ CORRECT - Include both volumes AND their attachments
+tofu apply -var-file=$HOME/.terraform/dcx.tfvars \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_01 \
+  -target=flow_compute_volume_attachment.Attachment_Backup_DCX_DEV_FLOW_ALP1_DB_
+01 \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_02 \
+  -target=flow_compute_volume_attachment.Attachment_Backup_DCX_DEV_FLOW_ALP1_DB_
+02
+```
+
+**Resource Dependencies to Remember:**
+- Volume → Volume Attachment → Server
+- Always include ALL in target list when using `-target=`
+- If targeting a child resource (attachment), must target parent (volume)
+- If targeting parent (volume), should target child (attachment) too
+
+**This applies to:**
+- ✅ All infrastructure (DCX, Floads, any project)
+- ✅ Any Terraform/OpenTofu provider
+- ✅ Any resource with dependencies (servers+volumes, networks+interfaces, etc.)
+- ✅ All environments (dev, test, prod)
+
+**Best Practice:**
+When modifying infrastructure with `-target=`:
+1. Identify PRIMARY resource (what you want to change)
+2. Identify DEPENDENT resources (what attaches to it)
+3. Include BOTH in `-target=` list
+4. Run `tofu plan` first to verify targets
+5. Review plan before apply
+
+**Real-World Impact (Dec 17, 2025):**
+- **Affected:** All backup volume attachments (Dev, Test, Prod)
+- **Cause:** `make backup-volume-all` only targeted volumes
+- **Result:** 9 attachment resources removed from state management
+- **Fix:** Update Makefile to include attachment targets
+
+### Troubleshooting
+
+**"Error: Failed to get existing workspaces"**
+→ AWS credentials not exported. Run `export_aws_dcx` first.
+
+**"No configuration files"**
+→ Wrong directory. Must be in `/home/ivo/workspace/flamelet-dcx/terraform`
+
+**"tofu: command not found"**
+→ OpenTofu not installed. Run installation script (see Installation section).
+
+**Semaphore template shows "error" status after plan**
+→ Not actually an error. `tofu plan` exits with code 2 when changes exist. 
+Review plan output to confirm correctness.
+---
+
+## Flow Swiss API & Terraform Provider (DCX Infrastructure)
+
+**API Documentation:** https://doc.flow.swiss/developer-center/api/
+**Control Panel:** https://my.flow.swiss/
+**API Base URL:** https://api.flow.swiss/
+
+### Authentication
+
+**Method:** Token-based authentication via `X-Auth-Token` header
+
+**Get Token:**
+```bash
+curl -X POST "https://api.flow.swiss/v3/auth" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "user@example.com", "password": "password"}'
+```
+
+**Response:**
+```json
+{
+  "token": "your-auth-token",
+  "id": 1,
+  "username": ""
+}
+```
+
+**Usage:**
+```bash
+curl -X GET "https://api.flow.swiss/v4/compute/servers" \
+  -H "X-AUTH-TOKEN: your-auth-token"
+```
+
+### Terraform Provider
+
+**Provider:** `registry.opentofu.org/flowswiss/flow`
+**Version:** 1.1.0 (locked in DCX infrastructure)
+**Documentation:** 
+https://registry.terraform.io/providers/flowswiss/flow/latest/docs
+
+**Authentication for Terraform:**
+Uses AWS-style credentials (S3-compatible API):
+- `AWS_ACCESS_KEY_ID`: Flow Swiss access key
+- `AWS_SECRET_ACCESS_KEY`: Flow Swiss secret key
+
+**DCX Credentials Location:** `~/.zshrc.floads` (export_aws_dcx alias)
+
+### Product IDs (DCX Infrastructure)
+
+**Compute Instances (used in DCX):**
+- **Product ID 26:** Small instances (dev/test firewalls)
+- **Product ID 30:** Standard instances (test nodes, prod replicas)
+- **Product ID 32:** Medium instances (test db-01)
+- **Product ID 34:** Large instances (prod db-01)
+
+**General Product Categories:**
+- **Mac Bare Metal:** IDs 11-14
+- **Object Storage:** ID 20
+- **Compute (b1 series):** IDs 24-40 (graduated sizing)
+- **Kubernetes k1:** IDs 44-54
+- **Kubernetes k2:** IDs 130-140
+- **Elastic IP:** ID 8, 23
+
+**Reference:** https://doc.flow.swiss/developer-center/api/product-entities
+
+### Location IDs (DCX Infrastructure)
+
+- **Location ID 1:** ALP1 (Alpnach) - Used for test/dev environments
+- **Location ID 2:** ZRH1 (Zurich) - Used for production environments
+
+### Network IDs (DCX Infrastructure)
+
+- **Network ID 1927:** Production network (172.19.0.0/20) - ZRH1
+- **Network ID 1928:** Firewall network (172.20.0.0/20) - ZRH1
+- **Network ID 2086:** Test firewall network - ALP1
+- **Network ID 2437:** Test/dev network (172.19.0.0/20) - ALP1
+
+### Key Pair IDs (DCX Infrastructure)
+
+- **Key Pair ID 132:** FW-DCNX-FLOW-CH (firewall)
+- **Key Pair ID 162:** Test Fortigate
+- **Key Pair ID 440:** Test database nodes (ALP1)
+- **Key Pair ID 441:** Dev database nodes (ALP1)
+- **Key Pair ID 457:** Production database nodes (ZRH1)
+
+### Common API Operations
+
+**List Compute Servers:**
+```bash
+curl -X GET "https://api.flow.swiss/v4/compute/servers" \
+  -H "X-AUTH-TOKEN: $TOKEN"
+```
+
+**List Routers:**
+```bash
+curl -X GET "https://api.flow.swiss/v4/compute/routers" \
+  -H "X-AUTH-TOKEN: $TOKEN"
+```
+
+### Terraform Resources (DCX)
+
+**Common Resources:**
+- `flow_compute_server` - Virtual machines
+- `flow_compute_volume` - Block storage volumes
+- `flow_compute_volume_attachment` - Attach volumes to servers
+- `flow_network` - Networks
+- `flow_compute_elastic_ip` - Public IPs
+
+**Example (from dr_test.tf):**
+```hcl
+resource "flow_compute_server" "DCX_TEST_FLOW_ALP1_DB_05_DRTEST" {
+  name         = "dcx-test-flow-alp1-db-05-drtest"
+  image_id     = 53          # Debian
+  location_id  = 1           # ALP1
+  product_id   = 30          # Standard instance
+  key_pair_id  = 440         # Test nodes SSH key
+  network_id   = 2437        # Test network
+  private_ip   = "172.19.0.185"
+}
+
+resource "flow_compute_volume" "Root_Volume_DCX_TEST_FLOW_ALP1_DB_05_DRTEST" {
+  name        = "Root Volume of dcx-test-flow-alp1-db-05-drtest"
+  size        = 5760         # GB
+  location_id = 1            # ALP1
+}
+
+resource "flow_compute_volume_attachment" 
+"Attachment_DCX_TEST_FLOW_ALP1_DB_05_DRTEST" {
+  server_id = flow_compute_server.DCX_TEST_FLOW_ALP1_DB_05_DRTEST.id
+  volume_id = flow_compute_volume.Root_Volume_DCX_TEST_FLOW_ALP1_DB_05_DRTEST.id
+}
+```
+
+### Image IDs (DCX Infrastructure)
+
+- **Image ID 18:** FortiGate
+- **Image ID 24:** Test FortiGate
+- **Image ID 53:** Debian (used for all database nodes)
+
+### Useful Links
+
+- **API Documentation:** https://doc.flow.swiss/developer-center/api/
+- **Product Entities:** 
+https://doc.flow.swiss/developer-center/api/product-entities
+- **Authentication:** https://my.flow.swiss/#/doc/authentication
+- **Control Panel:** https://my.flow.swiss/
+- **Terraform Provider:** 
+https://registry.terraform.io/providers/flowswiss/flow/latest/docs
+
+---
+
+---
+
+## CRITICAL: Terraform `-target=` Flag Gotcha (GLOBAL RULE)
+
+**LESSON LEARNED (Dec 17, 2025):** When using `-target=` flags in 
+Terraform/OpenTofu, **ALWAYS include dependent resources**, not just the primary
+resources.
+
+### The Mistake:
+```bash
+# ❌ WRONG - Only targets volumes, attachments get removed from state
+tofu apply -var-file=$HOME/.terraform/dcx.tfvars \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_01 \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_02
+  # Missing: -target=flow_compute_volume_attachment.*
+```
+
+### What Happens:
+1. Primary resources are updated in state ✅
+2. Dependent resources NOT in targets are **removed from state** ❌
+3. Terraform "forgets" dependent resource management
+4. Next `tofu plan` wants to recreate dependent resources (destructive)
+5. Causes unintended resource cycling and data loss risk
+
+### The Fix:
+```bash
+# ✅ CORRECT - Include both primary resources AND their dependent resources
+tofu apply -var-file=$HOME/.terraform/dcx.tfvars \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_01 \
+  -target=flow_compute_volume_attachment.Attachment_Backup_DCX_DEV_FLOW_ALP1_DB_
+01 \
+  -target=flow_compute_volume.Backup_Volume_DCX_DEV_FLOW_ALP1_DB_02 \
+  -target=flow_compute_volume_attachment.Attachment_Backup_DCX_DEV_FLOW_ALP1_DB_
+02
+```
+
+### Common Resource Dependencies:
+- **Volume + Attachment**: Volume → Volume Attachment → Server
+- **Network + Interface**: Network → Network Interface → Server
+
+### MANDATORY: Always Plan + Ask First
+- For Terraform: `tofu plan` before `tofu apply`
+- For Ansible: `ansible-playbook --check --diff` before real run
+- ALWAYS ask user first before running ANY infrastructure change
+
+---
+
+## CRITICAL: Mandatory Safety Protocol for ALL Infrastructure Changes
+
+**GLOBAL RULE (Effective Immediately):** Before making ANY changes to 
+infrastructure via Ansible, Terraform, or OpenTofu:
+
+### MANDATORY Checklist:
+1. ✅ **ASK USER FIRST** - Get explicit approval
+2. ✅ **PLAN/DRY-RUN FIRST** - Preview changes before executing
+3. ✅ **SHOW FULL OUTPUT** - Display complete plan to user
+4. ✅ **GET EXPLICIT APPROVAL** - Wait for confirmation
+5. ✅ **DOCUMENT WHAT YOU'RE DOING** - State clearly what will happen
+
+**Never:**
+- Run infrastructure commands without asking user first
+- Skip planning/check phase
+- Use auto-approve flags without asking
+- Batch commands without per-command approval
+- Make changes in background without approval
+
+**Applies to:** All infrastructure projects (DCX, Floads, CloudBit, etc.), all 
+environments, all cloud providers, ALL AGENTS
+
+
+---
+
+## ⚠️ UNIVERSAL INFRASTRUCTURE SAFETY RULE (ALL ENVIRONMENTS)
+
+**This applies to EVERY infrastructure change, EVERYWHERE, for ALL projects and 
+environments:**
+
+### The Golden Rule:
+```
+NO INFRASTRUCTURE CHANGE WITHOUT:
+1. ASK USER FIRST
+2. PLAN/DRY-RUN FIRST
+3. SHOW FULL OUTPUT
+4. GET EXPLICIT APPROVAL
+5. DOCUMENT WHAT YOU'RE DOING
+```
+
+### This is NOT optional. It applies globally to:
+
+- ✅ **All Projects:** DCX, Floads, CloudBit, LNZ, any customer, any internal 
+project
+- ✅ **All Environments:** dev, test, staging, prod, DR, any environment
+- ✅ **All Tools:** Terraform, OpenTofu, Ansible, Puppet, CloudFormation, any 
+IaC
+- ✅ **All Cloud Providers:** AWS, GCP, Azure, Flow Swiss, any provider
+- ✅ **All Teams:** SysEng, DevOps, Platform, any team
+- ✅ **All Agents:** AI agents, automation, CI/CD pipelines, humans, any 
+executor
+
+### Before ANY of These Commands:
+
+```bash
+# ❌ FORBIDDEN without asking + plan first
+terraform apply
+tofu apply
+ansible-playbook ... (real execution)
+kubectl apply
+helm upgrade
+aws cli commands (that create/modify/delete resources)
+ssh user@prod 'sudo systemctl restart ...'
+```
+
+### Required Protocol:
+
+1. **ASK USER:** "I'm about to make infrastructure changes. Do you approve?"
+2. **PLAN:** Show `terraform plan`, `tofu plan`, `ansible --check --diff`, etc.
+3. **SHOW OUTPUT:** Display FULL plan to user (all resources, changes, 
+deletions)
+4. **GET APPROVAL:** Wait for explicit "yes" or "approve" from user
+5. **DOCUMENT:** State clearly what will happen, impact, downtime, rollback
+
+### Exception: Read-Only Operations
+
+Only these DO NOT require asking first:
+- `terraform plan` (without apply)
+- `ansible --check` (without real execution)
+- `kubectl get`, `kubectl describe`, `kubectl logs`
+- Reading configs, viewing status, displaying information
+
+### Violation = Critical Safety Issue
+
+If ANY infrastructure change happens without this protocol:
+- 🚨 It's a CRITICAL SAFETY VIOLATION
+- 🚨 Must be prevented and reported
+- 🚨 Could result in data loss, downtime, security breach
+
+### Why This Exists
+
+Infrastructure changes affect:
+- **Data:** Production databases, customer information, backups
+- **Availability:** Services, users, business continuity, SLAs
+- **Security:** Access control, compliance, audit trails
+- **Cost:** Resource spending, budget impact
+- **People:** Team impact, on-call situations, incident response
+
+### Never Assume You Can:
+
+- ❌ "It's just dev, no need to ask"
+- ❌ "It's a small change, I'll just do it"
+- ❌ "The user is busy, I'll apply it and tell them later"
+- ❌ "Automation approved this, so it's OK"
+- ❌ "I've done this before, no need to check"
+
+### Always:
+
+- ✅ Ask first, every single time
+- ✅ Show the plan, every single time
+- ✅ Wait for approval, every single time
+- ✅ Document what you did, every single time
+
+**This is non-negotiable. No exceptions. Across all projects, all teams, all 
+environments.**
+
+
+---
+
+## CRITICAL: Global Agents Context Management Rule
+
+**MANDATORY RULE FOR AGC ITSELF:**
+
+### The Golden Rule of AGC Updates:
+```
+ALWAYS APPEND to Global Agents Context
+NEVER OVERWRITE Global Agents Context
+```
+
+### How to Update AGC Correctly:
+
+```bash
+# ❌ FORBIDDEN - This OVERWRITES and DELETES previous content
+aiops agents global set --file /tmp/new_content.md
+
+# ✅ CORRECT - This APPENDS to existing content
+# 1. Get current AGC
+aiops agents global get > /tmp/current_agc.md
+
+# 2. Append new content to it
+cat >> /tmp/current_agc.md << 'NEWCONTENT'
+## New Section
+Your new content here
+NEWCONTENT
+
+# 3. Update with combined content
+aiops agents global set --file /tmp/current_agc.md
+```
+
+### Why This Rule Exists:
+
+The Global Agents Context is:
+- ✅ **Cumulative knowledge** - Information builds over time
+- ✅ **Historical record** - Contains lessons learned, guidelines, fixes
+- ✅ **Used by all agents** - Every agent relies on complete context
+- ✅ **Critical reference** - Contains infrastructure, team workflows, 
+procedures
+
+Overwriting AGC:
+- 🚨 **Loses critical information** - Previous lessons disappear
+- 🚨 **Breaks agent guidance** - Agents lose access to important context
+- 🚨 **Violates compliance** - Audit trails, historical context erased
+- 🚨 **Causes repeated mistakes** - Teams forget lessons already learned
+- 🚨 **Damages institutional knowledge** - Hard-won expertise is lost
+
+### Enforcement:
+
+**If AGC was overwritten (by mistake or intentionally):**
+
+1. ✅ Immediately rollback to previous version
+   ```bash
+   aiops agents global rollback VERSION_NUMBER
+   ```
+
+2. ✅ Retrieve the overwritten content from git or backup
+   ```bash
+   git show HEAD:AGENTS.override.md > /tmp/backup.md
+   ```
+
+3. ✅ Properly APPEND the new content
+   ```bash
+   cat >> /tmp/backup.md << 'EOF'
+   ... new content ...
+   EOF
+   aiops agents global set --file /tmp/backup.md
+   ```
+
+4. ✅ Verify nothing was lost
+   ```bash
+   aiops agents global get | wc -l
+   # Should be LARGER than before, not smaller
+   ```
+
+### Checklist Before Updating AGC:
+
+- ✅ Have you retrieved current AGC first? (`aiops agents global get`)
+- ✅ Are you APPENDING to existing content?
+- ✅ Did you preserve ALL previous sections?
+- ✅ Is the new file LARGER than before (in line count)?
+- ✅ Are you using `--file` with combined content (not piping small chunks)?
+- ✅ Have you verified the update succeeded?
+- ✅ Have you verified nothing was deleted?
+
+### Size Verification:
+
+```bash
+# Before update
+BEFORE=$(aiops agents global get | wc -l)
+
+# After update
+AFTER=$(aiops agents global get | wc -l)
+
+# Check result
+if [ $AFTER -lt $BEFORE ]; then
+  echo "🚨 ERROR: Content was deleted! Rollback immediately!"
+  aiops agents global rollback PREVIOUS_VERSION
+else
+  echo "✅ OK: Content was appended"
+fi
+```
+
+### Never:
+
+- ❌ Overwrite AGC with a new file
+- ❌ Use `set` with only new content
+- ❌ Forget to include previous content
+- ❌ Assume AGC is backed up (it is, but don't test it)
+- ❌ Update without checking that content was appended
+
+### Always:
+
+- ✅ Get current AGC first
+- ✅ Append to it
+- ✅ Verify size increased
+- ✅ Preserve all history
+- ✅ Document what you added
+
+**This rule applies to EVERYONE updating AGC - no exceptions.**
+## Complete OpenBSD OS Upgrade Procedure
+
+OpenBSD hosts (core.floads, monitor-10.floads, rtty.floads) should be upgraded 
+using `sysupgrade` for major version releases.
+
+### Pre-upgrade checklist
+
+1. **Verify console access** — Ensure out-of-band access available if SSH fails
+2. **Check running services** — Document what should restart after reboot
+3. **Notify if needed** — For critical infrastructure like core.floads 
+(WireGuard gateway)
+
+### Complete 10-Step Upgrade Procedure
+
+**1. Check current version and available upgrade:**
+```bash
+ssh syseng@HOST 'uname -a'
+ssh syseng@HOST 'doas sysupgrade -n'  # Dry run to check availability
+```
+
+**2. Backup configuration:**
+```bash
+ssh syseng@HOST 'doas sh -c "cd / && tar czf /root/pre-upgrade-backup-$(date 
++%Y%m%d).tgz etc/pf.conf etc/hostname.* etc/rc.conf.local etc/hosts 
+var/unbound/etc/unbound.conf 2>&1 | grep -v \"Removing leading\" ; ls -lh 
+/root/pre-upgrade-backup-*.tgz"'
+```
+
+**3. Execute upgrade (downloads sets and schedules upgrade for next boot):**
+```bash
+ssh syseng@HOST 'doas sysupgrade'
+# System will reboot automatically after download completes
+```
+
+**4. Wait for system to come back online:**
+```bash
+# Wait ~2 minutes, then test connectivity
+for i in {1..20}; do
+  echo "Attempt $i: Checking if HOST is back online..."
+  ssh -o ConnectTimeout=5 syseng@HOST 'uname -r' 2>/dev/null && echo "SUCCESS!" 
+&& break
+  sleep 10
+done
+```
+
+**5. Verify upgrade and services:**
+```bash
+# Check version
+ssh syseng@HOST 'uname -a && uptime'
+
+# Verify all services started
+ssh syseng@HOST 'doas rcctl ls started'
+
+# Check critical services (adjust per host)
+ssh syseng@HOST 'doas ifconfig wg0 | head -5'  # WireGuard (core, monitor-10)
+ssh syseng@HOST 'doas pfctl -sr | head -20'    # PF firewall
+```
+
+**6. Update packages:**
+```bash
+ssh syseng@HOST 'doas pkg_add -u'
+# Review any warnings about modified config files (/etc/monitrc, /etc/sudoers, 
+etc.)
+```
+
+**7. Install binary security patches:**
+
+**IMPORTANT**: OpenBSD 7.8 has a known syspatch bug (Errata 001_syspatch) where 
+syspatch fails with "Read-only filesystem, aborting" on systems where /usr is 
+not a separate filesystem.
+
+**Workaround for OpenBSD 7.8:**
+```bash
+# Step 1: Create modified syspatch script
+ssh syseng@HOST 'doas sh -c "sed -e \"s/.checkfs/#checkfs/g\" /usr/sbin/syspatch
+> /root/syspatch"'
+
+# Step 2: Run modified script (installs 001_syspatch, updates syspatch itself)
+ssh syseng@HOST 'doas ksh /root/syspatch'
+# Expected output: "syspatch: updated itself, run it again to install missing 
+patches"
+
+# Step 3: Run updated syspatch to install remaining patches
+ssh syseng@HOST 'doas syspatch'
+# Expected output: "Relinking to create unique kernel... done; reboot to load 
+the new kernel"
+
+# Step 4: Cleanup and regenerate device database
+ssh syseng@HOST 'doas rm /root/syspatch && doas dev_mkdb'
+
+# Step 5: Verify all patches installed
+ssh syseng@HOST 'doas syspatch -l'
+# Should list: 001_syspatch through 011_nd6 (or latest available)
+```
+
+**For OpenBSD 7.9+** (if bug is fixed):
+```bash
+ssh syseng@HOST 'doas syspatch'
+# Verify with: doas syspatch -l
+```
+
+**8. Run sysmerge (if needed):**
+```bash
+ssh syseng@HOST 'doas sysmerge'
+# Choose 'd' to preserve current files, 'i' to accept new versions
+# Pay special attention to /etc/login.conf if prompted
+```
+
+**9. Test reboot:**
+```bash
+# Reboot to verify everything comes back cleanly
+ssh syseng@HOST 'doas reboot'
+
+# Wait and verify
+sleep 60
+for i in {1..20}; do
+  ssh -o ConnectTimeout=5 syseng@HOST 'uname -r' 2>/dev/null && break
+  sleep 10
+done
+
+# Final verification
+ssh syseng@HOST 'uname -a && doas rcctl ls started'
+```
+
+**10. Test connectivity (for gateway hosts like core.floads):**
+```bash
+# Verify WireGuard connectivity
+ssh dev.floads 'ping -c 3 docker.floads'
+ping -c 3 docker.floads
+```
+
+---
+
+## OpenBSD 7.8 Syspatch Bug - Errata 001_syspatch
+
+**Issue:** OpenBSD 7.8 syspatch fails with "Read-only filesystem, aborting" on 
+systems where /usr is not a separate filesystem.
+
+**Root Cause:** syspatch(8) is confused by aliased /dev/*rootdisk nodes in the 
+database generated by dev_mkdb(8). The checkfs() function incorrectly detects 
+the root filesystem as read-only.
+
+**Affected Systems:** All OpenBSD 7.8 installations where /usr is on the root 
+filesystem (not a separate partition). This affects most standard installations.
+
+**Official Workaround (5-step procedure):**
+
+1. **Create modified syspatch script** - Comment out the checkfs function:
+   ```bash
+   ssh syseng@HOST 'doas sh -c "sed -e \"s/.checkfs/#checkfs/g\" 
+/usr/sbin/syspatch > /root/syspatch"'
+   ```
+
+2. **Run modified script** - This installs the 001_syspatch which updates 
+syspatch itself:
+   ```bash
+   ssh syseng@HOST 'doas ksh /root/syspatch'
+   ```
+   Expected output: `syspatch: updated itself, run it again to install missing 
+patches`
+
+3. **Run updated syspatch** - Now use the fixed version to install remaining 
+patches:
+   ```bash
+   ssh syseng@HOST 'doas syspatch'
+   ```
+   Expected output: `Relinking to create unique kernel... done; reboot to load 
+the new kernel`
+
+4. **Cleanup and regenerate device database**:
+   ```bash
+   ssh syseng@HOST 'doas rm /root/syspatch && doas dev_mkdb'
+   ```
+
+5. **Verify all patches installed**:
+   ```bash
+   ssh syseng@HOST 'doas syspatch -l'
+   ```
+   Should show all available patches (001_syspatch through 011_nd6 or later)
+
+**Successfully Applied To:**
+- core.floads (172.31.3.186 / 10.60.0.1) - 11 patches installed
+- monitor-10.floads (172.31.3.10) - 11 patches installed
+
+**Technical Details:**
+- Bug appears when running `doas syspatch` immediately after upgrade to OpenBSD 
+7.8
+- Error message: "Read-only file system, aborting"
+- Filesystem is actually writable; the bug is in syspatch's checkfs() function
+- The 001_syspatch errata fixes this bug in syspatch itself
+- After applying 001_syspatch, subsequent runs work normally
+
+**References:**
+- https://www.openbsd.org/errata78.html (Official OpenBSD 7.8 Errata)
+- http://www.mail-archive.com/misc@openbsd.org/msg195688.html (Mailing list 
+discussion)
+- https://www.bsdforen.de/threads/openbsd-7-8-syspatch-read-only.37462/ (German 
+BSD forum)
+- https://obsd.solutions/en/blog/2025/11/16/openbsd-upgrade-77-to-78/ (Upgrade 
+guide)
+
+---
+
+## Expected Download Times
+
+With typical CloudBit network speeds:
+- **Download phase**: 3-5 minutes (base set ~500MB, plus kernels and additional 
+sets)
+- **Upgrade/reboot phase**: 1-2 minutes
+- **Total time**: ~5-7 minutes per host
+
+---
+
+## Post-Upgrade Notes
+
+- **Configuration preservation**: Local modifications to `/etc/monitrc`, 
+`/etc/sudoers`, and other config files are preserved
+- **Firmware updates**: Intel firmware and other drivers are updated 
+automatically
+- **Service autostart**: All services configured with `rcctl enable` will start 
+automatically
+- **Package compatibility**: Run `pkg_add -u` after OS upgrade to ensure package
+versions match new OS version
+- **Kernel relinking**: After applying syspatches, reboot to load the new 
+patched kernel
+
+---
+
+## Critical Infrastructure Considerations
+
+**core.floads** (WireGuard gateway):
+- Temporarily interrupts WireGuard connectivity to all remote peers during 
+reboot
+- Verify WireGuard interface (`wg0`) comes back UP after reboot
+- Test connectivity from multiple peer networks
+- Check PF rules loaded correctly: `doas pfctl -sr`
+
+**monitor-10.floads** (M/Monit):
+- Monitoring alerts will pause during upgrade
+- Verify M/Monit web interface accessible after upgrade
+- Check Monit is monitoring all configured services
+
+---
+
+## Troubleshooting
+
+**Services not starting:**
+```bash
+# Check service status
+doas rcctl check SERVICE_NAME
+
+# Check logs
+doas tail -50 /var/log/daemon
+
+# Restart manually
+doas rcctl restart SERVICE_NAME
+```
+
+**WireGuard not working:**
+```bash
+# Check interface
+doas ifconfig wg0
+
+# Reload hostname.wg0 config
+doas sh /etc/netstart wg0
+```
+
+**PF rules not loaded:**
+```bash
+# Check PF status
+doas pfctl -sr
+
+# Reload PF rules
+doas pfctl -f /etc/pf.conf
+```
+
+**Syspatch still failing after workaround:**
+```bash
+# Verify filesystem is writable
+mount | grep "on / "
+# Should NOT show "read-only" flag
+
+# Check dev_mkdb was run
+ls -l /var/run/dev.db
+# Should show recent timestamp
+
+# Re-run device database regeneration
+doas dev_mkdb
+
+# Try syspatch again
+doas syspatch
+```
+# OpenBao Credentials - docker.floads (172.31.3.20:8200)
+# Initialized: 2025-12-21
+
+Unseal Key 1: AWmr139xkgX8i+0cdNZqVTDbKEOER9KkohosKTBif8np
+Unseal Key 2: vh5RykaZuBmj9h96tQpLslIDMGSqRqtE6f2Z+zGn0jHW
+Unseal Key 3: qzzJVZMP6hqE6hAdOJfklJjSk9y7GKiRrqdAscwnBOKm
+Unseal Key 4: zGJMadODAEjE0lsUd8gZqqOebO+qp7UOnnY0NkevUy8/
+Unseal Key 5: A2GgYAbap6kcOu4aIEjRwcHGAuUnZI+eZe64BTez8FGW
+
+Initial Root Token: s.yUF3a8Nu0dFNd5TaHaP7g9wZ
+
+Threshold: 3 of 5 keys required to unseal
+
+---
+
+## OpenBao Access Information
+
+**Web UI**: http://172.31.3.20:8200/ui
+**API**: http://172.31.3.20:8200/v1/
+
+**Cluster Details**:
+- Cluster Name: vault-cluster-34e3187a
+- Cluster ID: 6596e638-2d66-61b4-46c0-19e10af441ac
+- Storage Type: file
+- HA Enabled: false
+
+**Deployment**:
+- Host: docker.floads (172.31.3.20)
+- Container: openbao
+- Version: 2.0.1
+- Initialized: 2025-12-21
+
+**Unseal Procedure** (required after container restart):
+```bash
+ssh syseng@docker.floads
+docker exec openbao bao operator unseal  # Enter key 1
+docker exec openbao bao operator unseal  # Enter key 2
+docker exec openbao bao operator unseal  # Enter key 3
+```
+
+**Login to Web UI**:
+1. Navigate to http://172.31.3.20:8200/ui
+2. Select "Token" method
+3. Enter root token: s.yUF3a8Nu0dFNd5TaHaP7g9wZ
+
+**Login via CLI**:
+```bash
+ssh syseng@docker.floads
+export VAULT_ADDR=http://127.0.0.1:8200
+docker exec -e VAULT_TOKEN=s.yUF3a8Nu0dFNd5TaHaP7g9wZ openbao bao status
+```
+
+---
+
+## Jira Issue Management with acli
+
+**Use `acli` CLI for managing Jira Cloud work items**
+
+### Searching for Issues
+
+```bash
+# Search for issues in a project ordered by most recently updated
+acli jira workitem search --jql "project = PROJECTKEY ORDER BY updated DESC" 
+--limit 10 --json
+
+# Search with custom fields
+acli jira workitem search --jql "project = PROJECTKEY ORDER BY updated DESC" 
+--limit 10 --fields "key,summary,status,assignee,priority" --json
+
+# Example: Search IWFCLOUD2 project
+acli jira workitem search --jql "project = IWFCLOUD2 ORDER BY updated DESC" 
+--limit 10 --json | jq '.[] | {key: .key, summary: .fields.summary, status: 
+.fields.status.name, assignee: .fields.assignee.displayName, priority: 
+.fields.priority.name}'
+```
+
+### Commenting on Issues
+
+```bash
+# Add a comment to a Jira issue
+acli jira workitem comment add --key PROJECTKEY-123 --comment "Your comment text
+here"
+
+# Add comment from file
+acli jira workitem comment add --key PROJECTKEY-123 --body "$(cat 
+/path/to/summary.txt)"
+```
+
+### Transitioning Issues (Changing Status)
+
+```bash
+# Transition issue to a specific status
+acli jira workitem transition --key PROJECTKEY-123 --status "Done" --yes
+
+# Transition multiple issues using JQL
+acli jira workitem transition --jql "project = PROJECTKEY AND status = 'To Do'" 
+--status "In Progress" --yes
+
+# Common status values: "To Do", "In Progress", "Done", "Closed"
+# Note: Status names may vary per Jira instance (check your Jira workflows)
+```
+
+### Creating Issues
+
+```bash
+# Create a new Jira issue
+acli jira workitem create --project PROJECTKEY \
+  --type "Task" \
+  --summary "Issue summary" \
+  --description "Detailed description" \
+  --assignee "user@example.com" \
+  --priority "High"
+```
+
+### Getting Issue Details
+
+```bash
+# Get detailed information about a specific issue
+acli jira workitem search --jql "key = PROJECTKEY-123" --json | jq '.[0]'
+```
+
+### Common acli Jira Commands
+
+| Command | Purpose |
+|---------|---------|
+| `acli jira workitem search --jql "..."` | Search for issues using JQL |
+| `acli jira workitem view PROJECTKEY-123` | View issue details (interactive) |
+| `acli jira workitem comment add --key PROJECTKEY-123` | Add comment to issue |
+| `acli jira workitem transition --key PROJECTKEY-123 --status "Done"` | Change 
+issue status |
+| `acli jira workitem create --project PROJECTKEY` | Create new issue |
+| `acli jira project list --recent` | List recent projects |
+
+### acli Installation & Authentication
+
+```bash
+# Verify acli is installed
+acli --version
+
+# Authenticate with Jira (if needed)
+acli jira auth login
+```
+
+---
+
+## Global Agents Context (AGC) Management & Usage
+
+**CRITICAL: The Global Agents Context is institutional knowledge that ONLY GROWS
+- Never overwrites, always accumulates**
+
+### Key Principles
+
+1. **Information Only Accumulates** - Every update should be a superset of all 
+previous versions
+2. **No Data Loss** - Previous findings and procedures must always be preserved
+3. **Version History is Sacred** - Each version represents a point-in-time 
+snapshot of knowledge
+4. **Intelligent Updates** - Use proper update procedures to maintain knowledge 
+integrity
+
+### Proper Update Procedure (CORRECT ✅)
+
+When adding new information to the global agents context:
+
+```bash
+# Step 1: Retrieve current context
+aiops agents global get > /tmp/agc_backup.txt
+
+# Step 2: Add new sections or information to the file
+cat >> /tmp/agc_backup.txt << 'NEWCONTENT'
+
+## Your New Section Title
+
+Your new content, findings, procedures, configurations, etc.
+NEWCONTENT
+
+# Step 3: Update the global context with accumulated knowledge
+aiops agents global set --file /tmp/agc_backup.txt
+
+# Verification
+aiops agents global get | tail -50  # Verify new content is there
+```
+
+### Incorrect Update Procedure (WRONG ❌)
+
+**NEVER do this:**
+
+```bash
+# BAD: This replaces the entire context and loses all previous knowledge
+aiops agents global set --file /path/to/AGENTS.md
+
+# BAD: This only sets partial information
+aiops agents global set --file /path/to/new/section.md
+```
+
+### Monitoring Context Growth
+
+```bash
+# View version history
+aiops agents global history --limit 20
+
+# Check current size
+aiops agents global get | wc -l
+
+# View specific version details
+aiops agents global history --version 35
+
+# Compare two versions (shows what was added/changed)
+aiops agents global diff 35 36
+```
+
+### What Goes Into AGC?
+
+**Examples of what SHOULD be added:**
+
+- ✅ Infrastructure access procedures (cluster endpoints, VPN configs)
+- ✅ Troubleshooting procedures and solutions
+- ✅ Operational procedures and workflows
+- ✅ System configurations and their rationale
+- ✅ Security findings and remediation steps
+- ✅ Performance tuning notes
+- ✅ Emergency procedures
+- ✅ CLI tool usage and best practices
+- ✅ Credentials and authentication methods (safely stored)
+
+**Examples of what SHOULD NOT be added:**
+
+- ❌ Temporary debugging notes that won't be needed again
+- ❌ Personal work-in-progress notes
+- ❌ Project-specific code (use AGENTS.md in the project instead)
+- ❌ Sensitive credentials in plain text (use vault/secrets)
+
+### Benefits of Proper AGC Management
+
+1. **Continuity** - Future agents have full context of past findings
+2. **Efficiency** - No re-discovery of solutions or procedures
+3. **Safety** - Emergency procedures are always available
+4. **Learning** - Knowledge accumulates and evolves
+5. **Auditing** - Version history shows what was learned when
+
+---
+
+---
+
+## ⚠️ INTERNAL FLOADS ONLY: Customer Issue Tracking in Floads GitLab
+
+**CRITICAL: This section contains INTERNAL FLOADS information. NEVER share these
+URLs or processes with customers.**
+
+This is how we track customer work internally in the floads GitLab instance 
+(gitlab.com). Customers should only interact with their own repositories - they 
+never see these internal issue tracking repositories.
+
+### Overview
+
+- **Internal Repository**: 
+`https://gitlab.com/floads/syseng/customer-{customername}/`
+- **Public Repository**: Customer's own repo (e.g., git.iwf.io for IWF)
+- **Purpose**: Internal project management, progress tracking, and findings 
+documentation
+- **Visibility**: Floads-only, not shared with customers
+- **All hosted on**: gitlab.com (not a separate instance)
+
+### Creating Issues for Customers (glab CLI)
+
+**glab is already configured for gitlab.com by default:**
+
+```bash
+# Verify glab is configured for gitlab.com
+glab config get gitlab_host
+
+# If needed, authenticate with your Floads account
+glab auth login
+
+# Verify authentication
+glab auth status
+```
+
+**Create an issue in the customer's internal project:**
+
+```bash
+# Basic issue creation
+glab issue create \
+  -R floads/syseng/customer-iwf \
+  -t "Feature: Brief description" \
+  -d "Detailed description of what needs to be implemented" \
+  -l feature,infrastructure \
+  -a username
+
+# With all options
+glab issue create \
+  -R floads/syseng/customer-{customername} \
+  -t "Issue Title (include relevant ID)" \
+  -d "Full description with context and acceptance criteria" \
+  --due-date "2026-02-15" \
+  -l bug,feature,enhancement,documentation,internal \
+  -a assignee_username \
+  -w 5 \
+  -y  # Don't ask for confirmation
+
+# Example: Create an issue for IWF customer
+glab issue create \
+  -R floads/syseng/customer-iwf \
+  -t "K8s STAGE cluster: 2 Nodes hinzufügen" \
+  -d "Add 2 additional nodes to the STAGE cluster to improve availability" \
+  -l infrastructure,high-priority \
+  -a ivo \
+  -y
+```
+
+### Managing Customer Issues
+
+**List issues in customer project:**
+
+```bash
+# List all open issues
+glab issue list -R floads/syseng/customer-iwf
+
+# List closed issues
+glab issue list -R floads/syseng/customer-iwf --state closed
+
+# Filter by assignee
+glab issue list -R floads/syseng/customer-iwf --assignee ivo
+
+# Get JSON output for parsing
+glab issue list -R floads/syseng/customer-iwf -o json
+```
+
+**Comment on customer issue:**
+
+```bash
+# Add comment to issue #123
+glab issue comment 123 -R floads/syseng/customer-iwf --message "Implementation 
+complete, deployed to production"
+
+# Comment with implementation summary
+glab issue comment 123 -R floads/syseng/customer-iwf \
+  --message "✅ Implementation Complete
+
+## What was done
+- Feature implemented
+- Tests added
+- Deployed to production
+
+## Files changed
+- src/feature.py
+- tests/test_feature.py
+"
+```
+
+**Close customer issue:**
+
+```bash
+# Close issue #123
+glab issue close 123 -R floads/syseng/customer-iwf
+
+# Close with comment
+glab issue comment 123 -R floads/syseng/customer-iwf \
+  --message "✅ Implemented and deployed in production" && \
+glab issue close 123 -R floads/syseng/customer-iwf
+```
+
+**View issue details:**
+
+```bash
+# View issue #123
+glab issue view 123 -R floads/syseng/customer-iwf
+
+# View with web UI
+glab issue view 123 -R floads/syseng/customer-iwf --web
+```
+
+### Customer-Specific Repositories (Internal Floads Tracking)
+
+**IWF (Infrastructure With Flow):**
+- **Internal Tracking**: `https://gitlab.com/floads/syseng/customer-iwf/`
+- **Public Repo**: `git.iwf.io` (customer's infrastructure repository)
+- **Process**: Track work internally → deploy to customer repo → reference in 
+internal issue
+
+**MDO (Example):**
+- **Internal Tracking**: `https://gitlab.com/floads/syseng/customer-mdo/`
+- **Public Repo**: Customer's own repository
+- **Process**: Same workflow
+
+**DCX (Example):**
+- **Internal Tracking**: `https://gitlab.com/floads/syseng/customer-dcx/`
+- **Public Repo**: Customer's own repository
+- **Process**: Same workflow
+
+### Important Workflow Notes
+
+**CRITICAL: Separate the concerns**
+
+1. **Internal Issues** (floads gitlab - gitlab.com):
+   - Track progress internally
+   - Document implementation details
+   - Link to PRs and commits
+   - Discuss technical decisions
+   - Store temporary findings
+
+2. **Public Repositories** (customer's own repos):
+   - Configuration and infrastructure code
+   - Clean commit history (no "AI generated" messages)
+   - Professional, customer-facing documentation
+   - Client can review without seeing internal discussions
+
+**Best Practice:**
+
+```bash
+# 1. Create issue in internal floads repo (gitlab.com)
+glab issue create -R floads/syseng/customer-iwf \
+  -t "K8s cluster upgrade to 1.30" \
+  -d "Upgrade staging cluster first, then production..."
+
+# 2. Do the work (create branches, make changes)
+git checkout -b feature/k8s-upgrade
+# ... make changes to customer's repo ...
+git push -u origin feature/k8s-upgrade
+
+# 3. Create PR in customer's repo
+glab mr create -R git.iwf.io:infrastructure/flamelet-iwf \
+  -t "Upgrade K8s to 1.30" \
+  --source feature/k8s-upgrade \
+  --target main
+
+# 4. Update the internal floads issue with progress
+glab issue comment #123 -R floads/syseng/customer-iwf \
+  --message "PR created in customer repo: 
+Implementation in progress..."
+
+# 5. After merge, close the internal issue
+glab issue comment #123 -R floads/syseng/customer-iwf \
+  --message "✅ Merged and deployed to production
+Customer can see: https://git.iwf.io/infrastructure/flamelet-iwf/commits/main"
+
+glab issue close 123 -R floads/syseng/customer-iwf
+```
+
+### Label Conventions for Customer Issues
+
+**Use consistent labels:**
+
+- `feature` - New feature request
+- `bug` - Bug report/fix
+- `enhancement` - Improvement to existing feature
+- `infrastructure` - Infrastructure/ops work
+- `documentation` - Documentation updates
+- `internal` - Internal floads work only
+- `high-priority` - Urgent/critical
+- `blocked` - Waiting on something
+- `ready-for-deployment` - Ready to push to production
+
+### Security & Privacy Reminders
+
+- ❌ NEVER share floads gitlab URLs with customers
+- ❌ NEVER add customer users to internal floads projects
+- ❌ NEVER commit secrets to customer repos (use vault/secrets)
+- ✅ Reference customer issues by ID in public repos: "Fixes customer-issue 
+#123"
+- ✅ Keep internal findings in floads gitlab only
+- ✅ Share only clean, documented code in public repos
+
+### Multiple glab Configurations
+
+If you need to work with both gitlab.com and other instances:
+
+```bash
+# View current config
+glab config list
+
+# glab defaults to gitlab.com (correct for our floads repos)
+glab config set gitlab_host gitlab.com
+
+# Verify you're using the right instance
+glab auth status
+```
+
+---
+
+## ⚠️ CRITICAL: Upstream vs Internal Issues - Separation of Concerns
+
+**CRITICAL RULE: Upstream (customer-facing) issues MUST NEVER contain references
+to internal infrastructure, internal repositories, or internal processes.**
+
+### Principle
+
+**Two-tier issue tracking:**
+1. **Upstream Issues** (Jira, customer-visible systems): Customer-facing 
+requirements, status, acceptance criteria ONLY
+2. **Internal Issues** (floads GitLab): Implementation details, technical 
+decisions, internal URLs, procedures
+
+**The Golden Rule:**
+- ❌ NEVER add links to internal floads repositories in customer-facing issues
+- ❌ NEVER mention internal infrastructure URLs in Jira issues
+- ❌ NEVER expose internal tool references (aiops, OpenBao, internal GitLab) to 
+customers
+- ✅ Link FROM internal issues TO upstream issues (one-way traffic from internal
+→ customer)
+- ✅ Keep upstream issues clean and professional
+- ✅ Use upstream issues as the source of truth for requirements
+- ✅ Use internal issues as the source of truth for implementation
+
+### Why This Matters
+
+1. **Customer Privacy**: Customers should not see your internal infrastructure 
+details
+2. **Security**: Internal URLs, server names, and tools are sensitive 
+information
+3. **Professionalism**: Clean, focused issues are easier for customers to 
+understand
+4. **Audit Trail**: Separating concerns makes it clear what's customer-facing vs
+internal
+5. **Flexibility**: Changing internal tools won't affect customer documentation
+
+### Correct Workflow
+
+```
+Customer Request (Upstream Jira Issue #123)
+    ↓
+Create Internal Issue in floads GitLab
+    ↓ (links back to Jira, but never vice versa)
+Internal Implementation
+    ↓
+Deploy to Customer Repository
+    ↓
+Update Upstream Issue with Results Only (no internal details)
+    ↓
+Close Both Issues (internal and upstream)
+```
+
+### Example: WRONG vs CORRECT
+
+**WRONG - What NOT to do:**
+
+```
+Jira Issue IWFCLOUD2-57: SSH-Verbindung zu Gitlab
+
+Description: Configure SSH access
+
+Comment added:
+✅ Internal tracking issue created in floads GitLab
+Work is now being tracked internally in: 
+  https://gitlab.com/floads/syseng/customer-iwf/-/issues/7
+```
+
+❌ This exposes internal infrastructure to the customer!
+
+**CORRECT - What TO do:**
+
+```
+Jira Issue IWFCLOUD2-57: SSH-Verbindung zu Gitlab
+
+Description: Configure SSH access
+
+Status: In Progress (no mention of internal tracking)
+
+[Work happens internally in floads GitLab only]
+
+When complete, Jira comment shows:
+✅ SSH configuration complete and deployed to production
+- All nodes can authenticate with GitLab
+- Documentation updated
+- Ready for testing
+```
+
+✅ Upstream stays clean and professional!
+
+### Linking Direction (One-Way)
+
+**Allowed:**
+
+```
+Internal floads/syseng/customer-iwf Issue #7
+├─ References IWFCLOUD2-57 upstream
+├─ Contains implementation details
+└─ Never shared with customer
+```
+
+**NOT Allowed:**
+
+```
+Jira IWFCLOUD2-57 (CUSTOMER CAN SEE THIS)
+├─ NEVER references internal floads repos
+├─ NEVER mentions internal URLs
+└─ NEVER exposes implementation details
+```
 
 ### Common Mistakes to Avoid
 
-1. ❌ **Using Markdown syntax** (`## heading`, `**bold**`, `` `code` ``)
-2. ❌ **Triple backticks** for code blocks (use `{code}`)
-3. ❌ **Dash for bullets** `-` (use `*`)
-4. ❌ **Number for ordered lists** `1.` (use `#`)
-5. ❌ **Markdown links** `(url)` (use ``)
-6. ❌ **Checkbox syntax** `- [ ]` (not supported, use plain bullets)
+| ❌ WRONG | ✅ CORRECT |
+|---------|-----------|
+| Link internal GitLab issues in Jira | Link FROM internal TO Jira (one-way) |
+| Mention aiops, floads infrastructure in Jira | Keep Jira focused on 
+requirements |
+| Add internal URLs to customer issues | Keep URLs out of upstream issues |
+| Expose OpenBao, vault URLs to customers | Use only in internal floads issues |
+| Tag internal floads team in customer Jira | Link issues to internal tracking 
+separately |
+| Copy internal findings into Jira comments | Summarize results only, hide 
+details |
 
-### Quick Reference
+### Information That Goes Where
 
+**UPSTREAM (Customer Jira Issues) - PUBLIC SAFE INFORMATION:**
+- Feature requirements
+- Acceptance criteria
+- Status updates ("In Progress", "Ready", "Done")
+- Summary of results (not implementation)
+- Deployment status
+- Links to public documentation
+
+**INTERNAL (Floads GitLab Issues) - INTERNAL ONLY:**
+- Implementation details
+- Technical decisions and rationale
+- Infrastructure configurations
+- Internal URLs and API endpoints
+- Credentials and secrets (if must be tracked)
+- Performance metrics and debugging info
+- Internal procedures and workarounds
+- Links to infrastructure repositories
+
+### When Closing Issues
+
+**Upstream (Jira) - Example closing comment:**
 ```
-Text:       *bold*  _italic_  {{mono}}  -strike-  +underline+
-Headings:   h1. h2. h3. h4. h5. h6.
-Lists:      * bullet   # numbered
-Code:       {code} ... {code}  or  {code:lang} ... {code}
-Links:        or  [~accountid:xxx]
-Quotes:     {quote} ... {quote}
-Panels:     {panel} ... {panel}
-Tables:     || Header ||  and  | Cell |
+✅ Implementation Complete
+
+SSH configuration has been deployed to production.
+All nodes can authenticate with GitLab successfully.
+Documentation has been updated in your repository.
 ```
 
-### Jira Documentation
+✅ Clean, results-focused, no internal details
 
-Official reference: 
-https://jira.atlassian.com/secure/WikiRendererHelpAction.jspa?section=all
-# Global Agents Context
+**Internal (floads GitLab) - Example closing comment:**
+```
+✅ Merged and deployed
 
-## Jira Users and Account IDs Lookup Table
+PR: https://gitlab.com/floads/syseng/customer-iwf/merge_requests/5
+Commits: a1b2c3d...
 
-**Quick reference for tagging users in Jira comments using Jira Wiki Markup format: `[~accountid:ACCOUNT_ID]`**
+Key implementation details:
+- Modified /etc/ssh/sshd_config on all nodes
+- Updated OpenBao secrets
+- Verified connectivity via internal Monit
 
-| Name | Account ID | Full Mention Format |
-|------|-----------|-------------------|
-| Ivo Marino | `557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e` | `[~accountid:557058:49affac3-cdf1-4248-8e0b-1cffc2e4360e]` |
-| Jens Hassler | `557058:5010d224-86bf-47de-bff7-d7f9406b362b` | `[~accountid:557058:5010d224-86bf-47de-bff7-d7f9406b362b]` |
+Deployment log: 
+```
 
-**Note:** Add new users to this table as discovered. Org ID is always `557058` for IWF Atlassian instance.
+✅ Detailed, internal-focused, full context
 
-### How to Find User Account IDs
+### Enforcement
 
-Jira Cloud enforces GDPR strict mode which prevents direct user search via API. To find account IDs:
+**Before updating Jira issues:**
+- [ ] Is this customer-visible?
+- [ ] Does it contain internal URLs or infrastructure details?
+- [ ] Would exposing this be a security risk?
+- [ ] Is this information relevant to the customer's needs?
 
-1. **From Atlassian People Directory (most reliable):**
-   - URL: `https://home.atlassian.com/o/3a2b7jk8-35j7-1264-6jc3-a1jacj23033k/people`
-   - Search for the user
-   - The profile URL contains the account ID: `https://home.atlassian.com/o/{orgId}/people/{accountId}`
-   - Extract the account ID (format: `557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
+If any answer is NO, add the information to the internal floads GitLab issue 
+instead.
 
-2. **From Jira UI (easiest):**
-   - Go to any Jira issue and start typing `@` in a comment
-   - Type the user's name
-   - Jira will show their account ID in the format `[~accountid:557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]`
+### One-Way Linking Pattern (Required)
 
-3. **From Existing Comments:**
-   - Check any issue where the user has been mentioned
-   - View the raw comment to find their account ID in format: `[~accountid:557058:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx]`
+**INTERNAL issues MUST link to UPSTREAM issues:**
 
-## ArgoCD CLI Setup
+Every internal floads GitLab issue must contain a reference to the upstream 
+customer issue it implements:
 
-### Quick Start
 ```bash
-# Get ArgoCD password from cluster
-ARGOCD_PASSWORD=$(kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d)
+# Internal Issue: floads/syseng/customer-iwf #7
 
-# Login
-argocd login argocd.web-solutions.io --insecure --grpc-web --username admin --password "$ARGOCD_PASSWORD"
+## Upstream Reference
+Related upstream issue: **IWFCLOUD2-57** (SSH-Verbindung zu Gitlab)
+Link: https://iwf-web-solutions.atlassian.net/browse/IWFCLOUD2-57
 
-# List applications
-argocd app list --insecure --grpc-web
+This internal issue tracks implementation details for the customer requirement.
 ```
 
-### Common Commands
+✅ **Required in internal issues:**
+- Upstream issue key (IWFCLOUD2-57)
+- Upstream issue title
+- Direct link to upstream issue
+- Purpose statement connecting the two
+
+**UPSTREAM issues MUST NOT link to INTERNAL issues:**
+
 ```bash
-# Sync application
-argocd app sync <APP_NAME> --insecure --grpc-web
+# Upstream Issue: IWFCLOUD2-57
 
-# Wait for sync
-argocd app wait <APP_NAME> --sync --insecure --grpc-web
-
-# Get app status
-argocd app get <APP_NAME> --insecure --grpc-web
-
-# Hard refresh (bypass cache)
-argocd app sync <APP_NAME> --hard-refresh --insecure --grpc-web
+Status: In Progress
+Acceptance Criteria: [...]
+[NO MENTION OF INTERNAL FLOADS REPOS OR PROCEDURES]
 ```
 
-### Environment Variables for Convenience
+❌ **NEVER in upstream issues:**
+- Internal GitLab URLs
+- floads repository references
+- Internal process descriptions
+- Floads team information
+- Internal infrastructure details
+
+### Implementation Example
+
+**Step 1: Create internal issue WITH upstream reference**
 ```bash
-export ARGOCD_INSECURE=true
-export ARGOCD_SERVER=argocd.web-solutions.io
-
-# Now you can use shorter commands
-argocd app list
-argocd app sync cleanup-job
+glab issue create -R floads/syseng/customer-iwf \
+  -t "SSH ports configuration for GitLab access (IWFCLOUD2-57)" \
+  -d "## Upstream Reference
+Related upstream issue: **IWFCLOUD2-57** (SSH-Verbindung zu Gitlab)
+Link: https://iwf-web-solutions.atlassian.net/browse/IWFCLOUD2-57
+..."
 ```
 
-For full documentation on ArgoCD CLI, see the AGENTS.override.md file in the k8s-infra repository.
+**Step 2: Work internally on implementation**
+- All technical details stay in internal floads issue
+- No mention of this work in upstream Jira
+
+**Step 3: When complete, update upstream with RESULTS ONLY**
+```
+Comment on IWFCLOUD2-57:
+✅ SSH configuration complete
+- All nodes configured
+- Deployed to production
+- Ready for testing
+[NO mention of internal tracking]
+```
+
+**Step 3: Close both issues**
+- Internal issue closed: "Merged and deployed to customer repo"
+- Upstream issue closed: "Completed and ready"
+---
+
+## glab Host Override (GITLAB_HOST)
+
+When `glab` needs to target a non-default GitLab host, set `GITLAB_HOST` for the
+command.
+
+Example:
+```bash
+GITLAB_HOST=gitlab.com glab issue note 9 -R floads/syseng/customer-iwf -m "..."
+```
+
+Use this when `glab` is configured for git.iwf.io but you need to act on 
+gitlab.com (or any other host).
+---
+
+## glab Markdown Notes (safe formatting)
+
+When posting GitLab issue comments that include backticks or Markdown, avoid shell interpolation by using a file and `glab api`:
+
+```bash
+cat <<'MSG' > /tmp/note.md
+## Next steps
+- Review MR 36: https://git.iwf.io/infrastructure/flamelet-iwf/-/merge_requests/36
+- Apply to prod via Ansible (`copy` then `pf`) on `iwf-prod-fw-01/02`
+- Verify admin SSH on `22022` and GitLab SSH on port `22`
+- Merge MR once verified
+MSG
+
+# Use explicit host when needed
+GITLAB_HOST=gitlab.com glab api \
+  projects/<project-id>/issues/<iid>/notes \
+  -F body=@/tmp/note.md
+```
+
+This preserves Markdown formatting and avoids backticks being executed by the shell.
 
 ---
 

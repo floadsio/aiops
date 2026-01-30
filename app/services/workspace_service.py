@@ -136,6 +136,184 @@ def _git_clone_via_sudo(
         raise WorkspaceError(str(exc)) from exc
 
 
+def _try_clone_with_pat(project, user, linux_username: str, workspace_path: Path) -> bool:
+    """Try to clone repository using GitHub/GitLab CLI tools with PAT.
+
+    Args:
+        project: Project model instance
+        user: User model instance
+        linux_username: Linux username to run as
+        workspace_path: Path to clone into
+
+    Returns:
+        True if clone succeeded, False if PAT not available or clone failed
+    """
+    # Check if project has a GitHub/GitLab integration with PAT
+    integrations = getattr(project, "issue_integrations", [])
+    if not integrations:
+        log.debug("No integrations found for project %s", project.id)
+        return False
+
+    for project_integration in integrations:
+        integration = getattr(project_integration, "integration", None)
+        if not integration:
+            continue
+
+        provider = getattr(integration, "provider", None)
+        if provider not in ("github", "gitlab"):
+            continue
+
+        # Get the PAT token (check for project override or tenant token)
+        token = getattr(project_integration, "override_api_token", None) or getattr(
+            integration, "api_token", None
+        )
+        if not token:
+            log.debug("No PAT found for %s integration", provider)
+            continue
+
+        # We have a PAT! Try to clone using the appropriate CLI tool
+        log.info(
+            "Using %s PAT authentication for project %s workspace initialization",
+            provider,
+            project.name,
+        )
+
+        try:
+            if provider == "gitlab":
+                _clone_with_glab(
+                    linux_username,
+                    project.repo_url,
+                    str(workspace_path),
+                    project.default_branch,
+                    token,
+                    getattr(project_integration, "override_base_url", None)
+                    or getattr(integration, "base_url", None),
+                )
+            else:  # github
+                _clone_with_gh(
+                    linux_username,
+                    project.repo_url,
+                    str(workspace_path),
+                    project.default_branch,
+                    token,
+                )
+
+            log.info(
+                "Successfully cloned project %s using %s PAT",
+                project.name,
+                provider,
+            )
+            return True
+
+        except (SudoError, WorkspaceError) as exc:
+            log.warning(
+                "Failed to clone with %s PAT: %s. Will try SSH fallback.",
+                provider,
+                exc,
+            )
+            # Clean up failed clone attempt
+            try:
+                rm_rf(linux_username, str(workspace_path), timeout=10)
+                mkdir(linux_username, str(workspace_path))
+            except SudoError:
+                pass
+            continue
+
+    return False
+
+
+def _clone_with_glab(
+    linux_username: str,
+    repo_url: str,
+    target_path: str,
+    branch: str,
+    token: str,
+    gitlab_host: Optional[str] = None,
+) -> None:
+    """Clone using git with PAT embedded in URL for GitLab.
+
+    Args:
+        linux_username: Linux username to run as
+        repo_url: GitLab repository URL
+        target_path: Path to clone into
+        branch: Branch to check out
+        token: GitLab Personal Access Token
+        gitlab_host: Optional GitLab instance URL (for self-hosted)
+
+    Raises:
+        WorkspaceError: If clone fails
+    """
+    # Build authenticated URL with PAT
+    # Format: https://oauth2:TOKEN@gitlab.com/owner/repo.git
+    if repo_url.startswith("https://"):
+        # Replace https:// with https://oauth2:TOKEN@
+        auth_url = repo_url.replace("https://", f"https://oauth2:{token}@")
+    elif repo_url.startswith("http://"):
+        # Handle http (for self-hosted instances)
+        auth_url = repo_url.replace("http://", f"http://oauth2:{token}@")
+    else:
+        # SSH URL or other - can't use PAT authentication
+        raise WorkspaceError(f"Cannot use PAT authentication with URL: {repo_url}")
+
+    # Use git clone directly with authenticated URL
+    command = ["git", "clone", "--branch", branch, auth_url, target_path]
+
+    try:
+        run_as_user(
+            linux_username,
+            command,
+            env={"GIT_TERMINAL_PROMPT": "0"},  # Disable credential prompts
+            timeout=300,
+        )
+    except SudoError as exc:
+        raise WorkspaceError(f"git clone with GitLab PAT failed: {exc}") from exc
+
+
+def _clone_with_gh(
+    linux_username: str,
+    repo_url: str,
+    target_path: str,
+    branch: str,
+    token: str,
+) -> None:
+    """Clone using git with PAT embedded in URL for GitHub.
+
+    Args:
+        linux_username: Linux username to run as
+        repo_url: GitHub repository URL
+        target_path: Path to clone into
+        branch: Branch to check out
+        token: GitHub Personal Access Token
+
+    Raises:
+        WorkspaceError: If clone fails
+    """
+    # Build authenticated URL with PAT
+    # Format: https://TOKEN@github.com/owner/repo.git
+    if repo_url.startswith("https://"):
+        # Replace https:// with https://TOKEN@
+        auth_url = repo_url.replace("https://", f"https://{token}@")
+    elif repo_url.startswith("http://"):
+        # Handle http (for GitHub Enterprise)
+        auth_url = repo_url.replace("http://", f"http://{token}@")
+    else:
+        # SSH URL or other - can't use PAT authentication
+        raise WorkspaceError(f"Cannot use PAT authentication with URL: {repo_url}")
+
+    # Use git clone directly with authenticated URL
+    command = ["git", "clone", "--branch", branch, auth_url, target_path]
+
+    try:
+        run_as_user(
+            linux_username,
+            command,
+            env={"GIT_TERMINAL_PROMPT": "0"},  # Disable credential prompts
+            timeout=300,
+        )
+    except SudoError as exc:
+        raise WorkspaceError(f"git clone with GitHub PAT failed: {exc}") from exc
+
+
 def get_workspace_path(project, user) -> Optional[Path]:
     """Get the workspace directory path for a user and project.
 
@@ -226,10 +404,11 @@ def initialize_workspace(project, user) -> Path:
         WorkspaceError: If workspace cannot be created
 
     Note:
-        When a project or tenant SSH key is available it will be used for the
-        initial clone so shared credentials continue to work for per-user
-        workspaces. If no managed key is configured, the user's own SSH setup
-        in ~/.ssh/ is used instead.
+        Authentication priority:
+        1. GitHub/GitLab PAT via CLI tools (gh/glab)
+        2. Project/tenant SSH keys from database
+        3. Project/tenant SSH keys from filesystem
+        4. User's own SSH setup in ~/.ssh/
     """
     workspace_path = get_workspace_path(project, user)
     if not workspace_path:
@@ -261,7 +440,11 @@ def initialize_workspace(project, user) -> Path:
     except SudoError as exc:
         raise WorkspaceError(str(exc)) from exc
 
-    # Check for SSH key - prefer database-stored encrypted keys, then filesystem keys
+    # PRIORITY 1: Try GitHub/GitLab CLI tools with PAT authentication
+    if _try_clone_with_pat(project, user, linux_username, workspace_path):
+        return workspace_path
+
+    # PRIORITY 2+: Check for SSH key - prefer database-stored encrypted keys, then filesystem keys
     key_ref = resolve_project_ssh_key_reference(project)
     selected_ssh_key = None
     use_encrypted_key = False
